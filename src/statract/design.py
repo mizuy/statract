@@ -286,6 +286,81 @@ def _is_factor_dtype(dtype: pl.DataType) -> bool:
     return dtype == pl.Object
 
 
+def _design_complete(
+    data: pl.DataFrame,
+    predictors: Sequence[str],
+    *,
+    num_names: list[str],
+    fac_names: list[str],
+    intercept: bool,
+    level_map: dict[str, Sequence[object]],
+) -> Design | None:
+    """Design matrix when every used value is present. Null rows use the general path."""
+    fac_levels: dict[str, list[str]] = {}
+    for name in fac_names:
+        fac_levels[name] = _factor_levels(data.get_column(name), level_map.get(name))
+        if len(fac_levels[name]) < 2:
+            return None
+    exprs: list[pl.Expr] = [pl.col(name).cast(pl.Float64).alias(name) for name in num_names]
+    exprs.extend(
+        pl.col(name)
+        .cast(pl.Utf8)
+        .replace_strict(fac_levels[name], list(range(len(fac_levels[name]))), default=-1)
+        .alias(name)
+        for name in fac_names
+    )
+    block = data.select(exprs) if exprs else None
+    numeric = None
+    if num_names:
+        columns = [block[name].to_numpy() for name in num_names]
+        numeric = np.column_stack(columns) if len(columns) > 1 else columns[0].reshape(-1, 1)
+    coded = None
+    if fac_names:
+        columns = [np.asarray(block[name].to_numpy(), dtype=np.int32) for name in fac_names]
+        coded = np.column_stack(columns) if len(columns) > 1 else columns[0].reshape(-1, 1)
+        if np.any(coded < 0):
+            return None
+    n_cols = (1 if intercept else 0) + len(num_names)
+    for name in fac_names:
+        n_cols += len(fac_levels[name]) - 1
+    if n_cols == 0:
+        return None
+    n = data.height
+    x = np.empty((n, n_cols), dtype=float)
+    names: list[str] = []
+    specs: list[Predictor] = []
+    col = 0
+    if intercept:
+        x[:, 0] = 1.0
+        names.append("(Intercept)")
+        col = 1
+    num_pos = {name: i for i, name in enumerate(num_names)}
+    fac_pos = {name: i for i, name in enumerate(fac_names)}
+    for name in predictors:
+        if name in fac_levels:
+            levels_now = fac_levels[name]
+            codes = coded[:, fac_pos[name]]
+            reference = levels_now[0]
+            specs.append(Predictor(name=name, kind="factor", levels=tuple(levels_now), reference=reference))
+            width = len(levels_now) - 1
+            _scatter_dummies(codes, len(levels_now), x[:, col : col + width])
+            for level in levels_now[1:]:
+                names.append(f"{name}{level}")
+            col += width
+            continue
+        specs.append(Predictor(name=name, kind="numeric"))
+        x[:, col] = numeric[:, num_pos[name]]
+        names.append(name)
+        col += 1
+    return Design(
+        x=x,
+        names=names,
+        row_index=np.arange(n, dtype=np.int64),
+        predictors=specs,
+        intercept=intercept,
+    )
+
+
 def _design_columns(
     data: pl.DataFrame,
     predictors: Sequence[str],
@@ -311,44 +386,53 @@ def _design_columns(
     missing = [name for name in needed if name not in data.columns]
     if missing:
         raise KeyError(f"column {missing[0]!r} is not in the frame")
-    block = data.select(needed)
-    schema = block.schema
+    schema = data.schema
     num_names = [name for name in predictors if not _is_factor_dtype(schema[name])]
     fac_names = [name for name in predictors if _is_factor_dtype(schema[name])]
-    flags = block.select([pl.col(name).is_not_null() for name in needed]).to_numpy()
-    if flags.ndim == 1:
-        flags = flags.reshape(-1, 1)
-    pos = {name: i for i, name in enumerate(needed)}
+    if all(data.get_column(name).null_count() == 0 for name in needed):
+        complete = _design_complete(
+            data,
+            predictors,
+            num_names=num_names,
+            fac_names=fac_names,
+            intercept=intercept,
+            level_map=level_map,
+        )
+        if complete is not None:
+            return complete
+    fac_levels: dict[str, list[str]] = {}
+    for name in fac_names:
+        fac_levels[name] = _factor_levels(data.get_column(name), level_map.get(name))
+        if len(fac_levels[name]) < 2:
+            raise ValueError(f"factor {name!r} needs at least two levels after dropping nulls")
+    # One collect: null flags, numeric values, and treatment codes.
+    exprs: list[pl.Expr] = [pl.col(name).is_not_null().alias(f"__k_{name}") for name in needed]
+    exprs.extend(pl.col(name).cast(pl.Float64).alias(f"__n_{name}") for name in num_names)
+    exprs.extend(
+        pl.col(name)
+        .cast(pl.Utf8)
+        .replace_strict(fac_levels[name], list(range(len(fac_levels[name]))), default=-1)
+        .fill_null(-1)
+        .alias(f"__c_{name}")
+        for name in fac_names
+    )
+    block = data.select(exprs)
+    flag_cols = [block[f"__k_{name}"].to_numpy() for name in needed]
+    flags = np.column_stack(flag_cols) if len(flag_cols) > 1 else flag_cols[0].reshape(-1, 1)
     keep = np.ones(block.height, dtype=bool)
-    for name in (*predictors, *(extra or ())):
-        keep &= flags[:, pos[name]].astype(bool, copy=False)
+    for column in flags.T:
+        keep &= column.astype(bool, copy=False)
     num_kept = None
     if num_names:
-        numeric = block.select([pl.col(name).cast(pl.Float64) for name in num_names]).to_numpy()
-        if numeric.ndim == 1:
-            numeric = numeric.reshape(-1, 1)
-        num_kept = numeric[keep]
+        numeric_cols = [block[f"__n_{name}"].to_numpy() for name in num_names]
+        numeric = np.column_stack(numeric_cols) if len(numeric_cols) > 1 else numeric_cols[0].reshape(-1, 1)
+        num_kept = numeric if bool(keep.all()) else numeric[keep]
         num_pos = {name: i for i, name in enumerate(num_names)}
     fac_kept = None
-    fac_levels: dict[str, list[str]] = {}
     if fac_names:
-        for name in fac_names:
-            fac_levels[name] = _factor_levels(block.get_column(name), level_map.get(name))
-            if len(fac_levels[name]) < 2:
-                raise ValueError(f"factor {name!r} needs at least two levels after dropping nulls")
-        coded = block.select(
-            [
-                pl.col(name)
-                .cast(pl.Utf8)
-                .replace_strict(fac_levels[name], list(range(len(fac_levels[name]))), default=-1)
-                .fill_null(-1)
-                .alias(name)
-                for name in fac_names
-            ]
-        ).to_numpy()
-        if coded.ndim == 1:
-            coded = coded.reshape(-1, 1)
-        fac_kept = coded[keep]
+        coded_cols = [np.asarray(block[f"__c_{name}"].to_numpy(), dtype=np.int32) for name in fac_names]
+        coded = np.column_stack(coded_cols) if len(coded_cols) > 1 else coded_cols[0].reshape(-1, 1)
+        fac_kept = coded if bool(keep.all()) else coded[keep]
     n_cols = (1 if intercept else 0) + len(num_names)
     for name in fac_names:
         n_cols += len(fac_levels[name]) - 1
@@ -369,11 +453,11 @@ def _design_columns(
             j = fac_names.index(name)
             codes = np.asarray(fac_kept[:, j], dtype=np.int32)
             if np.any(codes < 0):
-                kept = block.get_column(name).filter(pl.Series(keep))
+                kept = data.get_column(name).filter(pl.Series(keep))
                 if name in level_map:
                     unknown = _unknown_labels(kept, codes)
                     raise ValueError(f"factor {name!r} has levels outside levels=: {unknown[:5]}")
-                levels_now = _factor_levels(block.get_column(name), None)
+                levels_now = _factor_levels(data.get_column(name), None)
                 fac_levels[name] = levels_now
                 if len(levels_now) < 2:
                     raise ValueError(f"factor {name!r} needs at least two levels after dropping nulls")

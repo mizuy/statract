@@ -234,6 +234,198 @@ def _outcome_array(series: pl.Series) -> np.ndarray:
     return np.asarray(series.to_numpy(), dtype=float)
 
 
+def _k_constant(x: np.ndarray) -> int:
+    """Whether the column space contains a constant, as ``statsmodels`` counts it.
+
+    An explicit constant column is enough. A full set of dummies is an implicit
+    constant and needs a rank check, which the explicit-intercept path skips.
+    """
+    if x.size == 0:
+        return 0
+    constant = np.flatnonzero(np.max(x, axis=0) == np.min(x, axis=0))
+    if constant.size == 1 and float(x[:, constant[0]].mean()) != 0.0:
+        return 1
+    if constant.size > 1:
+        means = x[:, constant].mean(axis=0)
+        if np.any(means == 1.0) or np.any(means != 0.0):
+            return 1
+    augmented = np.column_stack((np.ones(x.shape[0]), x))
+    return int(np.linalg.matrix_rank(x) == np.linalg.matrix_rank(augmented))
+
+
+def _ols_via_chol(
+    y: np.ndarray,
+    x: np.ndarray,
+    w: np.ndarray,
+    unity: bool,
+    xw: np.ndarray,
+    yw: np.ndarray,
+) -> dict[str, Any] | None:
+    """Column-scaled normal equations. Returns None when the Gram matrix is ill-conditioned."""
+    column_norm = np.linalg.norm(xw, axis=0)
+    if column_norm.shape[0] != x.shape[1] or np.any(column_norm == 0.0):
+        return None
+    xs = xw / column_norm
+    try:
+        chol = np.linalg.cholesky(xs.T @ xs)
+    except np.linalg.LinAlgError:
+        return None
+    diagonal = np.diag(chol)
+    smallest = float(diagonal.min())
+    if smallest <= 0.0 or float(diagonal.max()) / smallest > 1e6:
+        return None
+    beta_s = np.linalg.solve(chol.T, np.linalg.solve(chol, xs.T @ yw))
+    beta = beta_s / column_norm
+    inv_chol = np.linalg.inv(chol)
+    gram_inv = (inv_chol.T @ inv_chol) / column_norm[:, None] / column_norm[None, :]
+    resid = y - x @ beta
+    rss = float(resid @ resid) if unity else float(w @ (resid * resid))
+    if not np.isfinite(rss) or rss <= 0.0:
+        return None
+    # Diagonal of the weighted hat matrix is the squared row norm of X_s L^{-T}.
+    projected = xs @ inv_chol.T
+    hat = np.sum(projected * projected, axis=1)
+    return _ols_fields(y, x, w, unity, beta, resid, rss, hat, gram_inv)
+
+
+def _ols_fields(
+    y: np.ndarray,
+    x: np.ndarray,
+    w: np.ndarray,
+    unity: bool,
+    beta: np.ndarray,
+    resid: np.ndarray,
+    rss: float,
+    hat: np.ndarray,
+    xtwx_inv: np.ndarray,
+) -> dict[str, Any]:
+    n, p = x.shape
+    df_resid = n - p
+    sigma2 = rss / df_resid if df_resid else np.nan
+    nobs2 = n / 2.0
+    log_likelihood = -np.log(rss) * nobs2 - (1.0 + np.log(np.pi / nobs2)) * nobs2
+    if not unity:
+        log_likelihood += 0.5 * float(np.sum(np.log(w)))
+    k_constant = _k_constant(x)
+    if k_constant:
+        center = float(np.average(y, weights=None if unity else w))
+        total = float(np.sum((y - center) ** 2)) if unity else float(np.sum(w * (y - center) ** 2))
+    else:
+        total = float(y @ y) if unity else float(np.sum(w * y * y))
+    r_squared = 1.0 - rss / total if total else np.nan
+    if df_resid:
+        adj_r_squared = 1.0 - ((n - k_constant) / df_resid) * (1.0 - r_squared)
+    else:
+        adj_r_squared = np.nan
+    df_model = float(p - k_constant)
+    if df_model == 0.0 or df_resid == 0 or not np.isfinite(sigma2) or sigma2 == 0.0 or not np.isfinite(total):
+        f_statistic = np.nan
+        f_p_value = np.nan
+    else:
+        f_statistic = ((total - rss) / df_model) / (rss / df_resid)
+        f_p_value = float(stats.f.sf(f_statistic, df_model, df_resid))
+    rank = float(p)
+    return {
+        "coefficients": beta,
+        "covariance": xtwx_inv * sigma2,
+        "residuals": resid,
+        "hat": hat,
+        "log_likelihood": float(log_likelihood),
+        "residual_df": int(df_resid),
+        "rss": rss,
+        "sigma2": float(sigma2),
+        "aic": float(-2.0 * log_likelihood + 2.0 * rank),
+        "bic": float(-2.0 * log_likelihood + np.log(n) * rank),
+        "r_squared": float(r_squared),
+        "adj_r_squared": float(adj_r_squared),
+        "f_statistic": float(f_statistic),
+        "f_p_value": float(f_p_value),
+    }
+
+
+def _ols_via_qr(y: np.ndarray, x: np.ndarray, w: np.ndarray) -> dict[str, Any] | None:
+    """Full-rank weighted least squares by QR.
+
+    Returns None when the weighted design is rank-deficient or a weight is not
+    positive, so the caller can keep the singular-value result.
+    """
+    y = np.asarray(y, dtype=float)
+    x = np.asarray(x, dtype=float)
+    w = np.asarray(w, dtype=float)
+    n, p = x.shape
+    if n < p or p == 0 or np.any(w <= 0.0) or not np.all(np.isfinite(w)):
+        return None
+    if not np.all(np.isfinite(y)) or not np.all(np.isfinite(x)):
+        return None
+    unity = bool(np.all(w == 1.0))
+    if unity:
+        xw = x
+        yw = y
+    else:
+        scale = np.sqrt(w)
+        xw = x * scale[:, None]
+        yw = y * scale
+    solved = _ols_via_chol(y, x, w, unity, xw, yw)
+    if solved is not None:
+        return solved
+    q, r = np.linalg.qr(xw, mode="reduced")
+    if r.shape != (p, p):
+        return None
+    diagonal = np.abs(np.diag(r))
+    pivot = float(diagonal.max()) if diagonal.size else 0.0
+    tol = pivot * max(n, p) * np.finfo(float).eps
+    if pivot == 0.0 or np.any(diagonal <= tol):
+        return None
+    beta = np.linalg.solve(r, q.T @ yw)
+    resid = y - x @ beta
+    rss = float(resid @ resid) if unity else float(w @ (resid * resid))
+    if not np.isfinite(rss) or rss <= 0.0:
+        return None
+    hat = np.sum(q * q, axis=1)
+    factor = np.linalg.inv(r)
+    return _ols_fields(y, x, w, unity, beta, resid, rss, hat, factor @ factor.T)
+
+
+def _ols_via_statsmodels(y: np.ndarray, x: np.ndarray, w: np.ndarray) -> dict[str, Any]:
+    """Singular or non-positive-weight least squares. Same fields as the QR fit."""
+    import statsmodels.api as sm
+
+    unity = bool(np.all(w == 1.0))
+    if unity:
+        result = sm.OLS(y, x, missing="raise").fit()
+    else:
+        result = sm.WLS(y, x, weights=w, missing="raise").fit()
+    resid = np.asarray(result.resid, dtype=float)
+    rss = float(np.sum(w * resid**2))
+    df_resid = int(result.df_resid)
+    sigma2 = rss / df_resid if df_resid else np.nan
+    f_value = result.fvalue
+    f_p = result.f_pvalue
+    return {
+        "coefficients": np.asarray(result.params, dtype=float),
+        "covariance": np.asarray(result.normalized_cov_params, dtype=float) * sigma2,
+        "residuals": resid,
+        "hat": _hat(x, w),
+        "log_likelihood": float(result.llf),
+        "residual_df": df_resid,
+        "rss": rss,
+        "sigma2": float(sigma2) if sigma2 == sigma2 else np.nan,
+        "aic": float(result.aic),
+        "bic": float(result.bic),
+        "r_squared": float(result.rsquared),
+        "adj_r_squared": float(result.rsquared_adj),
+        "f_statistic": float(f_value) if f_value is not None else np.nan,
+        "f_p_value": float(f_p) if f_p is not None else np.nan,
+    }
+
+
+def _solve_ols(y: np.ndarray, x: np.ndarray, w: np.ndarray) -> dict[str, Any]:
+    solved = _ols_via_qr(y, x, w)
+    if solved is None:
+        return _ols_via_statsmodels(y, x, w)
+    return solved
+
+
 def fit_ols(
     data: pl.DataFrame,
     outcome: ColumnRef,
@@ -246,9 +438,9 @@ def fit_ols(
 
     ``outcome`` may be a column or a Wilkinson formula such as
     ``"y ~ x * stage"``. A formula already names the predictors.
+    Full-rank problems use a QR decomposition. A rank-deficient design falls
+    back to a singular-value fit.
     """
-    import statsmodels.api as sm
-
     if is_formula(outcome):
         if predictors is not None:
             raise ValueError("pass a Wilkinson formula or predictors, not both")
@@ -272,25 +464,17 @@ def fit_ols(
     prior_w = w
     if w is None:
         w = np.ones(design.n_obs)
-        result = sm.OLS(response, design.x, missing="raise").fit()
-    else:
-        result = sm.WLS(response, design.x, weights=w, missing="raise").fit()
-    resid = np.asarray(result.resid, dtype=float)
-    rss = float(np.sum(w * resid**2))
-    df_resid = int(result.df_resid)
-    sigma2 = rss / df_resid if df_resid else np.nan
-    cov = np.asarray(result.normalized_cov_params, dtype=float) * sigma2
+    solved = _solve_ols(response, design.x, np.asarray(w, dtype=float))
     working_weights = np.asarray(w, dtype=float)
-    hat = _hat(design.x, working_weights)
     n = design.n_obs
-    ll = float(result.llf)
+    rss = float(solved["rss"])
     fit = Fit(
-        coefficients=np.asarray(result.params, dtype=float),
-        covariance=cov,
+        coefficients=solved["coefficients"],
+        covariance=solved["covariance"],
         names=list(design.names),
         n_obs=n,
-        log_likelihood=ll,
-        residual_df=df_resid,
+        log_likelihood=solved["log_likelihood"],
+        residual_df=solved["residual_df"],
         family="ols",
         x=design.x,
         y=y,
@@ -298,18 +482,18 @@ def fit_ols(
         design=design,
         weights=working_weights,
         offset=off,
-        working_residuals=resid,
+        working_residuals=solved["residuals"],
         working_weights=working_weights,
-        hat_values=hat,
+        hat_values=solved["hat"],
         dispersion=rss / n,
         deviance=rss,
-        scale=sigma2,
-        aic=float(result.aic),
-        bic=float(result.bic),
-        r_squared=float(result.rsquared),
-        adj_r_squared=float(result.rsquared_adj),
-        f_statistic=float(result.fvalue) if result.fvalue is not None else None,
-        f_p_value=float(result.f_pvalue) if result.f_pvalue is not None else None,
+        scale=solved["sigma2"],
+        aic=solved["aic"],
+        bic=solved["bic"],
+        r_squared=solved["r_squared"],
+        adj_r_squared=solved["adj_r_squared"],
+        f_statistic=solved["f_statistic"],
+        f_p_value=solved["f_p_value"],
     )
     fit._refit = _ols_refit(y, off, None if prior_w is None else np.asarray(prior_w, dtype=float), design)
     return fit
@@ -869,7 +1053,9 @@ def _expit(eta: np.ndarray) -> np.ndarray:
 
 
 def _take_aligned(series: pl.Series, row_index: np.ndarray) -> pl.Series:
-    return series.gather(row_index.tolist())
+    if series.null_count() == 0 and int(row_index.shape[0]) == series.len():
+        return series
+    return series.gather(np.asarray(row_index, dtype=np.int64))
 
 
 def _optional_numeric(
@@ -936,30 +1122,22 @@ def _ols_refit(
     design: Design,
 ):
     def refit(index: np.ndarray, y: np.ndarray | None = None) -> Fit:
-        import statsmodels.api as sm
-
         x = design.x[index]
         if y is None:
             response = (y_values - offset_values)[index]
         else:
             response = np.asarray(y, dtype=float)
         ww = np.ones(index.shape[0]) if weight_values is None else weight_values[index]
-        if np.allclose(ww, 1):
-            result = sm.OLS(response, x, missing="raise").fit()
-        else:
-            result = sm.WLS(response, x, weights=ww, missing="raise").fit()
-        resid = np.asarray(result.resid, dtype=float)
-        rss = float(np.sum(ww * resid**2))
-        df_resid = int(result.df_resid)
-        sigma2 = rss / df_resid if df_resid else np.nan
+        solved = _solve_ols(response, x, np.asarray(ww, dtype=float))
         n = x.shape[0]
+        rss = float(solved["rss"])
         child = Fit(
-            coefficients=np.asarray(result.params, dtype=float),
-            covariance=np.asarray(result.normalized_cov_params, dtype=float) * sigma2,
+            coefficients=solved["coefficients"],
+            covariance=solved["covariance"],
             names=list(design.names),
             n_obs=n,
-            log_likelihood=float(result.llf),
-            residual_df=df_resid,
+            log_likelihood=solved["log_likelihood"],
+            residual_df=solved["residual_df"],
             family="ols",
             x=x,
             y=response,
@@ -967,12 +1145,12 @@ def _ols_refit(
             design=design,
             weights=ww,
             offset=np.zeros(n),
-            working_residuals=resid,
+            working_residuals=solved["residuals"],
             working_weights=ww,
-            hat_values=_hat(x, ww),
+            hat_values=solved["hat"],
             dispersion=rss / n,
             deviance=rss,
-            scale=sigma2,
+            scale=solved["sigma2"],
         )
         return child
 

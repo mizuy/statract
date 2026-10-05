@@ -4,6 +4,8 @@
 
 **このページの表は 2026-10-05 の再計測。** 出典は [`comparison.csv`](benchmarks/comparison.csv)（`bench/stat/run_all.py` と同じ比較。208 行、68 タスク）。Python は `statract`、R は R 4.3.3 + lme4 1.1.35.1 + survival 3.5.8。ウォームアップ 1 回のあと 5 回の中央値。BLAS / OMP スレッドは 1。混合モデルの Python 側は既定の lme-python（`fit_mixed`）。mixedlm-rs はこの実行では計測していない。
 
+OLS、OLS（重み）、KM（群）だけ、最小二乗と Kaplan–Meier を速くしたあとに同じ手順で測り直した。他のタスクの秒は前回のまま。R は測り直していない。
+
 秒は **この VM** の壁時計。R の秒はおおむね 1 ms 刻み。比が空なのは R 側が 0 s と記録されたため。
 
 データは実行時に取得し、リポジトリには入れない。UCI Adult、Bike Sharing、Vanderbilt SUPPORT2、Harvard Dataverse STAR（file 666716）。STAR の取得は User-Agent 付きの HTTPS が必要だった。
@@ -48,8 +50,8 @@ SUPPORT2 の生存は完全ケース 9,103 行。STAR の変量傾きは生徒�
 
 | 手法 | API | n | Python | R | 比 | vs R |
 |------|-----|--:|------:|--:|---:|------|
-| OLS | `fit_ols` / `lm` | 10000 | 9.17 ms | 7.00 ms | 1.311 | 一致（5） |
-| OLS（重み） | `fit_ols(weights=)` / `lm` | 10000 | 9.38 ms | 7.00 ms | 1.341 | 一致（5） |
+| OLS | `fit_ols` / `lm` | 10000 | 5.22 ms | 7.00 ms | 0.745 | 一致（5） |
+| OLS（重み） | `fit_ols(weights=)` / `lm` | 10000 | 6.26 ms | 7.00 ms | 0.895 | 一致（5） |
 | GLM 二項 | `fit_glm(binomial)` / `glm` | 10000 | 16.24 ms | 54.00 ms | 0.301 | 一致（3） |
 | GLM ガンマ | `fit_glm(gamma)` / `glm` | 10000 | 9.68 ms | 30.00 ms | 0.323 | 一致（2） |
 | sandwich HC0–HC5 | `hc_covariance` / `vcovHC` | 10000 | 3.00 ms | 19.00 ms | 0.158 | tol 外（6/6）。最大 cov rel は HC4:cov の 5.127e-06（rtol 1e-8） |
@@ -68,7 +70,7 @@ SUPPORT2 の生存は完全ケース 9,103 行。STAR の変量傾きは生徒�
 | GAM k=8 | `gam` / `mgcv::gam` | 10000 | 4.46 ms | 126.0 ms | 0.035 | tol 外。coef rel 6.702e-04 |
 | GAM k=10 | 同上 | 10000 | 7.53 ms | 154.0 ms | 0.049 | tol 外。coef rel 1.610e-05 |
 | Kaplan–Meier | `survival_curve` / `survfit` | 9103 | 1.10 ms | 6.00 ms | 0.184 | 一致（3） |
-| KM（群） | `survival_curve(by=)` | 9103 | 2.92 ms | 6.00 ms | 0.487 | 一致（3） |
+| KM（群） | `survival_curve(by=)` | 9103 | 2.56 ms | 6.00 ms | 0.426 | 一致（3） |
 | Nelson–Aalen | `kind="nelson_aalen"` | 9103 | 1.19 ms | 7.00 ms | 0.170 | 一致（3） |
 | log-rank | `log_rank` / `survdiff` | 9103 | 1.95 ms | 8.00 ms | 0.244 | 一致（6） |
 | Cox Efron | `cox_ph` / `coxph` | 9103 | 18.34 ms | 38.00 ms | 0.483 | 一致（3） |
@@ -91,8 +93,8 @@ HC とクラスタの失敗は、差がゼロではないが多くの場合 10�
 
 | 手法 | n | Python | R | 比 | vs R |
 |------|--:|------:|--:|---:|------|
-| OLS | 1000 | 2.79 ms | 2.00 ms | 1.393 | 一致（5） |
-| OLS（重み） | 1000 | 2.74 ms | 2.00 ms | 1.368 | 一致（5） |
+| OLS | 1000 | 1.89 ms | 2.00 ms | 0.945 | 一致（5） |
+| OLS（重み） | 1000 | 1.86 ms | 2.00 ms | 0.930 | 一致（5） |
 | GLM 二項 | 1000 | 2.73 ms | 6.00 ms | 0.456 | 一致（3） |
 | GLM ガンマ | 1000 | 2.52 ms | 4.00 ms | 0.631 | 一致（2） |
 | sandwich HC0–HC5 | 1000 | 0.317 ms | 4.00 ms | 0.079 | tol 外（6/6）。最大 cov rel は HC2:cov の 3.894e-07（rtol 1e-8） |
@@ -111,7 +113,7 @@ HC とクラスタの失敗は、差がゼロではないが多くの場合 10�
 | GAM k=8 | 1000 | 1.75 ms | 15.00 ms | 0.117 | 一致（4） |
 | GAM k=10 | 1000 | 2.29 ms | 15.00 ms | 0.153 | 一致（4） |
 | Kaplan–Meier | 1000 | 0.457 ms | 1.00 ms | 0.457 | 一致（3） |
-| KM（群） | 1000 | 2.04 ms | 1.000 ms | 2.040 | 一致（3） |
+| KM（群） | 1000 | 0.623 ms | 1.000 ms | 0.623 | 一致（3） |
 | Nelson–Aalen | 1000 | 0.483 ms | 1.00 ms | 0.483 | 一致（3） |
 | log-rank | 1000 | 1.03 ms | 1.00 ms | 1.027 | 一致（6） |
 | Cox Efron | 1000 | 3.43 ms | 5.00 ms | 0.685 | 一致（3） |

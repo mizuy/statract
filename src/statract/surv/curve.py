@@ -8,6 +8,7 @@ The default interval is the log interval.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import polars as pl
@@ -17,6 +18,16 @@ from scipy import stats
 from ..design import ColumnRef, column_series
 
 _CONFIDENCE = ("log", "log-log", "plain", "logit", "arcsin")
+_Z_CACHE: dict[float, float] = {}
+
+
+def _norm_z(level: float) -> float:
+    """Standard-normal critical value. The common 95% point is computed once."""
+    z = _Z_CACHE.get(level)
+    if z is None:
+        z = float(stats.norm.ppf(0.5 + level / 2.0))
+        _Z_CACHE[level] = z
+    return z
 
 
 @dataclass
@@ -34,41 +45,74 @@ class SurvivalCurve:
     def at(self, times: float | list[float] | np.ndarray) -> pl.DataFrame:
         """Right-continuous value at each requested time, within each group."""
         asked = np.atleast_1d(np.asarray(times, dtype=float))
-        frames = []
-        groups = self.table["group"].unique(maintain_order=True).to_list() if "group" in self.table.columns else [None]
-        for group in groups:
-            part = self.table if group is None else self.table.filter(pl.col("group") == group)
-            known = part["time"].to_numpy()
-            rows = []
-            for t in asked:
-                idx = int(np.searchsorted(known, t, side="right") - 1)
-                if idx < 0:
-                    estimate = 1.0 if self.kind != "aalen_johansen" else 0.0
-                    row = {
-                        "time": float(t),
-                        "estimate": estimate,
-                        "std_error": 0.0,
-                        "conf_low": estimate,
-                        "conf_high": estimate,
-                        "n_risk": int(part["n_risk"][0]) if part.height else 0,
-                    }
-                else:
-                    src = part.row(idx, named=True)
-                    row = {
-                        "time": float(t),
-                        "estimate": src["estimate"],
-                        "std_error": src["std_error"],
-                        "conf_low": src["conf_low"],
-                        "conf_high": src["conf_high"],
-                        "n_risk": src["n_risk"],
-                    }
-                if group is not None:
-                    row["group"] = group
-                if "state" in part.columns and idx >= 0:
-                    row["state"] = part.row(idx, named=True)["state"]
-                rows.append(row)
-            frames.append(pl.DataFrame(rows))
-        return pl.concat(frames, how="diagonal_relaxed")
+        table = self.table
+        has_group = "group" in table.columns
+        has_state = "state" in table.columns
+        if has_group:
+            labels = table["group"].to_numpy()
+            group_ids, group_codes = _appearance_codes(labels)
+        else:
+            group_ids = [None]
+            group_codes = np.zeros(table.height, dtype=np.int32)
+        known = table["time"].to_numpy()
+        estimate = table["estimate"].to_numpy()
+        std_error = table["std_error"].to_numpy()
+        low = table["conf_low"].to_numpy()
+        high = table["conf_high"].to_numpy()
+        n_risk = table["n_risk"].to_numpy()
+        state = table["state"].to_numpy() if has_state else None
+        before = 1.0 if self.kind != "aalen_johansen" else 0.0
+        n_ask = asked.shape[0]
+        n_out = n_ask * len(group_ids)
+        out_time = np.empty(n_out, dtype=float)
+        out_est = np.empty(n_out, dtype=float)
+        out_se = np.empty(n_out, dtype=float)
+        out_low = np.empty(n_out, dtype=float)
+        out_high = np.empty(n_out, dtype=float)
+        out_risk = np.empty(n_out, dtype=float)
+        out_group: list[object] | None = [] if has_group else None
+        out_state: list[object] | None = [] if has_state else None
+        cursor = 0
+        for index, group in enumerate(group_ids):
+            sel = group_codes == index
+            known_g = known[sel]
+            idx = np.searchsorted(known_g, asked, side="right") - 1
+            valid = idx >= 0
+            end = cursor + n_ask
+            out_time[cursor:end] = asked
+            out_est[cursor:end] = before
+            out_se[cursor:end] = 0.0
+            out_low[cursor:end] = before
+            out_high[cursor:end] = before
+            first_risk = float(n_risk[sel][0]) if np.any(sel) else 0.0
+            out_risk[cursor:end] = first_risk
+            if np.any(valid):
+                picked = idx[valid]
+                out_est[cursor:end][valid] = estimate[sel][picked]
+                out_se[cursor:end][valid] = std_error[sel][picked]
+                out_low[cursor:end][valid] = low[sel][picked]
+                out_high[cursor:end][valid] = high[sel][picked]
+                out_risk[cursor:end][valid] = n_risk[sel][picked]
+            if out_group is not None:
+                out_group.extend([group] * n_ask)
+            if out_state is not None and state is not None:
+                state_g = state[sel]
+                for ok, pos in zip(valid, idx, strict=True):
+                    out_state.append(state_g[int(pos)] if ok else None)
+            cursor = end
+        columns: dict[str, Any] = {
+            "time": out_time,
+            "estimate": out_est,
+            "std_error": out_se,
+            "conf_low": out_low,
+            "conf_high": out_high,
+            "n_risk": out_risk,
+        }
+        if out_group is not None:
+            columns["group"] = out_group
+        if out_state is not None:
+            columns["state"] = out_state
+        return pl.DataFrame(columns)
 
     def quantile(self, p: float | list[float] = 0.5) -> pl.DataFrame:
         """Brookmeyer–Crowley quantiles of a survival curve."""
@@ -126,6 +170,76 @@ def survival_curve(
         raise ValueError("kind must be kaplan_meier, nelson_aalen, or aalen_johansen")
     if confidence not in _CONFIDENCE:
         raise ValueError(f"confidence must be one of {_CONFIDENCE}")
+    times, events, w, groups, codes = _survival_columns(data, time, event, by, weights)
+    if kind == "aalen_johansen" or groups == [None]:
+        frames = []
+        for index, group in enumerate(groups):
+            sel = np.ones(len(times), dtype=bool) if group is None else codes == index
+            table = _one_curve(times[sel], events[sel], w[sel], kind, confidence, level)
+            if group is not None:
+                table = table.with_columns(pl.lit(group).alias("group"))
+            frames.append(table)
+        out = pl.concat(frames, how="diagonal_relaxed") if len(frames) > 1 else frames[0]
+        return SurvivalCurve(table=out, kind=kind, confidence=confidence, level=level)
+    pieces = []
+    for index, group in enumerate(groups):
+        sel = codes == index
+        columns = _curve_arrays(times[sel], events[sel], w[sel], kind, confidence, level)
+        columns["group"] = np.full(columns["time"].shape[0], group)
+        pieces.append(columns)
+    merged = {name: np.concatenate([piece[name] for piece in pieces]) for name in pieces[0] if name != "group"}
+    merged["group"] = [value for piece in pieces for value in piece["group"].tolist()]
+    return SurvivalCurve(table=pl.DataFrame(merged), kind=kind, confidence=confidence, level=level)
+
+
+def _appearance_codes(values: np.ndarray) -> tuple[list[object], np.ndarray]:
+    """First-seen labels and integer codes. Order matches ``unique(maintain_order=True)``."""
+    labels: list[object] = []
+    slots: dict[object, int] = {}
+    codes = np.empty(values.shape[0], dtype=np.int32)
+    for i, value in enumerate(values.tolist()):
+        slot = slots.get(value)
+        if slot is None:
+            slot = len(labels)
+            slots[value] = slot
+            labels.append(value)
+        codes[i] = slot
+    return labels, codes
+
+
+def _as_float(series: pl.Series) -> np.ndarray:
+    if series.dtype == pl.Float64:
+        return series.to_numpy()
+    return series.cast(pl.Float64).to_numpy()
+
+
+def _survival_columns(
+    data: pl.DataFrame,
+    time: ColumnRef,
+    event: ColumnRef,
+    by: ColumnRef | None,
+    weights: ColumnRef | None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[object | None], np.ndarray]:
+    """Aligned time, event, weight, and group codes after dropping nulls."""
+    named = all(isinstance(ref, str) for ref in (time, event, by, weights) if ref is not None)
+    if named:
+        time_s = data.get_column(str(time))
+        event_s = data.get_column(str(event))
+        weight_s = data.get_column(str(weights)) if weights is not None else None
+        group_s = data.get_column(str(by)) if by is not None else None
+        complete = time_s.null_count() == 0 and event_s.null_count() == 0
+        if weight_s is not None:
+            complete = complete and weight_s.null_count() == 0
+        if group_s is not None:
+            complete = complete and group_s.null_count() == 0
+        if complete:
+            times = _as_float(time_s)
+            events = event_s.to_numpy()
+            w = _as_float(weight_s) if weight_s is not None else np.ones(times.shape[0], dtype=float)
+            if group_s is None:
+                return times, events, w, [None], np.zeros(times.shape[0], dtype=np.int32)
+            labels, codes = _appearance_codes(group_s.to_numpy())
+            return times, events, w, labels, codes
     time_s = column_series(data, time).cast(pl.Float64)
     event_s = column_series(data, event)
     weight_s = column_series(data, weights).cast(pl.Float64) if weights is not None else None
@@ -136,25 +250,21 @@ def survival_curve(
     if group_s is not None:
         mask = mask & group_s.is_not_null()
     keep = mask.to_numpy()
-    times = time_s.filter(pl.Series(keep)).to_numpy()
-    events = event_s.filter(pl.Series(keep)).to_numpy()
-    w = weight_s.filter(pl.Series(keep)).to_numpy() if weight_s is not None else np.ones(times.shape[0])
-    if group_s is None:
-        groups: list[object | None] = [None]
-        codes = np.zeros(len(times), dtype=np.int32)
+    if bool(keep.all()):
+        times = time_s.to_numpy()
+        events = event_s.to_numpy()
+        w = weight_s.to_numpy() if weight_s is not None else np.ones(times.shape[0], dtype=float)
+        gser = group_s
     else:
-        gser = group_s.filter(pl.Series(keep))
-        groups = gser.unique(maintain_order=True).to_list()
-        codes = gser.replace_strict(groups, list(range(len(groups))), return_dtype=pl.Int32).to_numpy()
-    frames = []
-    for index, group in enumerate(groups):
-        sel = np.ones(len(times), dtype=bool) if group is None else codes == index
-        table = _one_curve(times[sel], events[sel], np.asarray(w[sel], dtype=float), kind, confidence, level)
-        if group is not None:
-            table = table.with_columns(pl.lit(group).alias("group"))
-        frames.append(table)
-    out = pl.concat(frames, how="diagonal_relaxed")
-    return SurvivalCurve(table=out, kind=kind, confidence=confidence, level=level)
+        kept = pl.Series(keep)
+        times = time_s.filter(kept).to_numpy()
+        events = event_s.filter(kept).to_numpy()
+        w = weight_s.filter(kept).to_numpy() if weight_s is not None else np.ones(int(keep.sum()), dtype=float)
+        gser = None if group_s is None else group_s.filter(kept)
+    if gser is None:
+        return times, events, np.asarray(w, dtype=float), [None], np.zeros(times.shape[0], dtype=np.int32)
+    labels, codes = _appearance_codes(gser.to_numpy())
+    return times, events, np.asarray(w, dtype=float), labels, codes
 
 
 def _one_curve(
@@ -167,6 +277,17 @@ def _one_curve(
 ) -> pl.DataFrame:
     if kind == "aalen_johansen":
         return _aalen_johansen(time, event, weights, confidence, level)
+    return pl.DataFrame(_curve_arrays(time, event, weights, kind, confidence, level))
+
+
+def _curve_arrays(
+    time: np.ndarray,
+    event: np.ndarray,
+    weights: np.ndarray,
+    kind: str,
+    confidence: str,
+    level: float,
+) -> dict[str, np.ndarray]:
     uniq, n_risk_a, n_event_a, n_censor_a = _tie_counts(time, event, weights)
     if kind == "kaplan_meier":
         with np.errstate(divide="ignore", invalid="ignore"):
@@ -194,18 +315,16 @@ def _one_curve(
         survival = np.exp(-cumulative)
         low, high = _hazard_interval(cumulative, std_error, survival, confidence, level)
         estimate = survival
-    return pl.DataFrame(
-        {
-            "time": uniq,
-            "n_risk": n_risk_a,
-            "n_event": n_event_a,
-            "n_censor": n_censor_a,
-            "estimate": estimate,
-            "std_error": std_error,
-            "conf_low": low,
-            "conf_high": high,
-        }
-    )
+    return {
+        "time": uniq,
+        "n_risk": n_risk_a,
+        "n_event": n_event_a,
+        "n_censor": n_censor_a,
+        "estimate": estimate,
+        "std_error": std_error,
+        "conf_low": low,
+        "conf_high": high,
+    }
 
 
 def _tie_counts(
@@ -232,7 +351,7 @@ def _tie_counts(
 
 
 def _survival_interval(survival: np.ndarray, std_log: np.ndarray, confidence: str, level: float) -> tuple[np.ndarray, np.ndarray]:
-    z = float(stats.norm.ppf(0.5 + level / 2))
+    z = _norm_z(level)
     s = np.clip(survival, 1e-15, 1 - 1e-15)
     if confidence == "log":
         low = np.exp(np.log(s) - z * std_log)
@@ -267,7 +386,7 @@ def _hazard_interval(
     level: float,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Transform a cumulative-hazard interval into a survival interval."""
-    z = float(stats.norm.ppf(0.5 + level / 2))
+    z = _norm_z(level)
     if confidence == "log":
         se_log = std_h  # se(log S) = se(H) when S = exp(-H)
         return _survival_interval(survival, se_log, "log", level)
@@ -324,7 +443,7 @@ def _aalen_johansen(
             np.ascontiguousarray(all_haz, dtype=np.float64),
         )
         std = np.sqrt(np.clip(var, 0, None))
-        z = float(stats.norm.ppf(0.5 + level / 2))
+        z = _norm_z(level)
         low = np.clip(cif - z * std, 0, 1)
         high = np.clip(cif + z * std, 0, 1)
         frames.append(
