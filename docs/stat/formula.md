@@ -51,8 +51,8 @@ built.offset         # offset() の和。無ければ None
 | `log` `log10` `exp` `sqrt` `abs` | 対応 | 引数は 1 つ。左辺でも右辺でも使える |
 | `offset(...)` | 対応 | 設計行列の列にはせず、`FormulaModel.offset` に足す。formulaic はこの関数を持たない。`fit_mixed` は受けない |
 | `Surv(time, status)` `Surv(start, stop, status)` | 対応 | `cox_ph`、`accelerated_failure`、`fine_gray` の左辺。`Surv(start, stop, status)` は `cox_ph` と `fine_gray` |
-| `strata(...)` | 対応 | `cox_ph` の層。設計行列の列にはしない |
-| `cluster(...)` | 対応 | `cox_ph` のクラスター頑健分散。設計行列の列にはしない |
+| `strata(...)` | 対応 | `cox_ph` と `conditional_logit` の層。設計行列の列にはしない |
+| `cluster(...)` | 対応 | `cox_ph` のクラスター頑健分散。`conditional_logit` は `method="efron"` と `method="breslow"` で使う。exact では使えない |
 | `(1 \| g)` `(1 + x \| g)` `(0 + x \| g)` | 対応 | lme4 の変量効果。formulaic の表には無い。推定は `fit_mixed`。グループは 1 つ。傾きは数値 1 列 |
 | `Q(...)` | 非対応 | 列名はバッククォート |
 | `C(...)` | 非対応 | 因子にするのは列の型。対比の種類は指定しない |
@@ -209,7 +209,7 @@ built.offset         # offset() の和。無ければ None
 
 `(x || g)` は解析できます。`fit_mixed` は無相関の傾きとしてエラーにします。因子や論理値の傾き、`offset()` もエラーです。
 
-`cox_ph`、`accelerated_failure`、`fine_gray` は `Surv(time, status) ~ age + sex` を受けます。Cox は切片の列を外し、因子は treatment contrast のままです。`strata(site)` と `cluster(id)` は Cox の式に書けます。`Surv(start, stop, status)` は counting process で、`cox_ph` と `fine_gray` が受けます。`fine_gray` の右辺は残す共変量で、`cause` は別引数です。加速故障時間は切片を残します。平滑は `smooth` です。列名での呼び出しも残します。
+`cox_ph`、`accelerated_failure`、`fine_gray` は `Surv(time, status) ~ age + sex` を受けます。Cox は切片の列を外し、因子は treatment contrast のままです。`strata(site)` と `cluster(id)` は Cox の式に書けます。`conditional_logit` は `bleed ~ eolm + strata(set)` を受け、切片を外します。既定の `method="exact"` はマッチセット内の組合せ尤度です。`Surv(start, stop, status)` は counting process で、`cox_ph` と `fine_gray` が受けます。`fine_gray` の右辺は残す共変量で、`cause` は別引数です。加速故障時間は切片を残します。平滑は `smooth` です。列名での呼び出しも残します。
 
 ## 戻り値
 

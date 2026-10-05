@@ -142,6 +142,7 @@ R の名前は「どの出力と合わせるか」のラベルである。公開
 | Aalen–Johansen | `survival_curve(..., kind="aalen_johansen", event=` 多値`)` | ○ 累積発生と SE |
 | `survdiff` | `log_rank(data, time, event, by, strata=None, rho=0)` | ○ k 群。`rho=1` は Peto–Peto。層別可。既存 `log_rank_pvalue` は 2 群の式 API として残す |
 | `coxph` | `cox_ph(data, "Surv(time, status) ~ x + strata(site)")`。列名は `cox_ph(data, time, event, predictors, ...)` | ○ Efron / Breslow、層別、重み、オフセット、counting process（`Surv(start, stop, status)` または `entry`） |
+| `clogit` | `conditional_logit(data, "y ~ x + strata(set)")`。列名は `conditional_logit(data, y, predictors, strata=)` | ○ 既定 exact はマッチセットの離散尤度。`efron` / `breslow`（`approximate`）は時間を 1 にした `cox_ph`。一般の `cox_ph(ties="exact")` は入れない |
 | `cox.zph` | `proportional_hazards_test(fit, time_transform="kaplan_meier")` | ○ survival ≥ 3.0 のスコア検定。項ごとに集約 |
 | 残差 | `fit.residuals(kind=)` | ○ martingale / deviance / score / schoenfeld / scaled_schoenfeld / dfbeta / dfbetas |
 | 予測、基底ハザード、新規データでの曲線 | `fit.predict(kind=)` / `fit.baseline_hazard()` / `fit.survival_curve(data)` | ○ `kind` は `"linear_predictor"` / `"risk"` / `"expected"` / `"survival"` |
@@ -149,7 +150,7 @@ R の名前は「どの出力と合わせるか」のラベルである。公開
 | `survreg` | `accelerated_failure(data, "Surv(time, status) ~ x", distribution="weibull")`。列名も残す | ○ weibull / exponential / lognormal / loglogistic / gaussian / logistic。パラメータ化は R と同じ（intercept + log(scale)） |
 | `finegray` | `fine_gray(data, "Surv(time, status) ~ x", cause)` のあと重み付き `cox_ph`。列名も残す | ○ |
 | `survSplit` | `split_follow_up(data, time, event, cuts)` | ○ |
-| `tt()`, `frailty()`, `ridge()`, `ties="exact"` | — | 入れない |
+| `tt()`, `frailty()`, `ridge()`, `coxph(..., ties="exact")` | — | 入れない。マッチセットの exact は `conditional_logit` |
 | `tmerge`, `pyears`, `survexp`, `coxme`, 区間打切り | — | 入れない |
 
 Cox は事象時刻でソートし、同順位ブロックで Efron 補正を掛ける。Newton–Raphson に step-halving。収束は `eps=1e-9`、`max_iter=20`。`entry` があるときはソート後にリスク集合への加入と離脱を扱う。`proportional_hazards_test` はスケール化 Schoenfeld 残差と時間変換のスコア検定で、lifelines の `proportional_hazard_test` とは統計量が違う。

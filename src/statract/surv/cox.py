@@ -95,14 +95,24 @@ class CoxFit:
         return pl.DataFrame({"time": time, "survival": survival})
 
     def predict(self, data: pl.DataFrame | None = None, *, kind: str = "linear_predictor", times: np.ndarray | None = None) -> np.ndarray:
+        if kind not in {"linear_predictor", "risk", "expected", "survival"}:
+            raise ValueError("kind must be linear_predictor, risk, expected, or survival")
+        if self.ties == "exact" and kind in {"expected", "survival"}:
+            raise ValueError("expected and survival use a baseline hazard; conditional_logit has none")
         if data is None:
             lp = self.x @ self.coefficients + self.offset
+        else:
+            design = build_design(data, self.design)
+            lp = design.x @ self.coefficients
+        if kind == "linear_predictor":
+            return lp
+        if kind == "risk":
+            return np.exp(lp)
+        if data is None:
             time = self.time
             strata = self.strata
             entry = self.entry
         else:
-            design = build_design(data, self.design)
-            lp = design.x @ self.coefficients
             time = times if times is not None else _column_or_raise(data, self._time_name)
             strata_names = getattr(self, "_strata_names", None)
             if strata_names:
@@ -112,17 +122,13 @@ class CoxFit:
             entry = _optional_aligned(data, self._entry_name, design.row_index, 0.0).astype(float)
             if times is not None:
                 time = np.asarray(times, dtype=float)
-        if kind == "linear_predictor":
-            return lp
-        if kind == "risk":
-            return np.exp(lp)
         if kind == "expected":
             return self._expected(time, entry, lp, strata)
-        if kind == "survival":
-            return np.exp(-self._expected(time, entry, lp, strata))
-        raise ValueError("kind must be linear_predictor, risk, expected, or survival")
+        return np.exp(-self._expected(time, entry, lp, strata))
 
     def residuals(self, kind: str = "martingale") -> np.ndarray:
+        if self.ties == "exact":
+            raise ValueError("residuals use the Cox partial likelihood; conditional_logit method='exact' has none")
         allowed = {
             "martingale",
             "deviance",
@@ -194,6 +200,8 @@ class CoxFit:
         return np.linalg.pinv(self.information)
 
     def score_contributions(self) -> np.ndarray:
+        if self.ties == "exact":
+            raise ValueError("score residuals use the Cox partial likelihood; conditional_logit method='exact' has none")
         return self._score_residuals()
 
     def bread(self) -> np.ndarray:

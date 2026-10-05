@@ -171,7 +171,7 @@ def reject_survival_syntax(built: FormulaModel) -> None:
     """``Surv`` formulas are for the survival estimators."""
     if built.surv is not None or built.strata or built.cluster is not None:
         raise ValueError(
-            "Surv(), strata(), and cluster() belong in cox_ph, accelerated_failure, or fine_gray"
+            "Surv(), strata(), and cluster() belong in cox_ph, conditional_logit, accelerated_failure, or fine_gray"
         )
 
 

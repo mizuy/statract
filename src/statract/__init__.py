@@ -126,6 +126,7 @@ from .stat import (
 )
 from .surv import (
     accelerated_failure,
+    conditional_logit,
     cox_ph,
     fine_gray,
     log_rank,
@@ -214,6 +215,7 @@ __all__ = [
     "coefficient_interval",
     "coefficient_test",
     "compare_gams",
+    "conditional_logit",
     "conditional_tree",
     "cox_ph",
     "durbin_watson_test",

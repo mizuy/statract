@@ -1,6 +1,6 @@
 # statract — 概要
 
-列名で呼ぶ統計関数です。データは Polars の `DataFrame`、結果の表も Polars です。`fit_ols`、`fit_glm`、`fit_mixed` は Wilkinson 式（`y ~ x * stage`、`y ~ x + (1 | g)`）も受けます。`cox_ph`、`accelerated_failure`、`fine_gray` は `Surv(time, status) ~ age + sex` も受けます。文法は [Wilkinson 式](formula.md) です。列名のリストでも同じモデルを呼べます。
+列名で呼ぶ統計関数です。データは Polars の `DataFrame`、結果の表も Polars です。`fit_ols`、`fit_glm`、`fit_mixed` は Wilkinson 式（`y ~ x * stage`、`y ~ x + (1 | g)`）も受けます。`cox_ph`、`accelerated_failure`、`fine_gray` は `Surv(time, status) ~ age + sex` も受けます。`conditional_logit` は `y ~ x + strata(set)` も受けます。文法は [Wilkinson 式](formula.md) です。列名のリストでも同じモデルを呼べます。
 
 | 層 | モジュール | R での近いもの |
 |----|------------|----------------|

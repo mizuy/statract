@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .aft import AftFit, accelerated_failure
+from .clogit import conditional_logit
 from .cox import CoxFit, cox_ph, proportional_hazards_test
 from .curve import SurvivalCurve, survival_curve
 from .diagnostics import plot_cox_residuals, plot_loglog, write_cox_diagnostic_suite
@@ -15,6 +16,7 @@ __all__ = [
     "LogRankResult",
     "SurvivalCurve",
     "accelerated_failure",
+    "conditional_logit",
     "cox_ph",
     "fine_gray",
     "log_rank",
