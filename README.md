@@ -8,6 +8,8 @@
 
 核は pandas に依存しない。Kaplan–Meier は同梱の `survival_curve`（lifelines は使わない）。statsmodels は optional extra `sm`。
 
+ドキュメントは [https://mizuy.github.io/statract/](https://mizuy.github.io/statract/) にある。
+
 ```bash
 pip install statract
 pip install "statract[sm]"   # OLS、割合の信頼区間、probit
