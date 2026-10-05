@@ -4,7 +4,7 @@
 
 **このページの表は 2026-10-05 の再計測。** 出典は [`comparison.csv`](benchmarks/comparison.csv)（`bench/stat/run_all.py` と同じ比較。208 行、68 タスク）。Python は `statract`、R は R 4.3.3 + lme4 1.1.35.1 + survival 3.5.8。ウォームアップ 1 回のあと 5 回の中央値。BLAS / OMP スレッドは 1。混合モデルの Python 側は既定の lme-python（`fit_mixed`）。mixedlm-rs はこの実行では計測していない。
 
-OLS、OLS（重み）、KM（群）は、最小二乗と Kaplan–Meier を速くしたあとに測り直した。最近傍の logit とマハラノビスは、組を MatchIt 4.5.5 に合わせたあとに同じ手順で測り直した。他のタスクの秒は前回のまま。R は測り直していない。
+OLS、OLS（重み）、KM（群）は、最小二乗と Kaplan–Meier を速くしたあとに測り直した。最近傍の logit は、組を MatchIt 4.5.5 に合わせたあとの計測のまま。マハラノビスは、long double の逐次和を Python のループから外し、距離のタイルを小さくしたあとに同じ手順で測り直した。他のタスクの秒は前回のまま。R は測り直していない。
 
 秒は **この VM** の壁時計。R の秒はおおむね 1 ms 刻み。比が空なのは R 側が 0 s と記録されたため。
 
@@ -60,7 +60,7 @@ SUPPORT2 の生存は完全ケース 9,103 行。STAR の変量傾きは生徒�
 | Breusch–Pagan | `breusch_pagan_test` / `bptest` | 10000 | 1.72 ms | 8.00 ms | 0.215 | 一致（4） |
 | RESET | `ramsey_reset_test` / `resettest` | 10000 | 5.13 ms | 14.00 ms | 0.367 | 一致（2） |
 | 最近傍 logit | `match_sample` / `matchit` | 10000 | 43.80 ms | 677.0 ms | 0.065 | 一致（2） |
-| 最近傍 マハラノビス | `distance="mahalanobis"` | 10000 | 3.453 s | 1.024 s | 3.372 | 一致（1） |
+| 最近傍 マハラノビス | `distance="mahalanobis"` | 10000 | 737.8 ms | 1.024 s | 0.721 | 一致（1） |
 | 完全一致 | `method="exact"` | 10000 | 2.85 ms | 5.00 ms | 0.571 | 一致（1） |
 | CEM | `method="cem"` | 10000 | 10.87 ms | 14.00 ms | 0.776 | 一致（1） |
 | GLM ポアソン | `fit_glm(poisson)` / `glm` | 10000 | 32.13 ms | 108.0 ms | 0.298 | 一致（3） |
@@ -85,7 +85,7 @@ SUPPORT2 の生存は完全ケース 9,103 行。STAR の変量傾きは生徒�
 | LMM ML | `method="ml"` | 10000 | 14.76 ms | 80.00 ms | 0.184 | tol 外。coef rel 4.459e-04、se rel 2.722e-04、re rel 7.865e-04、sigma2 rel 7.825e-05、loglik abs 1.037e-04 |
 | LMM 変量傾き | `slopes=` | 10000 | 792.7 ms | 264.0 ms | 3.003 | tol 外。coef rel 1.179e-03、re rel 8.811e-04、loglik abs 8.637e-08 |
 
-HC とクラスタの失敗は、差がゼロではないが多くの場合 10⁻⁷–10⁻⁵ 相対で、計画のサンドイッチ rtol 10⁻⁸ より緩い。Cox / GLM / KM の主結果は許容差内。最近傍マッチの組は一致する。マハラノビスの 10,000 行は 3.453 秒で、尺度と共分散を long double の逐次和で合わせている。LMM は lme-python 対 `lmer` で、係数・分散成分・対数尤度が旧 tol の外に出る。変量傾きの大きい側は Python の方が遅い（比 3.003）。R の `lmer` は変量傾きで `boundary (singular) fit` を出した。
+HC とクラスタの失敗は、差がゼロではないが多くの場合 10⁻⁷–10⁻⁵ 相対で、計画のサンドイッチ rtol 10⁻⁸ より緩い。Cox / GLM / KM の主結果は許容差内。最近傍マッチの組は一致する。マハラノビスの 10,000 行は 737.8 ms で、尺度と共分散は long double の逐次和のままである。LMM は lme-python 対 `lmer` で、係数・分散成分・対数尤度が旧 tol の外に出る。変量傾きの大きい側は Python の方が遅い（比 3.003）。R の `lmer` は変量傾きで `boundary (singular) fit` を出した。
 
 ## 1,000 行側
 
@@ -103,7 +103,7 @@ HC とクラスタの失敗は、差がゼロではないが多くの場合 10�
 | Breusch–Pagan | 1000 | 0.217 ms | 1.00 ms | 0.217 | 一致（4） |
 | RESET | 1000 | 0.564 ms | 2.00 ms | 0.282 | 一致（2） |
 | 最近傍 logit | 1000 | 7.59 ms | 20.00 ms | 0.379 | 一致（2） |
-| 最近傍 マハラノビス | 1000 | 224.6 ms | 16.00 ms | 14.040 | 一致（1） |
+| 最近傍 マハラノビス | 1000 | 10.76 ms | 16.00 ms | 0.672 | 一致（1） |
 | 完全一致 | 1000 | 0.350 ms | 1.00 ms | 0.350 | 一致（1） |
 | CEM | 1000 | 1.33 ms | 4.00 ms | 0.332 | 一致（1） |
 | GLM ポアソン | 1000 | 3.61 ms | 7.00 ms | 0.516 | 一致（3） |

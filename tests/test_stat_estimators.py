@@ -259,6 +259,95 @@ def test_mahalanobis_pairs_match_matchit_455():
     assert np.array_equal(matched.weights, np.ones(24))
 
 
+def test_mahalanobis_scale_matches_sequential_longdouble():
+    """Scale and pooled covariance stay on R's sequential long-double sum.
+
+    ``np.sum`` adds in pairs. On this draw that sum is already a different
+    long double, which is enough to move a Mahalanobis pivot.
+    """
+    rng = np.random.default_rng(0)
+    n, width = 400, 4
+    values = rng.normal(size=(n, width))
+    values[:, 0] = rng.choice([0.0, 99999.0, 5013.0], size=n)
+    treat = np.zeros(n, dtype=bool)
+    treat[: n // 3] = True
+
+    def sequential(column: np.ndarray) -> np.longdouble:
+        total = np.longdouble(0)
+        for item in column:
+            total += item
+        return total
+
+    column = values[:, 1]
+    assert sequential(column) != np.sum(column.astype(np.longdouble), dtype=np.longdouble)
+
+    from statract.matching import _pooled_cov, _r_scale
+
+    center = np.empty(width)
+    for index in range(width):
+        center[index] = float(sequential(values[:, index]) / n)
+    centered = values - center
+    denom = n - 1
+    scale = np.empty(width)
+    for index in range(width):
+        squares = centered[:, index] * centered[:, index]
+        scale[index] = np.sqrt(float(sequential(squares)) / denom)
+    scale[scale == 0] = 1.0
+    assert np.array_equal(_r_scale(values), centered / scale)
+
+    shifted = np.array(centered / scale, dtype=np.float64, copy=True)
+    for flag in (True, False):
+        rows = np.flatnonzero(treat == flag)
+        for index in range(width):
+            part = shifted[rows, index]
+            total = sequential(part)
+            tmp = total / part.shape[0]
+            if np.isfinite(float(tmp)):
+                adjust = np.longdouble(0)
+                for item in part:
+                    adjust += np.longdouble(item) - tmp
+                tmp = tmp + adjust / part.shape[0]
+            shifted[rows, index] = part - float(tmp)
+    means = np.empty(width)
+    for index in range(width):
+        part = shifted[:, index]
+        total = sequential(part)
+        tmp = total / n
+        if np.isfinite(float(tmp)):
+            adjust = np.longdouble(0)
+            for item in part:
+                adjust += np.longdouble(item) - tmp
+            tmp = tmp + adjust / n
+        means[index] = float(tmp)
+    gram = np.empty((width, width))
+    for left in range(width):
+        for right in range(left + 1):
+            total = np.longdouble(0)
+            for row in range(n):
+                total += (np.longdouble(shifted[row, left]) - means[left]) * (
+                    np.longdouble(shifted[row, right]) - means[right]
+                )
+            value = float(total / (n - 1))
+            gram[left, right] = value
+            gram[right, left] = value
+    groups = int(np.unique(treat).size)
+    assert np.array_equal(_pooled_cov(centered / scale, treat), gram * (n - 1) / (n - groups))
+
+
+def test_squared_euclidean_tiles_match_one_row_einsum():
+    """Tiling the difference does not change the squared distance bits."""
+    rng = np.random.default_rng(0)
+    left = np.ascontiguousarray(rng.normal(size=(40, 21)))
+    right = np.ascontiguousarray(rng.normal(size=(4000, 21)))
+    from statract.matching import _squared_euclidean
+
+    got = _squared_euclidean(left, right)
+    for index in range(0, left.shape[0], 7):
+        diff = left[index : index + 1, None, :] - right[None, :, :]
+        ref = np.einsum("ijk,ijk->ij", diff, diff)
+        assert np.array_equal(got[index : index + 1], ref)
+
+
 def test_matrix_distance_rejects_subclass_matching():
     data = pl.DataFrame({"treat": [1, 1, 0, 0], "x1": [0.1, 0.2, 0.3, 0.4], "x2": [1.0, 0.0, 1.0, 0.0]})
     with pytest.raises(ValueError, match="subclass"):

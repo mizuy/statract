@@ -428,10 +428,16 @@ def _nearest_scan(treated, control, dist, ratio, replace, limit, exact):
 
 
 def _squared_euclidean(left: np.ndarray, right: np.ndarray) -> np.ndarray:
-    """``||left[i] - right[j]||^2``. Identical rows stay exactly zero."""
+    """``||left[i] - right[j]||^2``. Identical rows stay exactly zero.
+
+    The square is the einsum of the coordinate difference. A sequential sum
+    of those squares is a different double and can change a tie. Each tile
+    is about a million coordinate slots, so the temporary stays in cache.
+    A larger tile is the same bits and slower.
+    """
     n_c = right.shape[0]
     width = right.shape[1]
-    step = max(1, 8_000_000 // max(n_c * max(width, 1), 1))
+    step = max(1, 1_000_000 // max(n_c * max(width, 1), 1))
     out = np.empty((left.shape[0], n_c), dtype=np.float64)
     for start in range(0, left.shape[0], step):
         block = left[start : start + step]
@@ -1152,10 +1158,16 @@ def _pooled_sd(x: np.ndarray, treat: np.ndarray) -> np.ndarray:
 
 
 def _longdouble_sum(values: np.ndarray) -> np.longdouble:
-    total = np.longdouble(0)
-    for index in range(values.shape[0]):
-        total += values[index]
-    return total
+    """Sequential long-double sum, the order R's ``sum`` uses.
+
+    ``np.sum`` adds in pairs. That sum differs by an ulp once the column is
+    a few hundred rows, and the Mahalanobis factor then picks another control.
+    ``cumsum`` is a running total, so the last entry is the sequential sum.
+    """
+    flat = np.asarray(values, dtype=np.longdouble).reshape(-1)
+    if flat.size == 0:
+        return np.longdouble(0)
+    return np.cumsum(flat, dtype=np.longdouble)[-1]
 
 
 def _r_colmean(values: np.ndarray) -> float:
@@ -1169,9 +1181,7 @@ def _r_mean(values: np.ndarray) -> float:
     total = _longdouble_sum(values)
     tmp = total / n
     if np.isfinite(float(tmp)):
-        adjust = np.longdouble(0)
-        for index in range(n):
-            adjust += np.longdouble(values[index]) - tmp
+        adjust = _longdouble_sum(np.asarray(values, dtype=np.longdouble) - tmp)
         tmp = tmp + adjust / n
     return float(tmp)
 
@@ -1193,10 +1203,7 @@ def _r_scale(x: np.ndarray) -> np.ndarray:
     denom = max(1, n - 1)
     for column in range(width):
         values = centered[:, column]
-        total = np.longdouble(0)
-        for index in range(n):
-            value = values[index]
-            total += np.longdouble(value * value)
+        total = _longdouble_sum(values * values)
         scale[column] = np.sqrt(float(total) / denom)
     scale[scale == 0] = 1.0
     return centered / scale
@@ -1208,6 +1215,8 @@ def _pooled_cov(x: np.ndarray, treat: np.ndarray) -> np.ndarray:
     Group means are removed with ``mean``, then ``cov`` recenters and sums
     each product in long double. A float64 matrix product changes the
     null-space pivot of a singular factor design and the nearest control.
+    Each product is a long-double dot, which adds in the same order as the
+    sequential sum. A pairwise reduction does not.
     """
     n, width = x.shape
     centered = np.array(x, dtype=np.float64, copy=True)
@@ -1221,17 +1230,14 @@ def _pooled_cov(x: np.ndarray, treat: np.ndarray) -> np.ndarray:
     means = np.empty(width)
     for column in range(width):
         means[column] = _r_mean(centered[:, column])
+    dev = np.ascontiguousarray(centered, dtype=np.longdouble)
+    dev -= np.asarray(means, dtype=np.longdouble)
     gram = np.empty((width, width))
     n1 = n - 1
     for left in range(width):
+        column = dev[:, left]
         for right in range(left + 1):
-            total = np.longdouble(0)
-            left_mean = means[left]
-            right_mean = means[right]
-            for index in range(n):
-                total += (np.longdouble(centered[index, left]) - left_mean) * (
-                    np.longdouble(centered[index, right]) - right_mean
-                )
+            total = np.dot(column, dev[:, right])
             value = float(total / n1)
             gram[left, right] = value
             gram[right, left] = value
