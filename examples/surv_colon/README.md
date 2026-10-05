@@ -2,7 +2,7 @@
 
 KM / log-rank / Cox。`etype=1` で患者単位に畳み、`hue=rx` の Table 1 から KM 図まで。
 
-**読む:** [docs 単一ページ](../../docs/stat/examples/surv_colon.md)（ギャラリー: [解析例](https://mizuy.github.io/endolab/stat/examples/surv_colon/)）。データ出典・プロトコル詳細・図つき Results はそちら。
+**読む:** [docs 単一ページ](../../docs/stat/examples/surv_colon.md)（ギャラリー: [解析例](https://mizuy.github.io/statract/stat/examples/surv_colon/)）。データ出典・プロトコル詳細・図つき Results はそちら。
 
 ## 実行
 

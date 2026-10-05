@@ -1,6 +1,6 @@
 # 解析例ギャラリー方針
 
-`docs/stat/examples/` に載せる公開教学例の読み方・書き方・成果物同期の正本です。ギャラリー索引は [Examples / Gallery](examples.md)。ローカル実行の文書分割は [ANALYSIS_WORKFLOW.md](https://github.com/mizuy/endolab/blob/main/ANALYSIS_WORKFLOW.md) を参照してください。
+`docs/stat/examples/` に載せる公開教学例の読み方・書き方・成果物同期の正本です。ギャラリー索引は [Examples / Gallery](examples.md)。ローカル実行の文書分割は [ANALYSIS_WORKFLOW.md](https://github.com/mizuy/statract/blob/main/examples/README.md) を参照してください。
 
 ## 読み取り UX とローカル実行の分担
 
@@ -28,7 +28,7 @@
 
 ### Flowchart は除外があるときだけ
 
-解析セットから行が落ちない（全段 `excluded: 0`、inclusion 100%）ときは **`pp.flowchart` / Mermaid / `text_flowchart` を載せない**。コホート n を一文で述べ、Table 1 に進む。実際に除外・畳み込みがある例（例: `surv_colon` の患者単位畳み、`cif_pbc` の非無作為化除外、`iptw_nhefs` の欠損除外）だけ flowchart を残し、適用できるとき Mermaid 化する。
+解析セットから行が落ちない（全段 `excluded: 0`、inclusion 100%）ときは **`flowchart` / Mermaid / `text_flowchart` を載せない**。コホート n を一文で述べ、Table 1 に進む。実際に除外・畳み込みがある例（例: `surv_colon` の患者単位畳み、`cif_pbc` の非無作為化除外、`iptw_nhefs` の欠損除外）だけ flowchart を残し、適用できるとき Mermaid 化する。
 
 ## 結果: Material タブ
 
@@ -43,7 +43,7 @@
 |------|------|
 | 正本 | `examples/<stem>/<stem>_out/`（`task analysis` / `task all` が生成） |
 | サイト掲載 | 選別コピーを `docs/stat/examples/assets/<stem>/` に置く |
-| 同期 | `uv run python scripts/sync_example_assets.py`（または同等）。手作業で別経路の図を描き直して差を作らない |
+| 同期 | `uv run python scripts/sync_example_assets.py`（または同等）。手作業で別経路の図を描き直して差を作らない。2026-10-05 に runners を再実行し、掲載ファイルは再生成後も同一だった |
 | git | 完全な `*_out/` は gitignore。生データ CSV もリポジトリに入れない。掲載用アセットのみ commit |
 
 ## Forest（GLM / Cox 系）
@@ -62,7 +62,7 @@ HR / OR / 係数の forest は再実装した `plot_forest(..., layout="table")`
 | Forest | `plot_forest` 既定の **表一体**（`layout="table"`）。`style="bw"` で白黒（黒マーカー＋ヒゲ） |
 | PH | `proportional_hazards_test` |
 | 診断 | survminer 風スイート（`write_cox_diagnostic_suite`: Schoenfeld / log-log / dfbeta / martingale / deviance 等） |
-| Flowchart | **除外がある例だけ** `pp.flowchart`。適用できるとき `mermaid_flowchart` を docs の図タブと `*_out/` に残す。除外ゼロなら省略 |
+| Flowchart | **除外がある例だけ** `examples/support.py` の `flowchart`。適用できるとき `mermaid_flowchart` を docs の図タブと `*_out/` に残す。除外ゼロなら省略 |
 
 競合リスク（CIF / Fine–Gray）では偽の PH スイートを載せない。KM の代わりに AJ CIF を示し、Fine–Gray forest は `layout="table"`。非生存例（二項 GLM・PSM・IPTW・LMM）にも偽の PH / NAR スイートを付けない。除外がある例の flowchart は Mermaid 化を推奨する。
 

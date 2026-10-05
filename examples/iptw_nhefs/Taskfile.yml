@@ -1,0 +1,36 @@
+version: '3'
+
+vars:
+  PYTHON: PYTHONPATH=. uv run python
+
+tasks:
+  build:
+    desc: Build analysis-ready cache from snapshot
+    sources:
+      - build.py
+    generates:
+      - cache/build
+    cmds:
+      - '{{.PYTHON}} build.py'
+
+  analysis:
+    desc: Run analysis and write iptw_nhefs_out artifacts
+    deps:
+      - build
+    sources:
+      - iptw_nhefs.py
+      - iptw_nhefs_concept.md
+      - iptw_nhefs_protocol.md
+      - iptw_nhefs_results.md
+    cmds:
+      - '{{.PYTHON}} iptw_nhefs.py'
+
+  all:
+    desc: Build cache and run analysis
+    deps:
+      - analysis
+
+  clear:
+    desc: Remove derived cache and analysis artifacts
+    cmds:
+      - rm -rf cache/build cache/build.RData iptw_nhefs_out

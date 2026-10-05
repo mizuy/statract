@@ -2,7 +2,7 @@
 
 `statract.cea` の公開教学例。仮想疾患の 4 状態 STM で SoC / A / B / AB を ICER・DSA・PSA まで通す。病態はライブラリ外（このディレクトリ）に置く。
 
-**読む:** [docs 単一ページ](../../docs/stat/examples/cea_sicksicker.md)（ギャラリー: [解析例](https://mizuy.github.io/endolab/stat/examples/cea_sicksicker/)）。パラメータ出典・プロトコル・図つき Results はそちら。
+**読む:** [docs 単一ページ](../../docs/stat/examples/cea_sicksicker.md)（ギャラリー: [解析例](https://mizuy.github.io/statract/stat/examples/cea_sicksicker/)）。パラメータ出典・プロトコル・図つき Results はそちら。
 
 ## 実行
 

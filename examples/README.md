@@ -1,14 +1,14 @@
-# statract 解析例（文書）
+# statract 解析例
 
-実行スクリプト（`build.py`、`project.py`、各 `*.py`）は endolab に残している。それらは `endolab.project`、`endolab.cache` / `snapshot_cache`、`load_parquet_dir`（`endolab.dump`）を使う。このディレクトリは概念・プロトコル・結果の Markdown だけを置く。掲載図と表は `docs/stat/examples/assets/`。
+実行スクリプトは各ディレクトリの `build.py` と `{stem}.py`。パス・parquet cache・フローチャートは `examples/support.py`（公開 API ではない）。`statract` のコードもこのディレクトリも `endolab` を import しない。掲載図と表は `docs/stat/examples/assets/`。
 
-# endolab 解析例
+# 解析例
 
 公開臨床データで **Table 1 → 解析 → results → 図** までを、`ANALYSIS_WORKFLOW.md` のスタンドアロン配置で示す。データ CSV は git に入れない。各 `build.py` が `@snapshot_cache` で取得し、`snapshot/` と `cache/build/` は gitignore する。
 
 **読める入口（カードギャラリー + 各例の単一ページ）は公開ドキュメント側:**  
-[解析例ギャラリー](https://mizuy.github.io/endolab/stat/examples/)（ソース: [`docs/stat/examples.md`](../docs/stat/examples.md)）。  
-各例は docs で concept / protocol / results / discussion を **1 HTML ページ**にまとめてあります（例: [surv_colon](https://mizuy.github.io/endolab/stat/examples/surv_colon/)）。本ディレクトリは実行コードとワークフロー文書の正本です。完全な `*_out/` は gitignore です。サイト掲載用の選別図・表は **`*_out/` と同一ファイル**を [`docs/stat/examples/assets/`](../docs/stat/examples/assets/) へコピーします（`uv run python scripts/sync_example_assets.py`）。
+[解析例ギャラリー](https://mizuy.github.io/statract/stat/examples/)（ソース: [`docs/stat/examples.md`](../docs/stat/examples.md)）。  
+各例は docs で concept / protocol / results / discussion を **1 HTML ページ**にまとめてあります（例: [surv_colon](https://mizuy.github.io/statract/stat/examples/surv_colon/)）。本ディレクトリは実行コードとワークフロー文書の正本です。完全な `*_out/` は gitignore です。サイト掲載用の選別図・表は **`*_out/` と同一ファイル**を [`docs/stat/examples/assets/`](../docs/stat/examples/assets/) へコピーします（`uv run python scripts/sync_example_assets.py`）。
 
 リポジトリルートで `uv sync` したあと、各ディレクトリで `task all`（または `uv run python build.py` → `uv run python {stem}.py`）。
 
@@ -24,7 +24,7 @@
 | [iptw_nhefs/](iptw_nhefs/) | [docs](../docs/stat/examples/iptw_nhefs.md) | 禁煙と体重変化（ATE） | 手計算の安定化 IPTW、`fit_ols` + `hc_covariance`。`iptw()` は無い | NHEFS（`causaldata` / Rdatasets / Hernán CSV）。**fetch only** |
 | [pred_support/](pred_support/) | [docs](../docs/stat/examples/pred_support.md) | 180 日死亡確率の較正 / DCA | `fit_glm` binomial、`write_probability_artifacts`、`plot_calibration`、`plot_dca`、`binary_perf` | SUPPORT2（hbiostat）。**fetch only** |
 | [cea_sicksicker/](cea_sicksicker/) | [docs](../docs/stat/examples/cea_sicksicker.md) | 仮想 Sick-Sicker の 4 戦略 CEA | `simulate_cohort_markov`, `calculate_icers`, `one_way_dsa`, `run_psa` / `ce_plane` / `ceac` / `evpi` | DARTH 教学パラメータ（Alarid-Escudero et al. MDM 2023 Table 1）。git に CSV なし |
-| [legacy_heart/](legacy_heart/) | [docs](../docs/stat/examples/legacy_heart.md) | Stanford Heart（時間依存、n=172） | 既存ノートブック。ワークフロー正本ではない | lifelines / survival。レガシーとして残置 |
+| [legacy_heart/](legacy_heart/) | [docs](../docs/stat/examples/legacy_heart.md) | Stanford Heart（時間依存） | `build.py` が Rdatasets `survival/heart` を cache。ノートブックは正本ではない | Rdatasets CSV。lifelines は使わない |
 
 `fit_mixed(..., family="binomial")` が indo の施設 GLMM。ガウス LMM は同じ `fit_mixed` の既定（`family="gaussian"`）。`psmatch` / `GLMHelper` は使わない。係数 forest は matplotlib の `plot_forest`（Cox HR / GLM OR / OLS）。R の `forest.R` は正本にしない。
 

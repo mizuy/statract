@@ -2,7 +2,7 @@
 
 KM / log-rank / Cox（Lin–Wei sandwich、`cluster(id)`）。両眼が同一患者に属する公開 RCT。
 
-**読む:** [docs 単一ページ](../../docs/stat/examples/cox_retinopathy.md)（ギャラリー: [解析例](https://mizuy.github.io/endolab/stat/examples/cox_retinopathy/)）。データ出典・図つき Results はそちら。
+**読む:** [docs 単一ページ](../../docs/stat/examples/cox_retinopathy.md)（ギャラリー: [解析例](https://mizuy.github.io/statract/stat/examples/cox_retinopathy/)）。データ出典・図つき Results はそちら。
 
 ## 実行
 

@@ -4,7 +4,7 @@
 
 `tests/r_oracle` の小さな fixture はそのまま残す。あちらは pytest が R なしで読む数値の固定で、こちらは手元で R と Python を同じ機械で走らせるベンチマークである。速度に合格ラインは置かない。数値の許容差は [R パッケージとの対応](vs-r.md) と同じにする。
 
-計測スクリプトは `bench/stat/` にある。`uv run python bench/stat/run_all.py` が取得、計測、比較まで行う。結果の CSV は `bench/stat/results/comparison.csv`。データ本体は `/tmp/endolab-bench` に置き、リポジトリには入れない。
+計測スクリプトは `bench/stat/` にある。`uv run python bench/stat/run_all.py` が取得、計測、比較まで行う。比較表は `bench/stat/results/comparison.csv`（サイト掲載は [benchmarks](benchmarks.md)）。データ本体は `/tmp/statract-bench` に置き、リポジトリには入れない。R 側は `Rscript bench/stat/run_r.R`（jsonlite, sandwich, lmtest, survival, MatchIt, mgcv, lme4）。
 
 ## 測り方
 

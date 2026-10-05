@@ -1,0 +1,36 @@
+version: '3'
+
+vars:
+  PYTHON: PYTHONPATH=. uv run python
+
+tasks:
+  build:
+    desc: Build analysis-ready cache from snapshot
+    sources:
+      - build.py
+    generates:
+      - cache/build
+    cmds:
+      - '{{.PYTHON}} build.py'
+
+  analysis:
+    desc: Run analysis and write cif_pbc_out artifacts
+    deps:
+      - build
+    sources:
+      - cif_pbc.py
+      - cif_pbc_concept.md
+      - cif_pbc_protocol.md
+      - cif_pbc_results.md
+    cmds:
+      - '{{.PYTHON}} cif_pbc.py'
+
+  all:
+    desc: Build cache and run analysis
+    deps:
+      - analysis
+
+  clear:
+    desc: Remove derived cache and analysis artifacts
+    cmds:
+      - rm -rf cache/build cache/build.RData cif_pbc_out

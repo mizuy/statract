@@ -1,0 +1,36 @@
+version: '3'
+
+vars:
+  PYTHON: PYTHONPATH=. uv run python
+
+tasks:
+  build:
+    desc: Cache published Sick-Sicker teaching parameters
+    sources:
+      - build.py
+    generates:
+      - cache/build
+    cmds:
+      - '{{.PYTHON}} build.py'
+
+  analysis:
+    desc: Run Markov CEA and write cea_sicksicker_out artifacts
+    deps:
+      - build
+    sources:
+      - cea_sicksicker.py
+      - cea_sicksicker_concept.md
+      - cea_sicksicker_protocol.md
+      - cea_sicksicker_results.md
+    cmds:
+      - '{{.PYTHON}} cea_sicksicker.py'
+
+  all:
+    desc: Build cache and run analysis
+    deps:
+      - analysis
+
+  clear:
+    desc: Remove derived cache and analysis artifacts
+    cmds:
+      - rm -rf cache/build cache/build.RData cea_sicksicker_out

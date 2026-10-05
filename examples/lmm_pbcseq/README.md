@@ -2,7 +2,7 @@
 
 `fit_mixed`、クラスタ SE、GAM 平滑（病日）。
 
-**読む:** [docs 単一ページ](../../docs/stat/examples/lmm_pbcseq.md)（ギャラリー: [解析例](https://mizuy.github.io/endolab/stat/examples/lmm_pbcseq/)）。データ出典・プロトコル詳細・図つき Results はそちら。
+**読む:** [docs 単一ページ](../../docs/stat/examples/lmm_pbcseq.md)（ギャラリー: [解析例](https://mizuy.github.io/statract/stat/examples/lmm_pbcseq/)）。データ出典・プロトコル詳細・図つき Results はそちら。
 
 ## 実行
 

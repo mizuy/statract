@@ -4,11 +4,11 @@
 
 **docs 単一ページ:** [`docs/stat/examples/legacy_heart.md`](../../docs/stat/examples/legacy_heart.md)。
 
-このプロジェクトは、`endolab`ライブラリを使用した生存解析の例です。
+このディレクトリは `statract` と `examples/support.py` だけで動く。`endolab` も lifelines も import しない。
 
 ## 概要
 
-- **データソース**: lifelinesライブラリのStanford Heart Transplantデータセット
+- **データソース**: Rdatasets の `survival/heart.csv`（Stanford Heart Transplant。git には入れない）
 - **解析内容**:
   1. データの前処理と型変換（snapshot_cacheで自動的に固定化）
   2. Table Oneによるbaseline characteristicsの表示（Python）
@@ -26,7 +26,7 @@
 python build.py
 
 # r.ipynb でデータをロード
-from endolab import load_parquet_dir
+from support import load_parquet_dir
 data = load_parquet_dir("cache/build")
 target = data["target"]
 ```
@@ -124,6 +124,6 @@ Stanford Heart Transplantデータセットは、心臓移植患者の生存デ�
 
 ## 参考
 
-- [ANALYSIS_WORKFLOW.md](../ANALYSIS_WORKFLOW.md): 解析ワークフローと文書標準（正本）
-- [lifelines documentation](https://lifelines.readthedocs.io/): 生存解析ライブラリ
+- [examples/README.md](../README.md): このリポジトリの解析例
+- [surv_colon](../surv_colon/): 生存解析の正本
 

@@ -94,7 +94,7 @@ print(fitted.predict())
 
 この版が合わせるのは、ガウス分布、`basis="cr"`、`method="reml"`、平滑 1 本です。
 
-公開臨床データでの一連の流れ（Table 1 → モデル → 図）は合成データではなく [解析例ギャラリー](examples.md) を見る。リポジトリ側の目次は [`examples/`](https://github.com/mizuy/endolab/tree/main/examples)。
+公開臨床データでの一連の流れ（Table 1 → モデル → 図）は合成データではなく [解析例ギャラリー](examples.md) を見る。リポジトリ側の目次は [`examples/`](https://github.com/mizuy/statract/tree/main/examples)。
 
 ## 線形混合モデル
 
@@ -119,4 +119,4 @@ print(logit.tidy(exponentiate=True))
 
 列で書くときは `fit_mixed(frame, "y", ["x"], groups="g")` です。変量傾きは `y ~ x + (1 + x | g)`、または `slopes=["x"]` です。`x` は固定効果にも入ります。ガウスを最尤にするときは `method="ml"` です。`(x || g)` の無相関な傾きは受け付けません。ガウスだけ mixedlm-rs に戻すときは `engine="mixedlm_rs"` です。
 
-公開臨床データでの一連の流れ（Table 1 → モデル → 図）は合成データではなく [解析例ギャラリー](examples.md) を見る。リポジトリ側の目次は [`examples/`](https://github.com/mizuy/endolab/tree/main/examples)。Python 対 R の秒数と係数差は [Benchmarks](benchmarks.md)。
+公開臨床データでの一連の流れ（Table 1 → モデル → 図）は合成データではなく [解析例ギャラリー](examples.md) を見る。リポジトリ側の目次は [`examples/`](https://github.com/mizuy/statract/tree/main/examples)。Python 対 R の秒数と係数差は [Benchmarks](benchmarks.md)。

@@ -1,0 +1,190 @@
+from __future__ import annotations
+
+import sys
+from pathlib import Path as _ExamplesPath
+
+_EXAMPLES = _ExamplesPath(__file__).resolve().parents[1]
+if str(_EXAMPLES) not in sys.path:
+    sys.path.insert(0, str(_EXAMPLES))
+
+"""Stabilized IPTW ATE for NHEFS quitting smoking and weight change. No ATT."""
+
+
+import io
+import shutil
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import polars as pl
+
+from support import flowchart, load_parquet_dir
+from statract.reporting import mermaid_flowchart
+from statract.reporting import write_csv_companion
+from statract import (
+    agg_category,
+    agg_mean_sd,
+    fit_glm,
+    fit_ols,
+    hc_covariance,
+    match_sample,
+    plot_forest,
+    write_tableone_artifacts,
+)
+from config import ANALYSIS_OUT, CACHE
+from project import project
+
+PS_COVS = [
+    "age",
+    "sex",
+    "race",
+    "education",
+    "smokeintensity",
+    "smokeyrs",
+    "exercise",
+    "active",
+    "wt71",
+]
+PS_FORMULA = "qsmk ~ age + sex + race + education + smokeintensity + smokeyrs + exercise + active + wt71"
+WEIGHT_CAP = 10.0
+CEM_COVS = ["age", "sex", "race", "education", "wt71"]
+
+
+def _clear_out(out: Path) -> Path:
+    if out.exists():
+        shutil.rmtree(out)
+    out.mkdir(parents=True)
+    (out / "figures").mkdir()
+    return out
+
+
+def _write_csv(out: Path, stem: str, frame: pl.DataFrame) -> None:
+    path = out / f"{stem}.csv"
+    frame.write_csv(path)
+    write_csv_companion(path, csv_link_prefix=out.name)
+
+
+def _tidy_hc(fit) -> pl.DataFrame:
+    fit.covariance = hc_covariance(fit, kind="HC3")
+    return fit.tidy()
+
+
+def main() -> None:
+    out = _clear_out(ANALYSIS_OUT)
+    data = load_parquet_dir(CACHE / "build")
+    target: pl.DataFrame = data["target"]
+    covs = [c for c in PS_COVS if c in target.columns]
+
+    buf = io.StringIO()
+    cohort = flowchart(target, 
+        {
+            "Quit indicator and weight change present": pl.col("qsmk").is_not_null()
+            & pl.col("wt82_71").is_not_null(),
+            "Complete propensity covariates": pl.all_horizontal([pl.col(c).is_not_null() for c in covs]),
+        },
+        out=buf,
+    )
+    flow_text = buf.getvalue()
+    (out / "text_flowchart.md").write_text(
+        "```text\n" + flow_text.rstrip() + "\n```\n",
+        encoding="utf-8",
+    )
+    (out / "mermaid_flowchart.md").write_text(
+        mermaid_flowchart(flow_text, final_label="Analysis cohort"),
+        encoding="utf-8",
+    )
+
+    params = {
+        "Age": ("age", agg_mean_sd),
+        "Sex": ("sex", agg_category),
+        "Race": ("race", agg_category),
+        "Education": ("education", agg_category),
+        "Cigarettes/day (1971)": ("smokeintensity", agg_mean_sd),
+        "Years smoked": ("smokeyrs", agg_mean_sd),
+        "Exercise": ("exercise", agg_category),
+        "Activity": ("active", agg_category),
+        "Weight 1971 (kg)": ("wt71", agg_mean_sd),
+        "Weight change (kg)": ("wt82_71", agg_mean_sd),
+    }
+    params = {k: v for k, v in params.items() if v[0] in cohort.columns}
+    # tableone(...) is the Table 1 API; this helper only writes CSV/HTML/md to *_out/.
+    write_tableone_artifacts(
+        out,
+        "table1",
+        df=cohort,
+        params=params,
+        hue="qsmk",
+        add_all=True,
+        add_pvalue=True,
+    )
+
+    ps_fit = fit_glm(cohort, PS_FORMULA, family="binomial")
+    _write_csv(out, "ps_glm", ps_fit.tidy(exponentiate=True))
+    ps = np.clip(ps_fit.predict(kind="response"), 1e-6, 1 - 1e-6)
+    # predict() uses fitted rows; align via row_index
+    idx = np.asarray(ps_fit.row_index)
+    ps_col = np.full(cohort.height, np.nan)
+    ps_col[idx] = ps
+    qsmk = cohort["qsmk"].to_numpy().astype(float)
+    p_a = float(np.nanmean(qsmk))
+    sw = np.where(qsmk == 1.0, p_a / ps_col, (1.0 - p_a) / (1.0 - ps_col))
+    sw_trunc = np.clip(sw, 0.0, WEIGHT_CAP)
+    weighted = cohort.with_columns(
+        pl.Series("ps", ps_col),
+        pl.Series("sw", sw),
+        pl.Series("sw_trunc", sw_trunc),
+    ).filter(pl.col("sw_trunc").is_not_null() & pl.col("sw_trunc").is_finite())
+
+    wsum = weighted.select(
+        pl.col("sw_trunc").min().alias("min"),
+        pl.col("sw_trunc").median().alias("median"),
+        pl.col("sw_trunc").mean().alias("mean"),
+        pl.col("sw_trunc").max().alias("max"),
+        (pl.col("sw") > WEIGHT_CAP).sum().alias("n_capped"),
+        pl.len().alias("n"),
+    )
+    _write_csv(out, "iptw_weight_summary", wsum)
+    (out / "iptw_n.md").write_text(
+        f"Stabilized ATE IPTW; no `iptw()` helper (weights are computed in this script). "
+        f"PS formula `{PS_FORMULA}`. Truncate `sw` at {WEIGHT_CAP:g}. "
+        f"n = {weighted.height}; P(qsmk=1) = {p_a:.3f}; n weights capped = {int(wsum['n_capped'][0])}. "
+        "Estimand is ATE only (no ATT).\n",
+        encoding="utf-8",
+    )
+
+    unadj = fit_ols(cohort, "wt82_71 ~ qsmk")
+    _write_csv(out, "ols_unadjusted", unadj.tidy())
+    iptw = fit_ols(weighted, "wt82_71 ~ qsmk", weights="sw_trunc")
+    _write_csv(out, "ols_iptw_model_se", iptw.tidy())
+    iptw_hc = _tidy_hc(iptw)
+    _write_csv(out, "ols_iptw_hc3", iptw_hc)
+    plot_forest(
+        iptw_hc,
+        out / "figures" / "ols_iptw_forest.png",
+        title="IPTW OLS (HC3)",
+        xlabel="Coefficient (kg)",
+        layout="table",
+    )
+
+    cem_note = out / "cem_sensitivity.md"
+    cem_covs = [c for c in CEM_COVS if c in cohort.columns]
+    try:
+        matched = match_sample(cohort, "qsmk", cem_covs, method="cem")
+        _write_csv(out, "cem_balance", matched.balance())
+        fig = matched.love_plot()
+        fig.savefig(out / "figures" / "cem_love.png", dpi=150, bbox_inches="tight")
+        plt.close(fig)
+        cem_note.write_text(
+            "CEM is a short sensitivity of covariate balance, not a second estimand. "
+            "No ATT outcome model is fit. Library `match_sample(..., method='cem')` "
+            "internally uses ATT-style subclass weights; do not read this as ATE.\n",
+            encoding="utf-8",
+        )
+    except Exception as exc:  # noqa: BLE001
+        cem_note.write_text(f"CEM sensitivity skipped: {type(exc).__name__}: {exc}\n", encoding="utf-8")
+
+    print(f"wrote {out} from {project.project_root}")
+
+
+if __name__ == "__main__":
+    main()

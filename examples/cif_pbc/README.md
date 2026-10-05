@@ -2,7 +2,7 @@
 
 Aalen–Johansen CIF と Fine–Gray（移植を競合イベント）。
 
-**読む:** [docs 単一ページ](../../docs/stat/examples/cif_pbc.md)（ギャラリー: [解析例](https://mizuy.github.io/endolab/stat/examples/cif_pbc/)）。データ出典・プロトコル詳細・図つき Results はそちら。
+**読む:** [docs 単一ページ](../../docs/stat/examples/cif_pbc.md)（ギャラリー: [解析例](https://mizuy.github.io/statract/stat/examples/cif_pbc/)）。データ出典・プロトコル詳細・図つき Results はそちら。
 
 ## 実行
 

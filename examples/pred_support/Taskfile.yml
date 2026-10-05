@@ -1,0 +1,36 @@
+version: '3'
+
+vars:
+  PYTHON: PYTHONPATH=. uv run python
+
+tasks:
+  build:
+    desc: Build analysis-ready cache from snapshot
+    sources:
+      - build.py
+    generates:
+      - cache/build
+    cmds:
+      - '{{.PYTHON}} build.py'
+
+  analysis:
+    desc: Run analysis and write pred_support_out artifacts
+    deps:
+      - build
+    sources:
+      - pred_support.py
+      - pred_support_concept.md
+      - pred_support_protocol.md
+      - pred_support_results.md
+    cmds:
+      - '{{.PYTHON}} pred_support.py'
+
+  all:
+    desc: Build cache and run analysis
+    deps:
+      - analysis
+
+  clear:
+    desc: Remove derived cache and analysis artifacts
+    cmds:
+      - rm -rf cache/build cache/build.RData pred_support_out

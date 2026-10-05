@@ -2,7 +2,7 @@
 
 Cox、PH 検定、Weibull AFT を同じ公開コホートで通す。
 
-**読む:** [docs 単一ページ](../../docs/stat/examples/aft_rotterdam.md)（ギャラリー: [解析例](https://mizuy.github.io/endolab/stat/examples/aft_rotterdam/)）。データ出典・プロトコル詳細・図つき Results はそちら。
+**読む:** [docs 単一ページ](../../docs/stat/examples/aft_rotterdam.md)（ギャラリー: [解析例](https://mizuy.github.io/statract/stat/examples/aft_rotterdam/)）。データ出典・プロトコル詳細・図つき Results はそちら。
 
 ## 実行
 

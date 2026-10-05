@@ -1,6 +1,6 @@
 # 解析例ギャラリー
 
-`statract` と `statract.cea` を公開教学データで **入力 → 解析 → results → 図** まで通すスタンドアロン例です。配置と文書は [ANALYSIS_WORKFLOW.md](https://github.com/mizuy/endolab/blob/main/ANALYSIS_WORKFLOW.md)。生データ CSV はリポジトリに入れていません（各 `build.py` が snapshot または論文表のスカラーを cache）。リポジトリ側の目次は [`examples/README.md`](https://github.com/mizuy/endolab/blob/main/examples/README.md) です。
+`statract` と `statract.cea` を公開教学データで **入力 → 解析 → results → 図** まで通すスタンドアロン例です。配置と文書は [ANALYSIS_WORKFLOW.md](https://github.com/mizuy/statract/blob/main/examples/README.md)。生データ CSV はリポジトリに入れていません（各 `build.py` が snapshot または論文表のスカラーを cache）。リポジトリ側の目次は [`examples/README.md`](https://github.com/mizuy/statract/blob/main/examples/README.md) です。
 
 方針の正本は [example-gallery-policy.md](example-gallery-policy.md)。各カードの**主リンクは docs 内の単一ページ**です。読み順は **目的概説 → データと列 → CQ と方針 → flowchart / tableone → メイン解析 → 結果（図/表＋コードタブ）→ 解釈**（7 節。独立のライブラリコード節は置かない）。Results の図・表は **`examples/<stem>/<stem>_out/` が正本**で、選別コピーを `docs/stat/examples/assets/<stem>/` に載せます（別経路で再描画しない）。同期は `uv run python scripts/sync_example_assets.py`。完全な `*_out/` は gitignore のままローカル再生成用です。実行はリポジトリルートで `uv sync` のあと、各 `examples/<stem>/` で `task all`（手順は各 README）。
 
@@ -19,7 +19,7 @@
     **データ** — R `survival::colon`（患者単位）  
     **API** — `plot_survival`（NAR 既定）、`cox_ph`, `proportional_hazards_test`, `write_cox_diagnostic_suite`, `plot_forest`（表一体）
 
-    [ドキュメント →](examples/surv_colon.md) · [コード](https://github.com/mizuy/endolab/tree/main/examples/surv_colon)
+    [ドキュメント →](examples/surv_colon.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/surv_colon)
 
 -   __[cif_pbc](examples/cif_pbc.md)__ — 競合リスク（CIF / Fine–Gray）
 
@@ -30,7 +30,7 @@
     **データ** — R `survival::pbc`（無作為化例）  
     **API** — `survival_curve(..., kind="aalen_johansen")`, `fine_gray`, 重み付き `cox_ph`, `plot_forest`
 
-    [ドキュメント →](examples/cif_pbc.md) · [コード](https://github.com/mizuy/endolab/tree/main/examples/cif_pbc)
+    [ドキュメント →](examples/cif_pbc.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/cif_pbc)
 
 -   __[aft_rotterdam](examples/aft_rotterdam.md)__ — Cox / PH 検定 / AFT
 
@@ -41,7 +41,7 @@
     **データ** — R `survival::rotterdam`  
     **API** — `cox_ph`, `proportional_hazards_test`, `write_cox_diagnostic_suite`, `accelerated_failure`（Weibull）, `plot_forest`（表一体）
 
-    [ドキュメント →](examples/aft_rotterdam.md) · [コード](https://github.com/mizuy/endolab/tree/main/examples/aft_rotterdam)
+    [ドキュメント →](examples/aft_rotterdam.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/aft_rotterdam)
 
 -   __[cox_retinopathy](examples/cox_retinopathy.md)__ — クラスター頑健 Cox（Lin–Wei）
 
@@ -52,7 +52,7 @@
     **データ** — R `survival::retinopathy`（眼単位、id クラスター）  
     **API** — `cox_ph(..., cluster=)` / `cluster(id)`、`plot_survival`（NAR）、`proportional_hazards_test`, `write_cox_diagnostic_suite`, `plot_forest`（表一体）、`tableone`
 
-    [ドキュメント →](examples/cox_retinopathy.md) · [コード](https://github.com/mizuy/endolab/tree/main/examples/cox_retinopathy)
+    [ドキュメント →](examples/cox_retinopathy.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/cox_retinopathy)
 
 </div>
 
@@ -69,7 +69,7 @@
     **データ** — `medicaldata::indo_rct`  
     **API** — `fit_mixed` binomial, `median_odds_ratio`, `glmm_random_effects`, `plot_random_effects`, `plot_forest`, `fit_glm` binomial
 
-    [ドキュメント →](examples/logit_indo.md) · [コード](https://github.com/mizuy/endolab/tree/main/examples/logit_indo)
+    [ドキュメント →](examples/logit_indo.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/logit_indo)
 
 -   __[lmm_pbcseq](examples/lmm_pbcseq.md)__ — ガウス LMM / クラスタ SE / GAM
 
@@ -80,7 +80,7 @@
     **データ** — R `survival::pbcseq`  
     **API** — `fit_mixed`, `cluster_covariance`, `gam`, `smooth`
 
-    [ドキュメント →](examples/lmm_pbcseq.md) · [コード](https://github.com/mizuy/endolab/tree/main/examples/lmm_pbcseq)
+    [ドキュメント →](examples/lmm_pbcseq.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/lmm_pbcseq)
 
 </div>
 
@@ -97,7 +97,7 @@
     **データ** — hbiostat SUPPORT2（fetch only）  
     **API** — `fit_glm` binomial, `write_probability_artifacts`, `plot_calibration`, `plot_dca`, `binary_perf`, `threshold_tradeoff`, `plot_forest`
 
-    [ドキュメント →](examples/pred_support.md) · [コード](https://github.com/mizuy/endolab/tree/main/examples/pred_support)
+    [ドキュメント →](examples/pred_support.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/pred_support)
 
 </div>
 
@@ -114,7 +114,7 @@
     **データ** — Vanderbilt RHC（Connors JAMA 1996）。教学・非再配布  
     **API** — `match_sample`, `balance` / `love_plot`, マッチ後 `fit_glm`, `plot_forest`
 
-    [ドキュメント →](examples/psm_rhc.md) · [コード](https://github.com/mizuy/endolab/tree/main/examples/psm_rhc)
+    [ドキュメント →](examples/psm_rhc.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/psm_rhc)
 
 -   __[iptw_nhefs](examples/iptw_nhefs.md)__ — 安定化 IPTW（ATE）
 
@@ -125,7 +125,7 @@
     **データ** — NHEFS（fetch only）  
     **API** — PS `fit_glm`, 手計算の安定化重み, `fit_ols` + `hc_covariance`, `plot_forest`（名前付き `iptw()` は無い）
 
-    [ドキュメント →](examples/iptw_nhefs.md) · [コード](https://github.com/mizuy/endolab/tree/main/examples/iptw_nhefs)
+    [ドキュメント →](examples/iptw_nhefs.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/iptw_nhefs)
 
 </div>
 
@@ -142,7 +142,7 @@
     **データ** — DARTH 教学パラメータ（Alarid-Escudero et al. MDM 2023 Table 1）。仮想疾患、PHI なし  
     **API** — `simulate_cohort_markov`, `calculate_icers`, `one_way_dsa`, `run_psa`, `ce_plane`, `ceac`, `evpi`
 
-    [ドキュメント →](examples/cea_sicksicker.md) · [コード](https://github.com/mizuy/endolab/tree/main/examples/cea_sicksicker)
+    [ドキュメント →](examples/cea_sicksicker.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/cea_sicksicker)
 
 </div>
 
@@ -156,10 +156,10 @@
 
     時間依存共変量の旧例（n=172）。ワークフロー正本ではない
 
-    **データ** — lifelines / survival Stanford Heart  
+    **データ** — Rdatasets `survival/heart`（lifelines は使わない）  
     **API** — 既存ノートブック（counting process）
 
-    [ドキュメント →](examples/legacy_heart.md) · [コード](https://github.com/mizuy/endolab/tree/main/examples/legacy_heart)
+    [ドキュメント →](examples/legacy_heart.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/legacy_heart)
 
 </div>
 
@@ -169,17 +169,17 @@
 
 | 例 | docs ページ | 実行コード |
 |----|-------------|------------|
-| surv_colon | [surv_colon](examples/surv_colon.md) | [examples/surv_colon/](https://github.com/mizuy/endolab/tree/main/examples/surv_colon) |
-| cif_pbc | [cif_pbc](examples/cif_pbc.md) | [examples/cif_pbc/](https://github.com/mizuy/endolab/tree/main/examples/cif_pbc) |
-| aft_rotterdam | [aft_rotterdam](examples/aft_rotterdam.md) | [examples/aft_rotterdam/](https://github.com/mizuy/endolab/tree/main/examples/aft_rotterdam) |
-| cox_retinopathy | [cox_retinopathy](examples/cox_retinopathy.md) | [examples/cox_retinopathy/](https://github.com/mizuy/endolab/tree/main/examples/cox_retinopathy) |
-| logit_indo | [logit_indo](examples/logit_indo.md) | [examples/logit_indo/](https://github.com/mizuy/endolab/tree/main/examples/logit_indo) |
-| lmm_pbcseq | [lmm_pbcseq](examples/lmm_pbcseq.md) | [examples/lmm_pbcseq/](https://github.com/mizuy/endolab/tree/main/examples/lmm_pbcseq) |
-| psm_rhc | [psm_rhc](examples/psm_rhc.md) | [examples/psm_rhc/](https://github.com/mizuy/endolab/tree/main/examples/psm_rhc) |
-| iptw_nhefs | [iptw_nhefs](examples/iptw_nhefs.md) | [examples/iptw_nhefs/](https://github.com/mizuy/endolab/tree/main/examples/iptw_nhefs) |
-| pred_support | [pred_support](examples/pred_support.md) | [examples/pred_support/](https://github.com/mizuy/endolab/tree/main/examples/pred_support) |
-| cea_sicksicker | [cea_sicksicker](examples/cea_sicksicker.md) | [examples/cea_sicksicker/](https://github.com/mizuy/endolab/tree/main/examples/cea_sicksicker) |
-| legacy_heart | [legacy_heart](examples/legacy_heart.md) | [examples/legacy_heart/](https://github.com/mizuy/endolab/tree/main/examples/legacy_heart) |
+| surv_colon | [surv_colon](examples/surv_colon.md) | [examples/surv_colon/](https://github.com/mizuy/statract/tree/main/examples/surv_colon) |
+| cif_pbc | [cif_pbc](examples/cif_pbc.md) | [examples/cif_pbc/](https://github.com/mizuy/statract/tree/main/examples/cif_pbc) |
+| aft_rotterdam | [aft_rotterdam](examples/aft_rotterdam.md) | [examples/aft_rotterdam/](https://github.com/mizuy/statract/tree/main/examples/aft_rotterdam) |
+| cox_retinopathy | [cox_retinopathy](examples/cox_retinopathy.md) | [examples/cox_retinopathy/](https://github.com/mizuy/statract/tree/main/examples/cox_retinopathy) |
+| logit_indo | [logit_indo](examples/logit_indo.md) | [examples/logit_indo/](https://github.com/mizuy/statract/tree/main/examples/logit_indo) |
+| lmm_pbcseq | [lmm_pbcseq](examples/lmm_pbcseq.md) | [examples/lmm_pbcseq/](https://github.com/mizuy/statract/tree/main/examples/lmm_pbcseq) |
+| psm_rhc | [psm_rhc](examples/psm_rhc.md) | [examples/psm_rhc/](https://github.com/mizuy/statract/tree/main/examples/psm_rhc) |
+| iptw_nhefs | [iptw_nhefs](examples/iptw_nhefs.md) | [examples/iptw_nhefs/](https://github.com/mizuy/statract/tree/main/examples/iptw_nhefs) |
+| pred_support | [pred_support](examples/pred_support.md) | [examples/pred_support/](https://github.com/mizuy/statract/tree/main/examples/pred_support) |
+| cea_sicksicker | [cea_sicksicker](examples/cea_sicksicker.md) | [examples/cea_sicksicker/](https://github.com/mizuy/statract/tree/main/examples/cea_sicksicker) |
+| legacy_heart | [legacy_heart](examples/legacy_heart.md) | [examples/legacy_heart/](https://github.com/mizuy/statract/tree/main/examples/legacy_heart) |
 
 ## API から探す {#api-index}
 

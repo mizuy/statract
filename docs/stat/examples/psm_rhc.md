@@ -2,7 +2,7 @@
 
 1:1 最近傍マッチ（ATT）の正本。`psmatch` は使わない。マッチ後 OR の forest まで。
 
-[← ギャラリー](../examples.md) · [実行用ディレクトリ（GitHub）](https://github.com/mizuy/endolab/tree/main/examples/psm_rhc) · 配置規約は [ANALYSIS_WORKFLOW.md](https://github.com/mizuy/endolab/blob/main/ANALYSIS_WORKFLOW.md)
+[← ギャラリー](../examples.md) · [実行用ディレクトリ（GitHub）](https://github.com/mizuy/statract/tree/main/examples/psm_rhc) · 配置規約は [ANALYSIS_WORKFLOW.md](https://github.com/mizuy/statract/blob/main/examples/README.md)
 
 ## 目的概説
 
@@ -183,4 +183,4 @@ cd examples/psm_rhc
 task all
 ```
 
-ワークフロー分割版: [concept](https://github.com/mizuy/endolab/blob/main/examples/psm_rhc/psm_rhc_concept.md) · [protocol](https://github.com/mizuy/endolab/blob/main/examples/psm_rhc/psm_rhc_protocol.md) · [results](https://github.com/mizuy/endolab/blob/main/examples/psm_rhc/psm_rhc_results.md) · [discussion](https://github.com/mizuy/endolab/blob/main/examples/psm_rhc/psm_rhc_discussion.md)
+ワークフロー分割版: [concept](https://github.com/mizuy/statract/blob/main/examples/psm_rhc/psm_rhc_concept.md) · [protocol](https://github.com/mizuy/statract/blob/main/examples/psm_rhc/psm_rhc_protocol.md) · [results](https://github.com/mizuy/statract/blob/main/examples/psm_rhc/psm_rhc_results.md) · [discussion](https://github.com/mizuy/statract/blob/main/examples/psm_rhc/psm_rhc_discussion.md)

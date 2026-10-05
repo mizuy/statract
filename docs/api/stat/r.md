@@ -19,7 +19,7 @@ The `r` module provides a bridge between Python and R, enabling seamless data ex
 
 ## Requirements
 
-The bridge is an optional extra. `import endolab` does not load `rpy2` or start R.
+The bridge is an optional extra. `import statract` does not load `rpy2` or start R.
 
 - `statract[r]` (`rpy2` and `rpy2-arrow`), for example `pip install statract[r]` or `uv sync --extra r`
 - A working R installation with the `polars` and `tidyverse` packages

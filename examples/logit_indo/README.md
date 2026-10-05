@@ -2,7 +2,7 @@
 
 施設変量 `fit_mixed(..., family="binomial")`（lme-python / lme-rs）+ MOR / 施設 BLUP。固定効果二項 GLM は比較。ホールドアウト較正は使わない。
 
-**読む:** [docs 単一ページ](../../docs/stat/examples/logit_indo.md)（ギャラリー: [解析例](https://mizuy.github.io/endolab/stat/examples/logit_indo/)）。データ出典・プロトコル詳細・図つき Results はそちら。
+**読む:** [docs 単一ページ](../../docs/stat/examples/logit_indo.md)（ギャラリー: [解析例](https://mizuy.github.io/statract/stat/examples/logit_indo/)）。データ出典・プロトコル詳細・図つき Results はそちら。
 
 ## 実行
 

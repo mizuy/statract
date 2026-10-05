@@ -2,10 +2,10 @@
 
 時間依存共変量の旧例（n=172）。**ワークフロー正本ではない。**
 
-**データ** — lifelines / survival Stanford Heart  
-**API** — 既存ノートブック（counting process）
+**データ** — Rdatasets `survival/heart.csv`（Stanford Heart。git 非収載）  
+**API** — `examples/support.py` の snapshot cache。ノートブックは counting process の旧デモ
 
-[← ギャラリー](../examples.md) · [実行用ディレクトリ（GitHub）](https://github.com/mizuy/endolab/tree/main/examples/legacy_heart)
+[← ギャラリー](../examples.md) · [実行用ディレクトリ（GitHub）](https://github.com/mizuy/statract/tree/main/examples/legacy_heart)
 
 ## 概要
 
@@ -19,16 +19,16 @@ Stanford Heart Transplant（n=172）の counting process 例を jupyter ノー�
 
 ```bash
 cd examples/legacy_heart
-uv sync
 python build.py
-# main.ipynb / r.ipynb を開いて解析
+# main.ipynb / r.ipynb は cache を読む。lifelines は使わない
 ```
 
-- `build.py` — snapshot → `cache/build/`
-- `main.ipynb` / `r.ipynb` — Table 1 と生存解析
+- `build.py` — Rdatasets CSV → snapshot → `cache/build/target.parquet`
+- この環境での `build.py` は 172 行（列 `start`, `stop`, `event`, `age`, `year`, `surgery`, `transplant`, `id` ほか）を cache した
+- `main.ipynb` / `r.ipynb` — Table 1。バッチ実行の正本ではない
 
 ## Results / Discussion
 
 新規の教学正本としては使わない想定です。生存 API の正本は [`surv_colon`](surv_colon.md)、競合リスクは [`cif_pbc`](cif_pbc.md)、PH / AFT は [`aft_rotterdam`](aft_rotterdam.md) を参照してください。
 
-詳細はリポジトリの [README](https://github.com/mizuy/endolab/blob/main/examples/legacy_heart/README.md) です。
+詳細はリポジトリの [README](https://github.com/mizuy/statract/blob/main/examples/legacy_heart/README.md) です。

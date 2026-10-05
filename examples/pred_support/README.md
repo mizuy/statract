@@ -2,7 +2,7 @@
 
 180 日死亡の二項 GLM を train にフィットし、ホールドアウトで `write_probability_artifacts` / `plot_calibration` / `plot_dca` / `binary_perf` を通す。
 
-**読む:** [docs 単一ページ](../../docs/stat/examples/pred_support.md)（ギャラリー: [解析例](https://mizuy.github.io/endolab/stat/examples/pred_support/)）。データ出典・プロトコル詳細・図つき Results はそちら。
+**読む:** [docs 単一ページ](../../docs/stat/examples/pred_support.md)（ギャラリー: [解析例](https://mizuy.github.io/statract/stat/examples/pred_support/)）。データ出典・プロトコル詳細・図つき Results はそちら。
 
 ## 実行
 

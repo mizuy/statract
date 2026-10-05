@@ -2,7 +2,7 @@
 
 `statract.cea` の核（疾患非依存）を、DARTH の仮想疾患 Sick-Sicker で通す例です。病態・費用・効用はライブラリの外（`examples/cea_sicksicker/`）に置きます。
 
-[← ギャラリー](../examples.md) · [実行用ディレクトリ（GitHub）](https://github.com/mizuy/endolab/tree/main/examples/cea_sicksicker) · CEA 概要は [cea/overview](../../cea/overview.md) · 配置規約は [ANALYSIS_WORKFLOW.md](https://github.com/mizuy/endolab/blob/main/ANALYSIS_WORKFLOW.md)
+[← ギャラリー](../examples.md) · [実行用ディレクトリ（GitHub）](https://github.com/mizuy/statract/tree/main/examples/cea_sicksicker) · CEA 概要は [cea/overview](../../cea/overview.md) · 配置規約は [ANALYSIS_WORKFLOW.md](https://github.com/mizuy/statract/blob/main/examples/README.md)
 
 ## 目的概説
 
@@ -79,7 +79,7 @@ Virtual closed cohort: 100% start in H at age 25; ages 25–100 inclusive (76 cy
 === "コード"
 
     ```python
-    from endolab import cache
+    from support import cache
     from project import project
 
     @cache(project.cache / "build")
@@ -245,4 +245,4 @@ cd examples/cea_sicksicker
 task all
 ```
 
-ローカル分割: [concept](https://github.com/mizuy/endolab/blob/main/examples/cea_sicksicker/cea_sicksicker_concept.md) · [protocol](https://github.com/mizuy/endolab/blob/main/examples/cea_sicksicker/cea_sicksicker_protocol.md) · [results](https://github.com/mizuy/endolab/blob/main/examples/cea_sicksicker/cea_sicksicker_results.md) · [discussion](https://github.com/mizuy/endolab/blob/main/examples/cea_sicksicker/cea_sicksicker_discussion.md)
+ローカル分割: [concept](https://github.com/mizuy/statract/blob/main/examples/cea_sicksicker/cea_sicksicker_concept.md) · [protocol](https://github.com/mizuy/statract/blob/main/examples/cea_sicksicker/cea_sicksicker_protocol.md) · [results](https://github.com/mizuy/statract/blob/main/examples/cea_sicksicker/cea_sicksicker_results.md) · [discussion](https://github.com/mizuy/statract/blob/main/examples/cea_sicksicker/cea_sicksicker_discussion.md)

@@ -2,7 +2,7 @@
 
 手計算の安定化 IPTW + `fit_ols` / HC3。CEM はバランス感度のみ。
 
-**読む:** [docs 単一ページ](../../docs/stat/examples/iptw_nhefs.md)（ギャラリー: [解析例](https://mizuy.github.io/endolab/stat/examples/iptw_nhefs/)）。データ出典・プロトコル詳細・図つき Results はそちら。
+**読む:** [docs 単一ページ](../../docs/stat/examples/iptw_nhefs.md)（ギャラリー: [解析例](https://mizuy.github.io/statract/stat/examples/iptw_nhefs/)）。データ出典・プロトコル詳細・図つき Results はそちら。
 
 ## 実行
 

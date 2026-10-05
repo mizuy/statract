@@ -2,7 +2,7 @@
 
 `match_sample` 最近傍 → Love plot → マッチ後ロジスティック。
 
-**読む:** [docs 単一ページ](../../docs/stat/examples/psm_rhc.md)（ギャラリー: [解析例](https://mizuy.github.io/endolab/stat/examples/psm_rhc/)）。データ出典・プロトコル詳細・図つき Results はそちら。
+**読む:** [docs 単一ページ](../../docs/stat/examples/psm_rhc.md)（ギャラリー: [解析例](https://mizuy.github.io/statract/stat/examples/psm_rhc/)）。データ出典・プロトコル詳細・図つき Results はそちら。
 
 ## 実行
 

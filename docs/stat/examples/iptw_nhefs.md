@@ -2,7 +2,7 @@
 
 `psm_rhc` の対。連続アウトカムの安定化 IPTW（ATE のみ）。ライブラリに `iptw()` は無く、重みは例スクリプトの手計算。IPTW OLS の forest まで。
 
-[← ギャラリー](../examples.md) · [実行用ディレクトリ（GitHub）](https://github.com/mizuy/endolab/tree/main/examples/iptw_nhefs) · 配置規約は [ANALYSIS_WORKFLOW.md](https://github.com/mizuy/endolab/blob/main/ANALYSIS_WORKFLOW.md)
+[← ギャラリー](../examples.md) · [実行用ディレクトリ（GitHub）](https://github.com/mizuy/statract/tree/main/examples/iptw_nhefs) · 配置規約は [ANALYSIS_WORKFLOW.md](https://github.com/mizuy/statract/blob/main/examples/README.md)
 
 ## 目的概説
 
@@ -243,4 +243,4 @@ cd examples/iptw_nhefs
 task all
 ```
 
-ワークフロー分割版: [concept](https://github.com/mizuy/endolab/blob/main/examples/iptw_nhefs/iptw_nhefs_concept.md) · [protocol](https://github.com/mizuy/endolab/blob/main/examples/iptw_nhefs/iptw_nhefs_protocol.md) · [results](https://github.com/mizuy/endolab/blob/main/examples/iptw_nhefs/iptw_nhefs_results.md) · [discussion](https://github.com/mizuy/endolab/blob/main/examples/iptw_nhefs/iptw_nhefs_discussion.md)
+ワークフロー分割版: [concept](https://github.com/mizuy/statract/blob/main/examples/iptw_nhefs/iptw_nhefs_concept.md) · [protocol](https://github.com/mizuy/statract/blob/main/examples/iptw_nhefs/iptw_nhefs_protocol.md) · [results](https://github.com/mizuy/statract/blob/main/examples/iptw_nhefs/iptw_nhefs_results.md) · [discussion](https://github.com/mizuy/statract/blob/main/examples/iptw_nhefs/iptw_nhefs_discussion.md)

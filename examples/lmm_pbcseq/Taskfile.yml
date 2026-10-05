@@ -1,0 +1,36 @@
+version: '3'
+
+vars:
+  PYTHON: PYTHONPATH=. uv run python
+
+tasks:
+  build:
+    desc: Build analysis-ready cache from snapshot
+    sources:
+      - build.py
+    generates:
+      - cache/build
+    cmds:
+      - '{{.PYTHON}} build.py'
+
+  analysis:
+    desc: Run analysis and write lmm_pbcseq_out artifacts
+    deps:
+      - build
+    sources:
+      - lmm_pbcseq.py
+      - lmm_pbcseq_concept.md
+      - lmm_pbcseq_protocol.md
+      - lmm_pbcseq_results.md
+    cmds:
+      - '{{.PYTHON}} lmm_pbcseq.py'
+
+  all:
+    desc: Build cache and run analysis
+    deps:
+      - analysis
+
+  clear:
+    desc: Remove derived cache and analysis artifacts
+    cmds:
+      - rm -rf cache/build cache/build.RData lmm_pbcseq_out

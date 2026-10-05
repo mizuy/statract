@@ -2,7 +2,7 @@
 
 患者あたり両眼の公開 RCT で、`cox_ph` の **Lin–Wei sandwich**（`cluster(id)` / `cluster=`）を通す正本。OLS/GLM の `hc_covariance` や `fit_mixed` は使わない。
 
-[← ギャラリー](../examples.md) · [実行用ディレクトリ（GitHub）](https://github.com/mizuy/endolab/tree/main/examples/cox_retinopathy) · 配置規約は [ANALYSIS_WORKFLOW.md](https://github.com/mizuy/endolab/blob/main/ANALYSIS_WORKFLOW.md)
+[← ギャラリー](../examples.md) · [実行用ディレクトリ（GitHub）](https://github.com/mizuy/statract/tree/main/examples/cox_retinopathy) · 配置規約は [ANALYSIS_WORKFLOW.md](https://github.com/mizuy/statract/blob/main/examples/README.md)
 
 ## 目的概説
 
@@ -308,4 +308,4 @@ task all
 uv run python ../../scripts/sync_example_assets.py --stem cox_retinopathy
 ```
 
-サイト掲載は `assets/cox_retinopathy/` のみ（`*_out/` からのコピー）。ワークフロー分割版: [concept](https://github.com/mizuy/endolab/blob/main/examples/cox_retinopathy/cox_retinopathy_concept.md) · [protocol](https://github.com/mizuy/endolab/blob/main/examples/cox_retinopathy/cox_retinopathy_protocol.md) · [results](https://github.com/mizuy/endolab/blob/main/examples/cox_retinopathy/cox_retinopathy_results.md) · [discussion](https://github.com/mizuy/endolab/blob/main/examples/cox_retinopathy/cox_retinopathy_discussion.md)
+サイト掲載は `assets/cox_retinopathy/` のみ（`*_out/` からのコピー）。ワークフロー分割版: [concept](https://github.com/mizuy/statract/blob/main/examples/cox_retinopathy/cox_retinopathy_concept.md) · [protocol](https://github.com/mizuy/statract/blob/main/examples/cox_retinopathy/cox_retinopathy_protocol.md) · [results](https://github.com/mizuy/statract/blob/main/examples/cox_retinopathy/cox_retinopathy_results.md) · [discussion](https://github.com/mizuy/statract/blob/main/examples/cox_retinopathy/cox_retinopathy_discussion.md)
