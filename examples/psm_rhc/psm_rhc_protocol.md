@@ -44,7 +44,7 @@ concept §9。共変量（存在する列のみ）: `age`, `sex`, `race`, `edu`,
 - `balance()` / `love_plot()`
 - マッチ後 Table 1（`weights>0`）も `tableone`。CSV/HTML/md の書き出しは `write_tableone_artifacts`（`*_out/` 同期用）
 - `fit_glm("dth30_bin ~ rhc", family="binomial", weights="weights")`
-- **禁止**: `psmatch`, `GLMHelper`
+- マッチング API は `match_sample`。固定効果の回帰は `fit_glm`
 
 ## 9. 出力 ↔ results
 

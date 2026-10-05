@@ -57,4 +57,4 @@
 
 ## 既存の名前
 
-`cumulative_survival_ci`、`log_rank_pvalue`、`plot_survival` はそのままです。`sm_summary2df` は警告付きで残しています。`psmatch` と `GLMHelper` は互換 shim のみで、生成時に失敗します（`match_sample` / `fit_glm` + `Fit.tidy` へ）。
+`cumulative_survival_ci`、`log_rank_pvalue`、`plot_survival` はそのままです。`sm_summary2df` は警告付きで残しています（置き換え先は `Fit.tidy`）。マッチングは `match_sample`、回帰の係数表は `fit_glm` と `Fit.tidy` です。

@@ -146,23 +146,6 @@
 
 </div>
 
-### レガシー {#legacy}
-
-<div class="grid cards" markdown>
-
--   __[legacy_heart](examples/legacy_heart.md)__ — Stanford Heart（ノートブック）
-
-    ---
-
-    時間依存共変量の旧例（n=172）。ワークフロー正本ではない
-
-    **データ** — Rdatasets `survival/heart`（lifelines は使わない）  
-    **API** — 既存ノートブック（counting process）
-
-    [ドキュメント →](examples/legacy_heart.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/legacy_heart)
-
-</div>
-
 ## 例の詳細 {#details}
 
 各例の本文は上のカードから開く **docs 単一ページ**（上記 7 節）にあります。サイトを離れずに読めます。実行用の薄い README / concept·protocol 分割は `examples/<stem>/` に残しています。
@@ -179,7 +162,6 @@
 | iptw_nhefs | [iptw_nhefs](examples/iptw_nhefs.md) | [examples/iptw_nhefs/](https://github.com/mizuy/statract/tree/main/examples/iptw_nhefs) |
 | pred_support | [pred_support](examples/pred_support.md) | [examples/pred_support/](https://github.com/mizuy/statract/tree/main/examples/pred_support) |
 | cea_sicksicker | [cea_sicksicker](examples/cea_sicksicker.md) | [examples/cea_sicksicker/](https://github.com/mizuy/statract/tree/main/examples/cea_sicksicker) |
-| legacy_heart | [legacy_heart](examples/legacy_heart.md) | [examples/legacy_heart/](https://github.com/mizuy/statract/tree/main/examples/legacy_heart) |
 
 ## API から探す {#api-index}
 
@@ -201,6 +183,6 @@
 
 ## 使わないもの {#out-of-scope}
 
-`psmatch` と `GLMHelper` は使わない。R の `forest.R` は Python gallery の正本にしない（matplotlib の `plot_forest` / `glmm_forestplot` を使う）。較正 / DCA は [`pred_support`](examples/pred_support.md)（`logit_indo` の効果推定には載せない）。
+マッチングは `match_sample`、固定効果の回帰は `fit_glm` です。R の `forest.R` は Python gallery の正本にしない（matplotlib の `plot_forest` / `glmm_forestplot` を使う）。較正 / DCA は [`pred_support`](examples/pred_support.md)（`logit_indo` の効果推定には載せない）。
 
 Quickstart は合成データのままです。公開データでの Python 対 R の壁時計と係数差は [Benchmarks](benchmarks.md)。

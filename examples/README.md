@@ -24,8 +24,7 @@
 | [iptw_nhefs/](iptw_nhefs/) | [docs](../docs/stat/examples/iptw_nhefs.md) | 禁煙と体重変化（ATE） | 手計算の安定化 IPTW、`fit_ols` + `hc_covariance`。`iptw()` は無い | NHEFS（`causaldata` / Rdatasets / Hernán CSV）。**fetch only** |
 | [pred_support/](pred_support/) | [docs](../docs/stat/examples/pred_support.md) | 180 日死亡確率の較正 / DCA | `fit_glm` binomial、`write_probability_artifacts`、`plot_calibration`、`plot_dca`、`binary_perf` | SUPPORT2（hbiostat）。**fetch only** |
 | [cea_sicksicker/](cea_sicksicker/) | [docs](../docs/stat/examples/cea_sicksicker.md) | 仮想 Sick-Sicker の 4 戦略 CEA | `simulate_cohort_markov`, `calculate_icers`, `one_way_dsa`, `run_psa` / `ce_plane` / `ceac` / `evpi` | DARTH 教学パラメータ（Alarid-Escudero et al. MDM 2023 Table 1）。git に CSV なし |
-| [legacy_heart/](legacy_heart/) | [docs](../docs/stat/examples/legacy_heart.md) | Stanford Heart（時間依存） | `build.py` が Rdatasets `survival/heart` を cache。ノートブックは正本ではない | Rdatasets CSV。lifelines は使わない |
 
-`fit_mixed(..., family="binomial")` が indo の施設 GLMM。ガウス LMM は同じ `fit_mixed` の既定（`family="gaussian"`）。`psmatch` / `GLMHelper` は使わない。係数 forest は matplotlib の `plot_forest`（Cox HR / GLM OR / OLS）。R の `forest.R` は正本にしない。
+`fit_mixed(..., family="binomial")` が indo の施設 GLMM。ガウス LMM は同じ `fit_mixed` の既定（`family="gaussian"`）。マッチングは `match_sample`、固定効果の回帰は `fit_glm` です。係数 forest は matplotlib の `plot_forest`（Cox HR / GLM OR / OLS）。R の `forest.R` は正本にしない。
 
 速度と R との差: [`docs/stat/benchmarks.md`](../docs/stat/benchmarks.md)。

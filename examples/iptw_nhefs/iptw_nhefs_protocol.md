@@ -48,7 +48,7 @@ concept §9。
 - 主: `fit_ols(..., "wt82_71 ~ qsmk", weights="sw_trunc")` + `hc_covariance(..., kind="HC3")`
 - 未調整 OLS を併記
 - 感度: `match_sample(..., method="cem")` の `balance` / `love_plot` のみ。アウトカム回帰はしない（第二推定対象にしない）
-- **禁止**: `psmatch`、`iptw()`（無い）、ATT 用の最近傍マッチ
+- **禁止**: `iptw()`（無い）、ATT 用の最近傍マッチ。マッチングを足すときは `match_sample`
 
 ## 9. 出力 ↔ results
 

@@ -1,12 +1,12 @@
 # psm_rhc — PS 最近傍マッチ → ロジスティック
 
-1:1 最近傍マッチ（ATT）の正本。`psmatch` は使わない。マッチ後 OR の forest まで。
+1:1 最近傍マッチ（ATT）の正本。API は `match_sample`。マッチ後 OR の forest まで。
 
 [← ギャラリー](../examples.md) · [実行用ディレクトリ（GitHub）](https://github.com/mizuy/statract/tree/main/examples/psm_rhc) · 配置規約は [ANALYSIS_WORKFLOW.md](https://github.com/mizuy/statract/blob/main/examples/README.md)
 
 ## 目的概説
 
-観察研究で交絡を減らす MatchIt 流の `match_sample` を、公開の重症患者教学データで示すための例です。推定対象は ATT、API は `match_sample`（非推奨の `psmatch` ではない）。因果の確定主張はしません。
+観察研究で交絡を減らす MatchIt 流の `match_sample` を、公開の重症患者教学データで示すための例です。推定対象は ATT、API は `match_sample` です。因果の確定主張はしません。
 
 ## データと列の説明
 

@@ -23,9 +23,6 @@ This module provides statistical analysis utilities for Polars DataFrames, inclu
 
     These may change or be removed in future versions. Use with caution.
 
-    ``psmatch`` and ``GLMHelper`` (from ``.ps``) are deprecated shims that raise
-    ``NotImplementedError``. Use ``match_sample`` and ``fit_glm`` / ``Fit.tidy``.
-
 Statistical figures: ``plot_forest`` / ``plot_survival`` (and diagnostic helpers).
 Plotly funnel / image concat stay in ``statract.figure``.
 
@@ -102,7 +99,6 @@ from .linear_tests import (
     wald_test,
 )
 from .matching import match_sample
-from .ps import GLMHelper, psmatch
 from .forest import plot_forest
 from .regression import (
     glmm_cluster_variance,
@@ -238,7 +234,6 @@ __all__ = [
     "tensor_interaction",
     "tensor_smooth",
     "wald_test",
-    "psmatch",
     "glmm_gpboost",
     "proportion_ci",
     "threshold_tradeoff",

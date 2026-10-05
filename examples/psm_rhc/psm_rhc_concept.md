@@ -26,7 +26,7 @@ Connors et al. JAMA 1996 は SUPPORT 由来の観察データで RHC と死亡�
 
 ## 6. Key messages（予定）
 
-- API は `match_sample` であり非推奨の `psmatch` ではない。
+- API は `match_sample`。
 - 推定対象は ATT、順序はデータ順で決定的にする。
 
 ## 7. 対象のイメージ

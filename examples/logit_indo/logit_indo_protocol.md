@@ -40,7 +40,7 @@ concept §9。
 - Table 1: `tableone(..., hue="rx", add_pvalue=True)`。CSV/HTML/md の書き出しは `write_tableone_artifacts`（`*_out/` 同期用）
 - **主**: `fit_mixed("pep ~ ... + (1 | site)", family="binomial")` — lme-python `glmer`。固定効果 OR を `plot_forest(..., layout="table")`。施設 BLUP を `plot_random_effects`。MOR を `median_odds_ratio`。
 - **比較**: `fit_glm(..., family="binomial")`（未調整 `pep ~ indomethacin`、調整は GLMM と同じ共変量）
-- **禁止**: `glmm_gpboost` を主解析にしない、`GLMHelper`、ホールドアウト較正 / DCA（本例は効果推定）
+- **禁止**: `glmm_gpboost` を主解析にしない。固定効果の比較は `fit_glm`。ホールドアウト較正 / DCA は載せない（本例は効果推定）
 
 ## 9. 出力 ↔ results
 

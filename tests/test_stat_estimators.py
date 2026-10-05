@@ -7,7 +7,6 @@ import polars as pl
 import pytest
 
 from statract import (
-    GLMHelper,
     accelerated_failure,
     cox_ph,
     fine_gray,
@@ -16,7 +15,6 @@ from statract import (
     fit_ols,
     gam,
     match_sample,
-    psmatch,
     smooth,
     sm_summary2df,
     tensor_interaction,
@@ -267,23 +265,7 @@ def test_matrix_distance_rejects_subclass_matching():
         match_sample(data, "treat", ["x1", "x2"], method="subclass", distance="mahalanobis")
 
 
-def test_replaced_helpers_warn():
-    data = pl.DataFrame(
-        {
-            "id": [1, 2, 3, 4, 5, 6],
-            "treatment": [1, 1, 0, 0, 1, 0],
-            "age": [45, 50, 55, 60, 65, 70],
-            "gender": [0, 1, 0, 1, 0, 1],
-            "outcome": [1, 1, 0, 0, 1, 0],
-        }
-    )
-    with pytest.warns(DeprecationWarning, match="match_sample"):
-        with pytest.raises(NotImplementedError, match="match_sample"):
-            psmatch(data, "treatment", ["age", "gender"], "id")
-    with pytest.warns(DeprecationWarning, match="fit_glm"):
-        with pytest.raises(NotImplementedError, match="fit_glm"):
-            GLMHelper("outcome ~ treatment + age", data)
-
+def test_sm_summary2df_warns():
     import statsmodels.api as sm
 
     y = [1.0, 2.0, 3.0, 4.0]

@@ -223,4 +223,4 @@ built.offset         # offset() の和。無ければ None
 | `random_effects` | `(傾き \| グループ)` の列。各要素は `intercept`、`slopes`、`group`、`correlated` |
 | `response_name` | 左辺が列名のときの名前。関数のときは `None` |
 
-変量効果は `fit_mixed` に渡します（ガウスも二項 `family="binomial"` も同じ式）。削除済みの `GLMHelper` は使わず、固定効果だけなら `fit_glm` を使ってください。実験的な `glmm_gpboost` は optional extra で、同じ `model_matrix` 展開を使います。
+変量効果は `fit_mixed` に渡します（ガウスも二項 `family="binomial"` も同じ式）。固定効果だけなら `fit_glm` を使ってください。実験的な `glmm_gpboost` は optional extra で、同じ `model_matrix` 展開を使います。

@@ -66,7 +66,7 @@ fit = gam(
 | 予測の種類 | `kind=`（`"link"`, `"response"`, `"survival"` など）。R の `type=` は公開名にしない |
 | 式 | `fit_ols`、`fit_glm`、`fit_mixed` の結果引数、および `model_matrix`。列名リストも残す。演算子は `+` `-` `*` `:` `/` `%in%` `^`、`0`/`1`、`.`、`I()`、`offset()`、`log` など。変量効果は `(1 \| g)` と `(1 + x \| g)` |
 
-`model_matrix` は R の `terms` と `model.matrix`（treatment contrast）に合わせる。項は次数順、因子の並びは式の中で最初に現れた順、切片を外したときの最初の因子は全水準です。文法は `docs/stat/formula.md` にまとめた。非推奨の `GLMHelper` と `glmm_gpboost` も同じ展開を使います。
+`model_matrix` は R の `terms` と `model.matrix`（treatment contrast）に合わせる。項は次数順、因子の並びは式の中で最初に現れた順、切片を外したときの最初の因子は全水準です。文法は `docs/stat/formula.md` にまとめた。実験的な `glmm_gpboost` も同じ展開を使います。
 
 ### 結果オブジェクト
 
@@ -95,7 +95,7 @@ statsmodels の OLS / GLM を `Fit` に載せる `fit_glm(data, outcome, predict
 | 既存 | 実装 | 今回 |
 |------|------|------|
 | KM / log-rank / `cumulative_survival_ci` / `plot_survival` | lifelines | 公開名は維持。中身は fixture に通る範囲で lifelines を使い、通らない量だけ自前 |
-| `psmatch` / `GLMHelper` | sklearn / statsmodels（`match()` 未実装） | `match_sample` に置換し、警告付きで残してから削除 |
+| `psmatch` / `GLMHelper` | 互換 shim は削除済み | 公開名は `match_sample` と `fit_glm` / `Fit.tidy` |
 | `glmm_gpboost` | gpboost（optional extra） | 本体にしない。GLMM は `fit_mixed(..., family="binomial")` |
 | `sm_summary2df` | statsmodels 要約 | `Fit.tidy` に統合 |
 | `stat/r.py` | rpy2（`statract[r]`） | 解析ブリッジ。オラクル生成は `Rscript` |
@@ -156,7 +156,7 @@ Cox は事象時刻でソートし、同順位ブロックで Efron 補正を掛
 
 ### 3.4 マッチング（MatchIt）
 
-`psmatch` を置き換える。距離のロジスティック回帰は statsmodels、最適マッチングは `scipy.optimize.linear_sum_assignment`。
+公開名は `match_sample` です。距離のロジスティック回帰は statsmodels、最適マッチングは `scipy.optimize.linear_sum_assignment`。
 
 | 合わせる R | 公開名 | 今回 |
 |------------|--------|------|
@@ -226,7 +226,7 @@ tests/r_oracle/
 
 ## 5. 順序と受け入れ基準
 
-`0 → 1 → 2 → 3 → 4`。共分散は Cox の `cluster` が使うので先に置く。生存が本業。マッチングは未実装の `psmatch` を置換する。加法モデルは最後。
+`0 → 1 → 2 → 3 → 4`。共分散は Cox の `cluster` が使うので先に置く。生存が本業。マッチングは `match_sample`。加法モデルは最後。
 
 | Phase | 成果物 | 受け入れ基準 |
 |-------|--------|--------------|
@@ -235,7 +235,7 @@ tests/r_oracle/
 | **2a 生存の核** | `survival_curve`（KM / Nelson–Aalen / Aalen–Johansen）, `log_rank`, `cox_ph`（Efron / Breslow、層、重み、オフセット） | 既存の生存テストが通る。R fixture と rtol 1e-6 |
 | **2b 生存の推論** | `proportional_hazards_test`, 残差, `predict`, `baseline_hazard`, `survival_curve` on a Cox fit, `concordance` | 残差、比例ハザード統計量、C 統計量が一致 |
 | **2c 生存の拡張** | counting process（`entry`）, クラスタ頑健分散, `fine_gray`, `accelerated_failure`, `split_follow_up` | 時間依存共変量と Fine–Gray の係数が一致 |
-| **3a マッチングの核** | `match_sample` の nearest / exact / subclass、logit と mahalanobis、`balance`, `frame`, `love_plot` | `order="data"` で組が完全一致。`psmatch` に警告 |
+| **3a マッチングの核** | `match_sample` の nearest / exact / subclass、logit と mahalanobis、`balance`, `frame`, `love_plot` | `order="data"` で組が完全一致 |
 | **3b マッチングの拡張** | optimal, cem, full, caliper 併用, `pairs` | optimal は総距離が一致。full は重みと層が一致 |
 | **4a 加法モデルの核** | `smooth` の tp / cr / cc / ps / re、`gam`（gaussian / binomial / poisson、REML / ML / GCV）, `predict`, `tidy`, `partial_effect` | 平滑化パラメータ rtol 1e-3、edf rtol 1e-4、係数と予測 rtol 1e-4 |
 | **4b 加法モデルの拡張** | `tensor_smooth`, `by`, `select=True`, gamma, `check`, `compare_gams`, `concurvity` | 同上 |
@@ -284,7 +284,7 @@ src/endolab/stat/
 2. **公開名は Python の snake_case。** データフレームと列名で呼べる。Wilkinson 式は `fit_ols`、`fit_glm`、`fit_mixed`、`model_matrix` の共通インターフェースである。
 3. **テストは複数標本の数値一致。** 呼び出し互換は要求しない。
 4. **lifelines** は fixture に通る関数のエンジンとして残す。
-5. **`psmatch` / `GLMHelper` / `sm_summary2df`** は置換が fixture に通ってから警告付きで残し、その後削除する。`glmm_gpboost` は今回そのまま。
+5. **`psmatch` と `GLMHelper` は削除した。** `sm_summary2df` は `DeprecationWarning` 付きで残す（置き換え先は `Fit.tidy`）。`glmm_gpboost` は今回そのまま。
 
 ## 9. 混合モデル
 

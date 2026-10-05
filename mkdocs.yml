@@ -65,7 +65,6 @@ nav:
           - iptw_nhefs: stat/examples/iptw_nhefs.md
           - pred_support: stat/examples/pred_support.md
           - cea_sicksicker: stat/examples/cea_sicksicker.md
-          - legacy_heart: stat/examples/legacy_heart.md
       - Wilkinson formula: stat/formula.md
       - vs R packages: stat/vs-r.md
       - Benchmarks: stat/benchmarks.md
@@ -77,7 +76,6 @@ nav:
       - Statistical Analysis:
           - agg: api/stat/agg.md
           - confusion: api/stat/confusion.md
-          - ps: api/stat/ps.md
           - r: api/stat/r.md
           - regression: api/stat/regression.md
           - forest: api/stat/forest.md

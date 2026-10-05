@@ -28,6 +28,6 @@
 
 ## 既存の関数
 
-`cumulative_survival_ci`、`log_rank_pvalue`、`plot_survival`、`tableone` はそのまま使えます。`sm_summary2df` は呼び出すと `DeprecationWarning` を出します（置き換え先は `Fit.tidy`）。`psmatch` と `GLMHelper` は互換 shim のみ残しており、生成時に `DeprecationWarning` のあと `NotImplementedError` になります。置き換え先はそれぞれ `match_sample` と `fit_glm` / `Fit.tidy` です。
+`cumulative_survival_ci`、`log_rank_pvalue`、`plot_survival`、`tableone` はそのまま使えます。`sm_summary2df` は呼び出すと `DeprecationWarning` を出します（置き換え先は `Fit.tidy`）。マッチングは `match_sample`、係数表は `fit_glm` / `Fit.tidy` です。
 
 `fit_mixed` は混合モデルの公開入口です。既定エンジンは lme-python（lme-rs）。ガウスは `lmer`（`method="reml"` / `"ml"`）、二項・ポアソン・ガンマは `glmer`（`family=`）。Wilkinson 式 `(1 | g)` を受けます。lme-python は `fit_mixed` を呼んだときに読みます。ガウスの以前のエンジン mixedlm-rs は `engine="mixedlm_rs"`（`statract[mixedlm]`）です。gpboost の `glmm_gpboost` は optional extra の実験実装で、GLMM の本体ではありません。glmmTMB のゼロ過剰や分散モデルは対象外です。
