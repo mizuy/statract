@@ -21,13 +21,28 @@ theme:
 
 extra_css:
   - stylesheets/extra.css
+  - javascripts/vendor/katex/katex.min.css
+
+extra_javascript:
+  - javascripts/vendor/katex/katex.min.js
+  - javascripts/vendor/katex/contrib/auto-render.min.js
+  - javascripts/katex.js
+
+hooks:
+  - hooks/docs_render.py
 
 markdown_extensions:
   - admonition
   - pymdownx.details
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
+  - pymdownx.arithmatex:
+      generic: true
   - tables
   - attr_list
 
