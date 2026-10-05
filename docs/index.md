@@ -34,6 +34,12 @@ cox_ph(frame, "Surv(time, event) ~ x")
 
 `simulate_cohort_markov` は状態名と推移行列から、割引した費用と QALY を返します。引数の並びは [CEA の Quickstart](cea/quickstart.md) です。
 
+解析パイプラインの出力ディレクトリと CSV 保存は `statract.task_io` です。
+
+```python
+from statract.task_io import prepare_task_output, save_frames
+```
+
 ## 次に読む
 
 - [Quickstart](stat/quickstart.md) — 回帰、生存時間、マッチングの短い呼び出し

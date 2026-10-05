@@ -151,6 +151,13 @@ from .tableone import (
     tableone_raw,
     write_tableone_artifacts,
 )
+from .task_io import (
+    clear_task_output_dir,
+    prepare_task_output,
+    print_saved,
+    save_frames,
+    task_output_dir,
+)
 
 
 
@@ -257,6 +264,11 @@ __all__ = [
     "log_rank_pvalue",
     "plot_survival",
     "plot_survival_grid",
+    "clear_task_output_dir",
+    "prepare_task_output",
+    "print_saved",
+    "save_frames",
+    "task_output_dir",
     "tableone",
     "tableone_gt_from_frame",
     "tableone_raw",

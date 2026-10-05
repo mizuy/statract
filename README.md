@@ -19,6 +19,7 @@ from statract import fit_glm, fit_ols, plot_forest, survival_curve
 from statract.surv import cox_ph
 from statract.cea import calculate_icers, simulate_cohort_markov
 from statract.figure import funnel_plot
+from statract.task_io import prepare_task_output
 ```
 
 R ブリッジは extra `r`（`statract.r`）。`import statract` では rpy2 を読まない。
