@@ -20,6 +20,18 @@
 
 `tableone` はこのスイートに入っていない。Fine–Gray も未計測。解析例は [Examples / Gallery](examples.md)。
 
+## スピードの並び
+
+タスクごとの壁時計。棒は [`comparison.csv`](benchmarks/comparison.csv) の `python_s` と `r_s`（ミリ秒、対数軸）。青が Python、青緑が R。どちらもロゴと同じ青から青緑で、数値の成否を色では分けていない。
+
+ラベルの「tol外」は、そのタスクの quantity が許容差の外だったという印である。棒の長さは速度であり、数値比較が成功したという意味ではない。R のタイマーが 0 s の尤度比（大きい側 n=10,000 と 1,000 行側 n=1,000）は対数軸に載せない。秒は下の表にある。
+
+indo の二項 GLMM と mixedlm-rs は再計測していないので、この図には入れていない。indo の記録はページ末尾。
+
+![大きい側の壁時計。Python と R をタスクごとに並べた対数軸の棒グラフ](benchmarks/speed-large.png)
+
+![1,000 行側の壁時計。Python と R をタスクごとに並べた対数軸の棒グラフ](benchmarks/speed-small.png)
+
 ## 大きい側
 
 SUPPORT2 の生存は完全ケース 9,103 行。STAR の変量傾きは生徒単位の別スライス（n=10,000）。
