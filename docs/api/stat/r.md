@@ -104,7 +104,9 @@ df = pl.DataFrame({
     "name": ["Alice", "Bob", "Charlie"]
 })
 
-# Assign to R (stored as tibble)
+# Assign to R (stored as tibble).
+# A Polars frame calls init() first, so a cold start runs library(polars)
+# from init.R before the frame is converted. Later assigns do not reload it.
 assign("my_df", df)
 
 # Verify in R

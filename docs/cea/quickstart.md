@@ -67,7 +67,7 @@ res = simulate_cohort_markov(
 )
 ```
 
-年齢依存遷移は callable か `dict[age, matrix]` で渡せます。
+年齢依存遷移は callable か `dict[age, matrix]` で渡せます。初期分布は合計が正なら 1 に正規化します。負の mass、行和が 1 でない推移、質量を落とす `on_cycle` は `ValueError` になります。
 
 ```python
 def transition(age: int, mass: np.ndarray) -> np.ndarray:
@@ -135,6 +135,8 @@ plane = ce_plane(psa, comparator="SOC")
 ac = ceac(psa, wtp=[0, 1e4, 5e4, 1e5])
 voi = evpi(psa, wtp=[0, 1e4, 5e4, 1e5])
 ```
+
+`ceac` の確率は、費用と効果が有限な draw だけで計算します。全部が非有限なら `prob_ce` は NaN です。
 
 ## 4. 疾患モデルはプロジェクト側
 

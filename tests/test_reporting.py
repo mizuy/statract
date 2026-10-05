@@ -42,6 +42,17 @@ def test_csv_companion_markdown_large_csv_includes_head(tmp_path: Path) -> None:
     assert "row-3" not in md
 
 
+def test_csv_companion_markdown_clamps_negative_head_rows(tmp_path: Path) -> None:
+    csv_path = tmp_path / "large.csv"
+    pl.DataFrame({"n": range(3)}).write_csv(csv_path)
+
+    md = csv_companion_markdown(csv_path, max_rows=1, head_rows=-1)
+
+    assert "先頭 0 行" in md
+    assert "| n |" in md
+    assert "| 0 |" not in md
+
+
 def test_write_csv_companion_and_companions(tmp_path: Path) -> None:
     out = tmp_path / "out"
     out.mkdir()

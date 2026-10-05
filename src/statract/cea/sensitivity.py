@@ -115,19 +115,24 @@ def ceac(
     *,
     wtp: Sequence[float] | np.ndarray,
 ) -> pl.DataFrame:
-    """Cost-effectiveness acceptability curve: P(max NMB) by WTP."""
+    """Cost-effectiveness acceptability curve: P(max NMB) by WTP.
+
+    Draws with a non-finite cost or effect are left out of the probability.
+    If every draw is non-finite, ``prob_ce`` is NaN and the first strategy is
+    not treated as best.
+    """
     wtps = np.asarray(wtp, dtype=np.float64)
-    n_sim, k = psa.cost.shape
     rows: list[dict[str, Any]] = []
     for w in wtps:
         nmb = psa.effect * float(w) - psa.cost  # (n_sim, k)
-        best = np.argmax(nmb, axis=1)
+        valid = np.isfinite(nmb).all(axis=1)
+        best = np.argmax(nmb[valid], axis=1) if np.any(valid) else np.array([], dtype=int)
         for j, name in enumerate(psa.strategies):
             rows.append(
                 {
                     "wtp": float(w),
                     "strategy": name,
-                    "prob_ce": float(np.mean(best == j)),
+                    "prob_ce": float(np.mean(best == j)) if best.size else float("nan"),
                 },
             )
     return pl.DataFrame(rows)

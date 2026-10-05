@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from statract.cea.markov import simulate_cohort_markov
 
@@ -110,3 +111,99 @@ def test_age_dependent_transition_callable() -> None:
         living_mask=[True, True, False],
     )
     assert 0 < res.ly <= 20.0
+
+
+def test_negative_initial_mass_raises() -> None:
+    with pytest.raises(ValueError, match="initial.*non-negative"):
+        simulate_cohort_markov(
+            states=("Healthy", "Sick", "Dead"),
+            initial=[1.5, -0.5, 0.0],
+            ages=range(40, 43),
+            transition=_sick_dead_P(),
+            utility=1.0,
+        )
+
+
+def test_negative_transition_probability_is_not_clipped_through() -> None:
+    bad = _sick_dead_P()
+    # Sum is 0.8. Zeroing the negative entry would make the row sum to 1.
+    bad[0] = [0.7, 0.3, -0.2]
+    with pytest.raises(ValueError, match="non-negative"):
+        simulate_cohort_markov(
+            states=("Healthy", "Sick", "Dead"),
+            initial=[1.0, 0.0, 0.0],
+            ages=range(40, 43),
+            transition=bad,
+            utility=1.0,
+        )
+
+
+def test_non_stochastic_transition_matrix_raises() -> None:
+    bad = _sick_dead_P()
+    bad[0] = [0.5, 0.0, 0.0]
+    with pytest.raises(ValueError, match="rows must sum to 1"):
+        simulate_cohort_markov(
+            states=("Healthy", "Sick", "Dead"),
+            initial=[1.0, 0.0, 0.0],
+            ages=range(40, 43),
+            transition=bad,
+            utility=1.0,
+        )
+
+
+def test_on_cycle_mass_loss_raises() -> None:
+    def on_cycle(age: int, mass: np.ndarray) -> tuple[np.ndarray, float, float]:
+        if age == 41:
+            m = mass.copy()
+            m[0] -= 0.1
+            return m, 0.0, 0.0
+        return mass, 0.0, 0.0
+
+    with pytest.raises(ValueError, match="on_cycle mass.*conserve"):
+        simulate_cohort_markov(
+            states=("Healthy", "Sick", "Dead"),
+            initial=[1.0, 0.0, 0.0],
+            ages=range(40, 43),
+            transition=_sick_dead_P(p_hs=0.0, p_hd=0.0, p_sd=0.0),
+            utility=1.0,
+            on_cycle=on_cycle,
+        )
+
+
+def test_transition_mapping_missing_age_raises_value_error() -> None:
+    with pytest.raises(ValueError, match="missing age 41"):
+        simulate_cohort_markov(
+            states=("Healthy", "Sick", "Dead"),
+            initial=[1.0, 0.0, 0.0],
+            ages=range(40, 43),
+            transition={40: _sick_dead_P()},
+            utility=1.0,
+        )
+
+
+def test_negative_discount_rate_raises() -> None:
+    with pytest.raises(ValueError, match="discount_rate"):
+        simulate_cohort_markov(
+            states=("Healthy", "Sick", "Dead"),
+            initial=[1.0, 0.0, 0.0],
+            ages=range(40, 43),
+            transition=_sick_dead_P(),
+            utility=1.0,
+            discount_rate=-0.03,
+        )
+
+
+def test_initial_distribution_is_renormalized() -> None:
+    res = simulate_cohort_markov(
+        states=("Healthy", "Sick", "Dead"),
+        initial=[2.0, 0.0, 0.0],
+        ages=range(40, 42),
+        transition=_sick_dead_P(p_hs=0.0, p_hd=0.0, p_sd=0.0),
+        utility=[1.0, 0.0, 0.0],
+        cost=0.0,
+        discount_rate=0.0,
+        record_trace=True,
+    )
+    assert res.trace is not None
+    np.testing.assert_allclose(res.trace["Healthy"].to_numpy(), np.ones(2))
+    np.testing.assert_allclose(res.ly, 2.0)

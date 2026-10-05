@@ -12,7 +12,7 @@
 | NMB | dampack / BCEA | `summarize.net_monetary_benefit` | |
 | One-way / tornado | dampack OWSA | `sensitivity.one_way_dsa` | `nmb` / `delta_nmb` / `icer` |
 | PSA 実行の器 | （モデル側） | `sensitivity.run_psa` | 分布のサンプリングは呼び出し側 |
-| CE plane / CEAC / EVPI | dampack / **BCEA** | `ce_plane` / `ceac` / `evpi` | モデル非依存の後段 |
+| CE plane / CEAC / EVPI | dampack / **BCEA** | `ce_plane` / `ceac` / `evpi` | モデル非依存の後段。`ceac` は非有限の draw を確率から外す |
 | EVPPI | BCEA | （なし） | V1 対象外 |
 
 ## 意図的に寄せない点

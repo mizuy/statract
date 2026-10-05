@@ -42,6 +42,8 @@ flowchart LR
 
 `simulate_cohort_markov(...)` が 1 年（または任意）サイクルの状態分布を進め、割引済み費用・QALY・LY を返します。検査・切除などの介入は `on_cycle(age, mass) -> (mass, extra_cost, extra_qaly)` に閉じます（`extra_*` は**未割引**。割引は核が掛ける）。
 
+初期分布は、有限で非負かつ合計が正のとき 1 に正規化します。負の mass、合計が正でない初期分布、非有限または負の `discount_rate` は `ValueError` です。推移行列の各行は非負で和が 1、callable や `on_cycle` が返す mass はコホートの合計を保つ必要があります。負の mass を 0 に切り詰めて計算は続けません。
+
 ### `summarize` — ICER 表
 
 `calculate_icers(cost, effect, strategies)` はモデルを知りません。戦略ごとの費用・効果だけから frontier を作り、`status` に次を付けます。
@@ -60,6 +62,8 @@ flowchart LR
 
 - `one_way_dsa` / `tornado_table`
 - `run_psa` → `ce_plane` / `ceac` / `evpi`
+
+`ceac` は費用か効果が非有限の draw を確率から外します。有限な draw が無いとき `prob_ce` は NaN で、先頭の戦略を最良とは数えません。
 
 パラメータ分布（例: 費用の Gamma）はプロジェクト側で引きます。
 

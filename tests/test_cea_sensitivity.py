@@ -4,7 +4,15 @@ from __future__ import annotations
 
 import numpy as np
 
-from statract.cea.sensitivity import ce_plane, ceac, evpi, one_way_dsa, run_psa, tornado_table
+from statract.cea.sensitivity import (
+    PsaResult,
+    ce_plane,
+    ceac,
+    evpi,
+    one_way_dsa,
+    run_psa,
+    tornado_table,
+)
 
 
 def _toy_evaluate(params: dict[str, float]) -> tuple[list[float], list[float]]:
@@ -43,6 +51,27 @@ def test_run_psa_and_ceac_evpi() -> None:
     ev = evpi(psa, wtp=wtps)
     assert ev.height == len(wtps)
     assert (ev["evpi"] >= -1e-9).all()
+
+
+def test_ceac_ignores_nan_draws_instead_of_picking_first_strategy() -> None:
+    psa = PsaResult(
+        strategies=("A", "B"),
+        cost=np.array([[np.nan, np.nan], [200.0, 100.0]]),
+        effect=np.array([[np.nan, np.nan], [1.0, 2.0]]),
+    )
+    out = ceac(psa, wtp=[100.0])
+    by = {r["strategy"]: r["prob_ce"] for r in out.iter_rows(named=True)}
+    assert by == {"A": 0.0, "B": 1.0}
+
+
+def test_ceac_all_nan_draws_return_nan_probabilities() -> None:
+    psa = PsaResult(
+        strategies=("A", "B"),
+        cost=np.array([[np.nan, np.nan]]),
+        effect=np.array([[np.nan, np.nan]]),
+    )
+    out = ceac(psa, wtp=[100.0])
+    assert out["prob_ce"].is_nan().all()
 
 
 def test_one_way_dsa_tornado() -> None:

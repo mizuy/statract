@@ -22,6 +22,9 @@ applied as ``mass @ P``.
 OnCycleFn = Callable[[int, np.ndarray], tuple[np.ndarray, float, float]]
 """``on_cycle(age, mass) -> (mass, extra_cost, extra_qaly)`` before transition."""
 
+_MASS_ATOL = 1e-10
+_MASS_RTOL = 1e-8
+
 
 @dataclass(frozen=True)
 class CohortMarkovResult:
@@ -54,28 +57,76 @@ def _as_reward_vector(
     return arr
 
 
+def _check_finite(arr: np.ndarray, *, name: str) -> None:
+    if not np.all(np.isfinite(arr)):
+        raise ValueError(f"{name} must contain only finite values")
+
+
+def _validate_mass(
+    mass: np.ndarray,
+    *,
+    name: str,
+    expected_total: float | None = None,
+    normalize: bool = False,
+) -> np.ndarray:
+    arr = np.asarray(mass, dtype=np.float64)
+    _check_finite(arr, name=name)
+    if np.any(arr < -_MASS_ATOL):
+        raise ValueError(f"{name} must be non-negative")
+    arr = np.clip(arr, 0.0, None)
+    total = float(arr.sum())
+    if normalize:
+        if total <= 0:
+            raise ValueError(f"{name} must have positive total mass")
+        return arr / total
+    if expected_total is not None and not np.isclose(
+        total,
+        expected_total,
+        rtol=_MASS_RTOL,
+        atol=_MASS_ATOL,
+    ):
+        raise ValueError(f"{name} must conserve cohort mass")
+    return arr
+
+
+def _validate_transition_matrix(P: np.ndarray, *, n: int) -> np.ndarray:
+    if P.ndim != 2 or P.shape != (n, n):
+        raise ValueError("transition matrix must be square (n_state, n_state)")
+    _check_finite(P, name="transition matrix")
+    if np.any(P < -_MASS_ATOL):
+        raise ValueError("transition matrix probabilities must be non-negative")
+    P = np.clip(P, 0.0, None)
+    if not np.allclose(P.sum(axis=1), 1.0, rtol=_MASS_RTOL, atol=_MASS_ATOL):
+        raise ValueError("transition matrix rows must sum to 1")
+    return P
+
+
 def _apply_transition(
     age: int,
     mass: np.ndarray,
     transition: TransitionFn | np.ndarray | Mapping[int, np.ndarray],
 ) -> np.ndarray:
+    expected_total = float(mass.sum())
     if callable(transition):
         out = transition(age, mass)
         arr = np.asarray(out, dtype=np.float64)
         if arr.ndim == 1:
             if arr.shape != mass.shape:
                 raise ValueError("transition callable must return mass vector of same length")
-            return arr
+            return _validate_mass(arr, name="transition mass", expected_total=expected_total)
         if arr.ndim == 2 and arr.shape == (mass.shape[0], mass.shape[0]):
-            return mass @ arr
+            P = _validate_transition_matrix(arr, n=mass.shape[0])
+            return _validate_mass(mass @ P, name="transition mass", expected_total=expected_total)
         raise ValueError("transition callable must return mass vector or square matrix")
     if isinstance(transition, Mapping):
-        P = np.asarray(transition[age], dtype=np.float64)
+        try:
+            P = np.asarray(transition[age], dtype=np.float64)
+        except KeyError as exc:
+            raise ValueError(f"transition mapping missing age {age}") from exc
     else:
         P = np.asarray(transition, dtype=np.float64)
-    if P.ndim != 2 or P.shape[0] != P.shape[1] or P.shape[0] != mass.shape[0]:
-        raise ValueError("transition matrix must be square (n_state, n_state)")
-    return mass @ P
+    P = _validate_transition_matrix(P, n=mass.shape[0])
+    return _validate_mass(mass @ P, name="transition mass", expected_total=expected_total)
 
 
 def simulate_cohort_markov(
@@ -105,20 +156,25 @@ def simulate_cohort_markov(
     states
         Ordered state names.
     initial
-        Initial distribution (need not sum to 1; renormalized if sum > 0).
+        Initial distribution. Non-negative values with a positive total are
+        renormalized to sum to 1. Negative mass is rejected.
     ages
         Inclusive calendar ages, one per cycle (e.g. ``range(40, 101)``).
     transition
         Constant matrix, age→matrix map, or callable returning mass or matrix.
+        Entries must be finite and non-negative, and matrix rows must sum to 1.
+        Mass after a transition must conserve the cohort total. Negative mass
+        is rejected rather than zeroed and kept in the simulation.
     utility, cost
         Per-cycle state rewards.
     discount_rate
-        Annual discount rate applied as ``1 / (1 + r)**t``.
+        Annual discount rate applied as ``1 / (1 + r)**t``. Finite and >= 0.
     living_mask
         Which states count toward LY. Default: all states whose name does not
         start with ``death`` (case-insensitive) and is not exactly ``dead``.
     on_cycle
-        Optional hook before transition.
+        Optional hook before transition. Returned mass must conserve the
+        cohort total.
     record_trace
         If True, return a DataFrame of state membership at cycle start.
     """
@@ -138,10 +194,7 @@ def simulate_cohort_markov(
         mass = np.asarray(initial, dtype=np.float64)
         if mass.shape != (n,):
             raise ValueError(f"initial must have length {n}")
-    total = float(mass.sum())
-    if total > 0:
-        mass = mass / total
-    mass = np.clip(mass, 0.0, None)
+    mass = _validate_mass(mass, name="initial", normalize=True)
 
     u_vec = _as_reward_vector(state_list, utility, name="utility")
     c_vec = _as_reward_vector(state_list, cost, name="cost")
@@ -160,6 +213,8 @@ def simulate_cohort_markov(
             raise ValueError(f"living_mask must have length {n}")
 
     disc = float(discount_rate)
+    if not np.isfinite(disc) or disc < 0:
+        raise ValueError("discount_rate must be a finite non-negative value")
     start_age = age_list[0]
     tot_cost = tot_qaly = tot_ly = 0.0
     trace_rows: list[dict[str, float | int]] = []
@@ -180,17 +235,17 @@ def simulate_cohort_markov(
         tot_cost += df * float(mass @ c_vec)
 
         if on_cycle is not None:
+            expected_total = float(mass.sum())
             mass, extra_c, extra_q = on_cycle(age, mass)
             mass = np.asarray(mass, dtype=np.float64)
             if mass.shape != (n,):
                 raise ValueError("on_cycle must return mass of length n_state")
-            mass = np.clip(mass, 0.0, None)
+            mass = _validate_mass(mass, name="on_cycle mass", expected_total=expected_total)
             tot_cost += df * float(extra_c)
             tot_qaly += df * float(extra_q)
 
         if age != age_list[-1]:
             mass = _apply_transition(age, mass, transition)
-            mass = np.clip(mass, 0.0, None)
 
     trace = pl.DataFrame(trace_rows) if record_trace else None
     return CohortMarkovResult(

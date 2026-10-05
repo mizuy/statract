@@ -27,6 +27,8 @@ ListVector: Any = None
 Vector: Any = None
 rpy2polars: Any = None
 _rpy2_loaded = False
+_r_resources_initialized = False
+_r_resources_initializing = False
 
 
 class RNotAvailableError(RuntimeError):
@@ -192,17 +194,39 @@ def run(command: str, *, show: bool = False, return_console: bool = False) -> st
 
 
 def init() -> None:
-    """Load endolab R resources if present."""
+    """Load R resources next to this module, if present.
+
+    Safe to call more than once. Assigning a Polars frame calls this first so
+    a cold start runs ``library(polars)`` from ``init.R``.
+    """
+    global _r_resources_initialized, _r_resources_initializing
+    if _r_resources_initialized or _r_resources_initializing:
+        return
+    _r_resources_initializing = True
     rdir = Path(__file__).parent
-    init_r = rdir / "init.R"
-    if init_r.exists():
-        run(init_r.read_text())
-    io_r = rdir / "io.R"
-    if io_r.exists():
-        run(io_r.read_text())
-    forest_r = rdir / "forest.R"
-    if forest_r.exists():
-        run(forest_r.read_text())
+    try:
+        init_r = rdir / "init.R"
+        if init_r.exists():
+            run(init_r.read_text())
+        io_r = rdir / "io.R"
+        if io_r.exists():
+            run(io_r.read_text())
+        forest_r = rdir / "forest.R"
+        if forest_r.exists():
+            run(forest_r.read_text())
+    except Exception:  # noqa: BLE001
+        _r_resources_initialized = False
+        raise
+    else:
+        _r_resources_initialized = True
+    finally:
+        _r_resources_initializing = False
+
+
+def _ensure_r_resources_initialized() -> None:
+    """Load R helper packages before conversions that rely on them."""
+    if not _r_resources_initialized:
+        init()
 
 
 def has_r_package(pkg: str) -> bool:
@@ -243,6 +267,7 @@ def _convert_value_to_r(v: Any) -> Any:
     if v is None:
         return robjects.NULL
     if isinstance(v, pl.DataFrame):
+        _ensure_r_resources_initialized()
         # Convert Polars DataFrame to R polars DataFrame first
         with rpy2polars.converter.context():
             r_polars_df = robjects.conversion.py2rpy(v)
@@ -295,6 +320,7 @@ def _assign_recursive(name: str, obj: Any, *, is_top_level: bool = True) -> None
 
     # Handle Polars DataFrame - convert to tibble in R
     if isinstance(obj, pl.DataFrame):
+        _ensure_r_resources_initialized()
         # Convert Polars DataFrame to R polars DataFrame first
         with rpy2polars.converter.context():
             r_polars_df = robjects.conversion.py2rpy(obj)
@@ -357,6 +383,9 @@ def assign(name: str, obj: Any) -> None:
 
     Supports recursive structures:
     - entity = int | float | str | bool | pl.DataFrame | list[entity] | dict[entity]
+
+    A Polars DataFrame is converted to a tibble only after ``init()``, so a
+    cold start runs ``library(polars)`` before the frame is handed to R.
 
     Args:
         name: Variable name in R global environment

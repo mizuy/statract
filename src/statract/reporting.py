@@ -352,7 +352,8 @@ def csv_companion_markdown(
     """Return Markdown companion text for a CSV.
 
     Small CSVs are rendered fully as a Markdown table. Large CSVs include shape,
-    column names, a CSV link, and a Markdown table of the first `head_rows` rows.
+    column names, a CSV link, and a Markdown table of the first ``head_rows``
+    rows. A negative ``head_rows`` is treated as 0.
     """
     import polars as pl  # noqa: PLC0415
 
@@ -371,7 +372,7 @@ def csv_companion_markdown(
         return github_markdown_table_from_polars(df, max_rows=None)
 
     n_head = min(max(head_rows, 0), height)
-    head = pl.read_csv(path, n_rows=head_rows)
+    head = pl.read_csv(path, n_rows=n_head)
     lines = [
         f"`{path.name}` は大きいため、全文は CSV を参照する。",
         "",

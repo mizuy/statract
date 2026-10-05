@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import datetime as dt
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -104,6 +106,100 @@ def test_assign_polars_dataframe():
 
     result = pr.run("ncol(test_df)")
     assert result[0] == 2
+
+
+def test_assign_polars_dataframe_initializes_r_resources_in_fresh_process():
+    """A cold R bridge must run library(polars) before Polars assignment."""
+    pytest.importorskip("rpy2")
+    pytest.importorskip("rpy2_arrow")
+    code = """
+import polars as pl
+from statract import r as pr
+
+pr.assign("cold_df", pl.DataFrame({"x": [1]}))
+attached = pr.run('"polars" %in% (.packages())')
+assert bool(attached[0]) is True
+result = pr.run("nrow(cold_df)")
+assert result[0] == 1
+"""
+
+    completed = subprocess.run(
+        [sys.executable, "-c", code],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert completed.returncode == 0, completed.stderr
+
+
+def test_cold_assign_sources_library_polars_before_conversion(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without a live R session, assigning Polars still sources init.R first."""
+    from statract import r as pr
+
+    order: list[str] = []
+
+    class _Global:
+        def __getitem__(self, key: str) -> str:
+            return "stored"
+
+        def __setitem__(self, key: str, value: object) -> None:
+            return None
+
+        def __delitem__(self, key: str) -> None:
+            return None
+
+    class _Conversion:
+        @staticmethod
+        def py2rpy(value: object) -> str:
+            order.append("py2rpy")
+            return "r-df"
+
+    class _Robjects:
+        globalenv = _Global()
+        conversion = _Conversion()
+
+        @staticmethod
+        def r(command: str):
+            assert command == "tibble::as_tibble"
+            return lambda obj: "tibble"
+
+    class _Context:
+        def __enter__(self) -> _Context:
+            return self
+
+        def __exit__(self, *args: object) -> bool:
+            return False
+
+    class _Converter:
+        @staticmethod
+        def context() -> _Context:
+            return _Context()
+
+    class _Rpy2Polars:
+        converter = _Converter()
+
+    def fake_run(command: str, *, show: bool = False, return_console: bool = False) -> None:
+        order.append(command)
+
+    monkeypatch.setattr(pr, "_r_resources_initialized", False)
+    monkeypatch.setattr(pr, "_r_resources_initializing", False)
+    monkeypatch.setattr(pr, "_rpy2_loaded", True)
+    monkeypatch.setattr(pr, "rpy2", object())
+    monkeypatch.setattr(pr, "robjects", _Robjects())
+    monkeypatch.setattr(pr, "RRuntimeError", RuntimeError)
+    monkeypatch.setattr(pr, "ListVector", dict)
+    monkeypatch.setattr(pr, "rpy2polars", _Rpy2Polars())
+    monkeypatch.setattr(pr, "run", fake_run)
+
+    pr.assign("cold_df", pl.DataFrame({"x": [1]}))
+
+    assert order[0].lstrip().startswith("library(tidyverse)")
+    assert "library(polars)" in order[0]
+    assert order.index("py2rpy") > 0
+    sourced = len(order)
+    pr.assign("cold_df_2", pl.DataFrame({"x": [2]}))
+    assert order[sourced:] == ["py2rpy"]
 
 
 def test_assign_dfs():
