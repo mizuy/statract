@@ -19,7 +19,7 @@ import polars as pl
 from numba import njit
 from scipy.optimize import linear_sum_assignment
 
-from ..design import ColumnRef, column_series, design_matrix
+from ..design import ColumnRef, _factor_codes, _factor_levels, _is_factor, column_series, design_matrix
 from ..fit import fit_glm
 from .flow import full_match_edges
 
@@ -264,12 +264,12 @@ def _nearest(treat, dist, *, ratio, replace, order, caliper, std_caliper, discar
 
 
 def _nearest_on_line(treated, control, dist, ratio, replace, limit, exact):
-    """Nearest controls on a scalar score.
+    """Nearest controls on a scalar score, matching ``MatchIt`` 4.5.5.
 
-    Controls are ordered by score, and within a score by row index. From the
-    insertion point, the next match is the closer unused side. An equal gap
-    keeps the smaller row index, which is the stable mergesort order of the
-    full scan.
+    Controls are ordered by score and, within a score, by row index, which is
+    ``order()`` on the propensity. Each match takes the unused control on the
+    lower-score side of the treated unit and the one on the higher-score side,
+    then keeps the closer. An equal gap keeps the lower-score side.
     """
     if control.size == 0 or treated.size == 0:
         return [], []
@@ -299,10 +299,49 @@ def _nearest_on_line(treated, control, dist, ratio, replace, limit, exact):
 
 
 @njit(cache=True)
+def _eligible_side(ctrl, scores, query, t, used, has_exact, t_code, ctrl_codes, lower):
+    """First unused control on one side of ``t`` in the stable score order."""
+    n_c = scores.shape[0]
+    hi = np.searchsorted(scores, query)
+    eq_hi = hi
+    while eq_hi < n_c and scores[eq_hi] == query:
+        eq_hi += 1
+    if lower:
+        j = eq_hi - 1
+        while j >= hi:
+            row = ctrl[j]
+            if row < t and used[row] == 0 and (not has_exact or ctrl_codes[j] == t_code):
+                return j
+            j -= 1
+        j = hi - 1
+        while j >= 0:
+            row = ctrl[j]
+            if used[row] == 0 and (not has_exact or ctrl_codes[j] == t_code):
+                return j
+            j -= 1
+        return -1
+    j = hi
+    while j < eq_hi:
+        row = ctrl[j]
+        if row > t and used[row] == 0 and (not has_exact or ctrl_codes[j] == t_code):
+            return j
+        j += 1
+    while j < n_c:
+        row = ctrl[j]
+        if used[row] == 0 and (not has_exact or ctrl_codes[j] == t_code):
+            return j
+        j += 1
+    return -1
+
+
+@njit(cache=True)
 def _match_sorted(treated, ctrl, scores, dist, ratio, replace, has_limit, limit, has_exact, treated_codes, ctrl_codes):
-    """Greedy nearest neighbors on a score already sorted by value, then row."""
+    """Greedy nearest neighbors on a score already sorted by value, then row.
+
+    One match at a time: the nearer of the adjacent unused controls, with the
+    lower score winning an equal gap. That is ``nn_matchC_vec`` in MatchIt 4.5.5.
+    """
     n_t = treated.shape[0]
-    n_c = ctrl.shape[0]
     n_rows = dist.shape[0]
     out_t = np.empty(n_t * ratio, dtype=np.int64)
     out_c = np.empty(n_t * ratio, dtype=np.int64)
@@ -313,57 +352,22 @@ def _match_sorted(treated, ctrl, scores, dist, ratio, replace, has_limit, limit,
         t = treated[t_i]
         query = dist[t]
         t_code = treated_codes[t_i]
-        hi = np.searchsorted(scores, query)
-        lo = hi - 1
         taken = 0
         local_n = 0
         while taken < ratio:
-            while lo >= 0 and (used[ctrl[lo]] != 0 or (has_exact and ctrl_codes[lo] != t_code)):
-                lo -= 1
-            while hi < n_c and (used[ctrl[hi]] != 0 or (has_exact and ctrl_codes[hi] != t_code)):
-                hi += 1
-            left = lo >= 0
-            right = hi < n_c
-            left_gap = abs(scores[lo] - query) if left else 0.0
-            right_gap = abs(scores[hi] - query) if right else 0.0
-            left_ok = left and (not has_limit or left_gap <= limit + 1e-12)
-            right_ok = right and (not has_limit or right_gap <= limit + 1e-12)
-            if not left_ok and not right_ok:
-                break
+            left_j = _eligible_side(ctrl, scores, query, t, used, has_exact, t_code, ctrl_codes, True)
+            right_j = _eligible_side(ctrl, scores, query, t, used, has_exact, t_code, ctrl_codes, False)
+            left_gap = abs(scores[left_j] - query) if left_j >= 0 else 0.0
+            right_gap = abs(scores[right_j] - query) if right_j >= 0 else 0.0
+            left_ok = left_j >= 0 and (not has_limit or left_gap <= limit + 1e-12)
+            right_ok = right_j >= 0 and (not has_limit or right_gap <= limit + 1e-12)
             if left_ok and right_ok:
-                min_gap = left_gap if left_gap <= right_gap else right_gap
+                best = ctrl[right_j] if right_gap < left_gap else ctrl[left_j]
             elif left_ok:
-                min_gap = left_gap
+                best = ctrl[left_j]
+            elif right_ok:
+                best = ctrl[right_j]
             else:
-                min_gap = right_gap
-            best = -1
-            if left_ok:
-                j = lo
-                while j >= 0:
-                    if has_exact and ctrl_codes[j] != t_code:
-                        j -= 1
-                        continue
-                    gap = abs(scores[j] - query)
-                    if gap != min_gap:
-                        break
-                    row = ctrl[j]
-                    if used[row] == 0 and (best < 0 or row < best):
-                        best = row
-                    j -= 1
-            if right_ok:
-                j = hi
-                while j < n_c:
-                    if has_exact and ctrl_codes[j] != t_code:
-                        j += 1
-                        continue
-                    gap = abs(scores[j] - query)
-                    if gap != min_gap:
-                        break
-                    row = ctrl[j]
-                    if used[row] == 0 and (best < 0 or row < best):
-                        best = row
-                    j += 1
-            if best < 0:
                 break
             out_t[count] = t
             out_c[count] = best
@@ -388,16 +392,14 @@ def _score_order(control: np.ndarray, dist: np.ndarray) -> tuple[np.ndarray, np.
 def _nearest_scan(treated, control, dist, ratio, replace, limit, exact):
     """Matrix-distance scan. Ties keep the earlier control row.
 
-    A short candidate list keeps the scalar loop, which matches its square
-    roots bitwise. A long list uses one matrix product of squared Euclidean
-    distances, then the same greedy rule on those squares.
+    A scalar score uses the same lower-score tie break as ``_nearest_on_line``.
+    Squared distances are sums of squares, so identical rows stay an exact tie.
     """
+    if np.asarray(dist).ndim == 1:
+        return _nearest_on_line(treated, control, dist, ratio, replace, limit, exact)
     treated_a = np.ascontiguousarray(treated, dtype=np.int64)
     control_a = np.ascontiguousarray(control, dtype=np.int64)
-    if dist.ndim == 1:
-        matrix = np.ascontiguousarray(dist, dtype=np.float64).reshape(-1, 1)
-    else:
-        matrix = np.ascontiguousarray(dist, dtype=np.float64)
+    matrix = np.ascontiguousarray(dist, dtype=np.float64)
     n_rows = matrix.shape[0]
     if exact is None:
         exact_a = np.zeros(n_rows, dtype=np.int64)
@@ -425,10 +427,22 @@ def _nearest_scan(treated, control, dist, ratio, replace, limit, exact):
     return out_t.tolist(), out_c.tolist()
 
 
+def _squared_euclidean(left: np.ndarray, right: np.ndarray) -> np.ndarray:
+    """``||left[i] - right[j]||^2``. Identical rows stay exactly zero."""
+    n_c = right.shape[0]
+    width = right.shape[1]
+    step = max(1, 8_000_000 // max(n_c * max(width, 1), 1))
+    out = np.empty((left.shape[0], n_c), dtype=np.float64)
+    for start in range(0, left.shape[0], step):
+        block = left[start : start + step]
+        diff = block[:, None, :] - right[None, :, :]
+        out[start : start + block.shape[0]] = np.einsum("ijk,ijk->ij", diff, diff)
+    return out
+
+
 def _nearest_gemm(treated, control, matrix, ratio, replace, has_exact, exact):
-    """Greedy nearest neighbours from ``||a-b||^2 = ||a||^2 + ||b||^2 - 2 a·b``."""
+    """Greedy nearest neighbours from sums of squared coordinate differences."""
     ctrl = np.ascontiguousarray(matrix[control])
-    c2 = np.einsum("ij,ij->i", ctrl, ctrl)
     n_t = int(treated.shape[0])
     n_c = int(control.shape[0])
     # One distance block stays under a few hundred megabytes. Larger problems
@@ -441,8 +455,7 @@ def _nearest_gemm(treated, control, matrix, ratio, replace, has_exact, exact):
     for start in range(0, n_t, block):
         rows = treated[start : start + block]
         tv = np.ascontiguousarray(matrix[rows])
-        t2 = np.einsum("ij,ij->i", tv, tv)
-        dist2 = np.ascontiguousarray(np.maximum(t2[:, None] + c2 - 2.0 * (tv @ ctrl.T), 0.0))
+        dist2 = np.ascontiguousarray(_squared_euclidean(tv, ctrl))
         if simple:
             chosen = _take_dist2_one(dist2, used, replace)
             keep = chosen >= 0
@@ -460,7 +473,12 @@ def _nearest_gemm(treated, control, matrix, ratio, replace, has_exact, exact):
 
 @njit(cache=True)
 def _take_dist2_one(dist2, used, replace):
-    """One control per treated row. An equal square keeps the earlier control."""
+    """One control per treated row.
+
+    The gap is the Euclidean length, so a one-ulp difference in the square that
+    disappears under ``sqrt`` stays a tie. An equal length keeps the earlier
+    control, as ``which.min`` does in MatchIt 4.5.5.
+    """
     n_t, n_c = dist2.shape
     out = np.empty(n_t, dtype=np.int64)
     for t_i in range(n_t):
@@ -469,7 +487,7 @@ def _take_dist2_one(dist2, used, replace):
         for j in range(n_c):
             if (not replace) and used[j] != 0:
                 continue
-            gap = dist2[t_i, j]
+            gap = np.sqrt(dist2[t_i, j])
             if gap < best:
                 best = gap
                 best_j = j
@@ -501,7 +519,7 @@ def _take_dist2(dist2, treated, control, ratio, replace, has_exact, exact, used)
                 continue
             if has_exact and exact[control[j]] != t_code:
                 continue
-            gap = dist2[t_i, j]
+            gap = np.sqrt(dist2[t_i, j])
             pos = n_best
             for s in range(n_best):
                 if gap < best_gap[s] or (gap == best_gap[s] and j < best_j[s]):
@@ -864,7 +882,13 @@ def _distance_vector(data, treatment, covariates, distance, link):
             fit = fit_glm(data, treatment, covariates, family="binomial")
             return fit.predict(kind="response"), fit.row_index
         return _probit_probability(data, treatment, covariates)
-    x = _drop_constant(_covariate_matrix(data, covariates))
+    # Mahalanobis uses every factor level, divided by sqrt(2). The other
+    # matrix distances keep treatment-contrast dummies.
+    if distance == "mahalanobis":
+        raw = _matchit_covariates(data, covariates)
+    else:
+        raw = _covariate_matrix(data, covariates)
+    x = _drop_constant(raw)
     treat = np.asarray(column_series(data, treatment).to_numpy(), dtype=float) > 0
     if distance == "euclidean":
         coords = x
@@ -1045,6 +1069,41 @@ def _gaps(dist: np.ndarray, index: int, others: np.ndarray) -> np.ndarray:
     return np.sqrt(np.sum(diff * diff, axis=1))
 
 
+def _matchit_covariates(data: pl.DataFrame, names: list[str]) -> np.ndarray:
+    """Covariates as MatchIt ``get.covs.matrix.for.dist``.
+
+    A factor is every level as an indicator divided by ``sqrt(2)``. Numeric
+    columns stay as they are. A null leaves that row missing.
+    """
+    n = data.height
+    blocks: list[np.ndarray] = []
+    indicator = 1.0 / np.sqrt(2.0)
+    for name in names:
+        series = column_series(data, name)
+        if not _is_factor(series):
+            blocks.append(np.asarray(series.to_numpy(), dtype=float).reshape(-1, 1))
+            continue
+        levels = _factor_levels(series, None)
+        width = len(levels)
+        block = np.full((n, max(width, 1)), np.nan)
+        if width == 0:
+            blocks.append(block)
+            continue
+        present = series.is_not_null().to_numpy()
+        if not np.any(present):
+            blocks.append(block)
+            continue
+        filled = series.fill_null(series.drop_nulls()[0]) if not bool(present.all()) else series
+        codes = _factor_codes(filled, levels)
+        rows = np.flatnonzero(present)
+        block[rows] = 0.0
+        block[rows, codes[rows]] = indicator
+        blocks.append(block)
+    if not blocks:
+        return np.zeros((n, 0))
+    return np.column_stack(blocks)
+
+
 def _covariate_matrix(data: pl.DataFrame, names: list[str]) -> np.ndarray:
     """Numeric columns, with factors expanded as treatment-contrast dummies.
 
@@ -1092,18 +1151,276 @@ def _pooled_sd(x: np.ndarray, treat: np.ndarray) -> np.ndarray:
     return out
 
 
+def _longdouble_sum(values: np.ndarray) -> np.longdouble:
+    total = np.longdouble(0)
+    for index in range(values.shape[0]):
+        total += values[index]
+    return total
+
+
+def _r_colmean(values: np.ndarray) -> float:
+    """``colMeans``: one long-double sum, then a double."""
+    return float(_longdouble_sum(values) / values.shape[0])
+
+
+def _r_mean(values: np.ndarray) -> float:
+    """``mean`` / the two-pass mean inside ``cov``."""
+    n = values.shape[0]
+    total = _longdouble_sum(values)
+    tmp = total / n
+    if np.isfinite(float(tmp)):
+        adjust = np.longdouble(0)
+        for index in range(n):
+            adjust += np.longdouble(values[index]) - tmp
+        tmp = tmp + adjust / n
+    return float(tmp)
+
+
+def _r_scale(x: np.ndarray) -> np.ndarray:
+    """``scale``: ``colMeans``, then ``sqrt(sum(v^2) / (n - 1))``.
+
+    The square is a double and ``sum`` accumulates those squares in long
+    double, then returns a double. The division and square root stay in
+    double. A long-double square root moves one scaled column by an ulp and
+    flips the Mahalanobis pivot.
+    """
+    n, width = x.shape
+    center = np.empty(width)
+    for column in range(width):
+        center[column] = _r_colmean(x[:, column])
+    centered = x - center
+    scale = np.empty(width)
+    denom = max(1, n - 1)
+    for column in range(width):
+        values = centered[:, column]
+        total = np.longdouble(0)
+        for index in range(n):
+            value = values[index]
+            total += np.longdouble(value * value)
+        scale[column] = np.sqrt(float(total) / denom)
+    scale[scale == 0] = 1.0
+    return centered / scale
+
+
 def _pooled_cov(x: np.ndarray, treat: np.ndarray) -> np.ndarray:
-    centered = np.array(x, dtype=float, copy=True)
+    """Pooled within-group covariance, in the order ``cov`` uses.
+
+    Group means are removed with ``mean``, then ``cov`` recenters and sums
+    each product in long double. A float64 matrix product changes the
+    null-space pivot of a singular factor design and the nearest control.
+    """
+    n, width = x.shape
+    centered = np.array(x, dtype=np.float64, copy=True)
     for flag in (True, False):
-        mask = treat == flag
-        if np.any(mask):
-            centered[mask] -= centered[mask].mean(axis=0)
-    n = x.shape[0]
-    groups = int(np.any(treat)) + int(np.any(~treat))
-    if centered.ndim == 1 or centered.shape[1] == 1:
-        var = np.var(centered, ddof=1)
-        return np.array([[var * (n - 1) / (n - groups)]])
-    return np.cov(centered, rowvar=False, ddof=1) * (n - 1) / (n - groups)
+        rows = np.flatnonzero(treat == flag)
+        if rows.size == 0:
+            continue
+        for column in range(width):
+            values = centered[rows, column]
+            centered[rows, column] = values - _r_mean(values)
+    means = np.empty(width)
+    for column in range(width):
+        means[column] = _r_mean(centered[:, column])
+    gram = np.empty((width, width))
+    n1 = n - 1
+    for left in range(width):
+        for right in range(left + 1):
+            total = np.longdouble(0)
+            left_mean = means[left]
+            right_mean = means[right]
+            for index in range(n):
+                total += (np.longdouble(centered[index, left]) - left_mean) * (
+                    np.longdouble(centered[index, right]) - right_mean
+                )
+            value = float(total / n1)
+            gram[left, right] = value
+            gram[right, left] = value
+    groups = int(np.unique(treat).size)
+    return gram * (n - 1) / (n - groups)
+
+
+_REFERENCE_LAPACK = (
+    "/usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3",
+    "/usr/lib/x86_64-linux-gnu/liblapack.so.3",
+)
+_REFERENCE_BLAS = (
+    "/usr/lib/x86_64-linux-gnu/blas/libblas.so.3",
+    "/usr/lib/x86_64-linux-gnu/libblas.so.3",
+)
+
+
+def _cdll(paths: tuple[str, ...]):
+    import ctypes
+
+    for path in paths:
+        try:
+            return ctypes.CDLL(path)
+        except OSError:
+            continue
+    return None
+
+
+def _reference_linear_algebra():
+    """Reference LAPACK and BLAS, the pair R uses for ``svd`` and ``chol``.
+
+    OpenBLAS moves the tiniest pivot of a singular Mahalanobis factor and
+    changes which control is nearest. The handles are cached on the function.
+    """
+    cached = getattr(_reference_linear_algebra, "cached", None)
+    if cached is not None:
+        return cached
+    lapack = _cdll(_REFERENCE_LAPACK)
+    blas = _cdll(_REFERENCE_BLAS)
+    if lapack is None or blas is None:
+        _reference_linear_algebra.cached = None
+        return None
+    _reference_linear_algebra.cached = (lapack.dgesdd_, lapack.dpstrf_, blas.dgemm_)
+    return _reference_linear_algebra.cached
+
+
+def _generalized_inverse(sigma: np.ndarray) -> np.ndarray:
+    """``MASS::ginv`` with MatchIt's singular-value cutoff.
+
+    The decomposition and the following product go through reference LAPACK
+    and BLAS. Another SVD driver leaves a different null-space factor.
+    """
+    import ctypes
+
+    routines = _reference_linear_algebra()
+    matrix = np.array(sigma, dtype=np.float64, order="F")
+    if routines is None:
+        from scipy.linalg import svd
+
+        u, singular, vt = svd(matrix, full_matrices=False, lapack_driver="gesdd")
+        keep = singular > max(1e-8 * float(singular[0]), 0.0) if singular.size else np.array([], dtype=bool)
+        if not np.any(keep):
+            return np.zeros_like(matrix)
+        return vt[keep].T @ ((1.0 / singular[keep])[:, None] * u[:, keep].T)
+    dgesdd, _dpstrf, dgemm = routines
+    height, width = matrix.shape
+    thin = min(height, width)
+    singular = np.zeros(thin)
+    u = np.zeros((height, thin), order="F")
+    vt = np.zeros((thin, width), order="F")
+    iwork = np.zeros(8 * thin, dtype=np.int32)
+    job = ctypes.c_char(b"S")
+
+    def _call(values: np.ndarray, work: np.ndarray, lwork: int) -> None:
+        info = ctypes.c_int(0)
+        dgesdd(
+            ctypes.byref(job),
+            ctypes.byref(ctypes.c_int(height)),
+            ctypes.byref(ctypes.c_int(width)),
+            values.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+            ctypes.byref(ctypes.c_int(height)),
+            singular.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+            u.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+            ctypes.byref(ctypes.c_int(height)),
+            vt.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+            ctypes.byref(ctypes.c_int(thin)),
+            work.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+            ctypes.byref(ctypes.c_int(lwork)),
+            iwork.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
+            ctypes.byref(info),
+            ctypes.c_size_t(1),
+        )
+        if info.value != 0:
+            raise np.linalg.LinAlgError(f"dgesdd failed with info {info.value}")
+
+    probe = np.zeros(1)
+    _call(np.array(matrix, order="F", copy=True), probe, -1)
+    _call(matrix, np.zeros(int(probe[0])), int(probe[0]))
+    if singular.size == 0:
+        return np.array(sigma, dtype=float, copy=True)
+    keep = singular > max(1e-8 * float(singular[0]), 0.0)
+    if not np.any(keep):
+        return np.zeros((height, width))
+    left = np.asfortranarray(u[:, keep])
+    right = np.asfortranarray(vt.T[:, keep])
+    scaled = np.asfortranarray((left * (1.0 / singular[keep])).T)
+    inverse = np.zeros((height, height), order="F")
+    side = right.shape[0]
+    rank = right.shape[1]
+    dgemm(
+        ctypes.byref(ctypes.c_char(b"N")),
+        ctypes.byref(ctypes.c_char(b"N")),
+        ctypes.byref(ctypes.c_int(side)),
+        ctypes.byref(ctypes.c_int(side)),
+        ctypes.byref(ctypes.c_int(rank)),
+        ctypes.byref(ctypes.c_double(1.0)),
+        right.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        ctypes.byref(ctypes.c_int(side)),
+        scaled.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        ctypes.byref(ctypes.c_int(rank)),
+        ctypes.byref(ctypes.c_double(0.0)),
+        inverse.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        ctypes.byref(ctypes.c_int(side)),
+        ctypes.c_size_t(1),
+        ctypes.c_size_t(1),
+    )
+    return inverse
+
+
+def _pivoted_chol_coordinates(x: np.ndarray, inv: np.ndarray) -> np.ndarray:
+    """``tcrossprod(X, chol(inv, pivot=TRUE)[, order(pivot)])``.
+
+    Reference LAPACK's pivoted factor, then reference BLAS for the product.
+    The trailing columns after the numerical rank stay in the factor, as in
+    MatchIt 4.5.5.
+    """
+    import ctypes
+
+    routines = _reference_linear_algebra()
+    if routines is None:
+        from scipy.linalg.lapack import dpstrf
+
+        factor, pivot, _rank, info = dpstrf(np.array(inv, dtype=np.float64, order="F"))
+        if info < 0:
+            raise np.linalg.LinAlgError("pivoted Cholesky failed")
+        return np.asarray(x, dtype=np.float64) @ np.triu(factor)[:, np.argsort(pivot)].T
+    _dgesdd, dpstrf, dgemm = routines
+    factor = np.array(inv, dtype=np.float64, order="F")
+    side = factor.shape[0]
+    pivot = np.zeros(side, dtype=np.int32)
+    work = np.zeros(2 * side)
+    rank = ctypes.c_int(0)
+    info = ctypes.c_int(0)
+    dpstrf(
+        ctypes.byref(ctypes.c_char(b"U")),
+        ctypes.byref(ctypes.c_int(side)),
+        factor.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        ctypes.byref(ctypes.c_int(side)),
+        pivot.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
+        ctypes.byref(rank),
+        ctypes.byref(ctypes.c_double(-1.0)),
+        work.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        ctypes.byref(info),
+        ctypes.c_size_t(1),
+    )
+    if info.value < 0:
+        raise np.linalg.LinAlgError("pivoted Cholesky failed")
+    unpivoted = np.asfortranarray(np.triu(factor)[:, np.argsort(pivot)])
+    rows = np.asfortranarray(np.asarray(x, dtype=np.float64))
+    n_rows, width = rows.shape
+    out = np.zeros((n_rows, width), order="F")
+    dgemm(
+        ctypes.byref(ctypes.c_char(b"N")),
+        ctypes.byref(ctypes.c_char(b"T")),
+        ctypes.byref(ctypes.c_int(n_rows)),
+        ctypes.byref(ctypes.c_int(width)),
+        ctypes.byref(ctypes.c_int(width)),
+        ctypes.byref(ctypes.c_double(1.0)),
+        rows.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        ctypes.byref(ctypes.c_int(n_rows)),
+        unpivoted.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        ctypes.byref(ctypes.c_int(width)),
+        ctypes.byref(ctypes.c_double(0.0)),
+        out.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        ctypes.byref(ctypes.c_int(n_rows)),
+        ctypes.c_size_t(1),
+        ctypes.c_size_t(1),
+    )
+    return out
 
 
 def _mahalanobize(x: np.ndarray, var: np.ndarray) -> np.ndarray:
@@ -1120,10 +1437,24 @@ def _mahalanobize(x: np.ndarray, var: np.ndarray) -> np.ndarray:
 
 
 def _mahalanobis_coordinates(x: np.ndarray, treat: np.ndarray) -> np.ndarray:
-    sd = x.std(axis=0, ddof=1)
-    sd = np.where(sd == 0, 1.0, sd)
-    scaled = (x - x.mean(axis=0)) / sd
-    return _mahalanobize(scaled, _pooled_cov(scaled, treat))
+    """MatchIt 4.5.5 coordinates: scale, pooled covariance, pivoted Cholesky.
+
+    ``det > 1e-8`` uses ``solve``. Otherwise the inverse is ``MASS::ginv``.
+    The factor is not truncated after the numerical rank, matching
+    ``mahalanobize`` in that release.
+    """
+    scaled = _r_scale(np.asarray(x, dtype=np.float64))
+    var = _pooled_cov(scaled, treat)
+    det = float(np.linalg.det(var)) if var.size > 1 else float(var.reshape(-1)[0])
+    inv = None
+    if det > 1e-8:
+        try:
+            inv = np.linalg.inv(var)
+        except np.linalg.LinAlgError:
+            inv = None
+    if inv is None:
+        inv = _generalized_inverse(var)
+    return _pivoted_chol_coordinates(scaled, inv)
 
 
 def _robust_mahalanobis_coordinates(x: np.ndarray, _treat: np.ndarray) -> np.ndarray:

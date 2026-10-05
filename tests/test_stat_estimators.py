@@ -163,6 +163,25 @@ def test_scalar_nearest_matches_the_full_scan():
                     assert got == expected, (order_name, replace, limit, labels is not None)
 
 
+def test_logit_tie_keeps_the_adjacent_lower_score():
+    """MatchIt 4.5.5 keeps the neighboring control when two scores are equal.
+
+    Scores ``[0, 0, 1]`` with only the last row treated. Both controls sit on
+    the lower-score side, and the one next to the treated row in the stable
+    order is index 1, not the smaller row index.
+    """
+    data = pl.DataFrame({"treat": [0.0, 0.0, 1.0], "x": [0.0, 0.0, 1.0]})
+    matched = match_sample(
+        data,
+        "treat",
+        ["x"],
+        method="nearest",
+        distance=np.array([0.0, 0.0, 1.0]),
+        order="data",
+    )
+    assert matched.pairs()["control"].to_list() == [1]
+
+
 def test_exact_and_cem_defer_the_propensity(monkeypatch):
     calls = {"n": 0}
     import statract.matching as matching
@@ -204,6 +223,42 @@ def test_mahalanobis_accepts_a_factor():
     matched = match_sample(data, "treat", ["x", "color"], method="nearest", distance="mahalanobis", order="data")
     assert matched.pairs().height >= 1
     assert np.isfinite(matched.weights).all()
+
+
+def test_mahalanobis_pairs_match_matchit_455():
+    """Pairs locked to one MatchIt 4.5.5 run (R 4.3.3) on this 24-row frame.
+
+    The factor uses every level, so the pooled covariance is singular and the
+    match goes through the generalized inverse.
+    """
+    color = (["blue", "green", "red"] * 8)[:24]
+    data = pl.DataFrame(
+        {
+            "treat": [1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1],
+            "x": [
+                0.2, 0.2, 1.5, 1.5, 0.2, 0.4, 1.4, 1.6, 0.3, 2.0, 0.1, 1.7,
+                0.5, 0.6, 1.1, 1.2, 0.0, 2.2, 0.8, 0.9, 1.8, 0.7, 1.3, 2.4,
+            ],
+            "color": color,
+        }
+    )
+    matched = match_sample(data, "treat", ["x", "color"], method="nearest", distance="mahalanobis", order="data")
+    got = list(zip(matched.pairs()["treated"].to_list(), matched.pairs()["control"].to_list(), strict=True))
+    assert got == [
+        (0, 18),
+        (1, 4),
+        (2, 11),
+        (3, 6),
+        (8, 5),
+        (9, 15),
+        (12, 10),
+        (14, 20),
+        (16, 13),
+        (19, 22),
+        (21, 17),
+        (23, 7),
+    ]
+    assert np.array_equal(matched.weights, np.ones(24))
 
 
 def test_matrix_distance_rejects_subclass_matching():
