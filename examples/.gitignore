@@ -1,0 +1,8 @@
+# Derived data and analysis artifacts (never commit CSV/parquet/plots)
+**/cache/
+**/snapshot/
+**/*_out/
+**/log/
+**/__pycache__/
+**/.ipynb_checkpoints/
+**/.task/

@@ -1,0 +1,26 @@
+# Cache and build artifacts
+cache/
+*.pyc
+__pycache__/
+*.pickle
+
+# Logs
+log/
+
+# Snapshot (optional - you may want to track these)
+# snapshot/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+

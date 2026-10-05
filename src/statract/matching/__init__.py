@@ -1,0 +1,1249 @@
+"""Sample matching in the sense of MatchIt, with a Python calling style.
+
+``distance="logit"`` fits a logistic regression and matches on the propensity
+score. ``order="data"`` walks treated units in frame order, so the pairs are
+deterministic. Optimal 1:1 matching uses the Hungarian algorithm.
+``total_distance`` is the sum of discrepancies on the matched edges. Full
+matching, and optimal matching with ``ratio`` above 1, use the same
+minimum-cost flow as ``optmatch::fullmatch``. Weights follow MatchIt's
+``normalize=TRUE``: within each arm, positive weights sum to the number of
+positive-weight units.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import numpy as np
+import polars as pl
+from numba import njit
+from scipy.optimize import linear_sum_assignment
+
+from ..design import ColumnRef, column_series, design_matrix
+from ..fit import fit_glm
+from .flow import full_match_edges
+
+_METHODS = {"nearest", "exact", "subclass", "cem", "optimal", "full"}
+_DISTANCES = {"logit", "probit", "mahalanobis", "robust_mahalanobis", "euclidean", "scaled_euclidean"}
+
+
+@dataclass
+class MatchedSample:
+    """Matched sample. Row positions refer to the input frame."""
+
+    data: pl.DataFrame
+    treatment: str
+    covariates: list[str]
+    weights: np.ndarray
+    distance: np.ndarray
+    subclass: np.ndarray
+    pair_table: pl.DataFrame
+    estimand: str
+    method: str
+    # Exact, subclass, and CEM store subclass ids. The treated-by-control
+    # product is built when pairs() is asked for.
+    _expand_pairs: bool = False
+    # Exact and CEM do not use the default propensity for their weights.
+    # The logit (or the requested link) is fit when a caller reads it.
+    _distance_link: str | None = None
+
+    def _ensure_distance(self) -> None:
+        if self._distance_link is None:
+            return
+        dist, rows = _distance_vector(self.data, self.treatment, self.covariates, "logit", self._distance_link)
+        self.distance = _align_distance(dist, rows, self.data.height)
+        self._distance_link = None
+
+    def frame(self) -> pl.DataFrame:
+        """Input rows with ``distance``, ``weights``, and ``subclass``."""
+        self._ensure_distance()
+        return self.data.with_columns(
+            pl.Series("distance", self.distance),
+            pl.Series("weights", self.weights),
+            pl.Series("subclass", self.subclass),
+        )
+
+    def pairs(self) -> pl.DataFrame:
+        self._ensure_distance()
+        if self._expand_pairs:
+            self.pair_table = _pairs_from_subclasses(self)
+            self._expand_pairs = False
+        return self.pair_table
+
+    def total_distance(self) -> float:
+        """Sum of discrepancies on the matched edges.
+
+        Optimal matching minimizes this sum. Full matching minimizes the same
+        sum over the edges that define the subclasses.
+        """
+        table = self.pair_table if not self._expand_pairs else self.pairs()
+        if table.height == 0:
+            return 0.0
+        return float(np.sum(table["distance"].to_numpy()))
+
+    def balance(self) -> pl.DataFrame:
+        self._ensure_distance()
+        return _balance(self)
+
+    def love_plot(self):
+        """Standardized mean differences before and after matching."""
+        import matplotlib.pyplot as plt
+
+        table = self.balance()
+        labels = table["term"].to_list()[::-1]
+        y = np.arange(len(labels))
+        fig, ax = plt.subplots()
+        ax.scatter(table["smd_all"].to_numpy()[::-1], y, label="all", marker="o")
+        ax.scatter(table["smd_matched"].to_numpy()[::-1], y, label="matched", marker="D")
+        ax.axvline(0.0, color="black", linewidth=0.8)
+        ax.set_yticks(y, labels)
+        ax.set_xlabel("standardized mean difference")
+        ax.legend()
+        fig.tight_layout()
+        return fig
+
+    def balance_plot(self, covariate: str, *, kind: str = "density"):
+        """Density of one covariate before and after matching."""
+        if kind != "density":
+            raise ValueError("kind must be 'density'")
+        import matplotlib.pyplot as plt
+
+        values = np.asarray(self.data[covariate].to_numpy(), dtype=float)
+        treat = np.asarray(self.data[self.treatment].to_numpy(), dtype=float) > 0
+        fig, ax = plt.subplots()
+        for label, mask in (("treated", treat), ("control", ~treat)):
+            ax.hist(values[mask], bins=15, density=True, histtype="step", label=f"all {label}")
+            kept = mask & (self.weights > 0)
+            if np.any(kept):
+                ax.hist(values[kept], bins=15, density=True, histtype="step", label=f"matched {label}")
+        ax.set_xlabel(covariate)
+        ax.legend()
+        fig.tight_layout()
+        return fig
+
+
+def match_sample(
+    data: pl.DataFrame,
+    treatment: ColumnRef,
+    covariates: list[ColumnRef],
+    *,
+    method: str = "nearest",
+    distance: str | np.ndarray | None = None,
+    link: str = "logit",
+    estimand: str = "ATT",
+    exact: list[ColumnRef] | None = None,
+    caliper: float | None = None,
+    std_caliper: bool = True,
+    ratio: int = 1,
+    replace: bool = False,
+    order: str | None = None,
+    discard: str = "none",
+    reestimate: bool = False,
+    subclass: int = 6,
+    cutpoints: str | dict[str, str | int | np.ndarray] = "sturges",
+    seed: int = 0,
+) -> MatchedSample:
+    """Match controls to treated units.
+
+    ``method`` is ``nearest``, ``exact``, ``subclass``, ``cem``, ``optimal``,
+    or ``full``. ``distance`` is ``logit``, ``probit``, ``mahalanobis``,
+    ``robust_mahalanobis``, ``euclidean``, ``scaled_euclidean``, or a numeric
+    vector already aligned with ``data``. Omitting it uses the logit propensity.
+    Exact and CEM do not need that score for their weights, so the fit waits
+    until ``frame``, ``pairs``, or ``balance`` reads the distance.
+    """
+    if method not in _METHODS:
+        raise ValueError(f"method must be one of {sorted(_METHODS)}")
+    if estimand not in {"ATT", "ATC", "ATE"}:
+        raise ValueError("estimand must be ATT, ATC, or ATE")
+    if ratio < 1:
+        raise ValueError("ratio must be at least 1")
+    treat_s = column_series(data, treatment)
+    treat = np.asarray(treat_s.to_numpy(), dtype=float) > 0
+    names = [_column_name(data, col) for col in covariates]
+    focal = treat if estimand != "ATC" else ~treat
+    # ATC swaps the roles and the returned weights are mapped back.
+    role = treat if estimand != "ATC" else ~treat
+    requested = "logit" if distance is None else distance
+    defer_distance = distance is None and method in {"exact", "cem"} and discard == "none"
+    if defer_distance:
+        dist = np.full(data.height, np.nan)
+        matrix = False
+    else:
+        dist, dist_rows = _distance_vector(data, treat_s.name, names, requested, link)
+        dist = _align_distance(dist, dist_rows, data.height)
+        matrix = isinstance(dist, np.ndarray) and dist.ndim == 2
+    if method == "subclass" and matrix:
+        raise ValueError("subclass matching needs a one-dimensional distance")
+    discarded = _discard_mask(dist, role, discard)
+    if reestimate and isinstance(requested, str) and requested in {"logit", "probit"} and np.any(discarded):
+        kept = data.filter(~pl.Series(discarded))
+        dist2, rows2 = _distance_vector(kept, treat_s.name, names, requested, link)
+        dist = np.full(data.height, np.nan)
+        dist[np.flatnonzero(~discarded)] = dist2
+    if order is None:
+        if method == "exact" or matrix:
+            order = "data"
+        else:
+            order = "largest" if np.isfinite(dist).any() else "data"
+    if matrix and order in {"largest", "smallest"}:
+        raise ValueError("order 'largest' and 'smallest' apply to a scalar distance; use 'data'")
+    expand_pairs = method in {"exact", "subclass", "cem"}
+    if method == "nearest":
+        pairs, weights, subclasses = _nearest(
+            role, dist, ratio=ratio, replace=replace, order=order, caliper=caliper,
+            std_caliper=std_caliper, discarded=discarded, exact=_exact_labels(data, exact), seed=seed,
+        )
+    elif method == "exact":
+        weights, subclasses = _subclass_weights(role, _exact_labels(data, covariates if exact is None else exact), estimand="ATT")
+        pairs = None
+    elif method == "subclass":
+        labels = _quantile_subclass(dist, subclass, discarded)
+        weights, subclasses = _subclass_weights(role, labels, estimand="ATT")
+        pairs = None
+    elif method == "cem":
+        labels = _cem_labels(data, names, role, cutpoints)
+        weights, subclasses = _subclass_weights(role, labels, estimand="ATT")
+        pairs = None
+    elif method == "optimal":
+        pairs, weights, subclasses = _optimal(role, dist, ratio=ratio, discarded=discarded, exact=_exact_labels(data, exact))
+    else:
+        pairs, weights, subclasses = _full(role, dist, discarded=discarded)
+    if estimand == "ATC":
+        weights = _swap_roles(weights, treat)
+        if pairs is not None:
+            pairs = pairs.rename({"treated": "control", "control": "treated"})
+    weights = _normalize_to_counts(weights, treat)
+    if pairs is None:
+        pair_frame = pl.DataFrame({"treated": [], "control": [], "distance": []})
+    elif pairs.height:
+        pair_frame = pl.DataFrame(
+            {
+                "treated": pairs["treated"].to_numpy(),
+                "control": pairs["control"].to_numpy(),
+                "distance": _pair_distance(dist, pairs),
+            }
+        )
+    else:
+        pair_frame = pl.DataFrame({"treated": [], "control": [], "distance": []})
+    return MatchedSample(
+        data=data,
+        treatment=treat_s.name,
+        covariates=names,
+        weights=weights.astype(float),
+        distance=dist,
+        subclass=subclasses,
+        pair_table=pair_frame,
+        estimand=estimand,
+        method=method,
+        _expand_pairs=expand_pairs,
+        _distance_link=link if defer_distance else None,
+    )
+
+
+def _nearest(treat, dist, *, ratio, replace, order, caliper, std_caliper, discarded, exact, seed):
+    usable = _usable_rows(dist)
+    treated = np.flatnonzero(treat & ~discarded & usable)
+    control = np.flatnonzero(~treat & ~discarded & usable)
+    treated = _order_units(treated, dist, order, seed)
+    limit = None
+    if caliper is not None:
+        if dist.ndim == 2:
+            raise NotImplementedError("caliper on a matrix distance is not implemented")
+        scale = float(np.nanstd(dist[~discarded], ddof=1)) if std_caliper else 1.0
+        limit = float(caliper) * scale
+    if dist.ndim == 1:
+        pair_t, pair_c = _nearest_on_line(treated, control, dist, ratio, replace, limit, exact)
+    else:
+        pair_t, pair_c = _nearest_scan(treated, control, dist, ratio, replace, limit, exact)
+    weights = np.zeros(len(treat))
+    subclasses = np.zeros(len(treat), dtype=int)
+    estimand_weights_from_pairs(treat, pair_t, pair_c, weights, subclasses, replace)
+    pairs = pl.DataFrame({"treated": pair_t, "control": pair_c}) if pair_t else pl.DataFrame({"treated": [], "control": []})
+    return pairs, weights, subclasses
+
+
+def _nearest_on_line(treated, control, dist, ratio, replace, limit, exact):
+    """Nearest controls on a scalar score.
+
+    Controls are ordered by score, and within a score by row index. From the
+    insertion point, the next match is the closer unused side. An equal gap
+    keeps the smaller row index, which is the stable mergesort order of the
+    full scan.
+    """
+    if control.size == 0 or treated.size == 0:
+        return [], []
+    ctrl, scores = _score_order(control, dist)
+    has_exact = exact is not None
+    if has_exact:
+        codes = np.asarray(exact, dtype=np.int64)
+        treated_codes = np.ascontiguousarray(codes[treated])
+        ctrl_codes = np.ascontiguousarray(codes[ctrl])
+    else:
+        treated_codes = np.zeros(treated.shape[0], dtype=np.int64)
+        ctrl_codes = np.zeros(ctrl.shape[0], dtype=np.int64)
+    out_t, out_c = _match_sorted(
+        np.ascontiguousarray(treated, dtype=np.int64),
+        np.ascontiguousarray(ctrl, dtype=np.int64),
+        np.ascontiguousarray(scores, dtype=np.float64),
+        np.ascontiguousarray(dist, dtype=np.float64),
+        int(ratio),
+        bool(replace),
+        limit is not None,
+        0.0 if limit is None else float(limit),
+        has_exact,
+        treated_codes,
+        ctrl_codes,
+    )
+    return out_t.tolist(), out_c.tolist()
+
+
+@njit(cache=True)
+def _match_sorted(treated, ctrl, scores, dist, ratio, replace, has_limit, limit, has_exact, treated_codes, ctrl_codes):
+    """Greedy nearest neighbors on a score already sorted by value, then row."""
+    n_t = treated.shape[0]
+    n_c = ctrl.shape[0]
+    n_rows = dist.shape[0]
+    out_t = np.empty(n_t * ratio, dtype=np.int64)
+    out_c = np.empty(n_t * ratio, dtype=np.int64)
+    count = 0
+    used = np.zeros(n_rows, dtype=np.uint8)
+    scratch = np.empty(ratio, dtype=np.int64)
+    for t_i in range(n_t):
+        t = treated[t_i]
+        query = dist[t]
+        t_code = treated_codes[t_i]
+        hi = np.searchsorted(scores, query)
+        lo = hi - 1
+        taken = 0
+        local_n = 0
+        while taken < ratio:
+            while lo >= 0 and (used[ctrl[lo]] != 0 or (has_exact and ctrl_codes[lo] != t_code)):
+                lo -= 1
+            while hi < n_c and (used[ctrl[hi]] != 0 or (has_exact and ctrl_codes[hi] != t_code)):
+                hi += 1
+            left = lo >= 0
+            right = hi < n_c
+            left_gap = abs(scores[lo] - query) if left else 0.0
+            right_gap = abs(scores[hi] - query) if right else 0.0
+            left_ok = left and (not has_limit or left_gap <= limit + 1e-12)
+            right_ok = right and (not has_limit or right_gap <= limit + 1e-12)
+            if not left_ok and not right_ok:
+                break
+            if left_ok and right_ok:
+                min_gap = left_gap if left_gap <= right_gap else right_gap
+            elif left_ok:
+                min_gap = left_gap
+            else:
+                min_gap = right_gap
+            best = -1
+            if left_ok:
+                j = lo
+                while j >= 0:
+                    if has_exact and ctrl_codes[j] != t_code:
+                        j -= 1
+                        continue
+                    gap = abs(scores[j] - query)
+                    if gap != min_gap:
+                        break
+                    row = ctrl[j]
+                    if used[row] == 0 and (best < 0 or row < best):
+                        best = row
+                    j -= 1
+            if right_ok:
+                j = hi
+                while j < n_c:
+                    if has_exact and ctrl_codes[j] != t_code:
+                        j += 1
+                        continue
+                    gap = abs(scores[j] - query)
+                    if gap != min_gap:
+                        break
+                    row = ctrl[j]
+                    if used[row] == 0 and (best < 0 or row < best):
+                        best = row
+                    j += 1
+            if best < 0:
+                break
+            out_t[count] = t
+            out_c[count] = best
+            count += 1
+            used[best] = 1
+            if replace:
+                scratch[local_n] = best
+                local_n += 1
+            taken += 1
+        if replace:
+            for k in range(local_n):
+                used[scratch[k]] = 0
+    return out_t[:count], out_c[:count]
+
+
+def _score_order(control: np.ndarray, dist: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    scores = np.asarray(dist[control], dtype=float)
+    order = np.lexsort((control, scores))
+    return control[order], scores[order]
+
+
+def _nearest_scan(treated, control, dist, ratio, replace, limit, exact):
+    """Matrix-distance scan. Ties keep the earlier control row.
+
+    A short candidate list keeps the scalar loop, which matches its square
+    roots bitwise. A long list uses one matrix product of squared Euclidean
+    distances, then the same greedy rule on those squares.
+    """
+    treated_a = np.ascontiguousarray(treated, dtype=np.int64)
+    control_a = np.ascontiguousarray(control, dtype=np.int64)
+    if dist.ndim == 1:
+        matrix = np.ascontiguousarray(dist, dtype=np.float64).reshape(-1, 1)
+    else:
+        matrix = np.ascontiguousarray(dist, dtype=np.float64)
+    n_rows = matrix.shape[0]
+    if exact is None:
+        exact_a = np.zeros(n_rows, dtype=np.int64)
+        has_exact = False
+    else:
+        exact_a = np.ascontiguousarray(exact, dtype=np.int64)
+        has_exact = True
+    n_t = int(treated_a.shape[0])
+    n_c = int(control_a.shape[0])
+    wide = n_t * n_c * int(matrix.shape[1]) >= 50_000 and limit is None
+    if wide and n_t > 0 and n_c > 0:
+        out_t, out_c = _nearest_gemm(treated_a, control_a, matrix, int(ratio), bool(replace), has_exact, exact_a)
+    else:
+        out_t, out_c = _scan_matrix(
+            treated_a,
+            control_a,
+            matrix,
+            int(ratio),
+            bool(replace),
+            limit is not None,
+            0.0 if limit is None else float(limit),
+            has_exact,
+            exact_a,
+        )
+    return out_t.tolist(), out_c.tolist()
+
+
+def _nearest_gemm(treated, control, matrix, ratio, replace, has_exact, exact):
+    """Greedy nearest neighbours from ``||a-b||^2 = ||a||^2 + ||b||^2 - 2 a·b``."""
+    ctrl = np.ascontiguousarray(matrix[control])
+    c2 = np.einsum("ij,ij->i", ctrl, ctrl)
+    n_t = int(treated.shape[0])
+    n_c = int(control.shape[0])
+    # One distance block stays under a few hundred megabytes. Larger problems
+    # are scored a few treated rows at a time.
+    block = n_t if n_t * n_c <= 40_000_000 else max(1, 40_000_000 // n_c)
+    used = np.zeros(n_c, dtype=np.uint8)
+    parts_t = []
+    parts_c = []
+    simple = ratio == 1 and not has_exact
+    for start in range(0, n_t, block):
+        rows = treated[start : start + block]
+        tv = np.ascontiguousarray(matrix[rows])
+        t2 = np.einsum("ij,ij->i", tv, tv)
+        dist2 = np.ascontiguousarray(np.maximum(t2[:, None] + c2 - 2.0 * (tv @ ctrl.T), 0.0))
+        if simple:
+            chosen = _take_dist2_one(dist2, used, replace)
+            keep = chosen >= 0
+            out_t = rows[keep]
+            out_c = control[chosen[keep]]
+        else:
+            out_t, out_c = _take_dist2(dist2, np.ascontiguousarray(rows), control, ratio, replace, has_exact, exact, used)
+        if out_t.size:
+            parts_t.append(np.asarray(out_t, dtype=np.int64))
+            parts_c.append(np.asarray(out_c, dtype=np.int64))
+    if not parts_t:
+        return np.empty(0, dtype=np.int64), np.empty(0, dtype=np.int64)
+    return np.concatenate(parts_t), np.concatenate(parts_c)
+
+
+@njit(cache=True)
+def _take_dist2_one(dist2, used, replace):
+    """One control per treated row. An equal square keeps the earlier control."""
+    n_t, n_c = dist2.shape
+    out = np.empty(n_t, dtype=np.int64)
+    for t_i in range(n_t):
+        best = 1e300
+        best_j = -1
+        for j in range(n_c):
+            if (not replace) and used[j] != 0:
+                continue
+            gap = dist2[t_i, j]
+            if gap < best:
+                best = gap
+                best_j = j
+        if best_j < 0:
+            out[t_i] = -1
+            continue
+        if not replace:
+            used[best_j] = 1
+        out[t_i] = best_j
+    return out
+
+
+@njit(cache=True)
+def _take_dist2(dist2, treated, control, ratio, replace, has_exact, exact, used):
+    """Pick from precomputed squared distances. ``used`` carries over between blocks."""
+    n_t = dist2.shape[0]
+    n_c = dist2.shape[1]
+    out_t = np.empty(n_t * ratio, dtype=np.int64)
+    out_c = np.empty(n_t * ratio, dtype=np.int64)
+    count = 0
+    best_gap = np.empty(ratio, dtype=np.float64)
+    best_j = np.empty(ratio, dtype=np.int64)
+    for t_i in range(n_t):
+        t = treated[t_i]
+        t_code = exact[t] if has_exact else 0
+        n_best = 0
+        for j in range(n_c):
+            if (not replace) and used[j] != 0:
+                continue
+            if has_exact and exact[control[j]] != t_code:
+                continue
+            gap = dist2[t_i, j]
+            pos = n_best
+            for s in range(n_best):
+                if gap < best_gap[s] or (gap == best_gap[s] and j < best_j[s]):
+                    pos = s
+                    break
+            if pos == ratio:
+                continue
+            if n_best < ratio:
+                last = n_best
+                n_best += 1
+            else:
+                last = ratio - 1
+            for s in range(last, pos, -1):
+                best_gap[s] = best_gap[s - 1]
+                best_j[s] = best_j[s - 1]
+            best_gap[pos] = gap
+            best_j[pos] = j
+        for s in range(n_best):
+            j = best_j[s]
+            out_t[count] = t
+            out_c[count] = control[j]
+            count += 1
+            if not replace:
+                used[j] = 1
+    return out_t[:count], out_c[:count]
+
+
+@njit(cache=True)
+def _scan_matrix(treated, control, dist, ratio, replace, has_limit, limit, has_exact, exact):
+    """Nearest ``ratio`` controls for each treated row.
+
+    Equal distances keep the earlier index in ``control``, the same order as a
+    stable sort of the gaps. A scalar distance is passed as one column, so the
+    Euclidean gap is the absolute difference.
+    """
+    n_t = treated.shape[0]
+    n_c = control.shape[0]
+    p = dist.shape[1]
+    out_t = np.empty(n_t * ratio, dtype=np.int64)
+    out_c = np.empty(n_t * ratio, dtype=np.int64)
+    count = 0
+    used = np.zeros(n_c, dtype=np.uint8)
+    best_gap = np.empty(ratio, dtype=np.float64)
+    best_j = np.empty(ratio, dtype=np.int64)
+    for t_i in range(n_t):
+        t = treated[t_i]
+        t_code = exact[t] if has_exact else 0
+        n_best = 0
+        for j in range(n_c):
+            if (not replace) and used[j] != 0:
+                continue
+            row = control[j]
+            if has_exact and exact[row] != t_code:
+                continue
+            acc = 0.0
+            for k in range(p):
+                diff = dist[row, k] - dist[t, k]
+                acc += diff * diff
+            gap = np.sqrt(acc)
+            if has_limit and gap > limit + 1e-12:
+                continue
+            pos = n_best
+            for s in range(n_best):
+                if gap < best_gap[s] or (gap == best_gap[s] and j < best_j[s]):
+                    pos = s
+                    break
+            if pos == ratio:
+                continue
+            if n_best < ratio:
+                last = n_best
+                n_best += 1
+            else:
+                last = ratio - 1
+            for s in range(last, pos, -1):
+                best_gap[s] = best_gap[s - 1]
+                best_j[s] = best_j[s - 1]
+            best_gap[pos] = gap
+            best_j[pos] = j
+        for s in range(n_best):
+            j = best_j[s]
+            out_t[count] = t
+            out_c[count] = control[j]
+            count += 1
+            if not replace:
+                used[j] = 1
+    return out_t[:count], out_c[:count]
+
+
+def estimand_weights_from_pairs(treat, pair_t, pair_c, weights, subclasses, replace):
+    """ATT weights: matched treated units weigh 1, controls weigh their reuse count."""
+    weights[treat] = 0
+    if not pair_t:
+        return True
+    pair_t = np.asarray(pair_t, dtype=int)
+    pair_c = np.asarray(pair_c, dtype=int)
+    treated_ids, inverse = np.unique(pair_t, return_inverse=True)
+    weights[treated_ids] = 1
+    controls, counts = np.unique(pair_c, return_counts=True)
+    weights[controls] = counts.astype(float) if replace or int(counts.max()) > 1 else 1.0
+    # Subclass ids follow the sorted treated units. A reused control keeps the
+    # id of the later treated unit, which is the last write in that order.
+    subclasses[treated_ids] = np.arange(1, len(treated_ids) + 1)
+    order = np.argsort(pair_t, kind="mergesort")
+    subclasses[pair_c[order]] = inverse[order] + 1
+    return True
+
+
+def _optimal(treat, dist, *, ratio, discarded, exact):
+    usable = _usable_rows(dist)
+    treated = np.flatnonzero(treat & ~discarded & usable)
+    control = np.flatnonzero(~treat & ~discarded & usable)
+    if treated.size == 0 or control.size == 0:
+        return pl.DataFrame({"treated": [], "control": []}), np.zeros(len(treat)), np.zeros(len(treat), dtype=int)
+    cost = _pair_cost(dist, treated, control)
+    if exact is not None:
+        bad = exact[treated][:, None] != exact[control][None, :]
+        cost = cost.copy()
+        cost[bad] = np.inf
+    if ratio == 1:
+        # Rectangular Hungarian assignment. Infinite entries are closed.
+        work = np.array(cost, copy=True)
+        work[~np.isfinite(work)] = 1e12
+        row, col = linear_sum_assignment(work)
+        pair_t, pair_c = [], []
+        for r, c in zip(row, col, strict=False):
+            if not np.isfinite(cost[r, c]) or work[r, c] >= 1e12:
+                continue
+            pair_t.append(int(treated[r]))
+            pair_c.append(int(control[c]))
+    else:
+        # k:1 optimal matching is full matching with the ratio fixed.
+        # Fewer controls than the ratio asks for falls back to 1:1.
+        if control.size < ratio * treated.size:
+            return _optimal(treat, dist, ratio=1, discarded=discarded, exact=exact)
+        edges, _total = full_match_edges(
+            cost, min_controls=ratio, max_controls=ratio, mean_controls=float(ratio)
+        )
+        pair_t = [int(treated[i]) for i, _j in edges]
+        pair_c = [int(control[j]) for _i, j in edges]
+    weights = np.zeros(len(treat))
+    subclasses = np.zeros(len(treat), dtype=int)
+    estimand_weights_from_pairs(treat, pair_t, pair_c, weights, subclasses, replace=False)
+    pairs = pl.DataFrame({"treated": pair_t, "control": pair_c}) if pair_t else pl.DataFrame({"treated": [], "control": []})
+    return pairs, weights, subclasses
+
+
+def _full(treat, dist, *, discarded):
+    """Full matching by minimum-cost flow, then ATT subclass weights."""
+    usable = _usable_rows(dist)
+    treated = np.flatnonzero(treat & ~discarded & usable)
+    control = np.flatnonzero(~treat & ~discarded & usable)
+    weights = np.zeros(len(treat))
+    subclasses = np.zeros(len(treat), dtype=int)
+    empty = pl.DataFrame({"treated": [], "control": []})
+    if treated.size == 0 or control.size == 0:
+        return empty, weights, subclasses
+    edges, _total = full_match_edges(_pair_cost(dist, treated, control))
+    pair_t = [int(treated[i]) for i, _j in edges]
+    pair_c = [int(control[j]) for _i, j in edges]
+    weights, subclasses = _weights_from_full(treat, pair_t, pair_c)
+    pairs = pl.DataFrame({"treated": pair_t, "control": pair_c}) if pair_t else empty
+    return pairs, weights, subclasses
+
+
+def _pair_cost(dist: np.ndarray, treated: np.ndarray, control: np.ndarray) -> np.ndarray:
+    """Treated-by-control discrepancy. A scalar distance uses the absolute gap."""
+    if dist.ndim == 1:
+        return np.abs(dist[treated][:, None] - dist[control][None, :])
+    diff = dist[treated][:, None, :] - dist[control][None, :, :]
+    return np.sqrt(np.sum(diff * diff, axis=2))
+
+
+def _weights_from_full(treat, pair_t, pair_c):
+    """ATT full-matching weights from the subclass sizes."""
+    weights = np.zeros(len(treat))
+    subclasses = np.zeros(len(treat), dtype=int)
+    if not pair_t:
+        return weights, subclasses
+    # Subclass id is the treated unit when several controls share it,
+    # or the control when several treated share it.
+    groups: dict[int, list[int]] = {}
+    partner: dict[int, int] = {}
+    for t, c in zip(pair_t, pair_c, strict=False):
+        partner.setdefault(t, c)
+    # Build connected pairs as subclasses keyed by the first treated.
+    subclass_of: dict[int, int] = {}
+    next_id = 1
+    members_t: dict[int, list[int]] = {}
+    members_c: dict[int, list[int]] = {}
+    for t, c in zip(pair_t, pair_c, strict=False):
+        sid = subclass_of.get(t) or subclass_of.get(c)
+        if sid is None:
+            sid = next_id
+            next_id += 1
+        subclass_of[t] = sid
+        subclass_of[c] = sid
+        members_t.setdefault(sid, [])
+        members_c.setdefault(sid, [])
+        if t not in members_t[sid]:
+            members_t[sid].append(t)
+        if c not in members_c[sid]:
+            members_c[sid].append(c)
+    for sid, ts in members_t.items():
+        cs = members_c[sid]
+        for t in ts:
+            subclasses[t] = sid
+            weights[t] = 1.0
+        for c in cs:
+            subclasses[c] = sid
+            weights[c] = len(ts) / len(cs)
+    return weights, subclasses
+
+
+def _subclass_weights(treat, labels, *, estimand):
+    """Weights for exact, subclass, and CEM. ``labels`` <= 0 means unmatched.
+
+    A cell contributes only when it holds both classes. Weights are the
+    within-cell size ratio. The pair list is not built here.
+    """
+    weights = np.zeros(len(treat))
+    subclasses = np.zeros(len(treat), dtype=np.int64)
+    positive = np.asarray(labels) > 0
+    if not np.any(positive):
+        return weights, subclasses
+    cell = np.asarray(labels, dtype=np.int64)
+    uniq, inverse_pos = np.unique(cell[positive], return_inverse=True)
+    role = np.asarray(treat, dtype=bool)[positive]
+    n_role = np.bincount(inverse_pos, weights=role.astype(float), minlength=len(uniq))
+    n_other = np.bincount(inverse_pos, weights=(~role).astype(float), minlength=len(uniq))
+    both = (n_role > 0) & (n_other > 0)
+    if estimand == "ATC":
+        role_w = np.divide(n_other, n_role, out=np.zeros_like(n_role), where=n_role > 0)
+        other_w = np.ones_like(n_other)
+    else:
+        role_w = np.ones_like(n_role)
+        other_w = np.divide(n_role, n_other, out=np.zeros_like(n_other), where=n_other > 0)
+    role_w = np.where(both, role_w, 0.0)
+    other_w = np.where(both, other_w, 0.0)
+    weights[positive] = np.where(role, role_w[inverse_pos], other_w[inverse_pos])
+    kept = cell.copy()
+    kept[~positive] = 0
+    kept[positive] = np.where(both[inverse_pos], cell[positive], 0)
+    subclasses[:] = kept
+    return weights, subclasses
+
+
+def _pairs_from_subclasses(matched: MatchedSample) -> pl.DataFrame:
+    """Cartesian pairs inside each subclass, in the same row order as the old loop."""
+    treat = np.asarray(matched.data[matched.treatment].to_numpy(), dtype=float) > 0
+    labels = np.asarray(matched.subclass)
+    treated_parts: list[np.ndarray] = []
+    control_parts: list[np.ndarray] = []
+    # ATC used to iterate the focal (control) arm on the outside, then rename.
+    outer_treated = matched.estimand != "ATC"
+    for label in np.unique(labels):
+        if int(label) <= 0:
+            continue
+        members = np.flatnonzero(labels == label)
+        treated = members[treat[members]]
+        control = members[~treat[members]]
+        if treated.size == 0 or control.size == 0:
+            continue
+        if outer_treated:
+            treated_parts.append(np.repeat(treated, control.size))
+            control_parts.append(np.tile(control, treated.size))
+        else:
+            treated_parts.append(np.tile(treated, control.size))
+            control_parts.append(np.repeat(control, treated.size))
+    if not treated_parts:
+        return pl.DataFrame({"treated": [], "control": [], "distance": []})
+    treated_id = np.concatenate(treated_parts)
+    control_id = np.concatenate(control_parts)
+    return pl.DataFrame(
+        {
+            "treated": treated_id,
+            "control": control_id,
+            "distance": _pair_distance_ids(matched.distance, treated_id, control_id),
+        }
+    )
+
+
+def _quantile_subclass(dist, n_sub, discarded):
+    labels = np.zeros(len(dist), dtype=int)
+    usable = np.isfinite(dist) & ~discarded
+    if int(usable.sum()) < n_sub:
+        labels[usable] = 1
+        return labels
+    edges = np.quantile(dist[usable], np.linspace(0, 1, n_sub + 1))
+    edges[0], edges[-1] = -np.inf, np.inf
+    # right-closed bins, matching cut(..., include.lowest=TRUE) closely enough
+    bin_id = np.searchsorted(edges, dist, side="right") - 1
+    labels[usable] = bin_id[usable] + 1
+    return labels
+
+
+def _cem_labels(data, names, treat, cutpoints):
+    codes = []
+    for name in names:
+        values = np.asarray(data[name].to_numpy())
+        if np.issubdtype(values.dtype, np.number):
+            bins = cutpoints.get(name, "sturges") if isinstance(cutpoints, dict) else cutpoints
+            codes.append(_coarsen(values.astype(float), bins))
+        else:
+            levels, inverse = np.unique(values.astype(str), return_inverse=True)
+            codes.append(inverse.astype(int))
+    if not codes:
+        return np.ones(len(treat), dtype=int)
+    stacked = np.ascontiguousarray(np.column_stack(codes), dtype=np.int64)
+    if stacked.shape[0] == 0:
+        return np.zeros(0, dtype=np.int64)
+    order = np.lexsort(tuple(stacked[:, i] for i in range(stacked.shape[1] - 1, -1, -1)))
+    sorted_rows = stacked[order]
+    change = np.empty(len(sorted_rows), dtype=bool)
+    change[0] = True
+    if len(sorted_rows) > 1:
+        change[1:] = np.any(sorted_rows[1:] != sorted_rows[:-1], axis=1)
+    group_sorted = np.cumsum(change) - 1
+    inverse = np.empty(len(order), dtype=np.int64)
+    inverse[order] = group_sorted
+    n_groups = int(group_sorted[-1]) + 1
+    role = np.asarray(treat, dtype=float)
+    n_role = np.bincount(inverse, weights=role, minlength=n_groups)
+    n_other = np.bincount(inverse, weights=1.0 - role, minlength=n_groups)
+    keep = (n_role > 0) & (n_other > 0)
+    remap = np.zeros(n_groups, dtype=np.int64)
+    remap[keep] = np.arange(1, int(keep.sum()) + 1, dtype=np.int64)
+    return remap[inverse]
+
+
+def _coarsen(values: np.ndarray, bins) -> np.ndarray:
+    if isinstance(bins, str):
+        if bins == "sturges":
+            n_bins = int(np.ceil(np.log2(len(values)) + 1))
+        elif bins == "scott":
+            sigma = float(np.std(values, ddof=1))
+            width = 3.5 * sigma / (len(values) ** (1 / 3)) if sigma > 0 else 1.0
+            n_bins = max(int(np.ceil((values.max() - values.min()) / width)), 1)
+        else:
+            raise ValueError("cutpoints string must be sturges or scott")
+        edges = np.linspace(values.min(), values.max(), n_bins + 1)
+    elif isinstance(bins, (int, np.integer)):
+        edges = np.linspace(values.min(), values.max(), int(bins) + 1)
+    else:
+        edges = np.asarray(bins, dtype=float)
+    edges = edges.astype(float).copy()
+    edges[0] = -np.inf
+    edges[-1] = np.inf
+    return np.searchsorted(edges, values, side="right")
+
+
+def _distance_vector(data, treatment, covariates, distance, link):
+    if not isinstance(distance, str):
+        values = np.asarray(distance, dtype=float)
+        return values, np.arange(len(values))
+    if distance not in _DISTANCES:
+        raise ValueError(f"distance must be one of {sorted(_DISTANCES)} or a numeric vector")
+    if distance in {"logit", "probit"}:
+        family_link = distance if link == "logit" else link
+        if family_link == "logit":
+            fit = fit_glm(data, treatment, covariates, family="binomial")
+            return fit.predict(kind="response"), fit.row_index
+        return _probit_probability(data, treatment, covariates)
+    x = _drop_constant(_covariate_matrix(data, covariates))
+    treat = np.asarray(column_series(data, treatment).to_numpy(), dtype=float) > 0
+    if distance == "euclidean":
+        coords = x
+    elif distance == "scaled_euclidean":
+        coords = x / _pooled_sd(x, treat)
+    elif distance == "mahalanobis":
+        coords = _mahalanobis_coordinates(x, treat)
+    elif distance == "robust_mahalanobis":
+        coords = _robust_mahalanobis_coordinates(x, treat)
+    else:
+        raise ValueError(distance)
+    return coords, np.arange(data.height)
+
+
+def _probit_probability(data, treatment, covariates):
+    import statsmodels.api as sm
+
+    design = design_matrix(data, covariates, extra=[treatment])
+    y = np.asarray(column_series(data, treatment).gather(design.row_index.tolist()).to_numpy(), dtype=float)
+    result = sm.GLM(y, design.x, family=sm.families.Binomial(link=sm.families.links.Probit())).fit(maxiter=100, tol=1e-12, disp=0)
+    eta = design.x @ np.asarray(result.params, dtype=float)
+    return stats_norm_cdf(eta), design.row_index
+
+
+def stats_norm_cdf(eta):
+    from scipy.stats import norm
+
+    return norm.cdf(eta)
+
+
+def _align_distance(dist, rows, n):
+    if dist.ndim == 2:
+        return dist
+    if len(dist) == n and np.array_equal(rows, np.arange(n)):
+        return dist.astype(float)
+    out = np.full(n, np.nan)
+    out[np.asarray(rows, dtype=int)] = dist
+    return out
+
+
+def _order_units(units, dist, order, seed):
+    if order == "data":
+        return units
+    if order == "largest":
+        return units[np.argsort(-dist[units], kind="mergesort")]
+    if order == "smallest":
+        return units[np.argsort(dist[units], kind="mergesort")]
+    if order == "random":
+        rng = np.random.default_rng(seed)
+        perm = rng.permutation(len(units))
+        return units[perm]
+    raise ValueError("order must be largest, smallest, random, or data")
+
+
+def _discard_mask(dist, treat, discard):
+    mask = np.zeros(len(treat), dtype=bool)
+    if discard == "none" or dist.ndim == 2:
+        return mask
+    finite = np.isfinite(dist)
+    t = dist[treat & finite]
+    c = dist[~treat & finite]
+    if t.size == 0 or c.size == 0:
+        return mask
+    lo, hi = max(t.min(), c.min()), min(t.max(), c.max())
+    outside = finite & ((dist < lo) | (dist > hi))
+    if discard == "both":
+        mask |= outside
+    elif discard == "treated":
+        mask |= outside & treat
+    elif discard == "control":
+        mask |= outside & ~treat
+    elif discard != "none":
+        raise ValueError("discard must be none, both, treated, or control")
+    return mask
+
+
+def _exact_labels(data, exact):
+    if not exact:
+        return None
+    parts = []
+    for col in exact:
+        series = column_series(data, col)
+        values = series.to_numpy()
+        _, inverse = np.unique(values.astype(str), return_inverse=True)
+        parts.append(inverse)
+    return np.column_stack(parts).dot(np.array([1, *np.cumprod([len(np.unique(p)) for p in parts[:-1]])])) if False else _pack(parts)
+
+
+def _pack(parts: list[np.ndarray]) -> np.ndarray:
+    code = np.zeros(len(parts[0]), dtype=int)
+    stride = 1
+    for part in parts:
+        code = code + (part + 1) * stride
+        stride *= int(part.max()) + 2
+    return code
+
+
+def _column_name(data, col: ColumnRef) -> str:
+    return col if isinstance(col, str) else column_series(data, col).name
+
+
+def _normalize_to_counts(weights: np.ndarray, treat: np.ndarray) -> np.ndarray:
+    """MatchIt's ``normalize=TRUE``: each arm's positive weights sum to its size."""
+    out = np.asarray(weights, dtype=float).copy()
+    for flag in (True, False):
+        mask = (treat == flag) & (out > 0)
+        total = out[mask].sum()
+        if total > 0:
+            out[mask] *= mask.sum() / total
+    return out
+
+
+def _swap_roles(weights: np.ndarray, treat: np.ndarray) -> np.ndarray:
+    return weights
+
+
+def _pair_distance_ids(dist: np.ndarray, treated: np.ndarray, control: np.ndarray) -> np.ndarray:
+    if treated.size == 0:
+        return np.zeros(0)
+    if dist.ndim != 1:
+        diff = dist[control] - dist[treated]
+        return np.sqrt(np.sum(diff * diff, axis=1))
+    return np.abs(dist[treated] - dist[control])
+
+
+def _subclass_pair_balance(values, treat, labels, focal) -> float:
+    """Mean |treated - control| over the subclass product, without building it."""
+    values = np.asarray(values, dtype=float)
+    total = 0.0
+    count = 0
+    for label in np.unique(labels):
+        if int(label) <= 0:
+            continue
+        members = np.flatnonzero(labels == label)
+        treated = values[members[treat[members]]]
+        control = values[members[~treat[members]]]
+        if treated.size == 0 or control.size == 0:
+            continue
+        if not (np.isfinite(treated).all() and np.isfinite(control).all()):
+            return float("nan")
+        total += _sum_abs_outer(treated, control)
+        count += int(treated.size * control.size)
+    if count == 0:
+        return float("nan")
+    sd = float(np.std(values[focal], ddof=1))
+    if sd == 0 or not np.isfinite(sd):
+        return float("nan")
+    return float((total / count) / sd)
+
+
+def _sum_abs_outer(treated: np.ndarray, control: np.ndarray) -> float:
+    ordered = np.sort(control)
+    prefix = np.cumsum(ordered)
+    n_control = ordered.size
+    total_control = float(prefix[-1])
+    at = np.searchsorted(ordered, treated, side="right")
+    sum_left = np.where(at > 0, prefix[at - 1], 0.0)
+    sum_right = total_control - sum_left
+    return float(np.sum(at * treated - sum_left + sum_right - (n_control - at) * treated))
+
+
+def _pair_distance(dist, pairs: pl.DataFrame) -> np.ndarray:
+    if pairs.height == 0:
+        return np.zeros(0)
+    return _pair_distance_ids(dist, pairs["treated"].to_numpy(), pairs["control"].to_numpy())
+
+
+def _usable_rows(dist: np.ndarray) -> np.ndarray:
+    if dist.ndim == 1:
+        return np.isfinite(dist)
+    return np.all(np.isfinite(dist), axis=1)
+
+
+def _gaps(dist: np.ndarray, index: int, others: np.ndarray) -> np.ndarray:
+    if dist.ndim == 1:
+        return np.abs(dist[index] - dist[others])
+    diff = dist[others] - dist[index]
+    return np.sqrt(np.sum(diff * diff, axis=1))
+
+
+def _covariate_matrix(data: pl.DataFrame, names: list[str]) -> np.ndarray:
+    """Numeric columns, with factors expanded as treatment-contrast dummies.
+
+    Rows dropped for a null are left as missing, so they stay unmatched.
+    """
+    design = design_matrix(data, names, intercept=False)
+    out = np.full((data.height, design.x.shape[1]), np.nan)
+    out[np.asarray(design.row_index, dtype=int)] = design.x
+    return out
+
+
+def _drop_constant(x: np.ndarray) -> np.ndarray:
+    span = np.nanmax(x, axis=0) - np.nanmin(x, axis=0)
+    keep = span >= np.sqrt(np.finfo(float).eps)
+    if not np.any(keep):
+        return x[:, :1]
+    return x[:, keep]
+
+
+def _pooled_sd(x: np.ndarray, treat: np.ndarray) -> np.ndarray:
+    """MatchIt pooled standard deviation, proportional contribution."""
+    n = x.shape[0]
+    groups = int(np.any(treat)) + int(np.any(~treat))
+    out = np.empty(x.shape[1])
+    for j in range(x.shape[1]):
+        col = np.array(x[:, j], dtype=float, copy=True)
+        binary = np.all((col == 0) | (col == 1))
+        if binary:
+            total = 0.0
+            for flag in (True, False):
+                part = col[treat == flag]
+                ni = part.size
+                if ni == 0:
+                    continue
+                sxi = float(part.sum())
+                total += sxi * (1.0 - sxi / ni) / n
+            out[j] = np.sqrt(total)
+        else:
+            for flag in (True, False):
+                mask = treat == flag
+                if np.any(mask):
+                    col[mask] -= col[mask].mean()
+            out[j] = np.sqrt(np.sum(col**2) / (n - groups))
+    out[~np.isfinite(out) | (out == 0)] = 1.0
+    return out
+
+
+def _pooled_cov(x: np.ndarray, treat: np.ndarray) -> np.ndarray:
+    centered = np.array(x, dtype=float, copy=True)
+    for flag in (True, False):
+        mask = treat == flag
+        if np.any(mask):
+            centered[mask] -= centered[mask].mean(axis=0)
+    n = x.shape[0]
+    groups = int(np.any(treat)) + int(np.any(~treat))
+    if centered.ndim == 1 or centered.shape[1] == 1:
+        var = np.var(centered, ddof=1)
+        return np.array([[var * (n - 1) / (n - groups)]])
+    return np.cov(centered, rowvar=False, ddof=1) * (n - 1) / (n - groups)
+
+
+def _mahalanobize(x: np.ndarray, var: np.ndarray) -> np.ndarray:
+    det = float(np.linalg.det(var)) if var.size > 1 else float(var.reshape(-1)[0])
+    try:
+        inv = np.linalg.inv(var) if det > 1e-8 else np.linalg.pinv(var)
+        factor = np.linalg.cholesky(inv)
+    except np.linalg.LinAlgError:
+        inv = np.linalg.pinv(var)
+        vals, vecs = np.linalg.eigh(inv)
+        vals = np.clip(vals, 0, None)
+        factor = vecs * np.sqrt(vals)
+    return x @ factor
+
+
+def _mahalanobis_coordinates(x: np.ndarray, treat: np.ndarray) -> np.ndarray:
+    sd = x.std(axis=0, ddof=1)
+    sd = np.where(sd == 0, 1.0, sd)
+    scaled = (x - x.mean(axis=0)) / sd
+    return _mahalanobize(scaled, _pooled_cov(scaled, treat))
+
+
+def _robust_mahalanobis_coordinates(x: np.ndarray, _treat: np.ndarray) -> np.ndarray:
+    from scipy.stats import rankdata
+
+    ranks = np.column_stack([rankdata(x[:, j], method="average") for j in range(x.shape[1])])
+    var = np.atleast_2d(np.cov(ranks, rowvar=False, ddof=1))
+    multiplier = np.std(np.arange(1, x.shape[0] + 1), ddof=1) / np.sqrt(np.diag(var))
+    var = var * np.outer(multiplier, multiplier)
+    return _mahalanobize(ranks, var)
+
+
+def _balance(matched: MatchedSample) -> pl.DataFrame:
+    treat = np.asarray(matched.data[matched.treatment].to_numpy(), dtype=float) > 0
+    if matched.estimand == "ATC":
+        focal = ~treat
+    else:
+        focal = treat
+    rows = []
+    columns = ["distance", *matched.covariates]
+    for name in columns:
+        if name == "distance":
+            values = matched.distance
+        else:
+            raw = matched.data[name].to_numpy()
+            if not np.issubdtype(np.asarray(raw).dtype, np.number):
+                continue
+            values = np.asarray(raw, dtype=float)
+        all_row = _one_balance(values, focal, np.ones(len(focal), dtype=bool))
+        matched_row = _one_balance(values, focal, np.ones(len(focal), dtype=bool), weights=matched.weights)
+        if matched._expand_pairs:
+            pair = _subclass_pair_balance(values, treat, matched.subclass, focal)
+        else:
+            pair = _pair_balance(values, matched.pair_table, focal)
+        rows.append({"term": name, **_prefix(all_row, "all"), **_prefix(matched_row, "matched"), "pair_distance": pair})
+    return pl.DataFrame(rows)
+
+
+def _prefix(row: dict, name: str) -> dict:
+    return {f"{key}_{name}" if key != "n" else f"n_{name}": value for key, value in row.items()}
+
+
+def _one_balance(values, focal, mask, weights=None):
+    w = np.ones(len(values)) if weights is None else np.asarray(weights, dtype=float)
+    finite = mask & np.isfinite(values)
+    ft = finite & focal & (w > 0)
+    fc = finite & ~focal & (w > 0)
+    wt, wc = w[ft], w[fc]
+    mt = _wmean(values[ft], wt)
+    mc = _wmean(values[fc], wc)
+    # The ATT denominator is the treated standard deviation. MatchIt uses the
+    # sampling weights, which are constant here, on the units that enter the mean.
+    sd = _wsd(values[ft], np.ones(ft.sum()))
+    smd = (mt - mc) / sd if sd > 0 else float("nan")
+    vt = _wvar(values[ft], np.ones(ft.sum()))
+    vc = _wvar(values[fc], np.ones(fc.sum()))
+    ratio = vt / vc if vc > 0 else float("nan")
+    e_mean, e_max = _ecdf_diff(values[finite & focal], values[finite & ~focal], w[finite & focal], w[finite & ~focal])
+    return {
+        "mean_treated": mt,
+        "mean_control": mc,
+        "smd": smd,
+        "variance_ratio": ratio,
+        "ecdf_mean": e_mean,
+        "ecdf_max": e_max,
+        "n": int(mask.sum()),
+    }
+
+
+def _pair_balance(values, pairs: pl.DataFrame, focal) -> float:
+    if pairs.height == 0:
+        return float("nan")
+    diff = np.abs(values[pairs["treated"].to_numpy()] - values[pairs["control"].to_numpy()])
+    sd = float(np.std(values[focal], ddof=1))
+    if sd == 0:
+        return float("nan")
+    return float(diff.mean() / sd)
+
+
+def _wmean(values, weights):
+    if values.size == 0 or weights.sum() == 0:
+        return float("nan")
+    return float(np.average(values, weights=weights))
+
+
+def _wvar(values, weights):
+    if values.size < 2:
+        return float("nan")
+    mean = np.average(values, weights=weights)
+    # MatchIt uses the unweighted variance inside a matched group when weights are constant.
+    if np.allclose(weights, weights[0]):
+        return float(np.var(values, ddof=1))
+    return float(np.average((values - mean) ** 2, weights=weights))
+
+
+def _wsd(values, weights):
+    var = _wvar(values, weights)
+    return float(np.sqrt(var)) if np.isfinite(var) else float("nan")
+
+
+def _ecdf_diff(left, right, wl, wr):
+    """Mean and max |F_treated - F_control| at the observed values, as ``qqsum``."""
+    if left.size == 0 or right.size == 0:
+        return float("nan"), float("nan")
+    values = np.concatenate([left, right])
+    group = np.concatenate([np.ones(left.size), np.zeros(right.size)])
+    weights = np.concatenate([wl, wr]).astype(float)
+    for flag in (1.0, 0.0):
+        mask = group == flag
+        total = weights[mask].sum()
+        if total > 0:
+            weights[mask] /= total
+    order = np.argsort(values, kind="mergesort")
+    ordered = values[order]
+    signed = weights[order]
+    signed[group[order] == group[order][0]] *= -1
+    running = np.abs(np.cumsum(signed))
+    keep = np.empty(len(ordered), dtype=bool)
+    keep[-1] = True
+    if len(ordered) > 1:
+        keep[:-1] = np.diff(ordered) != 0
+    kept = running[keep]
+    return float(kept.mean()), float(kept.max())

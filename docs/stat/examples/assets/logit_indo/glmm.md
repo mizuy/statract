@@ -1,0 +1,1 @@
+Primary analysis is `fit_mixed(..., family='binomial')` (lme-python / lme-rs) on the full sample (n=602, formula `pep ~ indomethacin + age + risk + sod_yes + pdstent_yes + (1 | site)`). Cluster variance = 0.2954; median odds ratio (MOR) = 1.679. MOR is `statract.median_odds_ratio` (Larsen et al.). Site BLUPs are `glmm_random_effects` / `plot_random_effects`.

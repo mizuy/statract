@@ -1,0 +1,22 @@
+parameter,base,psa_distribution,source
+p_HD,0.002,fixed,Alarid-Escudero et al. MDM 2023 Table 1
+p_HS1,0.15,"beta(30.0, 170.0)",Alarid-Escudero et al. MDM 2023 Table 1
+p_S1H,0.5,"beta(60.0, 60.0)",Alarid-Escudero et al. MDM 2023 Table 1
+p_S1S2,0.105,"beta(84.0, 716.0)",Alarid-Escudero et al. MDM 2023 Table 1
+hr_S1,3.0,"lognormal(log(3.0), 0.01)",Alarid-Escudero et al. MDM 2023 Table 1
+hr_S2,10.0,"lognormal(log(10.0), 0.02)",Alarid-Escudero et al. MDM 2023 Table 1
+or_S1S2,0.6,"lognormal(log(0.6), 0.1)",Alarid-Escudero et al. MDM 2023 Table 1
+c_H,2000.0,"gamma(100.0, 20.0)",Alarid-Escudero et al. MDM 2023 Table 1
+c_S1,4000.0,"gamma(177.8, 22.5)",Alarid-Escudero et al. MDM 2023 Table 1
+c_S2,15000.0,"gamma(225.0, 66.7)",Alarid-Escudero et al. MDM 2023 Table 1
+c_D,0.0,fixed,Alarid-Escudero et al. MDM 2023 Table 1
+c_trtA,12000.0,"gamma(576.0, 20.8)",Alarid-Escudero et al. MDM 2023 Table 1
+c_trtB,13000.0,"gamma(676.0, 19.2)",Alarid-Escudero et al. MDM 2023 Table 1
+u_H,1.0,"beta(200.0, 3.0)",Alarid-Escudero et al. MDM 2023 Table 1
+u_S1,0.75,"beta(130.0, 45.0)",Alarid-Escudero et al. MDM 2023 Table 1
+u_S2,0.5,"beta(230.0, 230.0)",Alarid-Escudero et al. MDM 2023 Table 1
+u_D,0.0,fixed,Alarid-Escudero et al. MDM 2023 Table 1
+u_trtA,0.95,"beta(300.0, 15.0)",Alarid-Escudero et al. MDM 2023 Table 1
+discount_rate,0.03,fixed,Alarid-Escudero et al. MDM 2023 Table 1 (d_c = d_e)
+age_start,25.0,fixed,n_age_init = 25
+age_end,100.0,fixed,n_age_max = 100

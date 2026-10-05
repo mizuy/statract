@@ -1,0 +1,92 @@
+site_name: statract
+site_description: Estimation, statistical figures, and cost-effectiveness analysis
+site_author: MIZUGUCHI Yasuhiko
+repo_name: mizuy/statract
+repo_url: https://github.com/mizuy/statract
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: blue
+      accent: blue
+  features:
+    - navigation.sections
+    - navigation.expand
+    - search.suggest
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+
+nav:
+  - Home: index.md
+  - Cost-effectiveness (cea):
+      - Overview: cea/overview.md
+      - Quickstart: cea/quickstart.md
+      - vs R packages: cea/vs-r.md
+      - Sick-Sicker example: stat/examples/cea_sicksicker.md
+  - Statistics (stat):
+      - Overview: stat/overview.md
+      - Quickstart: stat/quickstart.md
+      - Examples / Gallery:
+          - Gallery: stat/examples.md
+          - Gallery policy: stat/example-gallery-policy.md
+          - surv_colon: stat/examples/surv_colon.md
+          - logit_indo: stat/examples/logit_indo.md
+          - psm_rhc: stat/examples/psm_rhc.md
+          - cif_pbc: stat/examples/cif_pbc.md
+          - aft_rotterdam: stat/examples/aft_rotterdam.md
+          - cox_retinopathy: stat/examples/cox_retinopathy.md
+          - lmm_pbcseq: stat/examples/lmm_pbcseq.md
+          - iptw_nhefs: stat/examples/iptw_nhefs.md
+          - pred_support: stat/examples/pred_support.md
+          - cea_sicksicker: stat/examples/cea_sicksicker.md
+          - legacy_heart: stat/examples/legacy_heart.md
+      - Wilkinson formula: stat/formula.md
+      - vs R packages: stat/vs-r.md
+      - Benchmarks: stat/benchmarks.md
+  - API Reference:
+      - Cost-effectiveness:
+          - markov: api/cea/markov.md
+          - summarize: api/cea/summarize.md
+          - sensitivity: api/cea/sensitivity.md
+      - Statistical Analysis:
+          - agg: api/stat/agg.md
+          - confusion: api/stat/confusion.md
+          - ps: api/stat/ps.md
+          - r: api/stat/r.md
+          - regression: api/stat/regression.md
+          - forest: api/stat/forest.md
+          - stat: api/stat/stat.md
+          - survival: api/stat/survival.md
+          - surv: api/stat/surv.md
+          - formula: api/stat/formula.md
+          - fit: api/stat/fit.md
+          - covariance: api/stat/covariance.md
+          - linear_tests: api/stat/linear_tests.md
+          - matching: api/stat/matching.md
+          - gam: api/stat/gam.md
+          - tree: api/stat/tree.md
+          - mixed: api/stat/mixed.md
+          - tableone: api/stat/tableone.md
+      - Visualization:
+          - figure: api/viz/figure.md

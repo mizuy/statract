@@ -1,0 +1,25 @@
+# psm_rhc — RHC の傾向スコアマッチ例
+
+`match_sample` 最近傍 → Love plot → マッチ後ロジスティック。
+
+**読む:** [docs 単一ページ](../../docs/stat/examples/psm_rhc.md)（ギャラリー: [解析例](https://mizuy.github.io/endolab/stat/examples/psm_rhc/)）。データ出典・プロトコル詳細・図つき Results はそちら。
+
+## 実行
+
+リポジトリルートで `uv sync` のあと:
+
+```bash
+cd examples/psm_rhc
+task all
+# または
+PYTHONPATH=. uv run python build.py
+PYTHONPATH=. uv run python psm_rhc.py
+```
+
+完全な成果物は `psm_rhc_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/stat/examples/assets/psm_rhc/`](../../docs/stat/examples/assets/psm_rhc/) にあります。
+
+## ローカル workflow 文書
+
+実行・再生成用の分割版（読者向け要約ではない）:
+
+[psm_rhc_concept.md](psm_rhc_concept.md) · [psm_rhc_protocol.md](psm_rhc_protocol.md) · [psm_rhc_results.md](psm_rhc_results.md) · [psm_rhc_discussion.md](psm_rhc_discussion.md)

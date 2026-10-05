@@ -1,0 +1,2 @@
+n,tp,fp,tn,fn,n_pos,n_neg,sensitivity,specificity,ppv,npv,accuracy,overtreatment_rate,undertreatment_rate,threshold,model
+2699,910,623,815,351,1261,1438,0.7216494845360825,0.566759388038943,0.593607305936073,0.6989708404802745,0.6391256020748425,0.433240611961057,0.27835051546391754,0.4,glm_full (validation)

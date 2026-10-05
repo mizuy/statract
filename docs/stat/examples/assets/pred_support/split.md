@@ -1,0 +1,1 @@
+Stratified 70/30 split (seed=2026): train n=6297, validation n=2699. Models are fit on train only. `binary_perf` uses threshold 0.4 on glm_full. SUPPORT physiology scores (`sps`, `aps`, `surv2m`, `surv6m`) are not predictors.
