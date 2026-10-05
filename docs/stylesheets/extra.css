@@ -1,0 +1,27 @@
+/* Colors sampled from docs/assets/statract-logo.png (blue → teal). Page background stays white. */
+
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #1b6ba8;
+  --md-primary-fg-color--light: #3c94c4;
+  --md-primary-fg-color--dark: #1c4d7c;
+  --md-primary-bg-color: #ffffff;
+  --md-accent-fg-color: #149aab;
+  --md-accent-fg-color--transparent: #149aab1a;
+  --md-typeset-a-color: #1a649c;
+  --md-default-bg-color: #ffffff;
+}
+
+.md-header {
+  background-color: #1b6ba8;
+  background-image: linear-gradient(100deg, #1c4d7c 0%, #1b6ba8 46%, #1e94b4 100%);
+}
+
+.md-tabs {
+  background-color: #1c4d7c;
+}
+
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  height: 1.8rem;
+  width: auto;
+}

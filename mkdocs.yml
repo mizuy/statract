@@ -1,4 +1,4 @@
-site_name: statract
+site_name: Statract
 site_description: Estimation, statistical figures, and cost-effectiveness analysis
 site_author: MIZUGUCHI Yasuhiko
 repo_name: mizuy/statract
@@ -7,15 +7,20 @@ edit_uri: edit/main/docs/
 
 theme:
   name: material
+  logo: assets/logo-mark.png
+  favicon: assets/favicon.png
   palette:
     - scheme: default
-      primary: blue
-      accent: blue
+      primary: custom
+      accent: custom
   features:
     - navigation.sections
     - navigation.expand
     - search.suggest
     - content.code.copy
+
+extra_css:
+  - stylesheets/extra.css
 
 markdown_extensions:
   - admonition

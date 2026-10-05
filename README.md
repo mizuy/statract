@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/statract-logo.png" alt="Statract" width="420">
+</p>
+
 # statract
 
 推定、生存時間、回帰、記述統計、統計図、費用効果分析（CEA）。データフレームは Polars。
