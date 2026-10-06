@@ -4,9 +4,6 @@
 ``fit_glm``. Gaussian LMMs call ``lme_python.lmer`` (lme-rs). Binomial,
 Poisson, and Gamma GLMMs call ``lme_python.glmer``. Wilkinson formulas such as
 ``y ~ x + (1 | g)`` work for both.
-
-``engine="mixedlm_rs"`` is an optional Gaussian-only fallback (extra
-``statract[mixedlm]``). It is not the default.
 """
 
 from __future__ import annotations
@@ -23,7 +20,6 @@ from .formula import is_formula, model_matrix, reject_survival_syntax
 
 _FAMILIES = ("gaussian", "binomial", "poisson", "gamma")
 _LME_ENGINES = {"lme", "lme-rs", "lme-python", "lme_python"}
-_MIXEDLM_ENGINES = {"mixedlm_rs", "mixedlm-rs", "mixedlm"}
 _LMER_TOLERANCE = 1e-8
 
 
@@ -176,32 +172,19 @@ def fit_mixed(
     ``"poisson"``, or ``"gamma"`` (``glmer``). ``method`` is ``"reml"`` or
     ``"ml"`` and applies to Gaussian LMMs only.
 
-    The default ``engine`` is ``"lme"`` (``lme-python`` / lme-rs). Gaussian
-    fits may use ``engine="mixedlm_rs"`` when the optional extra is installed.
+    ``engine`` is ``"lme"`` (``lme-python`` / lme-rs), the only engine.
     """
     if family not in _FAMILIES:
         raise ValueError(f"family must be one of {_FAMILIES}, got {family!r}")
     if method not in {"reml", "ml"}:
         raise ValueError("method must be 'reml' or 'ml'")
-    engine_key = _normalize_engine(engine)
-    if engine_key == "mixedlm_rs" and family != "gaussian":
-        raise ValueError("engine='mixedlm_rs' is Gaussian-only; use engine='lme' for GLMMs")
+    _normalize_engine(engine)
     if family != "gaussian" and method == "reml":
         method = "ml"
 
-    formula, design, y, labels, group_name, random_names, extra_columns = _prepare(
+    formula, design, _, _, group_name, random_names, _ = _prepare(
         data, outcome, predictors, groups, slopes
     )
-    if engine_key == "mixedlm_rs":
-        return _fit_mixedlm_rs(
-            design,
-            y,
-            labels,
-            group_name,
-            random_names,
-            extra_columns,
-            method=method,
-        )
     return _fit_lme(
         data,
         formula,
@@ -219,9 +202,7 @@ def _normalize_engine(engine: str) -> str:
     key = engine.strip().lower()
     if key in _LME_ENGINES:
         return "lme"
-    if key in _MIXEDLM_ENGINES:
-        return "mixedlm_rs"
-    raise ValueError("engine must be 'lme' or 'mixedlm_rs'")
+    raise ValueError("engine must be 'lme'")
 
 
 def _prepare(
@@ -337,62 +318,6 @@ def _fit_lme(
         raw=raw,
     )
 
-
-def _fit_mixedlm_rs(
-    design: Design,
-    y: np.ndarray,
-    labels: list[object],
-    group_name: str,
-    random_names: list[str],
-    extra_columns: dict[str, np.ndarray],
-    *,
-    method: str,
-) -> MixedFit:
-    try:
-        import mixedlm_rs
-    except ImportError as exc:
-        raise ImportError(
-            "engine='mixedlm_rs' requires the optional extra: pip install 'statract[mixedlm]'"
-        ) from exc
-    exog_re = _random_exog(design, random_names, extra_columns)
-    result = mixedlm_rs.MixedLM(
-        y,
-        design.x,
-        np.asarray(labels),
-        exog_re=exog_re,
-        exog_names=list(design.names),
-        exog_re_names=list(random_names),
-    ).fit(reml=(method == "reml"))
-    coefficients = np.asarray(result.fe_params, dtype=float)
-    covariance = np.asarray(result.cov_params(), dtype=float)[: coefficients.size, : coefficients.size]
-    group_covariance = np.atleast_2d(np.asarray(result.cov_re, dtype=float))
-    if group_covariance.shape != (len(random_names), len(random_names)):
-        raise RuntimeError("random-effect covariance has an unexpected shape")
-    diagnostics = result.diagnostics
-    return MixedFit(
-        coefficients=coefficients,
-        covariance=covariance,
-        names=list(design.names),
-        n_obs=design.n_obs,
-        n_groups=int(len(set(labels))),
-        log_likelihood=float(result.llf),
-        residual_variance=float(result.scale),
-        group_name=group_name,
-        random_names=random_names,
-        group_covariance=group_covariance,
-        method=method,
-        converged=bool(result.converged),
-        n_iter=int(diagnostics["n_iterations"]),
-        function_evals=int(diagnostics["n_objective_evaluations"]),
-        x=design.x,
-        row_index=design.row_index,
-        design=design,
-        family="gaussian",
-        engine="mixedlm_rs",
-        n_agq=1,
-        formula=None,
-        raw=result,
-    )
 
 
 def _group_covariance_from_var_corr(
@@ -511,15 +436,3 @@ def _from_formula(
         raise ValueError("random effect has no intercept and no slopes")
     return design, np.asarray(built.y, dtype=float), labels, effect.group, random_names, extra
 
-
-def _random_exog(design: Design, random_names: list[str], extra: dict[str, np.ndarray]) -> np.ndarray:
-    """Columns of the random-effect design, in ``random_names`` order."""
-    columns = []
-    for name in random_names:
-        if name == "(Intercept)":
-            columns.append(np.ones(design.n_obs, dtype=float))
-        elif name in design.names:
-            columns.append(np.asarray(design.x[:, design.names.index(name)], dtype=float))
-        else:
-            columns.append(np.asarray(extra[name], dtype=float))
-    return np.column_stack(columns)

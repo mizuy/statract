@@ -143,7 +143,7 @@ logit = fit_mixed(frame.with_columns((pl.col("y") > 1).cast(pl.Int8).alias("z"))
 print(logit.tidy(exponentiate=True))
 ```
 
-列で書くときは `fit_mixed(frame, "y", ["x"], groups="g")` です。変量傾きは `y ~ x + (1 + x | g)`、または `slopes=["x"]` です。`x` は固定効果にも入ります。ガウスを最尤にするときは `method="ml"`（既定は `"reml"`）です。`(x || g)` の無相関な傾きは受け付けません。ガウスだけ mixedlm-rs に戻すときは `engine="mixedlm_rs"`（`statract[mixedlm]`）です。`glmm_gpboost` は optional extra の実験実装で、GLMM の本体ではありません。glmmTMB のゼロ過剰や分散モデルは対象外です。
+列で書くときは `fit_mixed(frame, "y", ["x"], groups="g")` です。変量傾きは `y ~ x + (1 + x | g)`、または `slopes=["x"]` です。`x` は固定効果にも入ります。ガウスを最尤にするときは `method="ml"`（既定は `"reml"`）です。`(x || g)` の無相関な傾きは受け付けません。`glmm_gpboost` は optional extra の実験実装で、GLMM の本体ではありません。glmmTMB のゼロ過剰や分散モデルは対象外です。
 
 ### 既存の関数
 

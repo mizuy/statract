@@ -56,7 +56,6 @@ pip install statract
 | extra | 入るもの | 用途 |
 |-------|----------|------|
 | `statract[r]` | rpy2、rpy2-arrow | R ブリッジ `statract.r`。R 本体と使う R パッケージは別に入れる |
-| `statract[mixedlm]` | mixedlm-rs | `fit_mixed` の別エンジン |
 | `statract[gpboost]` | gpboost、pandas | 実験的な `glmm_gpboost` |
 
 ```bash

@@ -2,7 +2,7 @@
 
 公開データで **同じ表** を Python（このライブラリ）と R に渡し、壁時計と数値差を測った結果。設計・許容差・データの引用は [リポジトリの benchmark-plan](https://github.com/mizuy/statract/blob/main/docs/dev/benchmark-plan.md)。R 関数の対応は [vs R](vs-r.md)。
 
-**このページの表は 2026-10-07 の全タスク再計測。** 出典は [`comparison.csv`](benchmarks/comparison.csv)（`bench/stat/run_all.py` と同じ比較。208 行、68 タスク）。表は `bench/stat/render_tables.py`、図は `bench/stat/plot_charts.py` が CSV から作る。Python は statract 0.1.0（Python 3.13.1、NumPy 2.5.3、SciPy 1.18.1、lme-python 0.2.6）。R は 4.6.1 + lme4 2.0.1 + survival 3.8.6 + mgcv 1.9.4 + MatchIt 4.7.2 + sandwich 3.1.1 + lmtest 0.9.40。ウォームアップ 1 回のあと 5 回の中央値。BLAS / OMP スレッドは 1。混合モデルの Python 側は既定の lme-python（`fit_mixed`）。mixedlm-rs はこの実行では計測していない。
+**このページの表は 2026-10-07 の全タスク再計測。** 出典は [`comparison.csv`](benchmarks/comparison.csv)（`bench/stat/run_all.py` と同じ比較。208 行、68 タスク）。表は `bench/stat/render_tables.py`、図は `bench/stat/plot_charts.py` が CSV から作る。Python は statract 0.1.0（Python 3.13.1、NumPy 2.5.3、SciPy 1.18.1、lme-python 0.2.6）。R は 4.6.1 + lme4 2.0.1 + survival 3.8.6 + mgcv 1.9.4 + MatchIt 4.7.2 + sandwich 3.1.1 + lmtest 0.9.40。ウォームアップ 1 回のあと 5 回の中央値。BLAS / OMP スレッドは 1。混合モデルの Python 側は lme-python（`fit_mixed`）。
 
 秒は Apple M4 Max（macOS）の壁時計で、前回（2026-10-05）の VM とは機械が違う。前回の表とは秒を比べない。R の秒はおおむね 1 ms 刻み。比が空なのは R 側が 0 s と記録されたため。
 
@@ -28,7 +28,7 @@
 
 ラベルの「tol外」は、そのタスクの quantity が許容差の外だったという印である。棒の長さは速度であり、数値比較が成功したという意味ではない。R のタイマーが 0 s のタスク（両側の Wald と尤度比、1,000 行側の KM（群））は対数軸に載せない。秒は下の表にある。
 
-indo の二項 GLMM と mixedlm-rs は再計測していないので、この図には入れていない。indo の記録はページ末尾。
+indo の二項 GLMM は再計測していないので、この図には入れていない。indo の記録はページ末尾。
 
 ![大きい側の壁時計。Python と R をタスクごとに並べた対数軸の棒グラフ](benchmarks/speed-large.png)
 
@@ -38,7 +38,7 @@ indo の二項 GLMM と mixedlm-rs は再計測していないので、この図
 
 中心は Python と R が同じ壁時計。軸は log2(R の壁時計 / Python の壁時計) で、0 が等速。右へ行くほど R が遅い（Python が速い）。左へ行くほど Python が遅い。目盛りは 2 倍、4 倍のように、どちらが何倍遅いかを示す。棒の色と向きは速さだけである。斜線と「tol外」は数値比較が許容差の外であることであり、速さの成否ではない。
 
-タスク分けは上の壁時計の図と同じ。R のタイマーが 0 s のタスクは比が定義できないので載せていない。indo の二項 GLMM と mixedlm-rs は再計測していないので、この図にも入れていない。
+タスク分けは上の壁時計の図と同じ。R のタイマーが 0 s のタスクは比が定義できないので載せていない。indo の二項 GLMM は再計測していないので、この図にも入れていない。
 
 ![大きい側。等速を中心に、R と Python のどちらが何倍遅いか](benchmarks/ratio-large.png)
 
@@ -138,7 +138,6 @@ SUPPORT2 の生存は完全ケース 9,103 行。STAR の変量傾きは生徒�
 |------|------|
 | `tableone` / `write_tableone_artifacts` | `bench/stat` のタスク表に無い |
 | `glmm_gpboost` | experimental extra。この実行では入れてない |
-| mixedlm-rs | optional extra。この実行では計測していない |
 | Fine–Gray / Aalen–Johansen | この 4 データに競合原因コードが無い |
 | `plot_survival` など図 | 数値ベンチ対象外 |
 | indo の二項 GLMM | 下の 2026-10-04 記録。再計測していない |
