@@ -102,12 +102,7 @@ KM / log-rank / Cox の正本。`etype=1` で患者単位に畳み、`hue=rx` �
 
 === "表"
 
-    | name | All | Lev | Lev+5FU | Obs | P value |
-    | --- | --- | --- | --- | --- | --- |
-    | Age (years) | 59.8 (11.9) | 60.1 (11.6) | 59.7 (12.3) | 59.5 (12.0) | 0.79 |
-    | Sex |  |  |  |  | 0.03 |
-    | female | 445 (47.9%) | 133 (42.9%) | 163 (53.6%) | 149 (47.3%) |  |
-    | male | 484 (52.1%) | 177 (57.1%) | 141 (46.4%) | 166 (52.7%) |  |
+    --8<-- "examples/assets/surv_colon/table1_gt.md"
 
     [CSV](assets/surv_colon/table1.csv)
 

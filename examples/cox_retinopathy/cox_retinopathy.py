@@ -31,9 +31,8 @@ from statract import (
     plot_survival,
     proportional_hazards_test,
     survival_curve,
-    tableone,
-    tableone_raw,
     write_cox_diagnostic_suite,
+    write_tableone_artifacts,
 )
 from config import ANALYSIS_OUT, CACHE
 from project import project
@@ -82,23 +81,14 @@ def main() -> None:
         encoding="utf-8",
     )
 
-    tableone(
-        cohort,
-        TABLEONE_PARAMS,
+    write_tableone_artifacts(
+        out,
+        "table1",
+        df=cohort,
+        params=TABLEONE_PARAMS,
         hue="trt_label",
         add_all=True,
         add_pvalue=False,
-    )
-    _write_csv(
-        out,
-        "table1",
-        tableone_raw(
-            cohort,
-            TABLEONE_PARAMS,
-            hue="trt_label",
-            add_all=True,
-            add_pvalue=False,
-        ),
     )
 
     km = survival_curve(cohort, "futime", "event", by="trt_label")

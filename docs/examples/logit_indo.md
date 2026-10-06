@@ -44,6 +44,12 @@
 
 ### Table 1
 
+=== "表"
+
+    --8<-- "examples/assets/logit_indo/table1_gt.md"
+
+    [CSV](assets/logit_indo/table1.csv)
+
 === "コード"
 
     ```python
@@ -61,8 +67,6 @@
     gt = tableone(cohort, params, hue="rx", add_all=True, add_pvalue=True)
     # CSV/HTML/md を *_out/ に書くときだけ write_tableone_artifacts（ギャラリー同期用）
     ```
-
-完全な Table 1 CSV はローカル `logit_indo_out/table1.csv`（`task all` で再生成）。
 
 ## メインの解析方法とそのコア
 

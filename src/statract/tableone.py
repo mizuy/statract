@@ -6,6 +6,7 @@ presenting baseline characteristics in medical research papers.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from logging import getLogger
 from pathlib import Path
@@ -250,9 +251,30 @@ def write_tableone_artifacts(
     written.append(html_path)
 
     gt_md = out / f"{stem}_gt.md"
-    gt_md.write_text(gt.as_raw_html(), encoding="utf-8")
+    gt_md.write_text(_embeddable_gt_html(gt.as_raw_html(), f"tableone-{stem}"), encoding="utf-8")
     written.append(gt_md)
     return written
+
+
+def _embeddable_gt_html(html: str, table_id: str) -> str:
+    """Make a GT fragment safe to paste into another HTML page.
+
+    GT draws a random id each call and emits two rules that are not scoped to
+    it (``tbody, tfoot, tr, td, th`` and a bare ``tr``), which would restyle
+    every table on the host page. Use a fixed id and scope those rules. Blank
+    lines are dropped so Markdown keeps the fragment as one HTML block.
+    """
+    match = re.search(r'<div id="([^"]+)"', html)
+    if match is None:
+        return html
+    html = html.replace(match.group(1), table_id)
+    tid = f"#{table_id}"
+    html = html.replace(
+        f"{tid} thead, tbody, tfoot, tr, td, th {{",
+        f"{tid} thead, {tid} tbody, {tid} tfoot, {tid} tr, {tid} td, {tid} th {{",
+    )
+    html = re.sub(r"^\s*tr \{", f"{tid} tr {{", html, flags=re.MULTILINE)
+    return "\n".join(line for line in html.splitlines() if line.strip()) + "\n"
 
 
 def _normalize_column(column: str | pl.Expr) -> pl.Expr:

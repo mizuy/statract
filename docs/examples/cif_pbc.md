@@ -93,6 +93,12 @@
 
 ### Table 1
 
+=== "表"
+
+    --8<-- "examples/assets/cif_pbc/table1_gt.md"
+
+    [CSV](assets/cif_pbc/table1.csv)
+
 === "コード"
 
     ```python

@@ -52,6 +52,9 @@ markdown_extensions:
   - tables
   - attr_list
   - md_in_html
+  - pymdownx.snippets:
+      base_path: [docs]
+      check_paths: true
 
 plugins:
   - search

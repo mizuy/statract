@@ -30,6 +30,15 @@
 
 解析セットから行が落ちない（全段 `excluded: 0`、inclusion 100%）ときは **`flowchart` / Mermaid / `text_flowchart` を載せない**。コホート n を一文で述べ、Table 1 に進む。実際に除外・畳み込みがある例（例: `surv_colon` の患者単位畳み、`cif_pbc` の非無作為化除外、`iptw_nhefs` の欠損除外）だけ flowchart を残し、適用できるとき Mermaid 化する。
 
+### Table 1 は gt の表を必ず載せる
+
+患者（または観察単位）の行がある例は、Table 1 を **gt（great_tables）の表**で「表」タブに必ず載せる。Markdown の抜粋や「ローカルの CSV を見て」で代替しない。
+
+- 例のスクリプトは `write_tableone_artifacts(out, "table1", ...)` で書き出す。`table1_gt.md` は id を `tableone-<stem>` に固定し、CSS をその id の中に閉じた断片なので、ページに埋め込んでも他の表を崩さない
+- `sync_example_assets.py` の対象に `table1_gt.md` と `table1.csv` を入れる
+- ページでは `--8<-- "examples/assets/<stem>/table1_gt.md"`（pymdownx.snippets）で埋め込み、下に CSV へのリンクを置く
+- 患者行が無い例（`cea_sicksicker`）は対象外
+
 ## 結果: Material タブ
 
 図・表ごとに Material tabs を使う。
@@ -79,7 +88,7 @@ HR / OR / 係数の forest は再実装した `plot_forest(..., layout="table")`
 | `cox_retinopathy` | Cox Lin–Wei sandwich（`cluster(id)`）。両眼クラスター |
 | `cif_pbc` | 競合リスク（CIF / Fine–Gray） |
 | `logit_indo` | 施設 GLMM（主）+ MOR / RE plot。固定効果 GLM は比較。較正ホールドアウトなし |
-| `pred_support` | 予測（点モデル）の正本。train / hold-out 較正・DCA・`binary_perf` |
+| `pred_support` | 予測（点モデル）の正本。train / hold-out 較正・DCA・`binary_perf`。二項 GLM と ctree の比較 |
 | `psm_rhc` | PS 最近傍マッチ |
 | `iptw_nhefs` | 安定化 IPTW（手計算重み） |
 | `lmm_pbcseq` | ガウス LMM / クラスタ SE / GAM |
@@ -91,6 +100,7 @@ HR / OR / 係数の forest は再実装した `plot_forest(..., layout="table")`
 - [ ] 結果の図・表に Material タブと実 API コードがある
 - [ ] GLM/Cox 系 forest が `layout="table"`（スクリプトと docs）。論文用白黒は `style="bw"`
 - [ ] 生存例は NAR（軸揃え）・PH・診断スイートが揃っている（型に応じて）
+- [ ] 患者行がある例は Table 1 を gt（`table1_gt.md`）で「表」タブに載せている
 - [ ] 除外がある例だけ flowchart + Mermaid（適用可なら）を docs + `*_out/` に持つ。除外ゼロなら flowchart を置かない
 - [ ] `scripts/sync_example_assets.py` 経由で assets が `*_out/` と同一
 - [ ] 生 CSV / 完全 `*_out/` を commit していない

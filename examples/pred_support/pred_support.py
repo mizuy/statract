@@ -7,7 +7,7 @@ _EXAMPLES = _ExamplesPath(__file__).resolve().parents[1]
 if str(_EXAMPLES) not in sys.path:
     sys.path.insert(0, str(_EXAMPLES))
 
-"""Train/hold-out binomial GLM, calibration, and DCA for SUPPORT2 180-day death."""
+"""Train/hold-out binomial GLM and ctree, calibration, and DCA for SUPPORT2 180-day death."""
 
 
 import io
@@ -16,6 +16,7 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from scipy.stats import rankdata
 
 from support import flowchart, load_parquet_dir
 from statract.reporting import mermaid_flowchart
@@ -25,6 +26,7 @@ from statract import (
     agg_mean_sd,
     binary_perf,
     calibration_table,
+    conditional_tree,
     fit_glm,
     plot_calibration,
     plot_dca,
@@ -89,6 +91,14 @@ def _stratified_val_mask(y: np.ndarray, *, fraction: float, seed: int) -> np.nda
         n_val = min(n_val, idx.size - 1) if idx.size > 1 else idx.size
         val_mask[rng.choice(idx, size=n_val, replace=False)] = True
     return val_mask
+
+
+def _auc(y: np.ndarray, p: np.ndarray) -> float:
+    """Area under the ROC curve (Mann-Whitney, ties count half)."""
+    ranks = rankdata(p)
+    n_pos = int(y.sum())
+    n_neg = y.size - n_pos
+    return float((ranks[y == 1].sum() - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg))
 
 
 def main() -> None:
@@ -172,11 +182,18 @@ def main() -> None:
     p_full_val = np.asarray(full_fit.predict(val, kind="response"), dtype=float)
     p_full_app = np.asarray(full_fit.predict(train, kind="response"), dtype=float)
 
+    # Conditional inference tree on the same training rows and predictors.
+    tree = conditional_tree(train, "death_180", covs)
+    (out / "ctree.txt").write_text(tree.format(), encoding="utf-8")
+    _write_csv(out, "ctree_tests", tree.tests().sort("p_value"))
+    p_tree_val = tree.predict(val)
+
     write_probability_artifacts(
         [
             {"name": "null (validation)", "y_val": y_val, "prob_val": p_null},
             {"name": "glm_age_sex (validation)", "y_val": y_val, "prob_val": p_age},
             {"name": "glm_full (validation)", "y_val": y_val, "prob_val": p_full_val},
+            {"name": "ctree (validation)", "y_val": y_val, "prob_val": p_tree_val},
         ],
         out,
         positive_label="180-day death",
@@ -223,6 +240,27 @@ def main() -> None:
         thresholds=np.array([0.20, 0.30, 0.40, 0.50, 0.60]),
     )
     _write_csv(out, "threshold_tradeoff_val", trade)
+
+    compare_rows = []
+    for name, p_val, size in (
+        ("glm_age_sex", p_age, len(age_fit.tidy())),
+        ("glm_full", p_full_val, len(full_tidy)),
+        ("ctree", p_tree_val, tree.n_terminal()),
+    ):
+        perf_m = binary_perf(y_val, (p_val >= DECISION_THRESHOLD).astype(int))
+        compare_rows.append(
+            {
+                "model": name,
+                "size": size,
+                "auc": _auc(y_val, p_val),
+                "brier": float(np.mean((p_val - y_val) ** 2)),
+                "mean_pred": float(np.mean(p_val)),
+                "observed": float(np.mean(y_val)),
+                "sensitivity": perf_m["sensitivity"],
+                "specificity": perf_m["specificity"],
+            }
+        )
+    _write_csv(out, "model_compare_val", pl.DataFrame(compare_rows))
 
     (out / "split.md").write_text(
         f"Stratified 70/30 split (seed={VAL_SEED}): train n={train.height}, "

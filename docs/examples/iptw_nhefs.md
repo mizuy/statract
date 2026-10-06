@@ -93,6 +93,12 @@
 
 ### Table 1
 
+=== "表"
+
+    --8<-- "examples/assets/iptw_nhefs/table1_gt.md"
+
+    [CSV](assets/iptw_nhefs/table1.csv)
+
 === "コード"
 
     ```python

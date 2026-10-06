@@ -44,6 +44,12 @@ colon が PH を仮定した Cox だけなのに対し、PH 検定と AFT の正
 
 ### Table 1
 
+=== "表"
+
+    --8<-- "examples/assets/aft_rotterdam/table1_gt.md"
+
+    [CSV](assets/aft_rotterdam/table1.csv)
+
 === "コード"
 
     ```python

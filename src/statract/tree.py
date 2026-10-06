@@ -58,6 +58,45 @@ class ConditionalTree:
         _assign(self.root, np.ones(n, dtype=bool), columns, out)
         return out
 
+    def format(self, digits: int = 3) -> str:
+        """Text drawing of the tree, numbered depth first like partykit's print.
+
+        Each terminal node shows the mean response and its size.
+        """
+        lines: list[str] = []
+        counter = [0]
+
+        def visit(node: _Node, depth: int, label: str) -> None:
+            counter[0] += 1
+            prefix = "|   " * depth
+            head = f"{prefix}[{counter[0]}] {label}".rstrip()
+            if node.split is None or node.left is None or node.right is None:
+                lines.append(f"{head}: {node.mean:.{digits}f} (n = {node.n})")
+                return
+            lines.append(head)
+            split = node.split
+            if split.break_at is not None:
+                left = f"{split.column} <= {split.break_at:.{digits}g}"
+                right = f"{split.column} > {split.break_at:.{digits}g}"
+            else:
+                left = f"{split.column} in {{{', '.join(split.left_levels or ())}}}"
+                right = f"{split.column} in {{{', '.join(split.right_levels or ())}}}"
+            visit(node.left, depth + 1, left)
+            visit(node.right, depth + 1, right)
+
+        visit(self.root, 0, "root")
+        return "\n".join(lines) + "\n"
+
+    def n_terminal(self) -> int:
+        """Number of terminal nodes."""
+
+        def count(node: _Node) -> int:
+            if node.split is None or node.left is None or node.right is None:
+                return 1
+            return count(node.left) + count(node.right)
+
+        return count(self.root)
+
     def tests(self) -> pl.DataFrame:
         """Quadratic statistic and Šidák-adjusted p-value for each root covariate."""
         return pl.DataFrame(

@@ -55,19 +55,7 @@
 
 === "表"
 
-    | name | All | control | treated |
-    | --- | --- | --- | --- |
-    | Age at diabetes onset (years) | 20.8 (14.8) | 20.8 (14.8) | 20.8 (14.8) |
-    | Diabetes type |  |  |  |
-    | adult | 166 (42.1%) | 83 (42.1%) | 83 (42.1%) |
-    | juvenile | 228 (57.9%) | 114 (57.9%) | 114 (57.9%) |
-    | Laser type |  |  |  |
-    | argon | 194 (49.2%) | 97 (49.2%) | 97 (49.2%) |
-    | xenon | 200 (50.8%) | 100 (50.8%) | 100 (50.8%) |
-    | Treated eye (laterality) |  |  |  |
-    | left | 216 (54.8%) | 108 (54.8%) | 108 (54.8%) |
-    | right | 178 (45.2%) | 89 (45.2%) | 89 (45.2%) |
-    | Baseline risk score | 9.7 (1.5) | 9.8 (1.5) | 9.6 (1.4) |
+    --8<-- "examples/assets/cox_retinopathy/table1_gt.md"
 
     [CSV](assets/cox_retinopathy/table1.csv)
 

@@ -478,6 +478,27 @@ class TestTableOneGreatTables:
         assert "table_baseline_demo_gt.md" in stems
         assert (tmp_path / "table_baseline_demo_gt.md").read_text(encoding="utf-8")
 
+    def test_gt_fragment_is_scoped_and_stable(self, tmp_path):
+        """The _gt.md fragment uses a fixed id, scopes every CSS rule, and has no blank lines."""
+        import re
+
+        from statract.tableone import write_tableone_artifacts
+
+        df = pl.DataFrame({"group": ["A", "A", "B"], "age": [10.0, 12.0, 20.0]})
+        params = {"Age": ("age", agg_mean_sd)}
+        texts = []
+        for sub in ("a", "b"):
+            write_tableone_artifacts(tmp_path / sub, "t1", df=df, params=params, hue="group")
+            texts.append((tmp_path / sub / "t1_gt.md").read_text(encoding="utf-8"))
+        assert texts[0] == texts[1]
+        text = texts[0]
+        assert '<div id="tableone-t1"' in text
+        assert "\n\n" not in text
+        style = re.search(r"<style>(.*)</style>", text, flags=re.S).group(1)
+        for selector in re.findall(r"([^{}]+)\{", style):
+            for part in selector.split(","):
+                assert part.strip().startswith("#tableone-t1"), part
+
     def test_column_order_keeps_stub_leftmost(self):
         """column_order 適用後も stub(name) が左端、指定列順が保たれること。"""
         import re

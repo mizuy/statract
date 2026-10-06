@@ -25,6 +25,7 @@ ASSETS = ROOT / "docs" / "examples" / "assets"
 # Relative paths under ``examples/<stem>/<stem>_out/`` → same relative path under assets.
 CURATED: dict[str, list[str]] = {
     "surv_colon": [
+        "table1_gt.md",
         "figures/km_rx.png",
         "figures/cox_forest.png",
         "figures/cox_schoenfeld.png",
@@ -42,6 +43,8 @@ CURATED: dict[str, list[str]] = {
         "ph_test.md",
     ],
     "aft_rotterdam": [
+        "table1.csv",
+        "table1_gt.md",
         "figures/km_hormon.png",
         "figures/cox_forest.png",
         "figures/cox_schoenfeld.png",
@@ -58,6 +61,8 @@ CURATED: dict[str, list[str]] = {
         "ph_test.md",
     ],
     "cif_pbc": [
+        "table1.csv",
+        "table1_gt.md",
         "figures/cif_death.png",
         "figures/finegray_forest.png",
         "cif_death_at.csv",
@@ -67,6 +72,8 @@ CURATED: dict[str, list[str]] = {
         "text_flowchart.md",
     ],
     "logit_indo": [
+        "table1.csv",
+        "table1_gt.md",
         "figures/glmm_fixed_forest.png",
         "figures/glmm_site_blups.png",
         "figures/glm_adjusted_forest.png",
@@ -79,6 +86,10 @@ CURATED: dict[str, list[str]] = {
         "glmm.md",
     ],
     "psm_rhc": [
+        "table1_unmatched.csv",
+        "table1_unmatched_gt.md",
+        "table1_matched.csv",
+        "table1_matched_gt.md",
         "figures/love_plot.png",
         "figures/glm_matched_forest.png",
         "balance.csv",
@@ -87,6 +98,8 @@ CURATED: dict[str, list[str]] = {
         "n.md",
     ],
     "iptw_nhefs": [
+        "table1.csv",
+        "table1_gt.md",
         "figures/cem_love.png",
         "figures/ols_iptw_forest.png",
         "iptw_weight_summary.csv",
@@ -96,6 +109,7 @@ CURATED: dict[str, list[str]] = {
         "text_flowchart.md",
     ],
     "cox_retinopathy": [
+        "table1_gt.md",
         "figures/km_trt.png",
         "figures/cox_forest.png",
         "figures/cox_schoenfeld.png",
@@ -113,6 +127,12 @@ CURATED: dict[str, list[str]] = {
         "ph_test.md",
     ],
     "pred_support": [
+        "table1.csv",
+        "table1_gt.md",
+        "ctree.txt",
+        "ctree_tests.csv",
+        "model_compare_val.csv",
+        "figures/fig_calibration_ctree.png",
         "figures/glm_full_forest.png",
         "figures/fig_calibration.png",
         "figures/fig_calibration_apparent.png",
@@ -130,6 +150,8 @@ CURATED: dict[str, list[str]] = {
         "split.md",
     ],
     "lmm_pbcseq": [
+        "table1.csv",
+        "table1_gt.md",
         "figures/gam_day.png",
         "lmm_fixed.csv",
         "ols_cluster.csv",

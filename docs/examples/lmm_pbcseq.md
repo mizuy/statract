@@ -45,6 +45,12 @@ indo の二項混合に対し、ガウス `fit_mixed`（lmer 相当）の正本�
 
 ### Table 1（患者単位）
 
+=== "表"
+
+    --8<-- "examples/assets/lmm_pbcseq/table1_gt.md"
+
+    [CSV](assets/lmm_pbcseq/table1.csv)
+
 === "コード"
 
     ```python
