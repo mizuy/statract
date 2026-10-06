@@ -12,7 +12,7 @@ built.y              # 応答
 built.offset         # offset() の和。無ければ None
 ```
 
-式を渡したときは `predictors`、`groups`、`slopes` を省きます。呼び出し例は [Quickstart](quickstart.md)、R との対応は [R パッケージとの対応](vs-r.md) です。
+式を渡したときは `predictors`、`groups`、`slopes` を省きます。呼び出し例は [Models](overview.md)、R との対応は [R パッケージとの対応](vs-r.md) です。
 
 ## 対応一覧
 

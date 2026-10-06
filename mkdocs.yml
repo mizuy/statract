@@ -5,6 +5,10 @@ repo_name: mizuy/statract
 repo_url: https://github.com/mizuy/statract
 edit_uri: edit/main/docs/
 
+exclude_docs: |
+  dev/
+  examples/policy.md
+
 theme:
   name: material
   logo: assets/logo-mark.png
@@ -14,8 +18,10 @@ theme:
       primary: custom
       accent: custom
   features:
+    - navigation.tabs
     - navigation.sections
-    - navigation.expand
+    - navigation.indexes
+    - navigation.top
     - search.suggest
     - content.code.copy
 
@@ -59,62 +65,58 @@ plugins:
 
 nav:
   - Home: index.md
-  - Table One (tableone):
-      - Overview: tableone/overview.md
-  - Models:
-      - Overview: models/overview.md
-      - Quickstart: models/quickstart.md
-      - Wilkinson formula: models/formula.md
-      - vs R packages: models/vs-r.md
-      - Benchmarks: models/benchmarks.md
-  - Figures (viz):
-      - Overview: viz/overview.md
-  - Cost-effectiveness (cea):
-      - Overview: cea/overview.md
-      - Quickstart: cea/quickstart.md
-      - vs R packages: cea/vs-r.md
-      - Sick-Sicker example: examples/cea_sicksicker.md
+  - Guide:
+      - Table One: tableone/overview.md
+      - Models:
+          - Overview: models/overview.md
+          - Wilkinson formula: models/formula.md
+      - Figures: viz/overview.md
+      - Cost-effectiveness: cea/overview.md
   - Examples:
       - Gallery: examples/index.md
-      - Gallery policy: examples/policy.md
-      - surv_colon: examples/surv_colon.md
-      - logit_indo: examples/logit_indo.md
-      - psm_rhc: examples/psm_rhc.md
-      - cif_pbc: examples/cif_pbc.md
-      - aft_rotterdam: examples/aft_rotterdam.md
-      - cox_retinopathy: examples/cox_retinopathy.md
-      - lmm_pbcseq: examples/lmm_pbcseq.md
-      - iptw_nhefs: examples/iptw_nhefs.md
-      - pred_support: examples/pred_support.md
-      - cea_sicksicker: examples/cea_sicksicker.md
-  - API Reference:
-      - Table One:
-          - tableone: api/tableone/tableone.md
-          - agg: api/tableone/agg.md
-          - stat: api/tableone/stat.md
-      - Models:
-          - formula: api/models/formula.md
-          - fit: api/models/fit.md
-          - covariance: api/models/covariance.md
-          - linear_tests: api/models/linear_tests.md
-          - surv: api/models/surv.md
-          - matching: api/models/matching.md
-          - gam: api/models/gam.md
-          - tree: api/models/tree.md
-          - mixed: api/models/mixed.md
-          - regression: api/models/regression.md
-          - confusion: api/models/confusion.md
-          - r: api/models/r.md
-      - Figures:
-          - forest: api/viz/forest.md
-          - survival: api/viz/survival.md
-          - figure: api/viz/figure.md
+      - Survival:
+          - surv_colon: examples/surv_colon.md
+          - cif_pbc: examples/cif_pbc.md
+          - aft_rotterdam: examples/aft_rotterdam.md
+          - cox_retinopathy: examples/cox_retinopathy.md
+      - Regression and mixed models:
+          - logit_indo: examples/logit_indo.md
+          - lmm_pbcseq: examples/lmm_pbcseq.md
+      - Prediction:
+          - pred_support: examples/pred_support.md
+      - Causal inference:
+          - psm_rhc: examples/psm_rhc.md
+          - iptw_nhefs: examples/iptw_nhefs.md
       - Cost-effectiveness:
-          - markov: api/cea/markov.md
-          - summarize: api/cea/summarize.md
-          - sensitivity: api/cea/sensitivity.md
-  - Development:
-      - Benchmark plan: dev/benchmark-plan.md
-      - Speed plan: dev/speed-plan.md
-      - R parity plan: dev/r-parity-plan.md
-      - R bridge plan: dev/r-lazy-plan.md
+          - cea_sicksicker: examples/cea_sicksicker.md
+  - Reference:
+      - API:
+          - Table One:
+              - tableone: api/tableone/tableone.md
+              - agg: api/tableone/agg.md
+              - stat: api/tableone/stat.md
+          - Models:
+              - formula: api/models/formula.md
+              - fit: api/models/fit.md
+              - covariance: api/models/covariance.md
+              - linear_tests: api/models/linear_tests.md
+              - surv: api/models/surv.md
+              - matching: api/models/matching.md
+              - gam: api/models/gam.md
+              - tree: api/models/tree.md
+              - mixed: api/models/mixed.md
+              - regression: api/models/regression.md
+              - confusion: api/models/confusion.md
+              - r: api/models/r.md
+          - Figures:
+              - forest: api/viz/forest.md
+              - survival: api/viz/survival.md
+              - figure: api/viz/figure.md
+          - Cost-effectiveness:
+              - markov: api/cea/markov.md
+              - summarize: api/cea/summarize.md
+              - sensitivity: api/cea/sensitivity.md
+      - Validation:
+          - Models vs R: models/vs-r.md
+          - CEA vs R: cea/vs-r.md
+          - Benchmarks: models/benchmarks.md

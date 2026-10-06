@@ -1,6 +1,8 @@
-# models — 概要
+# Models
 
-推定です。データは Polars の `DataFrame`、結果の表も Polars です。記述の表は [Table One](../tableone/overview.md)、図は [Figures](../viz/overview.md)、費用効果は [cea](../cea/overview.md) です。`fit_ols`、`fit_glm`、`fit_mixed` は Wilkinson 式（`y ~ x * stage`、`y ~ x + (1 | g)`）も受けます。`cox_ph`、`accelerated_failure`、`fine_gray` は `Surv(time, status) ~ age + sex` も受けます。`conditional_logit` は `y ~ x + strata(set)` も受けます。文法は [Wilkinson 式](formula.md) です。列名のリストでも同じモデルを呼べます。
+推定です。データは Polars の `DataFrame`、結果の表も Polars です。依存は Python 側の数値ライブラリで、`import statract` は R を起動しません。
+
+## 何ができるか
 
 | 層 | モジュール | R での近いもの |
 |----|------------|----------------|
@@ -13,22 +15,142 @@
 | 加法モデル | `statract.gam` | mgcv。gaussian / binomial / poisson / gamma、`cr` / `tp` / `cc` / `ps` / `re`、テンソル、`ti`、`by`、重み、offset |
 | 条件付き推論木 | `statract.tree` | `partykit::ctree`。数値の応答、二次形式、Šidák 調整 |
 | 線形・一般化線形混合 | `statract.mixed` | `lmer` / `glmer`。エンジンは lme-python（lme-rs） |
-| 予測の評価 | `statract.binary`、`statract.probability` | 較正、Brier、決定曲線、閾値。図は [viz](../viz/overview.md) |
+| 予測の評価 | `statract.binary`、`statract.probability` | 較正、Brier、決定曲線、閾値。図は [Figures](../viz/overview.md) |
 
-公開名は `statract` からまとめて import できます。数値の対応は [R パッケージとの対応](vs-r.md)、公開データでの **速度と差の一覧** は [Benchmarks](benchmarks.md)、呼び出し例は [Quickstart](quickstart.md)、式の文法は [Wilkinson 式](formula.md)、ベンチの設計は [benchmark-plan](../dev/benchmark-plan.md)、残っている差の潰し方は [次の速度改善](../dev/speed-plan.md) です。実データの一連の流れは [解析例](../examples/index.md) です。
-
-`import statract` は R を起動しません。R は `tests/r_oracle/scripts/generate.R` が fixture を書くときだけ使います。pytest はその JSON を読みます。
+公開名は `statract` からまとめて import できます。数値の対応は [R パッケージとの対応](vs-r.md)、速度と差の一覧は [Benchmarks](benchmarks.md)、実データの一連の流れは [解析例](../examples/index.md) です。
 
 ## 共通の呼び方
 
 - 第 1 引数はデータ。説明変数は列名のリストか、結果を左辺に置いた Wilkinson 式です。
+- `fit_ols`、`fit_glm`、`fit_mixed` は `y ~ x * stage`、`y ~ x + (1 | g)` を受けます。`cox_ph`、`accelerated_failure`、`fine_gray` は `Surv(time, status) ~ age + sex`、`conditional_logit` は `y ~ x + strata(set)` を受けます。文法は [Wilkinson 式](formula.md) です。
 - カテゴリの最初の水準が参照です。文字列はソート順、`pl.Enum` は定義順です。論理値は `FALSE` / `TRUE` です。ダミー名は `列名 + 水準` で、切片は `(Intercept)` です。交互作用は `:` でつなぎます。
 - 欠損がある行は、そのモデルが使う列についてまとめて落とします。
 - 係数表 `tidy()` の列は `term`, `estimate`, `std_error`, `statistic`, `p_value`, `conf_low`, `conf_high` です。
 - 予測の種類は `kind` です。グループは `by` です。
 
-## 既存の関数
+## Quickstart
+
+```python
+import polars as pl
+from statract import (
+    cox_ph,
+    fit_glm,
+    fit_ols,
+    gam,
+    hc_covariance,
+    match_sample,
+    smooth,
+    survival_curve,
+)
+```
+
+### 線形モデル
+
+```python
+frame = pl.DataFrame(
+    {
+        "y": [1.2, 0.4, 2.1, 1.7, 0.9, 2.4],
+        "x": [0.0, 0.2, 0.5, 0.7, 1.0, 1.2],
+        "stage": ["I", "II", "I", "III", "II", "I"],
+    }
+)
+fit = fit_ols(frame, "y", ["x", "stage"])
+print(fit.tidy())
+print(hc_covariance(fit, kind="HC1"))
+
+# 同じモデルを Wilkinson 式でも書けます。* は主効果と交互作用です。
+same = fit_ols(frame, "y ~ x * stage")
+print(same.tidy())
+```
+
+`stage` は文字列なので水準は I, II, III の順になり、参照は I です。係数名は `stageII` と `stageIII` です。式の展開は R の `model.matrix` に合わせています。演算子、切片、対比、`offset()`、変量効果の列名は [Wilkinson 式](formula.md) です。`model_matrix` が設計行列そのものを返します。
+
+二値の結果は `fit_glm(..., family="binomial")` です。`predict(kind="response")` は成功確率、`kind="link"` はロジットです。ポアソンは `family="poisson"`、ガンマは `family="gamma"`（リンクは逆数）です。
+
+### 生存時間
+
+```python
+frame = pl.DataFrame(
+    {
+        "time": [0.4, 1.2, 0.8, 2.0, 1.5],
+        "event": [1, 0, 1, 1, 0],
+        "arm": [0, 0, 1, 1, 0],
+        "x": [0.2, -0.4, 0.1, 0.5, -0.2],
+    }
+)
+curve = survival_curve(frame, "time", "event", by="arm")
+print(curve.at([1.0]))
+model = cox_ph(frame, "Surv(time, event) ~ x + arm")
+print(model.tidy())
+# 列名でも同じモデルです。
+# cox_ph(frame, "time", "event", ["x", "arm"])
+```
+
+`survival_curve` の既定は Kaplan–Meier で、信頼区間は log です。Nelson–Aalen は `kind="nelson_aalen"` です。Cox の同順位は既定で Efron、`ties="breslow"` も選べます。層は `strata(arm)` か `strata=`、重みは `weights=` です。加速故障時間は `accelerated_failure(frame, "Surv(time, event) ~ x")`、Fine–Gray の展開は `fine_gray(frame, "Surv(time, status) ~ x", cause=1)` です。
+
+### マッチング
+
+```python
+frame = pl.DataFrame(
+    {
+        "treat": [1, 1, 1, 0, 0, 0],
+        "x1": [0.2, 0.4, 1.0, 0.1, 0.5, 0.8],
+        "x2": [1.0, 0.2, -0.4, 0.9, 0.1, -0.2],
+    }
+)
+matched = match_sample(frame, "treat", ["x1", "x2"], method="nearest", distance="logit", order="data")
+print(matched.pairs())
+print(matched.balance())  # 行は distance と各共変量
+```
+
+距離は `logit` のほか `mahalanobis`、`euclidean`、`scaled_euclidean`、`robust_mahalanobis` です。完全一致は `method="exact"`、粗化完全一致は `method="cem"` です。
+
+### 加法モデル
+
+```python
+frame = pl.DataFrame(
+    {
+        "x": [0.0, 0.25, 0.5, 0.75, 1.0],
+        "y": [0.1, 0.8, 0.2, -0.4, 0.0],
+    }
+)
+# k は一意な x の個数以下にする
+fitted = gam(frame, "y", [smooth("x", k=4)])
+print(fitted.smooth_table())
+print(fitted.predict())
+```
+
+この版が合わせるのは、ガウス分布、`basis="cr"`、`method="reml"`、平滑 1 本です。
+
+### 線形混合モデル
+
+`fit_mixed` は変量切片（と数値の変量傾き）の混合モデルの公開入口です。ガウスは `lmer(y ~ x + (1 | g))` に相当し、推定は lme-python（lme-rs）です。二項・ポアソン・ガンマは `family=` で `glmer` 相当です。lme-python は `fit_mixed` を呼んだときに読みます。
+
+```python
+from statract import fit_mixed
+
+frame = pl.DataFrame(
+    {
+        "y": [1.2, 1.5, 0.9, 1.1, 2.4, 2.1, 2.8, 2.0, 0.3, 0.6, 0.1, 0.8],
+        "x": [0.1, 0.4, 0.2, 0.5, 0.2, 0.6, 0.3, 0.7, 0.1, 0.5, 0.2, 0.4],
+        "g": [1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3],
+    }
+)
+mixed = fit_mixed(frame, "y ~ x + (1 | g)")
+print(mixed.tidy())
+print(mixed.variance_table())
+logit = fit_mixed(frame.with_columns((pl.col("y") > 1).cast(pl.Int8).alias("z")), "z ~ x + (1 | g)", family="binomial")
+print(logit.tidy(exponentiate=True))
+```
+
+列で書くときは `fit_mixed(frame, "y", ["x"], groups="g")` です。変量傾きは `y ~ x + (1 + x | g)`、または `slopes=["x"]` です。`x` は固定効果にも入ります。ガウスを最尤にするときは `method="ml"`（既定は `"reml"`）です。`(x || g)` の無相関な傾きは受け付けません。ガウスだけ mixedlm-rs に戻すときは `engine="mixedlm_rs"`（`statract[mixedlm]`）です。`glmm_gpboost` は optional extra の実験実装で、GLMM の本体ではありません。glmmTMB のゼロ過剰や分散モデルは対象外です。
+
+### 既存の関数
 
 `cumulative_survival_ci`、`log_rank_pvalue`、`plot_survival`、`tableone` はそのまま使えます。`sm_summary2df` は呼び出すと `DeprecationWarning` を出します（置き換え先は `Fit.tidy`）。マッチングは `match_sample`、係数表は `fit_glm` / `Fit.tidy` です。
 
-`fit_mixed` は混合モデルの公開入口です。既定エンジンは lme-python（lme-rs）。ガウスは `lmer`（`method="reml"` / `"ml"`）、二項・ポアソン・ガンマは `glmer`（`family=`）。Wilkinson 式 `(1 | g)` を受けます。lme-python は `fit_mixed` を呼んだときに読みます。ガウスの以前のエンジン mixedlm-rs は `engine="mixedlm_rs"`（`statract[mixedlm]`）です。gpboost の `glmm_gpboost` は optional extra の実験実装で、GLMM の本体ではありません。glmmTMB のゼロ過剰や分散モデルは対象外です。
+## 次に読む
+
+- [Wilkinson 式](formula.md) — 式の文法
+- [解析例ギャラリー](../examples/index.md) — Table 1 → モデル → 図の一連の流れ。リポジトリ側の目次は [`examples/`](https://github.com/mizuy/statract/tree/main/examples)
+- [R パッケージとの対応](vs-r.md)、[Benchmarks](benchmarks.md)
