@@ -7,7 +7,7 @@ prepared tables that need n/event columns, group headers, or stacked panels.
 ``save_prepared_hr_forest`` is a compatibility adapter: simple frames go through
 ``plot_forest``; grouped/panel frames stay on this renderer. Saving uses a
 local ``rc_context`` (Helvetica / ``pdf.fonttype=42``) and restores whatever
-rc was active — it does not import ``endolab.mpl``.
+rc was active — it does not import ``studyloop.mpl``.
 """
 
 from __future__ import annotations

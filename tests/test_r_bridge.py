@@ -22,7 +22,7 @@ def _require_rpy2_and_r_arrow():
     try:
         import rpy2_arrow.polars as rpy2polars  # noqa: F401
     except ImportError:
-        pytest.skip("rpy2_arrow.polars is required for endolab R bridge tests")
+        pytest.skip("rpy2_arrow.polars is required for statract R bridge tests")
     return rpy2, pr
 
 
