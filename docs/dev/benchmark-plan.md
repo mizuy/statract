@@ -50,7 +50,7 @@ OLS の結果は `hours_per_week`。説明変数は次の 10 列。
 
 ### Bike Sharing の列
 
-結果は `cnt`。説明変数は `season`、`mnth`、`hr`、`weekday`、`workingday`、`weathersit`、`temp`、`hum`、`windspeed`、`yr`。時刻順を保つ。先頭 1,000 時間は `season` と `yr` が一定なので、その切片の回帰からは外す。月と時刻はゼロ埋めの文字列（`01`）にする。R の `read.csv` がこれを整数にすると、ダミー名が `mnth02` と `mnth2` に分かれる。GAM はこの版が平滑 1 本だけなので、`cnt ~ s(temp)` だけで他の列は入れない。edf は hat 行列のトレースで、切片を含む。R は `sum(fit$edf)` を使う。`summary` の平滑項 edf は切片の 1 を含まない。
+結果は `cnt`。説明変数は `season`、`mnth`、`hr`、`weekday`、`workingday`、`weathersit`、`temp`、`hum`、`windspeed`、`yr`。時刻順を保つ。先頭 1,000 時間は `season` と `yr` が一定なので、その切片の回帰からは外す。月と時刻はゼロ埋めの文字列（`01`）にする。R の `read.csv` がこれを整数にすると、ダミー名が `mnth02` と `mnth2` に分かれる。GAM はこの版が平滑 1 本だけなので、`cnt ~ s(temp)` だけで他の列は入れない。edf は hat 行列のトレースで、切片を含む。R は `sum(fit$edf)` を使う。`summary` の平滑項 edf は切片の 1 を含まない。mgcv の外側の Newton 法は既定の収束判定だと log sp の勾配が 1e-3 ほど残ったまま止まり、10,000 行では係数が最大 1e-3 動く。R の秒は既定の呼び出しで測り、比べる数値は `gam.control(newton=list(conv.tol=1e-12), epsilon=1e-12)` で収束させた当てはめ直しから取る。
 
 ### SUPPORT2 の列
 

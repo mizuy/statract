@@ -300,13 +300,20 @@ run_task <- function(task, frame, manifest) {
     } else if (kind == "gam") {
       k <- option$k
       timed <- time_call(function() gam(cnt ~ s(temp, bs = "cr", k = k), data = frame, method = "REML"))
+      # The default outer Newton stops with a gradient near 1e-3 in log sp,
+      # which moves the coefficients by up to 1e-3 on 10,000 rows. The time is
+      # the default call; the numbers come from a refit run to convergence.
+      converged <- gam(
+        cnt ~ s(temp, bs = "cr", k = k), data = frame, method = "REML",
+        control = gam.control(newton = list(conv.tol = 1e-12), epsilon = 1e-12)
+      )
       record$parts$main <- list(
-        coef = as.numeric(coef(timed$result)),
-        sp = unname(timed$result$sp[[1]]),
+        coef = as.numeric(coef(converged)),
+        sp = unname(converged$sp[[1]]),
         # sum(edf) is the trace of the hat matrix, including the intercept.
         # summary()$s.table is the smooth alone and is short by 1.
-        edf = sum(timed$result$edf),
-        reml = unname(timed$result$gcv.ubre),
+        edf = sum(converged$edf),
+        reml = unname(converged$gcv.ubre),
         seconds = timed$seconds
       )
     } else if (kind == "lmm") {
