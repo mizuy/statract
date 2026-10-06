@@ -18,6 +18,6 @@ PYTHONPATH=. uv run python cox_retinopathy.py
 
 完全な成果物は `cox_retinopathy_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/stat/examples/assets/cox_retinopathy/`](../../docs/stat/examples/assets/cox_retinopathy/) にあります。
 
-## ローカル workflow 文書
+## 付随文書
 
 [cox_retinopathy_concept.md](cox_retinopathy_concept.md) · [cox_retinopathy_protocol.md](cox_retinopathy_protocol.md) · [cox_retinopathy_results.md](cox_retinopathy_results.md) · [cox_retinopathy_discussion.md](cox_retinopathy_discussion.md)

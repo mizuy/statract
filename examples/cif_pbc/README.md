@@ -18,7 +18,7 @@ PYTHONPATH=. uv run python cif_pbc.py
 
 完全な成果物は `cif_pbc_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/stat/examples/assets/cif_pbc/`](../../docs/stat/examples/assets/cif_pbc/) にあります。
 
-## ローカル workflow 文書
+## 付随文書
 
 実行・再生成用の分割版（読者向け要約ではない）:
 

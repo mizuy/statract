@@ -1,6 +1,6 @@
 # cox_retinopathy_protocol
 
-読者向けの一続き版（推奨）: [`docs/stat/examples/cox_retinopathy.md`](../../docs/stat/examples/cox_retinopathy.md)。本ファイルはローカル workflow（列名・出力対応）の正本です。
+読者向けの一続き版（推奨）: [`docs/stat/examples/cox_retinopathy.md`](../../docs/stat/examples/cox_retinopathy.md)。本ファイルは既存の付随文書（列名・出力対応）です。
 
 問い・式の正本: [cox_retinopathy_concept.md](cox_retinopathy_concept.md)
 

@@ -18,7 +18,7 @@ PYTHONPATH=. uv run python aft_rotterdam.py
 
 完全な成果物は `aft_rotterdam_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/stat/examples/assets/aft_rotterdam/`](../../docs/stat/examples/assets/aft_rotterdam/) にあります。
 
-## ローカル workflow 文書
+## 付随文書
 
 実行・再生成用の分割版（読者向け要約ではない）:
 

@@ -1,6 +1,6 @@
 # cea_sicksicker_protocol
 
-読者向けの一続き版（推奨）: [`docs/stat/examples/cea_sicksicker.md`](../../docs/stat/examples/cea_sicksicker.md)。本ファイルはローカル workflow（入力・出力対応）の正本です。
+読者向けの一続き版（推奨）: [`docs/stat/examples/cea_sicksicker.md`](../../docs/stat/examples/cea_sicksicker.md)。本ファイルは既存の付随文書（入力・出力対応）です。
 
 問い・式の正本: [cea_sicksicker_concept.md](cea_sicksicker_concept.md)
 

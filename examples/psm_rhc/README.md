@@ -18,7 +18,7 @@ PYTHONPATH=. uv run python psm_rhc.py
 
 完全な成果物は `psm_rhc_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/stat/examples/assets/psm_rhc/`](../../docs/stat/examples/assets/psm_rhc/) にあります。
 
-## ローカル workflow 文書
+## 付随文書
 
 実行・再生成用の分割版（読者向け要約ではない）:
 

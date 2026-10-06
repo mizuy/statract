@@ -18,6 +18,6 @@ PYTHONPATH=. uv run python cea_sicksicker.py
 
 完全な成果物は `cea_sicksicker_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/stat/examples/assets/cea_sicksicker/`](../../docs/stat/examples/assets/cea_sicksicker/) にあります。
 
-## ローカル workflow 文書
+## 付随文書
 
 [cea_sicksicker_concept.md](cea_sicksicker_concept.md) · [cea_sicksicker_protocol.md](cea_sicksicker_protocol.md) · [cea_sicksicker_results.md](cea_sicksicker_results.md) · [cea_sicksicker_discussion.md](cea_sicksicker_discussion.md)

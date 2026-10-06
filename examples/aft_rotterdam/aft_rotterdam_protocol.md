@@ -1,6 +1,6 @@
 # aft_rotterdam_protocol
 
-読者向けの一続き版（推奨）: [`docs/stat/examples/aft_rotterdam.md`](../../docs/stat/examples/aft_rotterdam.md)。本ファイルはローカル workflow（列名・inclusion / exclusion・出力対応）の正本です。
+読者向けの一続き版（推奨）: [`docs/stat/examples/aft_rotterdam.md`](../../docs/stat/examples/aft_rotterdam.md)。本ファイルは既存の付随文書（列名・inclusion / exclusion・出力対応）です。
 
 問い・式の正本: [aft_rotterdam_concept.md](aft_rotterdam_concept.md)
 

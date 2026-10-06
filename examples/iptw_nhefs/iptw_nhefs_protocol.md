@@ -1,6 +1,6 @@
 # iptw_nhefs_protocol
 
-読者向けの一続き版（推奨）: [`docs/stat/examples/iptw_nhefs.md`](../../docs/stat/examples/iptw_nhefs.md)。本ファイルはローカル workflow（列名・inclusion / exclusion・出力対応）の正本です。
+読者向けの一続き版（推奨）: [`docs/stat/examples/iptw_nhefs.md`](../../docs/stat/examples/iptw_nhefs.md)。本ファイルは既存の付随文書（列名・inclusion / exclusion・出力対応）です。
 
 問い・式の正本: [iptw_nhefs_concept.md](iptw_nhefs_concept.md)
 

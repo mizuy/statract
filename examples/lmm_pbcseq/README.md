@@ -18,7 +18,7 @@ PYTHONPATH=. uv run python lmm_pbcseq.py
 
 完全な成果物は `lmm_pbcseq_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/stat/examples/assets/lmm_pbcseq/`](../../docs/stat/examples/assets/lmm_pbcseq/) にあります。
 
-## ローカル workflow 文書
+## 付随文書
 
 実行・再生成用の分割版（読者向け要約ではない）:
 

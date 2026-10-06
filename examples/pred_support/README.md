@@ -18,7 +18,7 @@ PYTHONPATH=. uv run python pred_support.py
 
 完全な成果物は `pred_support_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/stat/examples/assets/pred_support/`](../../docs/stat/examples/assets/pred_support/) にあります。生の SUPPORT2 CSV はリポジトリに入れません。
 
-## ローカル workflow 文書
+## 付随文書
 
 実行・再生成用の分割版（読者向け要約ではない）:
 

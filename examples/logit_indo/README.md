@@ -18,7 +18,7 @@ PYTHONPATH=. uv run python logit_indo.py
 
 完全な成果物は `logit_indo_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/stat/examples/assets/logit_indo/`](../../docs/stat/examples/assets/logit_indo/) にあります。
 
-## ローカル workflow 文書
+## 付随文書
 
 実行・再生成用の分割版（読者向け要約ではない）:
 

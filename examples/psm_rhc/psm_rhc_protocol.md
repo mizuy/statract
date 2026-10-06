@@ -1,6 +1,6 @@
 # psm_rhc_protocol
 
-読者向けの一続き版（推奨）: [`docs/stat/examples/psm_rhc.md`](../../docs/stat/examples/psm_rhc.md)。本ファイルはローカル workflow（列名・inclusion / exclusion・出力対応）の正本です。
+読者向けの一続き版（推奨）: [`docs/stat/examples/psm_rhc.md`](../../docs/stat/examples/psm_rhc.md)。本ファイルは既存の付随文書（列名・inclusion / exclusion・出力対応）です。
 
 問い・式の正本: [psm_rhc_concept.md](psm_rhc_concept.md)
 

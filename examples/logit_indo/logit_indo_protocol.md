@@ -1,6 +1,6 @@
 # logit_indo_protocol
 
-読者向けの一続き版（推奨）: [`docs/stat/examples/logit_indo.md`](../../docs/stat/examples/logit_indo.md)。本ファイルはローカル workflow（列名・inclusion / exclusion・出力対応）の正本です。
+読者向けの一続き版（推奨）: [`docs/stat/examples/logit_indo.md`](../../docs/stat/examples/logit_indo.md)。本ファイルは既存の付随文書（列名・inclusion / exclusion・出力対応）です。
 
 問い・式の正本: [logit_indo_concept.md](logit_indo_concept.md)
 
