@@ -2,7 +2,7 @@
 
 内視鏡テーマの多施設 RCT。主解析は `site` 変量切片の二項 GLMM（`fit_mixed(..., family="binomial")`、エンジンは lme-python）。施設 BLUP・median odds ratio（MOR）と、固定効果二項 GLM の比較を載せます。効果推定の例なのでホールドアウト較正 / DCA は使いません。
 
-[← ギャラリー](../examples.md) · [実行用ディレクトリ（GitHub）](https://github.com/mizuy/statract/tree/main/examples/logit_indo) · 配置規約は [ANALYSIS_WORKFLOW.md](https://github.com/mizuy/statract/blob/main/examples/README.md)
+[← ギャラリー](../examples.md) · [実行用ディレクトリと手順（GitHub）](https://github.com/mizuy/statract/tree/main/examples/logit_indo)
 
 ## 目的概説
 
@@ -278,4 +278,4 @@ cd examples/logit_indo
 task all
 ```
 
-ワークフロー分割版: [concept](https://github.com/mizuy/statract/blob/main/examples/logit_indo/logit_indo_concept.md) · [protocol](https://github.com/mizuy/statract/blob/main/examples/logit_indo/logit_indo_protocol.md) · [results](https://github.com/mizuy/statract/blob/main/examples/logit_indo/logit_indo_results.md) · [discussion](https://github.com/mizuy/statract/blob/main/examples/logit_indo/logit_indo_discussion.md)
+既存の付随文書: [concept](https://github.com/mizuy/statract/blob/main/examples/logit_indo/logit_indo_concept.md) · [protocol](https://github.com/mizuy/statract/blob/main/examples/logit_indo/logit_indo_protocol.md) · [results](https://github.com/mizuy/statract/blob/main/examples/logit_indo/logit_indo_results.md) · [discussion](https://github.com/mizuy/statract/blob/main/examples/logit_indo/logit_indo_discussion.md)

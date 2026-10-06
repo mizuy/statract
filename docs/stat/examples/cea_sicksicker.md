@@ -2,7 +2,7 @@
 
 `statract.cea` の核（疾患非依存）を、DARTH の仮想疾患 Sick-Sicker で通す例です。病態・費用・効用はライブラリの外（`examples/cea_sicksicker/`）に置きます。
 
-[← ギャラリー](../examples.md) · [実行用ディレクトリ（GitHub）](https://github.com/mizuy/statract/tree/main/examples/cea_sicksicker) · CEA 概要は [cea/overview](../../cea/overview.md) · 配置規約は [ANALYSIS_WORKFLOW.md](https://github.com/mizuy/statract/blob/main/examples/README.md)
+[← ギャラリー](../examples.md) · [実行用ディレクトリと手順（GitHub）](https://github.com/mizuy/statract/tree/main/examples/cea_sicksicker) · CEA 概要は [cea/overview](../../cea/overview.md)
 
 ## 目的概説
 

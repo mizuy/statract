@@ -1,6 +1,6 @@
 # 解析例ギャラリー
 
-`statract` と `statract.cea` を公開教学データで **入力 → 解析 → results → 図** まで通すスタンドアロン例です。配置と文書は [ANALYSIS_WORKFLOW.md](https://github.com/mizuy/statract/blob/main/examples/README.md)。生データ CSV はリポジトリに入れていません（各 `build.py` が snapshot または論文表のスカラーを cache）。リポジトリ側の目次は [`examples/README.md`](https://github.com/mizuy/statract/blob/main/examples/README.md) です。
+`statract` と `statract.cea` を公開教学データで **入力 → 解析 → results → 図** まで通すスタンドアロン例です。生データ CSV はリポジトリに入れていません。実行手順とコードの目次は [`examples/README.md`](https://github.com/mizuy/statract/blob/main/examples/README.md) です。
 
 方針の正本は [example-gallery-policy.md](example-gallery-policy.md)。各カードの**主リンクは docs 内の単一ページ**です。読み順は **目的概説 → データと列 → CQ と方針 → flowchart / tableone → メイン解析 → 結果（図/表＋コードタブ）→ 解釈**（7 節。独立のライブラリコード節は置かない）。Results の図・表は **`examples/<stem>/<stem>_out/` が正本**で、選別コピーを `docs/stat/examples/assets/<stem>/` に載せます（別経路で再描画しない）。同期は `uv run python scripts/sync_example_assets.py`。完全な `*_out/` は gitignore のままローカル再生成用です。実行はリポジトリルートで `uv sync` のあと、各 `examples/<stem>/` で `task all`（手順は各 README）。
 
@@ -148,7 +148,7 @@
 
 ## 例の詳細 {#details}
 
-各例の本文は上のカードから開く **docs 単一ページ**（上記 7 節）にあります。サイトを離れずに読めます。実行用の薄い README / concept·protocol 分割は `examples/<stem>/` に残しています。
+各例の本文は上のカードから開く **docs 単一ページ**（上記 7 節）にあります。サイトを離れずに読めます。実行コードと既存の付随文書は `examples/<stem>/` にあります。
 
 | 例 | docs ページ | 実行コード |
 |----|-------------|------------|

@@ -15,7 +15,7 @@
 
 - `rpy2` と `rpy2-arrow` は `[project.optional-dependencies]` の extra `r` にある。`uv sync` だけでは入らない。ブリッジは `uv sync --extra r` または `pip install statract[r]` で入れる。extra が無いときに `run` や `assign` を呼ぶと `RNotAvailableError` になり、メッセージに `statract[r]` と動く R が要ることが入る。
 - `tests/conftest.py` は `_rpy2_env` を import しない。`RPY2_CFFI_MODE` は `r.py` の `_require_rpy2()` が置く。
-- `stat/r.py` は解析ワークフローが明示的に呼ぶブリッジである。オラクル生成は `Rscript` と JSON である。
+- `stat/r.py` は利用コードが明示的に呼ぶブリッジである。オラクル生成は `Rscript` と JSON である。
 
 システム R（`scripts/cloud-install-r.sh`、`Rscript tests/r_oracle/scripts/generate.R`、`bench/stat/run_r.R`）は Python パッケージの依存ではない。fixture とベンチマークを作り直すときだけ使う。
 
@@ -28,7 +28,7 @@
 | `src/endolab/stat/r.py` | 唯一の呼び出し口。`_require_rpy2()` だけが `rpy2` と `rpy2_arrow.polars` を import する |
 | `src/endolab/stat/_rpy2_env.py` | その import の直前に `RPY2_CFFI_MODE=ABI` を置く。他からは import しない |
 | `tests/test_r_bridge.py` | ブリッジのテスト。`rpy2` が無ければ skip する |
-| 解析ワークフロー | `from statract.r import assign, run, get, init, save_session` と書いたときだけ |
+| R を使う利用コード | `from statract.r import assign, run, get, init, save_session` と書いたときだけ |
 
 公開関数は今の名前のままにする。`statract` の `__all__` には入れない。
 
@@ -74,7 +74,7 @@ dev グループには入れない。ブリッジのテストは extra が無い
 - `docs/api/stat/r.md` の先頭に、`statract[r]` とシステム R が要ることを書く。
 - `docs/stat/r-parity-plan.md` の `stat/r.py` の行を、オラクル生成ではなく解析ブリッジに直す。オラクルは `Rscript` のまま。
 - `docs/cea/vs-r.md` の「本体が rpy2 を持つ」は、optional extra になったあとの文に変える。
-- `ANALYSIS_WORKFLOW.md` と `.claude/skills/endolab-analysis-workflow/reference.md`、`.agents/skills/endolab-analysis-workflow/reference.md` の `from statract.r import ...` の前に、`statract[r]` が要ることを 1 行足す。
+- `from statract.r import ...` を示す statract 文書では、その前に `statract[r]` が要ることを明記する。
 
 ## 5. 受け入れ
 
@@ -85,7 +85,7 @@ dev グループには入れない。ブリッジのテストは extra が無い
 
 ## 6. 今回やらない
 
-- `statract.r` の削除や、解析ワークフローから R を外すこと。
+- `statract.r` の削除。
 - `Rscript` による fixture 再生成と `bench/stat/run_r.R` を Python に置き換えること。システム R のインストール手順（`scripts/cloud-install-r.sh`）も残す。
 - `scikit-learn` 経由で `import endolab` が pandas を読むこと。これは別件である。lifelines は実行時依存から削除済み。gpboost は optional extra で、`import statract` は読まない。
 - （済）`plot_forest` / `glmm_forestplot` の matplotlib 実装。

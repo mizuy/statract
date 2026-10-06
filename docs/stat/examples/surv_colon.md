@@ -2,7 +2,7 @@
 
 KM / log-rank / Cox の正本。`etype=1` で患者単位に畳み、`hue=rx` の Table 1 から KM（number-at-risk 付き）・Cox forest・PH 診断まで。
 
-[← ギャラリー](../examples.md) · [実行用ディレクトリ（GitHub）](https://github.com/mizuy/statract/tree/main/examples/surv_colon) · 配置規約は [ANALYSIS_WORKFLOW.md](https://github.com/mizuy/statract/blob/main/examples/README.md)
+[← ギャラリー](../examples.md) · [実行用ディレクトリと手順（GitHub）](https://github.com/mizuy/statract/tree/main/examples/surv_colon)
 
 ## 目的概説
 
@@ -323,4 +323,4 @@ task all
 uv run python ../../scripts/sync_example_assets.py --stem surv_colon
 ```
 
-サイト掲載は `assets/surv_colon/` のみ（`*_out/` からのコピー）。ワークフロー分割版: [concept](https://github.com/mizuy/statract/blob/main/examples/surv_colon/surv_colon_concept.md) · [protocol](https://github.com/mizuy/statract/blob/main/examples/surv_colon/surv_colon_protocol.md) · [results](https://github.com/mizuy/statract/blob/main/examples/surv_colon/surv_colon_results.md) · [discussion](https://github.com/mizuy/statract/blob/main/examples/surv_colon/surv_colon_discussion.md)
+サイト掲載は `assets/surv_colon/` のみ（`*_out/` からのコピー）。既存の付随文書: [concept](https://github.com/mizuy/statract/blob/main/examples/surv_colon/surv_colon_concept.md) · [protocol](https://github.com/mizuy/statract/blob/main/examples/surv_colon/surv_colon_protocol.md) · [results](https://github.com/mizuy/statract/blob/main/examples/surv_colon/surv_colon_results.md) · [discussion](https://github.com/mizuy/statract/blob/main/examples/surv_colon/surv_colon_discussion.md)

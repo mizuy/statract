@@ -1,14 +1,14 @@
 # statract 解析例
 
-実行スクリプトは各ディレクトリの `build.py` と `{stem}.py`。パス・parquet cache・フローチャートは `examples/support.py`（公開 API ではない）。`statract` のコードもこのディレクトリも `endolab` を import しない。掲載図と表は `docs/stat/examples/assets/`。
+実行スクリプトは各ディレクトリの `build.py` と `{stem}.py`。例専用のパス・parquet cache・フローチャート補助は `examples/support.py`（公開 API ではない）。`statract` のコードもこのディレクトリも `endolab` を import しない。掲載図と表は `docs/stat/examples/assets/`。
 
 # 解析例
 
-公開臨床データで **Table 1 → 解析 → results → 図** までを、`ANALYSIS_WORKFLOW.md` のスタンドアロン配置で示す。データ CSV は git に入れない。各 `build.py` が `@snapshot_cache` で取得し、`snapshot/` と `cache/build/` は gitignore する。
+公開臨床データで **Table 1 → 解析 → results → 図** までを示す。データ CSV は git に入れない。各 `build.py` が取得し、`snapshot/` と `cache/build/` は gitignore する。
 
 **読める入口（カードギャラリー + 各例の単一ページ）は公開ドキュメント側:**  
 [解析例ギャラリー](https://mizuy.github.io/statract/stat/examples/)（ソース: [`docs/stat/examples.md`](../docs/stat/examples.md)）。  
-各例は docs で concept / protocol / results / discussion を **1 HTML ページ**にまとめてあります（例: [surv_colon](https://mizuy.github.io/statract/stat/examples/surv_colon/)）。本ディレクトリは実行コードとワークフロー文書の正本です。完全な `*_out/` は gitignore です。サイト掲載用の選別図・表は **`*_out/` と同一ファイル**を [`docs/stat/examples/assets/`](../docs/stat/examples/assets/) へコピーします（`uv run python scripts/sync_example_assets.py`）。
+各例は docs の **1 HTML ページ**にまとめてあります（例: [surv_colon](https://mizuy.github.io/statract/stat/examples/surv_colon/)）。本ディレクトリには実行コードと既存の付随文書を置きます。完全な `*_out/` は gitignore です。サイト掲載用の選別図・表は **`*_out/` と同一ファイル**を [`docs/stat/examples/assets/`](../docs/stat/examples/assets/) へコピーします（`uv run python scripts/sync_example_assets.py`）。
 
 リポジトリルートで `uv sync` したあと、各ディレクトリで `task all`（または `uv run python build.py` → `uv run python {stem}.py`）。
 

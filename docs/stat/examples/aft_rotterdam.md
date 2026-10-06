@@ -2,7 +2,7 @@
 
 colon が PH を仮定した Cox だけなのに対し、PH 検定と AFT の正本。Cox forest まで。
 
-[← ギャラリー](../examples.md) · [実行用ディレクトリ（GitHub）](https://github.com/mizuy/statract/tree/main/examples/aft_rotterdam) · 配置規約は [ANALYSIS_WORKFLOW.md](https://github.com/mizuy/statract/blob/main/examples/README.md)
+[← ギャラリー](../examples.md) · [実行用ディレクトリと手順（GitHub）](https://github.com/mizuy/statract/tree/main/examples/aft_rotterdam)
 
 ## 目的概説
 
@@ -258,4 +258,4 @@ task all
 uv run python ../../scripts/sync_example_assets.py --stem aft_rotterdam
 ```
 
-ワークフロー分割版: [concept](https://github.com/mizuy/statract/blob/main/examples/aft_rotterdam/aft_rotterdam_concept.md) · [protocol](https://github.com/mizuy/statract/blob/main/examples/aft_rotterdam/aft_rotterdam_protocol.md) · [results](https://github.com/mizuy/statract/blob/main/examples/aft_rotterdam/aft_rotterdam_results.md) · [discussion](https://github.com/mizuy/statract/blob/main/examples/aft_rotterdam/aft_rotterdam_discussion.md)
+既存の付随文書: [concept](https://github.com/mizuy/statract/blob/main/examples/aft_rotterdam/aft_rotterdam_concept.md) · [protocol](https://github.com/mizuy/statract/blob/main/examples/aft_rotterdam/aft_rotterdam_protocol.md) · [results](https://github.com/mizuy/statract/blob/main/examples/aft_rotterdam/aft_rotterdam_results.md) · [discussion](https://github.com/mizuy/statract/blob/main/examples/aft_rotterdam/aft_rotterdam_discussion.md)

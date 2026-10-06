@@ -8,7 +8,7 @@ survival、sandwich、lmtest、MatchIt、mgcv が担う機能と、ガウスの�
 
 ## 0. 方針
 
-1. **R を実行経路に置かない。** `stat/r.py` は解析ワークフローが明示的に呼ぶブリッジで、optional extra `statract[r]` のときだけ rpy2 を読む。オラクル生成は `Rscript` と JSON のままにする。新しい計算は R を起動しない。
+1. **R を実行経路に置かない。** `stat/r.py` は利用コードが明示的に呼ぶブリッジで、optional extra `statract[r]` のときだけ rpy2 を読む。オラクル生成は `Rscript` と JSON のままにする。新しい計算は R を起動しない。
 2. **テストは複数標本で R と数値を合わせる。** 呼び出しの形は比べない（§4）。
 3. **既定の統計手法は R の既定に合わせる。** Cox の同順位は Efron、生存曲線の信頼区間は log、マッチングの estimand は ATT、GAM の選択基準は REML。
 4. **公開 API は Python の流儀にする。** `data` を第一引数にし、列は名前または `pl.Expr` で渡す。オプションはキーワード専用。`fit_ols`、`fit_glm`、`fit_mixed` は Wilkinson 式も受ける。`cox_ph`、`accelerated_failure`、`fine_gray` は `Surv(time, status) ~ x + strata(site)` も受ける。`s(x, k=10)` は式にせず `smooth` で渡す。

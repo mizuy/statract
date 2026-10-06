@@ -1,14 +1,14 @@
 # 解析例ギャラリー方針
 
-`docs/stat/examples/` に載せる公開教学例の読み方・書き方・成果物同期の正本です。ギャラリー索引は [Examples / Gallery](examples.md)。ローカル実行の文書分割は [ANALYSIS_WORKFLOW.md](https://github.com/mizuy/statract/blob/main/examples/README.md) を参照してください。
+`docs/stat/examples/` に載せる公開教学例の読み方・書き方・成果物同期の正本です。ギャラリー索引は [Examples / Gallery](examples.md)。実行手順は各例の README を参照してください。
 
 ## 読み取り UX とローカル実行の分担
 
 | 層 | 役割 |
 |----|------|
 | **mkdocs 単一ページ**（`docs/stat/examples/<stem>.md`） | 読者がサイト上で完結して読む本文。1 例 = 1 ページ |
-| **`examples/<stem>/` の concept / protocol / results / discussion** | ローカルで `task all` するときの解析ワークフロー分割。読み取り UX の正本ではない |
-| **薄い README** | 目的・実行手順・docs へのリンクのみ |
+| **`examples/<stem>/`** | 実行コード、既存の付随文書、生成物（gitignore） |
+| **各例の README** | 目的・実行手順・docs へのリンク |
 
 ギャラリーカードの**主リンクは docs 内ページ**。GitHub のコードツリーは補助リンク。
 
@@ -24,7 +24,7 @@
 6. **結果**
 7. **解釈と解説**
 
-末尾に短い「実行と成果物」（`task all`・ワークフロー分割へのリンク）を置いてよい。
+末尾に短い「実行と成果物」（`task all`・実行用ディレクトリへのリンク）を置いてよい。
 
 ### Flowchart は除外があるときだけ
 
