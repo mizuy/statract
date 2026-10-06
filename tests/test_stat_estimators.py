@@ -355,11 +355,14 @@ def test_matrix_distance_rejects_subclass_matching():
 
 
 def test_sm_summary2df_warns():
-    import statsmodels.api as sm
+    class Result:
+        params = (0.1, 0.2)
+        pvalues = (0.5, 0.01)
 
-    y = [1.0, 2.0, 3.0, 4.0]
-    x = sm.add_constant([0.0, 1.0, 2.0, 3.0])
-    result = sm.OLS(y, x).fit()
+        def conf_int(self):
+            return {0: [0.0, 0.1], 1: [0.2, 0.3]}
+
+    result = Result()
     with pytest.warns(DeprecationWarning, match="Fit.tidy"):
         summary = sm_summary2df(result)
     assert summary.height == 2

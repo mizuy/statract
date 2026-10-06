@@ -910,13 +910,36 @@ def _distance_vector(data, treatment, covariates, distance, link):
 
 
 def _probit_probability(data, treatment, covariates):
-    import statsmodels.api as sm
-
     design = design_matrix(data, covariates, extra=[treatment])
     y = np.asarray(column_series(data, treatment).gather(design.row_index.tolist()).to_numpy(), dtype=float)
-    result = sm.GLM(y, design.x, family=sm.families.Binomial(link=sm.families.links.Probit())).fit(maxiter=100, tol=1e-12, disp=0)
-    eta = design.x @ np.asarray(result.params, dtype=float)
+    eta = design.x @ _probit_coefficients(y, design.x)
     return stats_norm_cdf(eta), design.row_index
+
+
+def _probit_coefficients(y, x, *, tol=1e-10, maxiter=100):
+    """Probit regression by IRLS, started from ``glm``'s mean (y + 0.5) / 2.
+
+    Iteration stops when no coefficient moves by more than ``tol`` relative to
+    its size, which lands within rounding of the maximum likelihood estimate.
+    """
+    from scipy.stats import norm
+
+    eps = np.finfo(float).eps
+    eta = norm.ppf((y + 0.5) / 2.0)
+    mu = norm.cdf(eta)
+    coef = np.zeros(x.shape[1])
+    for _ in range(maxiter):
+        mu_eta = np.maximum(norm.pdf(eta), eps)
+        variance = np.clip(mu * (1.0 - mu), eps, None)
+        z = eta + (y - mu) / mu_eta
+        sw = mu_eta / np.sqrt(variance)
+        previous = coef
+        coef = np.linalg.lstsq(x * sw[:, None], z * sw, rcond=None)[0]
+        eta = x @ coef
+        mu = np.clip(norm.cdf(eta), eps, 1.0 - eps)
+        if np.all(np.abs(coef - previous) <= tol * (1.0 + np.abs(coef))):
+            break
+    return coef
 
 
 def stats_norm_cdf(eta):

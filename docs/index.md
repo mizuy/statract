@@ -32,7 +32,6 @@ flowchart LR
 
 ```bash
 pip install statract
-pip install "statract[sm]"   # statsmodels を使う機能（OLS の一部、割合の信頼区間、probit）
 ```
 
 ```python
@@ -66,7 +65,7 @@ cox_ph(frame, "Surv(time, event) ~ x")
 ## 設計の前提
 
 - 核は pandas を使いません。データと結果の表は Polars です。Kaplan–Meier は自前の `survival_curve` で、lifelines は使いません。
-- statsmodels は optional extra `sm`、R ブリッジ（`statract.r`）は extra `r` です。`import statract` は R も rpy2 も読みません。
+- statsmodels は使いません。R ブリッジ（`statract.r`）は extra `r` です。`import statract` は R も rpy2 も読みません。
 - 解析パイプラインの出力ディレクトリと CSV companion は `statract.reporting` と `statract.task_io` が担当します。
 
 ```python
