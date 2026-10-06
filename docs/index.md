@@ -28,11 +28,44 @@ flowchart LR
 | [Figures](viz/overview.md) | forest、Kaplan–Meier、較正、決定曲線、funnel | `plot_forest`、`plot_survival` |
 | [Cost-effectiveness](cea/overview.md) | cohort Markov、ICER、DSA / PSA | `simulate_cohort_markov`、`calculate_icers` |
 
-## 最小の例
+## 動作環境と依存ライブラリ
+
+**Python 3.13 以上**が必要です。
 
 ```bash
 pip install statract
 ```
+
+`pip install statract` で次が入ります。
+
+| ライブラリ | 用途 |
+|------------|------|
+| [Polars](https://pola.rs/) | 入力のデータと結果の表 |
+| [NumPy](https://numpy.org/) | 数値計算の核 |
+| [SciPy](https://scipy.org/) | 分布、検定、最適化 |
+| [Numba](https://numba.pydata.org/) | 生存時間・マッチング・回帰の内側のループの高速化 |
+| [lme-python](https://pypi.org/project/lme-python/) | 線形混合・一般化線形混合（`fit_mixed` の既定エンジン） |
+| [Matplotlib](https://matplotlib.org/) | forest、Kaplan–Meier、較正などの図 |
+| [japanize-matplotlib](https://pypi.org/project/japanize-matplotlib/) | 図の日本語フォント（Python 3.12 以降は `setuptools` も使う） |
+| [Plotly](https://plotly.com/python/) | 対話的な補助の図 |
+| [Pillow](https://python-pillow.org/) | Plotly の図をつなげて 1 枚の画像にする |
+| [great_tables](https://posit-dev.github.io/great-tables/) | Table One の表示 |
+
+必要なときだけ入れる extra です。
+
+| extra | 入るもの | 用途 |
+|-------|----------|------|
+| `statract[r]` | rpy2、rpy2-arrow | R ブリッジ `statract.r`。R 本体と使う R パッケージは別に入れる |
+| `statract[mixedlm]` | mixedlm-rs | `fit_mixed` の別エンジン |
+| `statract[gpboost]` | gpboost、pandas | 実験的な `glmm_gpboost` |
+
+```bash
+pip install "statract[r]"
+```
+
+pandas、statsmodels、lifelines、R は既定では使いません。`import statract` だけでは R も rpy2 も読み込みません。
+
+## 最小の例
 
 ```python
 import polars as pl
@@ -65,7 +98,6 @@ cox_ph(frame, "Surv(time, event) ~ x")
 ## 設計の前提
 
 - 核は pandas を使いません。データと結果の表は Polars です。Kaplan–Meier は自前の `survival_curve` で、lifelines は使いません。
-- statsmodels は使いません。R ブリッジ（`statract.r`）は extra `r` です。`import statract` は R も rpy2 も読みません。
 - 解析パイプラインの出力ディレクトリと CSV companion は `statract.reporting` と `statract.task_io` が担当します。
 
 ```python
