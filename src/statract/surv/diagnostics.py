@@ -23,6 +23,7 @@ from typing import Any, Iterable, Literal
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
+from numba import njit
 
 from .cox import CoxFit, _schoenfeld_times
 from .curve import survival_curve
@@ -52,15 +53,85 @@ _RESIDUAL_KINDS = frozenset(
 def _maybe_lowess(x: np.ndarray, y: np.ndarray, *, frac: float = 2 / 3) -> tuple[np.ndarray, np.ndarray] | None:
     if x.size < 5:
         return None
-    order = np.argsort(x)
-    xs = x[order]
-    ys = y[order]
-    try:
-        from statsmodels.nonparametric.smoothers_lowess import lowess
-    except ImportError:
+    order = np.argsort(x, kind="stable")
+    xs = np.ascontiguousarray(x[order], dtype=np.float64)
+    ys = np.ascontiguousarray(y[order], dtype=np.float64)
+    keep = np.isfinite(xs) & np.isfinite(ys)
+    xs, ys = xs[keep], ys[keep]
+    if xs.size < 2:
         return None
-    sm = lowess(ys, xs, frac=frac, return_sorted=True)
-    return sm[:, 0], sm[:, 1]
+    return xs, _lowess(xs, ys, frac, 3)
+
+
+@njit(cache=True)
+def _lowess(x, y, frac, iterations):
+    """Locally linear lowess on sorted ``x``, ported from ``statsmodels`` with ``delta=0``.
+
+    Each fit uses the ``frac * n`` nearest points with tricube weights. The
+    robustness passes reweight by the bisquare of residuals over six times
+    their median.
+    """
+    n = x.shape[0]
+    k = int(frac * n + 1e-10)
+    k = min(max(k, 2), n)
+    fitted = np.empty(n)
+    weights = np.empty(n)
+    robust = np.ones(n)
+    for _ in range(iterations + 1):
+        left = 0
+        right = k
+        i = 0
+        while i < n:
+            xval = x[i]
+            while right < n and xval > (x[left] + x[right]) / 2.0:
+                left += 1
+                right += 1
+            radius = max(xval - x[left], x[right - 1] - xval)
+            if radius == 0.0:
+                # Every neighbour ties with xval, so no line can be fitted.
+                weights[left:right] = 0.0
+            total = 0.0
+            nonzero = 0
+            for j in range(left, right):
+                if radius == 0.0:
+                    break
+                d = abs(x[j] - xval) / radius
+                t = 1.0 - d * d * d
+                weights[j] = t * t * t * robust[j]
+                total += weights[j]
+                if weights[j] > 1e-12:
+                    nonzero += 1
+            if nonzero < 2:
+                fitted[i] = y[i]
+            else:
+                mean_x = 0.0
+                for j in range(left, right):
+                    weights[j] /= total
+                    mean_x += weights[j] * x[j]
+                spread = 0.0
+                for j in range(left, right):
+                    spread += weights[j] * (x[j] - mean_x) ** 2
+                spread = max(spread, 1e-12)
+                value = 0.0
+                for j in range(left, right):
+                    value += weights[j] * (1.0 + (xval - mean_x) * (x[j] - mean_x) / spread) * y[j]
+                fitted[i] = value
+            # Tied x share the fit.
+            last = i
+            i += 1
+            while i < n and x[i] == x[last]:
+                fitted[i] = fitted[last]
+                i += 1
+        resid = np.abs(y - fitted)
+        median = np.median(resid)
+        for j in range(n):
+            if median == 0.0:
+                r = 1.0 if resid[j] > 0.0 else 0.0
+            else:
+                r = min(resid[j] / (6.0 * median), 1.0)
+            t = 1.0 - r * r
+            robust[j] = t * t
+    return fitted
 
 
 def plot_loglog(

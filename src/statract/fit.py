@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass
 from typing import Any, Callable, Sequence
 
@@ -26,20 +25,6 @@ _LINKS = {
     "poisson": "log",
     "gamma": "inverse",
 }
-
-
-def _family_object(family: str):
-    import statsmodels.api as sm
-
-    if family == "gaussian":
-        return sm.families.Gaussian()
-    if family == "binomial":
-        return sm.families.Binomial()
-    if family == "poisson":
-        return sm.families.Poisson()
-    if family == "gamma":
-        return sm.families.Gamma()
-    raise ValueError(f"family must be one of {_FAMILIES}, got {family!r}")
 
 
 def _link_from_eta(family: str, eta: np.ndarray) -> np.ndarray:
@@ -316,9 +301,12 @@ def _ols_fields(
     rss: float,
     hat: np.ndarray,
     xtwx_inv: np.ndarray,
+    rank: int | None = None,
 ) -> dict[str, Any]:
     n, p = x.shape
-    df_resid = n - p
+    if rank is None:
+        rank = p
+    df_resid = n - rank
     sigma2 = rss / df_resid if df_resid else np.nan
     nobs2 = n / 2.0
     log_likelihood = -np.log(rss) * nobs2 - (1.0 + np.log(np.pi / nobs2)) * nobs2
@@ -335,14 +323,14 @@ def _ols_fields(
         adj_r_squared = 1.0 - ((n - k_constant) / df_resid) * (1.0 - r_squared)
     else:
         adj_r_squared = np.nan
-    df_model = float(p - k_constant)
+    df_model = float(rank - k_constant)
     if df_model == 0.0 or df_resid == 0 or not np.isfinite(sigma2) or sigma2 == 0.0 or not np.isfinite(total):
         f_statistic = np.nan
         f_p_value = np.nan
     else:
         f_statistic = ((total - rss) / df_model) / (rss / df_resid)
         f_p_value = float(stats.f.sf(f_statistic, df_model, df_resid))
-    rank = float(p)
+    rank = float(rank)
     return {
         "coefficients": beta,
         "covariance": xtwx_inv * sigma2,
@@ -404,43 +392,46 @@ def _ols_via_qr(y: np.ndarray, x: np.ndarray, w: np.ndarray) -> dict[str, Any] |
     return _ols_fields(y, x, w, unity, beta, resid, rss, hat, factor @ factor.T)
 
 
-def _ols_via_statsmodels(y: np.ndarray, x: np.ndarray, w: np.ndarray) -> dict[str, Any]:
-    """Singular or non-positive-weight least squares. Same fields as the QR fit."""
-    import statsmodels.api as sm
+def _pinv_extended(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Pseudo-inverse and singular values, with ``statsmodels``' cutoff of 1e-15."""
+    u, s, vt = np.linalg.svd(x, full_matrices=False)
+    cutoff = 1e-15 * float(s.max()) if s.size else 0.0
+    s_inv = np.zeros_like(s)
+    keep = s > cutoff
+    s_inv[keep] = 1.0 / s[keep]
+    return (vt.T * s_inv) @ u.T, s
 
+
+def _ols_via_pinv(y: np.ndarray, x: np.ndarray, w: np.ndarray) -> dict[str, Any]:
+    """Singular or non-positive-weight least squares. Same fields as the QR fit.
+
+    The coefficients are the minimum-norm solution, as ``statsmodels`` returns.
+    The rank sets the residual degrees of freedom.
+    """
+    y = np.asarray(y, dtype=float)
+    x = np.asarray(x, dtype=float)
+    w = np.asarray(w, dtype=float)
     unity = bool(np.all(w == 1.0))
     if unity:
-        result = sm.OLS(y, x, missing="raise").fit()
+        xw = x
+        yw = y
     else:
-        result = sm.WLS(y, x, weights=w, missing="raise").fit()
-    resid = np.asarray(result.resid, dtype=float)
-    rss = float(np.sum(w * resid**2))
-    df_resid = int(result.df_resid)
-    sigma2 = rss / df_resid if df_resid else np.nan
-    f_value = result.fvalue
-    f_p = result.f_pvalue
-    return {
-        "coefficients": np.asarray(result.params, dtype=float),
-        "covariance": np.asarray(result.normalized_cov_params, dtype=float) * sigma2,
-        "residuals": resid,
-        "hat": _hat(x, w),
-        "log_likelihood": float(result.llf),
-        "residual_df": df_resid,
-        "rss": rss,
-        "sigma2": float(sigma2) if sigma2 == sigma2 else np.nan,
-        "aic": float(result.aic),
-        "bic": float(result.bic),
-        "r_squared": float(result.rsquared),
-        "adj_r_squared": float(result.rsquared_adj),
-        "f_statistic": float(f_value) if f_value is not None else np.nan,
-        "f_p_value": float(f_p) if f_p is not None else np.nan,
-    }
+        scale = np.sqrt(w)
+        xw = x * scale[:, None]
+        yw = y * scale
+    pinv, singular = _pinv_extended(xw)
+    beta = pinv @ yw
+    p = x.shape[1]
+    rank = int(np.sum(singular > singular.max() * p * np.finfo(float).eps)) if singular.size else 0
+    resid = y - x @ beta
+    rss = float(resid @ resid) if unity else float(w @ (resid * resid))
+    return _ols_fields(y, x, w, unity, beta, resid, rss, _hat(x, w), pinv @ pinv.T, rank)
 
 
 def _solve_ols(y: np.ndarray, x: np.ndarray, w: np.ndarray) -> dict[str, Any]:
     solved = _ols_via_qr(y, x, w)
     if solved is None:
-        return _ols_via_statsmodels(y, x, w)
+        return _ols_via_pinv(y, x, w)
     return solved
 
 
@@ -584,28 +575,18 @@ def _fit_glm_arrays(
     """Fit one GLM on arrays that are already aligned."""
     n = int(x.shape[0])
     if family == "gaussian":
-        import statsmodels.api as sm
-
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message="The InversePower link function")
-            result = sm.GLM(
-                y, x, family=_family_object(family), offset=off, var_weights=w
-            ).fit(maxiter=100, tol=1e-12, disp=0)
-        working_resid = np.asarray(result.resid_working, dtype=float)
-        df_resid = int(result.df_resid)
+        coef, log_likelihood, deviance, scale, rank = _gaussian_glm(y, x, w, off)
+        working_resid = y - (x @ coef + off)
+        df_resid = n - rank
         working_w, dispersion, cov, hat = _glm_sandwich_pieces(
             y, x, family, w, off, working_resid, df_resid
         )
-        coef = np.asarray(result.params, dtype=float)
-        log_likelihood = float(result.llf)
-        deviance = float(result.deviance)
-        scale = float(result.scale)
-        aic = float(result.aic)
-        bic = float(getattr(result, "bic_llf", result.bic))
+        aic = -2.0 * log_likelihood + 2.0 * rank
+        bic = -2.0 * log_likelihood + rank * np.log(n)
     else:
         # One IRLS supplies the coefficients and the weights R keeps from the
-        # converging least-squares step. A second pass, or statsmodels' own
-        # IRLS, repeats that work and stops at a different point under separation.
+        # converging least-squares step. A second pass repeats that work and
+        # stops at a different point under separation.
         coef, working_w, mu, deviance, working_resid = _glm_irls(y, x, family, w, off)
         rank = int(x.shape[1])
         counted = family in {"binomial", "poisson"}
@@ -652,6 +633,30 @@ def _fit_glm_arrays(
         aic=aic,
         bic=bic,
     )
+
+
+def _gaussian_glm(
+    y: np.ndarray, x: np.ndarray, w: np.ndarray, off: np.ndarray
+) -> tuple[np.ndarray, float, float, float, int]:
+    """Identity-link Gaussian GLM: coefficients, log-likelihood, deviance, scale, rank.
+
+    The log-likelihood is concentrated over the scale, as ``GLMResults.llf``
+    reports it. The scale is the Pearson statistic over the residual degrees
+    of freedom.
+    """
+    n = y.shape[0]
+    sw = np.sqrt(w)
+    pinv, _singular = _pinv_extended(x * sw[:, None])
+    coef = pinv @ ((y - off) * sw)
+    rank = int(np.linalg.matrix_rank(x))
+    resid = y - (x @ coef + off)
+    deviance = float(np.sum(w * resid**2))
+    df_resid = n - rank
+    scale = deviance / df_resid if df_resid else np.nan
+    profile = deviance / n
+    with np.errstate(divide="ignore"):
+        ll = -0.5 * (w * resid**2 / profile + np.log(profile / w) + np.log(2.0 * np.pi))
+    return coef, float(np.sum(ll)), deviance, float(scale), rank
 
 
 def _glm_sandwich_pieces(

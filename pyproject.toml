@@ -21,9 +21,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-sm = [
-    "statsmodels>=0.14.6",
-]
 r = [
     "rpy2>=3.6.4",
     "rpy2-arrow>=0.1.3",

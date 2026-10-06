@@ -6,6 +6,7 @@ including ANOVA, chi-square, Fisher's exact test, and various statistical measur
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from typing import TypeAlias
 
@@ -133,7 +134,8 @@ def proportion_ci(expr: pl.Expr, alpha: float = 0.05) -> pl.Expr:
     """Return an expression for (lo, hi) confidence interval of a proportion as a struct.
 
     This expects `expr` to represent a boolean-like indicator where `expr > 0`
-    counts as success. The interval is computed with statsmodels' proportion_confint.
+    counts as success. The interval is the Wald (normal approximation) interval,
+    clipped to [0, 1].
 
     Examples:
         >>> import polars as pl
@@ -149,41 +151,24 @@ def proportion_ci(expr: pl.Expr, alpha: float = 0.05) -> pl.Expr:
         ... )
         >>> print(result.select(pl.col("ci").struct.field("lo"), pl.col("ci").struct.field("hi")))
     """
-    try:
-        import statsmodels.stats.proportion as sm_proportion
-    except ImportError as exc:
-        raise ImportError(
-            "proportion_ci requires the optional extra: pip install 'statract[sm]'"
-        ) from exc
-
     out_dtype = pl.Struct([pl.Field("lo", pl.Float64), pl.Field("hi", pl.Float64)])
+    z = float(scipy.stats.norm.isf(alpha / 2.0))
+
+    def interval(s: pl.Series) -> pl.Series:
+        count = int(s.struct.field("_count")[0])
+        total = int(s.struct.field("_total")[0])
+        p = count / total if total else float("nan")
+        half = z * math.sqrt(p * (1.0 - p) / total) if total else float("nan")
+        lo = min(max(p - half, 0.0), 1.0)
+        hi = min(max(p + half, 0.0), 1.0)
+        return pl.Series([{"lo": lo, "hi": hi}], dtype=out_dtype)
+
     return pl.struct(
         [
             (expr > 0).sum().alias("_count"),
             expr.is_not_null().sum().alias("_total"),
         ],
-    ).map_batches(
-        lambda s: pl.Series(
-            [
-                dict(
-                    zip(
-                        ("lo", "hi"),
-                        map(
-                            float,
-                            sm_proportion.proportion_confint(
-                                int(s.struct.field("_count")[0]),
-                                int(s.struct.field("_total")[0]),
-                                alpha,
-                            ),
-                        ),
-                        strict=True,
-                    ),
-                ),
-            ],
-            dtype=out_dtype,
-        ),
-        return_dtype=out_dtype,
-    )
+    ).map_batches(interval, return_dtype=out_dtype)
 
 
 def weighted_qcut(values: pl.Expr, weights: pl.Expr, df: pl.DataFrame, q: int | list[float]) -> pl.Series:

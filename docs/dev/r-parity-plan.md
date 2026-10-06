@@ -157,7 +157,7 @@ Cox は事象時刻でソートし、同順位ブロックで Efron 補正を掛
 
 ### 3.4 マッチング（MatchIt）
 
-公開名は `match_sample` です。距離のロジスティック回帰は statsmodels、最適マッチングは `scipy.optimize.linear_sum_assignment`。
+公開名は `match_sample` です。距離のロジスティック回帰と probit は自前の IRLS、最適マッチングは `scipy.optimize.linear_sum_assignment`。
 
 | 合わせる R | 公開名 | 今回 |
 |------------|--------|------|
@@ -263,7 +263,7 @@ src/endolab/stat/
 
 ## 6. 依存
 
-- **必須のまま**: numpy, scipy, polars, statsmodels（GLM の family、`distance="logit"`、OLS/GLM の HC と 1-way cluster が fixture に通る範囲）。設計行列は自前。formulaic は直接依存から外した。statsmodels と lifelines が推移依存として残し、どちらも pandas を直接依存している。
+- **必須のまま**: numpy, scipy, polars。設計行列は自前。formulaic は直接依存から外した。statsmodels も外した。ガウス GLM、特異な OLS（statsmodels と同じ pinv の最小ノルム解）、probit、lowess、割合の Wald 区間は自前で、statsmodels 0.15.0 の値と `tests/test_statsmodels_parity.py` で比べる。
 - **エンジンとして残す**: lifelines。fixture に通った KM、log-rank、Efron の Cox。
 - **ガウス混合のエンジン**: mixedlm-rs（`fit_mixed`）。`lme4::lmer` と fixture で比べる。import は `fit_mixed` の中で、pandas もそのとき読む。二項・ポアソンの GLMM のエンジンにはしない。
 - **本体にしない**: gpboost、pygam、statsmodels `GLMGam`、MatchIt 互換を謳う傾向スコア包装。
