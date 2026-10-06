@@ -14,7 +14,7 @@ from typing import Any, Callable, Sequence
 import numpy as np
 import polars as pl
 from numba import njit
-from scipy import special, stats
+from scipy import linalg, special, stats
 
 from .design import ColumnRef, Design, build_design, column_series, design_matrix
 from .formula import is_formula, model_matrix, reject_survival_syntax
@@ -198,7 +198,23 @@ class Fit:
 
 
 def _xtwx_inv(x: np.ndarray, weights: np.ndarray) -> np.ndarray:
+    """``(X'WX)^{-1}`` from a column-scaled QR, as ``lm`` and ``glm`` get it.
+
+    Inverting the Gram matrix directly loses cond(X)^2 * eps, which a design
+    with a column such as birth year pushes past the sandwich tolerance. A
+    rank-deficient or non-positive weighting keeps the pseudo-inverse.
+    """
     w = np.asarray(weights, dtype=float)
+    n, p = x.shape
+    if p and n >= p and np.all(w > 0.0) and np.all(np.isfinite(w)):
+        xw = x * np.sqrt(w)[:, None]
+        column_norm = np.linalg.norm(xw, axis=0)
+        if np.all(column_norm > 0.0) and np.all(np.isfinite(column_norm)):
+            r = np.linalg.qr(xw / column_norm, mode="r")
+            diagonal = np.abs(np.diag(r))
+            if diagonal.min() > diagonal.max() * max(n, p) * np.finfo(float).eps:
+                r_inv = linalg.solve_triangular(r, np.eye(p))
+                return (r_inv @ r_inv.T) / column_norm[:, None] / column_norm[None, :]
     xtw = x.T * w
     return np.linalg.pinv(xtw @ x)
 
@@ -272,7 +288,9 @@ def _ols_via_chol(
         return None
     diagonal = np.diag(chol)
     smallest = float(diagonal.min())
-    if smallest <= 0.0 or float(diagonal.max()) / smallest > 1e6:
+    # The normal equations lose cond(X)^2 * eps. Past a pivot ratio of 100
+    # (cond of the scaled design near 400) QR keeps the sandwich tolerance.
+    if smallest <= 0.0 or float(diagonal.max()) / smallest > 1e2:
         return None
     beta_s = np.linalg.solve(chol.T, np.linalg.solve(chol, xs.T @ yw))
     beta = beta_s / column_norm

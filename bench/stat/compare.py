@@ -19,6 +19,19 @@ def _max_rel(left, right) -> float:
     return float(np.max(np.abs(left_arr - right_arr) / scale))
 
 
+def _max_corr(left, right) -> float:
+    """Covariance difference on the correlation scale, |dV_ij| / sqrt(V_ii V_jj).
+
+    Equal to the relative error on the diagonal. Off the diagonal it does not
+    divide by a near-zero covariance, which the elementwise ratio does.
+    """
+    left_arr = np.asarray(left, dtype=float)
+    right_arr = np.asarray(right, dtype=float)
+    sd = np.sqrt(np.abs(np.diag(right_arr)))
+    scale = np.maximum(np.outer(sd, sd), 1e-300)
+    return float(np.max(np.abs(left_arr - right_arr) / scale))
+
+
 def _max_abs(left, right) -> float:
     return float(np.max(np.abs(np.asarray(left, dtype=float) - np.asarray(right, dtype=float))))
 
@@ -59,7 +72,7 @@ def _pairs(payload: dict) -> set[tuple[int, int]]:
 
 
 def _checks(task_id: str) -> list[tuple[str, str, float]]:
-    """Return (field, rule, tolerance). rule is rel or abs."""
+    """Return (field, rule, tolerance). rule is rel, abs, or corr (covariance)."""
     if task_id.startswith("lmm"):
         return [
             ("coef", "rel", 1e-6),
@@ -71,7 +84,7 @@ def _checks(task_id: str) -> list[tuple[str, str, float]]:
     if task_id.startswith("gam"):
         return [("sp", "rel", 1e-3), ("edf", "rel", 1e-4), ("reml", "abs", 1e-6), ("coef", "rel", 1e-6)]
     if task_id in {"hc", "cl1", "cl2", "nw"} or task_id.startswith("hc"):
-        return [("cov", "rel", 1e-8)]
+        return [("cov", "corr", 1e-8)]
     if task_id in {"wald", "lr", "bp", "reset", "dw", "bg", "lrk"} or task_id.startswith(("bp", "bg", "lrk")):
         return [("stat", "rel", 1e-6), ("p", "abs", 1e-6)]
     if task_id in {"km", "km-sex", "na"}:
@@ -139,6 +152,9 @@ def _quantity_rows(task_id: str, part_name: str, py: dict, r: dict) -> list[dict
             continue
         if rule == "abs":
             error = _max_abs(py[field], r[field])
+            passed = error <= tol
+        elif rule == "corr":
+            error = _max_corr(py[field], r[field])
             passed = error <= tol
         else:
             error = _max_rel(py[field], r[field])

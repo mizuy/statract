@@ -62,7 +62,7 @@ OLS の結果は `hours_per_week`。説明変数は次の 10 列。
 
 ## タスク
 
-各タスクを 1,000 行と 10,000 行（または上の規則で全件になった大きい側）の両方で走らせる。許容差は vs-r.md のまま。係数の Newton 法は rtol 1e-6、サンドイッチ共分散は rtol 1e-8、p 値は atol 1e-6、平滑化パラメータは rtol 1e-3、edf は rtol 1e-4、REML は atol 1e-6。混合モデルは `fit_mixed`（既定エンジン lme-python）の許容差で、固定効果 rtol 1e-6、標準誤差 rtol 1e-4、変量共分散 rtol 1e-4、残差分散 rtol 1e-5、対数尤度 atol 1e-8（mixedlm-rs 時代の目標。lme-python が外す場合は vs-r に実測を書く）。
+各タスクを 1,000 行と 10,000 行（または上の規則で全件になった大きい側）の両方で走らせる。許容差は vs-r.md のまま。係数の Newton 法は rtol 1e-6、サンドイッチ共分散は rtol 1e-8（各要素の差を √(V_ii V_jj) で割る。対角では相対誤差と同じで、相関がほぼ 0 の非対角で比が膨らまない）、p 値は atol 1e-6、平滑化パラメータは rtol 1e-3、edf は rtol 1e-4、REML は atol 1e-6。混合モデルは `fit_mixed`（既定エンジン lme-python）の許容差で、固定効果 rtol 1e-6、標準誤差 rtol 1e-4、変量共分散 rtol 1e-4、残差分散 rtol 1e-5、対数尤度 atol 1e-8（mixedlm-rs 時代の目標。lme-python が外す場合は vs-r に実測を書く）。
 
 | ID | データ | 関数とオプション | R | 比べる量 |
 |----|--------|------------------|---|---------|

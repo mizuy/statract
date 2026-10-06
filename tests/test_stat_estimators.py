@@ -506,3 +506,20 @@ def test_fit_mixed_accepts_a_wilkinson_formula():
     assert binomial.engine == "lme"
     tidy = binomial.tidy(exponentiate=True)
     assert "exp_estimate" in tidy.columns
+
+
+def test_ols_keeps_qr_accuracy_on_an_uncentred_birth_year():
+    # A birth-year column makes the scaled design ill-conditioned. The normal
+    # equations then lose about cond^2 * eps, which the sandwich bread inherits.
+    rng = np.random.default_rng(20261006)
+    n = 1000
+    birth = 1979.0 + rng.integers(0, 4, n) + rng.uniform(0.0, 1.0, n) / 12.0
+    grade = rng.integers(0, 4, n).astype(float)
+    y = 500.0 - 0.8 * (birth - 1980.0) + 12.0 * grade + rng.normal(0.0, 30.0, n)
+    frame = pl.DataFrame({"y": y, "birth": birth, "grade": grade})
+    fit = fit_ols(frame, "y", ["birth", "grade"])
+    expected, *_ = np.linalg.lstsq(fit.x, y, rcond=None)
+    np.testing.assert_allclose(fit.coefficients, expected, rtol=1e-10)
+    q, r = np.linalg.qr(fit.x)
+    r_inv = np.linalg.inv(r)
+    np.testing.assert_allclose(fit.bread() / n, r_inv @ r_inv.T, rtol=1e-10)
