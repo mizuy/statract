@@ -1,4 +1,6 @@
-# cif_pbc — 競合リスク（CIF / Fine–Gray）
+# 競合リスク解析
+
+`cif_pbc` — 競合リスク（CIF / Fine–Gray）
 
 単一イベントの colon に対し、競合リスク（肝死 vs 移植）の正本。Fine–Gray forest まで。
 

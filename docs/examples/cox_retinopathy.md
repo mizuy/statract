@@ -1,4 +1,6 @@
-# cox_retinopathy — クラスター頑健 Cox（Lin–Wei sandwich）
+# クラスター頑健 Cox
+
+`cox_retinopathy` — クラスター頑健 Cox（Lin–Wei sandwich）
 
 患者あたり両眼の公開 RCT で、`cox_ph` の **Lin–Wei sandwich**（`cluster(id)` / `cluster=`）を通す正本。OLS/GLM の `hc_covariance` や `fit_mixed` は使わない。
 

@@ -1,4 +1,6 @@
-# pred_support — 二項 GLM / 較正 / DCA
+# 予測モデルの較正と DCA
+
+`pred_support` — 二項 GLM / 較正 / DCA
 
 重症予後の **予測（点）モデル**。180 日死亡確率を train の二項 GLM で推定し、ホールドアウトで較正・Brier・決定曲線（DCA）を見ます。効果推定の [`logit_indo`](logit_indo.md) とは役割が違います。
 

@@ -1,4 +1,6 @@
-# lmm_pbcseq — ガウス LMM / クラスタ SE / GAM
+# 反復測定の線形混合モデル
+
+`lmm_pbcseq` — ガウス LMM / クラスタ SE / GAM
 
 indo の二項混合に対し、ガウス `fit_mixed`（lmer 相当）の正本。GAM は主解析（ガウス・平滑1本）。
 

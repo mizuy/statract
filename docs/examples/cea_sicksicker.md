@@ -1,4 +1,6 @@
-# cea_sicksicker — cohort Markov / ICER / DSA / PSA
+# Markov モデルの費用対効果分析
+
+`cea_sicksicker` — cohort Markov / ICER / DSA / PSA
 
 `statract.cea` の核（疾患非依存）を、DARTH の仮想疾患 Sick-Sicker で通す例です。病態・費用・効用はライブラリの外（`examples/cea_sicksicker/`）に置きます。
 

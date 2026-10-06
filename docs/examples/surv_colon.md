@@ -1,4 +1,6 @@
-# surv_colon — KM / log-rank / Cox
+# 生存曲線と Cox 回帰
+
+`surv_colon` — KM / log-rank / Cox
 
 KM / log-rank / Cox の正本。`etype=1` で患者単位に畳み、`hue=rx` の Table 1 から KM（number-at-risk 付き）・Cox forest・PH 診断まで。
 

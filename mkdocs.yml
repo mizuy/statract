@@ -75,20 +75,20 @@ nav:
   - Examples:
       - Gallery: examples/index.md
       - Survival:
-          - surv_colon: examples/surv_colon.md
-          - cif_pbc: examples/cif_pbc.md
-          - aft_rotterdam: examples/aft_rotterdam.md
-          - cox_retinopathy: examples/cox_retinopathy.md
+          - 生存曲線と Cox 回帰: examples/surv_colon.md
+          - 競合リスク解析: examples/cif_pbc.md
+          - PH 検定と AFT モデル: examples/aft_rotterdam.md
+          - クラスター頑健 Cox: examples/cox_retinopathy.md
       - Regression and mixed models:
-          - logit_indo: examples/logit_indo.md
-          - lmm_pbcseq: examples/lmm_pbcseq.md
+          - 多施設 RCT の混合ロジスティック: examples/logit_indo.md
+          - 反復測定の線形混合モデル: examples/lmm_pbcseq.md
       - Prediction:
-          - pred_support: examples/pred_support.md
+          - 予測モデルの較正と DCA: examples/pred_support.md
       - Causal inference:
-          - psm_rhc: examples/psm_rhc.md
-          - iptw_nhefs: examples/iptw_nhefs.md
+          - 傾向スコアマッチング: examples/psm_rhc.md
+          - 逆確率重み付け（IPTW）: examples/iptw_nhefs.md
       - Cost-effectiveness:
-          - cea_sicksicker: examples/cea_sicksicker.md
+          - Markov モデルの費用対効果分析: examples/cea_sicksicker.md
   - Reference:
       - API:
           - Table One:

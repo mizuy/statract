@@ -1,4 +1,6 @@
-# psm_rhc — PS 最近傍マッチ → ロジスティック
+# 傾向スコアマッチング
+
+`psm_rhc` — PS 最近傍マッチ → ロジスティック
 
 1:1 最近傍マッチ（ATT）の正本。API は `match_sample`。マッチ後 OR の forest まで。
 

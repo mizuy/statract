@@ -1,4 +1,6 @@
-# logit_indo — 施設 GLMM / MOR / 固定効果比較
+# 多施設 RCT の混合ロジスティック
+
+`logit_indo` — 施設 GLMM / MOR / 固定効果比較
 
 内視鏡テーマの多施設 RCT。主解析は `site` 変量切片の二項 GLMM（`fit_mixed(..., family="binomial")`、エンジンは lme-python）。施設 BLUP・median odds ratio（MOR）と、固定効果二項 GLM の比較を載せます。効果推定の例なのでホールドアウト較正 / DCA は使いません。
 

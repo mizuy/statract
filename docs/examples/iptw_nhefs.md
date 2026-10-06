@@ -1,4 +1,6 @@
-# iptw_nhefs — 安定化 IPTW（ATE）
+# 逆確率重み付け（IPTW）
+
+`iptw_nhefs` — 安定化 IPTW（ATE）
 
 `psm_rhc` の対。連続アウトカムの安定化 IPTW（ATE のみ）。ライブラリに `iptw()` は無く、重みは例スクリプトの手計算。IPTW OLS の forest まで。
 

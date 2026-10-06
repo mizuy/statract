@@ -1,4 +1,6 @@
-# aft_rotterdam — Cox / PH 検定 / AFT
+# PH 検定と AFT モデル
+
+`aft_rotterdam` — Cox / PH 検定 / AFT
 
 colon が PH を仮定した Cox だけなのに対し、PH 検定と AFT の正本。Cox forest まで。
 

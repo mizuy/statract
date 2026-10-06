@@ -10,7 +10,7 @@
 
 <div class="grid cards" markdown>
 
--   __[surv_colon](surv_colon.md)__ — KM / log-rank / Cox
+-   __[生存曲線と Cox 回帰](surv_colon.md)__ — `surv_colon` · KM / log-rank / Cox
 
     ---
 
@@ -21,7 +21,7 @@
 
     [ドキュメント →](surv_colon.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/surv_colon)
 
--   __[cif_pbc](cif_pbc.md)__ — 競合リスク（CIF / Fine–Gray）
+-   __[競合リスク解析](cif_pbc.md)__ — `cif_pbc` · 競合リスク（CIF / Fine–Gray）
 
     ---
 
@@ -32,7 +32,7 @@
 
     [ドキュメント →](cif_pbc.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/cif_pbc)
 
--   __[aft_rotterdam](aft_rotterdam.md)__ — Cox / PH 検定 / AFT
+-   __[PH 検定と AFT モデル](aft_rotterdam.md)__ — `aft_rotterdam` · Cox / PH 検定 / AFT
 
     ---
 
@@ -43,7 +43,7 @@
 
     [ドキュメント →](aft_rotterdam.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/aft_rotterdam)
 
--   __[cox_retinopathy](cox_retinopathy.md)__ — クラスター頑健 Cox（Lin–Wei）
+-   __[クラスター頑健 Cox](cox_retinopathy.md)__ — `cox_retinopathy` · クラスター頑健 Cox（Lin–Wei）
 
     ---
 
@@ -60,7 +60,7 @@
 
 <div class="grid cards" markdown>
 
--   __[logit_indo](logit_indo.md)__ — 施設 GLMM / MOR / 固定効果比較
+-   __[多施設 RCT の混合ロジスティック](logit_indo.md)__ — `logit_indo` · 施設 GLMM / MOR / 固定効果比較
 
     ---
 
@@ -71,7 +71,7 @@
 
     [ドキュメント →](logit_indo.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/logit_indo)
 
--   __[lmm_pbcseq](lmm_pbcseq.md)__ — ガウス LMM / クラスタ SE / GAM
+-   __[反復測定の線形混合モデル](lmm_pbcseq.md)__ — `lmm_pbcseq` · ガウス LMM / クラスタ SE / GAM
 
     ---
 
@@ -88,7 +88,7 @@
 
 <div class="grid cards" markdown>
 
--   __[pred_support](pred_support.md)__ — 二項 GLM / 較正 / DCA
+-   __[予測モデルの較正と DCA](pred_support.md)__ — `pred_support` · 二項 GLM / 較正 / DCA
 
     ---
 
@@ -105,7 +105,7 @@
 
 <div class="grid cards" markdown>
 
--   __[psm_rhc](psm_rhc.md)__ — PS 最近傍マッチ → ロジスティック
+-   __[傾向スコアマッチング](psm_rhc.md)__ — `psm_rhc` · PS 最近傍マッチ → ロジスティック
 
     ---
 
@@ -116,7 +116,7 @@
 
     [ドキュメント →](psm_rhc.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/psm_rhc)
 
--   __[iptw_nhefs](iptw_nhefs.md)__ — 安定化 IPTW（ATE）
+-   __[逆確率重み付け（IPTW）](iptw_nhefs.md)__ — `iptw_nhefs` · 安定化 IPTW（ATE）
 
     ---
 
@@ -133,7 +133,7 @@
 
 <div class="grid cards" markdown>
 
--   __[cea_sicksicker](cea_sicksicker.md)__ — cohort Markov / ICER / DSA / PSA
+-   __[Markov モデルの費用対効果分析](cea_sicksicker.md)__ — `cea_sicksicker` · cohort Markov / ICER / DSA / PSA
 
     ---
 
@@ -150,18 +150,18 @@
 
 各例の本文は上のカードから開く **docs 単一ページ**（上記 7 節）にあります。サイトを離れずに読めます。実行コードと既存の付随文書は `examples/<stem>/` にあります。
 
-| 例 | docs ページ | 実行コード |
+| 解析 | docs ページ | 実行コード |
 |----|-------------|------------|
-| surv_colon | [surv_colon](surv_colon.md) | [examples/surv_colon/](https://github.com/mizuy/statract/tree/main/examples/surv_colon) |
-| cif_pbc | [cif_pbc](cif_pbc.md) | [examples/cif_pbc/](https://github.com/mizuy/statract/tree/main/examples/cif_pbc) |
-| aft_rotterdam | [aft_rotterdam](aft_rotterdam.md) | [examples/aft_rotterdam/](https://github.com/mizuy/statract/tree/main/examples/aft_rotterdam) |
-| cox_retinopathy | [cox_retinopathy](cox_retinopathy.md) | [examples/cox_retinopathy/](https://github.com/mizuy/statract/tree/main/examples/cox_retinopathy) |
-| logit_indo | [logit_indo](logit_indo.md) | [examples/logit_indo/](https://github.com/mizuy/statract/tree/main/examples/logit_indo) |
-| lmm_pbcseq | [lmm_pbcseq](lmm_pbcseq.md) | [examples/lmm_pbcseq/](https://github.com/mizuy/statract/tree/main/examples/lmm_pbcseq) |
-| psm_rhc | [psm_rhc](psm_rhc.md) | [examples/psm_rhc/](https://github.com/mizuy/statract/tree/main/examples/psm_rhc) |
-| iptw_nhefs | [iptw_nhefs](iptw_nhefs.md) | [examples/iptw_nhefs/](https://github.com/mizuy/statract/tree/main/examples/iptw_nhefs) |
-| pred_support | [pred_support](pred_support.md) | [examples/pred_support/](https://github.com/mizuy/statract/tree/main/examples/pred_support) |
-| cea_sicksicker | [cea_sicksicker](cea_sicksicker.md) | [examples/cea_sicksicker/](https://github.com/mizuy/statract/tree/main/examples/cea_sicksicker) |
+| 生存曲線と Cox 回帰 | [surv_colon](surv_colon.md) | [examples/surv_colon/](https://github.com/mizuy/statract/tree/main/examples/surv_colon) |
+| 競合リスク解析 | [cif_pbc](cif_pbc.md) | [examples/cif_pbc/](https://github.com/mizuy/statract/tree/main/examples/cif_pbc) |
+| PH 検定と AFT モデル | [aft_rotterdam](aft_rotterdam.md) | [examples/aft_rotterdam/](https://github.com/mizuy/statract/tree/main/examples/aft_rotterdam) |
+| クラスター頑健 Cox | [cox_retinopathy](cox_retinopathy.md) | [examples/cox_retinopathy/](https://github.com/mizuy/statract/tree/main/examples/cox_retinopathy) |
+| 多施設 RCT の混合ロジスティック | [logit_indo](logit_indo.md) | [examples/logit_indo/](https://github.com/mizuy/statract/tree/main/examples/logit_indo) |
+| 反復測定の線形混合モデル | [lmm_pbcseq](lmm_pbcseq.md) | [examples/lmm_pbcseq/](https://github.com/mizuy/statract/tree/main/examples/lmm_pbcseq) |
+| 傾向スコアマッチング | [psm_rhc](psm_rhc.md) | [examples/psm_rhc/](https://github.com/mizuy/statract/tree/main/examples/psm_rhc) |
+| 逆確率重み付け（IPTW） | [iptw_nhefs](iptw_nhefs.md) | [examples/iptw_nhefs/](https://github.com/mizuy/statract/tree/main/examples/iptw_nhefs) |
+| 予測モデルの較正と DCA | [pred_support](pred_support.md) | [examples/pred_support/](https://github.com/mizuy/statract/tree/main/examples/pred_support) |
+| Markov モデルの費用対効果分析 | [cea_sicksicker](cea_sicksicker.md) | [examples/cea_sicksicker/](https://github.com/mizuy/statract/tree/main/examples/cea_sicksicker) |
 
 ## API から探す {#api-index}
 
