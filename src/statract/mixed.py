@@ -24,6 +24,7 @@ from .formula import is_formula, model_matrix, reject_survival_syntax
 _FAMILIES = ("gaussian", "binomial", "poisson", "gamma")
 _LME_ENGINES = {"lme", "lme-rs", "lme-python", "lme_python"}
 _MIXEDLM_ENGINES = {"mixedlm_rs", "mixedlm-rs", "mixedlm"}
+_LMER_TOLERANCE = 1e-8
 
 
 @dataclass
@@ -274,7 +275,16 @@ def _fit_lme(
 
     used = data.gather(design.row_index.tolist())
     if family == "gaussian":
-        raw = lme_python.lmer(formula, data=used, reml=(method == "reml"))
+        # lme-python's default tolerance of 1e-6 stops about 1e-4 short of the
+        # log-likelihood optimum, which moves the coefficients by 1e-4 against
+        # lmer. At 1e-8 it reaches the optimum, and lmer's on a well-conditioned
+        # design.
+        raw = lme_python.lmer(
+            formula,
+            data=used,
+            reml=(method == "reml"),
+            control=lme_python.FitControl(tolerance=_LMER_TOLERANCE),
+        )
     else:
         kwargs: dict[str, Any] = {"family_name": family, "n_agq": int(n_agq)}
         if link is not None:
