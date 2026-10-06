@@ -2,13 +2,13 @@
 
 `logit_indo` — 施設 GLMM / MOR / 固定効果比較
 
-内視鏡テーマの多施設 RCT。主解析は `site` 変量切片の二項 GLMM（`fit_mixed(..., family="binomial")`、エンジンは lme-python）。施設 BLUP・median odds ratio（MOR）と、固定効果二項 GLM の比較を載せます。効果推定の例なのでホールドアウト較正 / DCA は使いません。
+多施設 RCT。主解析は `site` 変量切片の二項 GLMM（`fit_mixed(..., family="binomial")`、エンジンは lme-python）。施設 BLUP・median odds ratio（MOR）と、固定効果二項 GLM の比較を載せます。効果推定の例なのでホールドアウト較正 / DCA は使いません。
 
 [← ギャラリー](index.md) · [実行用ディレクトリと手順（GitHub）](https://github.com/mizuy/statract/tree/main/examples/logit_indo)
 
 ## 目的概説
 
-内視鏡ライブラリの主題に近い公開 RCT で、施設クラスタを変量切片に入れた二項 GLMM を主解析として見せるための例です。無作為化 RCT でも施設差の異質性を MOR と BLUP で要約し、同じ共変量の固定効果 GLM を比較対照に置きます。予測モデル向けのホールドアウト較正はこの例の対象外です。
+公開 RCT で、施設クラスタを変量切片に入れた二項 GLMM を主解析として見せるための例です。無作為化 RCT でも施設差の異質性を MOR と BLUP で要約し、同じ共変量の固定効果 GLM を比較対照に置きます。予測モデル向けのホールドアウト較正はこの例の対象外です。
 
 ## データと列の説明
 
@@ -271,7 +271,7 @@ MOR はライブラリ API（`statract.median_odds_ratio`）です。例スク�
 
 施設変量 GLMM（全例 n=602）ではインドメタシンの固定効果オッズ比は約 **0.47**（95% CI 約 0.28–0.78）。クラスタ分散は約 **0.30**、median odds ratio（MOR）は約 **1.68**。施設 BLUP は `1_UM` が正（PEP オッズが高い方向）、`2_IU` が負。同じ共変量の固定効果調整 GLM の OR は約 **0.47** で向きは一致します。
 
-限界: lme-python の二項 GLMM は lme4 `glmer` の endolab fixture 対象外（許容差はガウス LMM より緩い）。教学パッケージデータです。較正 / DCA のホールドアウトは予測モデル向けであり、本例の効果推定には使いません。
+限界: lme-python の二項 GLMM は、R `glmer` との一致をテストで固定していない（許容差はガウス LMM より緩い）。教学パッケージデータです。較正 / DCA のホールドアウトは予測モデル向けであり、本例の効果推定には使いません。
 
 ## 実行と成果物
 

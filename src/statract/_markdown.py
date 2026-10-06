@@ -1,6 +1,6 @@
 """Polars DataFrame → GitHub Flavored Markdown pipe table.
 
-Self-contained copy of the report-table helpers (no endoschema / endolab import).
+Self-contained copy of the report-table helpers.
 """
 
 from __future__ import annotations

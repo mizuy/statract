@@ -1,6 +1,6 @@
 """Cohort discrete-time Markov kernel (heemod-like, disease-agnostic).
 
-SSL / CRC screening logic belongs in the analysis project. This module only
+Disease-specific logic belongs outside this package. This module only
 propagates named states, applies state rewards, and optional per-cycle hooks.
 """
 

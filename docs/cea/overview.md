@@ -10,13 +10,13 @@
 
 **R・rpy2・heemod / dampack / BCEA / hesim には依存しません。** 実装は NumPy と Polars です。
 
-病態・費用表・校正済み自然史は解析プロジェクト側に置きます（例: SSL 経路は `profile/cea`）。
+病態・費用表・校正済み自然史は、ライブラリの外（利用者のモデル側）に置きます。
 
 ## 設計方針
 
 ```mermaid
 flowchart LR
-  subgraph project [解析プロジェクト例 profile/cea]
+  subgraph project [利用者のモデル]
     NH[自然史校正]
     Disease[病態と介入]
     Params[費用・効用・生命表]
@@ -65,7 +65,7 @@ flowchart LR
 
 `ceac` は費用か効果が非有限の draw を確率から外します。有限な draw が無いとき `prob_ce` は NaN で、先頭の戦略を最良とは数えません。
 
-パラメータ分布（例: 費用の Gamma）はプロジェクト側で引きます。
+パラメータ分布（例: 費用の Gamma）は利用者側で引きます。
 
 ## Quickstart
 
@@ -206,25 +206,6 @@ voi = evpi(psa, wtp=[0, 1e4, 5e4, 1e5])
 ```
 
 `ceac` の確率は、費用と効果が有限な draw だけで計算します。全部が非有限なら `prob_ce` は NaN です。
-
-## 解析プロジェクトとの境界
-
-| 正本 | 内容 |
-|------|------|
-| **`statract.cea`** | 汎用核・ICER・PSA 後段 |
-| **`profile/cea`** | SSL 14 状態、Detection、BRAF/MMR/Stage、tunnel 費用、GAM 校正、TreeAge 入力、費用 CSV |
-
-詳細な SSL SAP は解析側の `profile/cea/docs/CEA_SAP.md` を正本とします。
-
-SSL スクリーニング CEA の実行例:
-
-```bash
-cd profile
-task cea:treeage   # 自然史入力
-task cea:run       # Detection 比較（statract.cea を内部利用）
-```
-
-費用の Gamma 引き（SAP: SE = 平均の 20%）は `profile/cea/core/psa_draws.py` が担当し、要約だけ `statract.cea` に渡します。
 
 ## 次に読む
 

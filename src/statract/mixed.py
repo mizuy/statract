@@ -307,7 +307,7 @@ def _fit_lme(
     if x.shape[1] != len(coefficients) or list(design.names) != names:
         try:
             x = np.asarray(raw.design_matrix(used), dtype=float)
-        except Exception:  # noqa: BLE001 — keep endolab design if lme cannot rebuild X
+        except Exception:  # noqa: BLE001 — keep our design if lme cannot rebuild X
             x = design.x
     diagnostics = getattr(raw, "diagnostics", None) or {}
     n_iter = int(raw.iterations)

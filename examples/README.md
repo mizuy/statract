@@ -1,6 +1,6 @@
 # statract 解析例
 
-実行スクリプトは各ディレクトリの `build.py` と `{stem}.py`。例専用のパス・parquet cache・フローチャート補助は `examples/support.py`（公開 API ではない）。`statract` のコードもこのディレクトリも `endolab` を import しない。掲載図と表は `docs/examples/assets/`。
+実行スクリプトは各ディレクトリの `build.py` と `{stem}.py`。例専用のパス・parquet cache・フローチャート補助は `examples/support.py`（公開 API ではない）。掲載図と表は `docs/examples/assets/`。
 
 # 解析例
 

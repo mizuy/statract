@@ -9,8 +9,7 @@ summarize
 sensitivity
     One-way DSA, PSA runner, CE plane, CEAC, EVPI.
 
-Disease-specific natural history and cost inputs belong outside this package
-(e.g. ``profile/cea``).
+Disease-specific natural history and cost inputs belong outside this package.
 """
 
 from __future__ import annotations
