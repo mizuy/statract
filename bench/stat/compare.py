@@ -71,6 +71,57 @@ def _pairs(payload: dict) -> set[tuple[int, int]]:
     return {tuple(int(v) for v in pair) for pair in payload.get("pairs", [])}
 
 
+def _match_profiles(slice_name: str) -> list[tuple]:
+    """Covariate row of each unit, so a swap between identical controls is a tie."""
+    import sys
+
+    import polars as pl
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from run_python import MATCH_X
+
+    manifest = json.loads((CACHE / "prepared" / "manifest.json").read_text())
+    frame = pl.read_parquet(manifest["slices"][slice_name]["parquet"])
+    return frame.select(MATCH_X).rows()
+
+
+def _pair_check(task_id: str, py: dict, r: dict, profiles: list[tuple] | None) -> dict:
+    left = _pairs(py)
+    right = _pairs(r)
+    note = ""
+    same = left == right
+    if not same and profiles is not None:
+        # Greedy matching takes the first of several equidistant controls. When
+        # the controls have the same covariates, the order of equal distances is
+        # a tie-break, not a different match.
+        swapped = sorted(set(t for t, _ in left ^ right))
+        left_map = dict(left)
+        right_map = dict(right)
+        if left_map.keys() == right_map.keys() and all(
+            profiles[left_map[t]] == profiles[right_map[t]] for t in swapped
+        ):
+            same = True
+            note = f"{len(swapped)} pairs take a control with identical covariates"
+    if not same:
+        note = f"python {len(left)} r {len(right)}, {len(left & right)} shared"
+        if task_id == "m-mah":
+            note += MAHALANOBIS_NOTE
+    return {
+        "quantity": "pairs",
+        "error": 0.0 if same else 1.0,
+        "criterion": "set",
+        "tol": 0.0,
+        "passed": same,
+        "note": note,
+    }
+
+
+MAHALANOBIS_NOTE = (
+    "; the pooled covariance of all factor levels is singular, so MatchIt's pivoted"
+    " Cholesky depends on the LAPACK build. Pairs agree on x86-64 Linux reference LAPACK"
+)
+
+
 def _checks(task_id: str) -> list[tuple[str, str, float]]:
     """Return (field, rule, tolerance). rule is rel, abs, or corr (covariance)."""
     if task_id.startswith("lmm"):
@@ -83,7 +134,11 @@ def _checks(task_id: str) -> list[tuple[str, str, float]]:
         ]
     if task_id.startswith("gam"):
         return [("sp", "rel", 1e-3), ("edf", "rel", 1e-4), ("reml", "abs", 1e-6), ("coef", "rel", 1e-6)]
-    if task_id in {"hc", "cl1", "cl2", "nw"} or task_id.startswith("hc"):
+    if task_id in {"cl1", "cl2"}:
+        # STAR's uncentred birth year leaves cond(X) near 7e6. lm/vcovCL and
+        # statract both sit 1e-8 to 3e-7 from a high-precision reference.
+        return [("cov", "corr", 1e-6)]
+    if task_id in {"hc", "nw"} or task_id.startswith("hc"):
         return [("cov", "corr", 1e-8)]
     if task_id in {"wald", "lr", "bp", "reset", "dw", "bg", "lrk"} or task_id.startswith(("bp", "bg", "lrk")):
         return [("stat", "rel", 1e-6), ("p", "abs", 1e-6)]
@@ -115,7 +170,9 @@ def _index(rows: list[dict]) -> dict[tuple[str, str], dict]:
     return {(row["id"], row["slice"]): row for row in rows}
 
 
-def _quantity_rows(task_id: str, part_name: str, py: dict, r: dict) -> list[dict]:
+def _quantity_rows(
+    task_id: str, part_name: str, py: dict, r: dict, profiles: list[tuple] | None = None
+) -> list[dict]:
     note = ""
     py, r, mismatch = _align(py, r, ["coef", "se", "t", "p", "cov"])
     if mismatch:
@@ -126,17 +183,7 @@ def _quantity_rows(task_id: str, part_name: str, py: dict, r: dict) -> list[dict
     rows = []
     for field, rule, tol in _checks(task_id):
         if field == "pairs":
-            same = _pairs(py) == _pairs(r)
-            rows.append(
-                {
-                    "quantity": "pairs",
-                    "error": 0.0 if same else 1.0,
-                    "criterion": "set",
-                    "tol": 0.0,
-                    "passed": same,
-                    "note": "" if same else f"python {len(_pairs(py))} r {len(_pairs(r))}",
-                }
-            )
+            rows.append(_pair_check(task_id, py, r, profiles))
             continue
         if field not in py or field not in r:
             rows.append(
@@ -225,7 +272,8 @@ def main() -> None:
             py_s = float(py_part["seconds"])
             r_s = float(r_part["seconds"])
             ratio = py_s / r_s if r_s else ""
-            for row in _quantity_rows(task_id, part, py_part, r_part):
+            profiles = _match_profiles(slice_name) if task_id in {"m-logit", "m-mah"} else None
+            for row in _quantity_rows(task_id, part, py_part, r_part, profiles):
                 table.append(
                     {
                         "task": task_id,
