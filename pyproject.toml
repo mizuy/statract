@@ -18,6 +18,7 @@ dependencies = [
     "polars>=1.36.0",
     "scipy>=1.16.3",
     "setuptools>=75.0.0",
+    "studyloop",
 ]
 
 [project.optional-dependencies]
@@ -47,3 +48,6 @@ dev = [
 [build-system]
 requires = ["uv_build>=0.9.13,<0.10.0"]
 build-backend = "uv_build"
+
+[tool.uv.sources]
+studyloop = { path = "../tools/studyloop", editable = true }

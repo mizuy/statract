@@ -148,7 +148,7 @@ def write_probability_artifacts(
 
     Each model dict needs ``prob_val``, ``y_val``, and ``name``.
     """
-    from statract.reporting import write_csv_companion
+    from studyloop.reporting import write_csv_companion
 
     out_dir = out_dir.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)

@@ -152,7 +152,7 @@ from .tableone import (
     tableone_raw,
     write_tableone_artifacts,
 )
-from .task_io import (
+from studyloop.task_io import (
     clear_task_output_dir,
     prepare_task_output,
     print_saved,

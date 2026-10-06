@@ -4,7 +4,7 @@
 
 # statract
 
-推定、生存時間、回帰、記述統計、統計図、費用効果分析（CEA）。データフレームは Polars。
+推定、生存時間、回帰、記述統計、統計図、費用効果分析（CEA）。データフレームは Polars。CSV companion や `out/` 準備は [studyloop](https://github.com/mizuy/studyloop)（`statract.reporting` / `statract.task_io` は shim）。
 
 核は pandas に依存しない。Kaplan–Meier は同梱の `survival_curve`（lifelines は使わない）。statsmodels は optional extra `sm`。
 

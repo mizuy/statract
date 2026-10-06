@@ -1,19 +1,11 @@
-"""Task output helpers moved from endolab."""
+"""Thin shim: task_io names still resolve to studyloop."""
 
 from __future__ import annotations
 
-import polars as pl
-
+import studyloop.task_io
 from statract.task_io import prepare_task_output, save_frames
 
 
-def test_prepare_task_output_writes_csv(tmp_path) -> None:
-    script = tmp_path / "run.py"
-    script.write_text("", encoding="utf-8")
-    out = prepare_task_output(script)
-    assert out == tmp_path / "out"
-    assert out.is_dir()
-    frame = pl.DataFrame({"a": [1]})
-    path = out / "a.csv"
-    save_frames({"a": path}, {"a": frame})
-    assert pl.read_csv(path)["a"].to_list() == [1]
+def test_task_io_shim_is_studyloop() -> None:
+    assert prepare_task_output is studyloop.task_io.prepare_task_output
+    assert save_frames is studyloop.task_io.save_frames

@@ -1838,6 +1838,7 @@ dependencies = [
     { name = "polars" },
     { name = "scipy" },
     { name = "setuptools" },
+    { name = "studyloop" },
 ]
 
 [package.optional-dependencies]
@@ -1883,6 +1884,7 @@ requires-dist = [
     { name = "scipy", specifier = ">=1.16.3" },
     { name = "setuptools", specifier = ">=75.0.0" },
     { name = "statsmodels", marker = "extra == 'sm'", specifier = ">=0.14.6" },
+    { name = "studyloop", editable = "../tools/studyloop" },
 ]
 provides-extras = ["sm", "r", "mixedlm", "gpboost"]
 
@@ -1945,6 +1947,20 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/c4/08/608871f18bc18c6cba0b484e81fd25a023ef3ca6541f6793ec839fa49e1f/statsmodels-0.15.0-cp315-cp315t-win_amd64.whl", hash = "sha256:38038823fbe86f11e09433b4a0f4af5f102327c3137a1604b002ce3cf722a31f", size = 11549124, upload-time = "2026-08-30T16:05:53.179Z" },
     { url = "https://files.pythonhosted.org/packages/e3/eb/90a506dbee5cde669e2ef28565ff6b7a0791ab415eab2da82f92d033cccc/statsmodels-0.15.0-cp315-cp315t-win_arm64.whl", hash = "sha256:90df413d7e09474f7e7cbf8807440c1bf76298cdd9daabf9141f76d7627c9151", size = 11021454, upload-time = "2026-08-30T16:06:08.124Z" },
 ]
+
+[[package]]
+name = "studyloop"
+version = "0.1.0"
+source = { editable = "../tools/studyloop" }
+dependencies = [
+    { name = "polars" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "polars", specifier = ">=1.36.0" }]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.2" }]
 
 [[package]]
 name = "threadpoolctl"
