@@ -139,7 +139,7 @@ R の名前は「どの出力と合わせるか」のラベルである。公開
 |------------|--------|------|
 | `Surv` + `survfit`（KM / Nelson–Aalen） | `survival_curve(data, time, event, by=None, *, kind="kaplan_meier", confidence="log", weights=None)` | ○ `kind` は `"kaplan_meier"` または `"nelson_aalen"`。`confidence` は log / log-log / plain / logit / arcsin |
 | `summary.survfit` / `quantile` | `curve.at(times)` / `curve.quantile(p)` | ○ 中央値の区間は Brookmeyer–Crowley |
-| Aalen–Johansen | `survival_curve(..., kind="aalen_johansen", event=` 多値`)` | ○ 累積発生と SE |
+| Aalen–Johansen | `survival_curve(..., kind="aalen_johansen", entry=)` | ○ 累積発生と SE。`entry` は左切り捨て（`entry < t <= time`） |
 | `survdiff` | `log_rank(data, time, event, by, strata=None, rho=0)` | ○ k 群。`rho=1` は Peto–Peto。層別可。既存 `log_rank_pvalue` は 2 群の式 API として残す |
 | `coxph` | `cox_ph(data, "Surv(time, status) ~ x + strata(site)")`。列名は `cox_ph(data, time, event, predictors, ...)` | ○ Efron / Breslow、層別、重み、オフセット、counting process（`Surv(start, stop, status)` または `entry`） |
 | `clogit` | `conditional_logit(data, "y ~ x + strata(set)")`。列名は `conditional_logit(data, y, predictors, strata=)` | ○ 既定 exact はマッチセットの離散尤度。`efron` / `breslow`（`approximate`）は時間を 1 にした `cox_ph`。一般の `cox_ph(ties="exact")` は入れない |

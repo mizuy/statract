@@ -160,22 +160,33 @@ def survival_curve(
     confidence: str = "log",
     level: float = 0.95,
     weights: ColumnRef | None = None,
+    entry: ColumnRef | None = None,
 ) -> SurvivalCurve:
     """Estimate a survival or cumulative-incidence curve.
 
     ``event`` is 1/0 for Kaplan–Meier and Nelson–Aalen. For
     ``kind="aalen_johansen"`` it is a cause code, with 0 meaning censored.
+    ``entry`` is the left-truncation time: the risk set at ``t`` is
+    ``entry < t <= time``.
     """
     if kind not in {"kaplan_meier", "nelson_aalen", "aalen_johansen"}:
         raise ValueError("kind must be kaplan_meier, nelson_aalen, or aalen_johansen")
     if confidence not in _CONFIDENCE:
         raise ValueError(f"confidence must be one of {_CONFIDENCE}")
-    times, events, w, groups, codes = _survival_columns(data, time, event, by, weights)
+    times, events, w, groups, codes, entries = _survival_columns(data, time, event, by, weights, entry)
     if kind == "aalen_johansen" or groups == [None]:
         frames = []
         for index, group in enumerate(groups):
             sel = np.ones(len(times), dtype=bool) if group is None else codes == index
-            table = _one_curve(times[sel], events[sel], w[sel], kind, confidence, level)
+            table = _one_curve(
+                times[sel],
+                events[sel],
+                w[sel],
+                kind,
+                confidence,
+                level,
+                None if entries is None else entries[sel],
+            )
             if group is not None:
                 table = table.with_columns(pl.lit(group).alias("group"))
             frames.append(table)
@@ -184,7 +195,15 @@ def survival_curve(
     pieces = []
     for index, group in enumerate(groups):
         sel = codes == index
-        columns = _curve_arrays(times[sel], events[sel], w[sel], kind, confidence, level)
+        columns = _curve_arrays(
+            times[sel],
+            events[sel],
+            w[sel],
+            kind,
+            confidence,
+            level,
+            None if entries is None else entries[sel],
+        )
         columns["group"] = np.full(columns["time"].shape[0], group)
         pieces.append(columns)
     merged = {name: np.concatenate([piece[name] for piece in pieces]) for name in pieces[0] if name != "group"}
@@ -219,52 +238,62 @@ def _survival_columns(
     event: ColumnRef,
     by: ColumnRef | None,
     weights: ColumnRef | None,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[object | None], np.ndarray]:
-    """Aligned time, event, weight, and group codes after dropping nulls."""
-    named = all(isinstance(ref, str) for ref in (time, event, by, weights) if ref is not None)
+    entry: ColumnRef | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[object | None], np.ndarray, np.ndarray | None]:
+    """Aligned time, event, weight, group codes, and entry after dropping nulls."""
+    named = all(isinstance(ref, str) for ref in (time, event, by, weights, entry) if ref is not None)
     if named:
         time_s = data.get_column(str(time))
         event_s = data.get_column(str(event))
         weight_s = data.get_column(str(weights)) if weights is not None else None
         group_s = data.get_column(str(by)) if by is not None else None
+        entry_s = data.get_column(str(entry)) if entry is not None else None
         complete = time_s.null_count() == 0 and event_s.null_count() == 0
         if weight_s is not None:
             complete = complete and weight_s.null_count() == 0
         if group_s is not None:
             complete = complete and group_s.null_count() == 0
+        if entry_s is not None:
+            complete = complete and entry_s.null_count() == 0
         if complete:
             times = _as_float(time_s)
             events = event_s.to_numpy()
             w = _as_float(weight_s) if weight_s is not None else np.ones(times.shape[0], dtype=float)
+            entered = _as_float(entry_s) if entry_s is not None else None
             if group_s is None:
-                return times, events, w, [None], np.zeros(times.shape[0], dtype=np.int32)
+                return times, events, w, [None], np.zeros(times.shape[0], dtype=np.int32), entered
             labels, codes = _appearance_codes(group_s.to_numpy())
-            return times, events, w, labels, codes
+            return times, events, w, labels, codes, entered
     time_s = column_series(data, time).cast(pl.Float64)
     event_s = column_series(data, event)
     weight_s = column_series(data, weights).cast(pl.Float64) if weights is not None else None
     group_s = column_series(data, by) if by is not None else None
+    entry_s = column_series(data, entry).cast(pl.Float64) if entry is not None else None
     mask = time_s.is_not_null() & event_s.is_not_null()
     if weight_s is not None:
         mask = mask & weight_s.is_not_null()
     if group_s is not None:
         mask = mask & group_s.is_not_null()
+    if entry_s is not None:
+        mask = mask & entry_s.is_not_null()
     keep = mask.to_numpy()
     if bool(keep.all()):
         times = time_s.to_numpy()
         events = event_s.to_numpy()
         w = weight_s.to_numpy() if weight_s is not None else np.ones(times.shape[0], dtype=float)
+        entered = entry_s.to_numpy() if entry_s is not None else None
         gser = group_s
     else:
         kept = pl.Series(keep)
         times = time_s.filter(kept).to_numpy()
         events = event_s.filter(kept).to_numpy()
         w = weight_s.filter(kept).to_numpy() if weight_s is not None else np.ones(int(keep.sum()), dtype=float)
+        entered = entry_s.filter(kept).to_numpy() if entry_s is not None else None
         gser = None if group_s is None else group_s.filter(kept)
     if gser is None:
-        return times, events, np.asarray(w, dtype=float), [None], np.zeros(times.shape[0], dtype=np.int32)
+        return times, events, np.asarray(w, dtype=float), [None], np.zeros(times.shape[0], dtype=np.int32), entered
     labels, codes = _appearance_codes(gser.to_numpy())
-    return times, events, np.asarray(w, dtype=float), labels, codes
+    return times, events, np.asarray(w, dtype=float), labels, codes, None if entered is None else np.asarray(entered, dtype=float)
 
 
 def _one_curve(
@@ -274,10 +303,11 @@ def _one_curve(
     kind: str,
     confidence: str,
     level: float,
+    entry: np.ndarray | None = None,
 ) -> pl.DataFrame:
     if kind == "aalen_johansen":
-        return _aalen_johansen(time, event, weights, confidence, level)
-    return pl.DataFrame(_curve_arrays(time, event, weights, kind, confidence, level))
+        return _aalen_johansen(time, event, weights, confidence, level, entry)
+    return pl.DataFrame(_curve_arrays(time, event, weights, kind, confidence, level, entry))
 
 
 def _curve_arrays(
@@ -287,8 +317,12 @@ def _curve_arrays(
     kind: str,
     confidence: str,
     level: float,
+    entry: np.ndarray | None = None,
 ) -> dict[str, np.ndarray]:
-    uniq, n_risk_a, n_event_a, n_censor_a = _tie_counts(time, event, weights)
+    if entry is None:
+        uniq, n_risk_a, n_event_a, n_censor_a = _tie_counts(time, event, weights)
+    else:
+        uniq, n_risk_a, n_event_a, n_censor_a = _truncated_counts(time, event, weights, entry)
     if kind == "kaplan_meier":
         with np.errstate(divide="ignore", invalid="ignore"):
             hazard = np.divide(n_event_a, n_risk_a, out=np.zeros_like(n_event_a), where=n_risk_a > 0)
@@ -396,14 +430,79 @@ def _hazard_interval(
     return np.exp(-high_h), np.exp(-low_h)
 
 
+def _truncated_counts(
+    time: np.ndarray,
+    event: np.ndarray,
+    weights: np.ndarray,
+    entry: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Risk, events, and censorings when the risk set is ``entry < t <= time``."""
+    time = np.asarray(time, dtype=float)
+    entry = np.asarray(entry, dtype=float)
+    weights = np.asarray(weights, dtype=float)
+    ok = time > entry
+    time, event, weights, entry = time[ok], np.asarray(event)[ok], weights[ok], entry[ok]
+    if time.size == 0:
+        empty = np.zeros(0, dtype=float)
+        return empty, empty, empty, empty
+    died = np.array([value not in (0, "0", False) and not (isinstance(value, float) and value == 0.0) for value in event])
+    uniq = np.unique(time)
+    n_risk = np.empty(uniq.size, dtype=float)
+    n_event = np.empty(uniq.size, dtype=float)
+    n_censor = np.empty(uniq.size, dtype=float)
+    for index, stamp in enumerate(uniq):
+        at_risk = (entry < stamp) & (time >= stamp)
+        at = time == stamp
+        n_risk[index] = float(weights[at_risk].sum())
+        n_event[index] = float(weights[at & died].sum())
+        n_censor[index] = float(weights[at & ~died].sum())
+    return uniq, n_risk, n_event, n_censor
+
+
+def _cause_key(value: object) -> object:
+    if isinstance(value, (bool, np.bool_)):
+        return int(value)
+    if isinstance(value, (int, np.integer)):
+        return int(value)
+    if isinstance(value, (float, np.floating)) and float(value).is_integer():
+        return int(value)
+    return value
+
+
+def _is_censored(value: object) -> bool:
+    key = _cause_key(value)
+    return key in (0, "0", False)
+
+
+def _empty_aj() -> pl.DataFrame:
+    return pl.DataFrame(
+        schema={
+            "time": pl.Float64,
+            "state": pl.String,
+            "n_risk": pl.Float64,
+            "n_event": pl.Float64,
+            "n_censor": pl.Float64,
+            "estimate": pl.Float64,
+            "std_error": pl.Float64,
+            "conf_low": pl.Float64,
+            "conf_high": pl.Float64,
+        }
+    )
+
+
 def _aalen_johansen(
     time: np.ndarray,
     event: np.ndarray,
     weights: np.ndarray,
     confidence: str,
     level: float,
+    entry: np.ndarray | None = None,
 ) -> pl.DataFrame:
-    causes = [c for c in sorted(set(np.asarray(event).tolist())) if c not in (0, "0", False)]
+    if entry is not None:
+        return _aalen_johansen_truncated(time, event, weights, entry, level)
+    causes = [c for c in sorted(set(np.asarray(event).tolist())) if not _is_censored(c)]
+    if not causes:
+        return _empty_aj()
     order = np.argsort(time, kind="mergesort")
     time = time[order]
     event = np.asarray(event)[order]
@@ -450,7 +549,7 @@ def _aalen_johansen(
             pl.DataFrame(
                 {
                     "time": uniq,
-                    "state": [str(cause)] * len(uniq),
+                    "state": [str(_cause_key(cause))] * len(uniq),
                     "n_risk": n_risk_a,
                     "n_event": d,
                     "n_censor": np.zeros(len(uniq)),
@@ -483,3 +582,73 @@ def _aj_variance(survival_before, d, total, n_risk, cif, all_haz):
             acc += cif_inc * total[i] / (n_risk[i] ** 2) * survival_before[i]
         var[i] = running + (cif[i] ** 2) * integ - 2.0 * cif[i] * acc
     return var
+
+
+def _aalen_johansen_truncated(
+    time: np.ndarray,
+    event: np.ndarray,
+    weights: np.ndarray,
+    entry: np.ndarray,
+    level: float,
+) -> pl.DataFrame:
+    """Aalen–Johansen on event times only. The risk set is ``entry < t <= time``."""
+    time = np.asarray(time, dtype=float)
+    entry = np.asarray(entry, dtype=float)
+    weights = np.asarray(weights, dtype=float)
+    ok = np.isfinite(time) & np.isfinite(entry) & (time > entry)
+    time, event, weights, entry = time[ok], np.asarray(event)[ok], weights[ok], entry[ok]
+    if time.size == 0:
+        return _empty_aj()
+    key_list = [_cause_key(value) for value in event.tolist()]
+    causes = sorted(key for key in set(key_list) if not _is_censored(key))
+    if not causes:
+        return _empty_aj()
+    code_of = {cause: index for index, cause in enumerate(causes)}
+    codes = np.array([code_of.get(key, -1) for key in key_list], dtype=np.int32)
+    stamps = np.unique(time[codes >= 0])
+    n_risk = np.empty(stamps.size, dtype=float)
+    deaths = {cause: np.zeros(stamps.size, dtype=float) for cause in causes}
+    for index, stamp in enumerate(stamps):
+        at_risk = (entry < stamp) & (time >= stamp)
+        at = time == stamp
+        n_risk[index] = float(weights[at_risk].sum())
+        for cause in causes:
+            deaths[cause][index] = float(weights[at & (codes == code_of[cause])].sum())
+    total = np.zeros(stamps.size, dtype=float)
+    for cause in causes:
+        total += deaths[cause]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        overall = np.divide(total, n_risk, out=np.zeros_like(total), where=n_risk > 0)
+    survival_before = np.concatenate([[1.0], np.cumprod(1 - overall)[:-1]])
+    z = _norm_z(level)
+    frames = []
+    for cause in causes:
+        d = deaths[cause]
+        jumps = survival_before * np.divide(d, n_risk, out=np.zeros_like(d), where=n_risk > 0)
+        cif = np.cumsum(jumps)
+        all_haz = np.divide(total, n_risk, out=np.zeros_like(d), where=n_risk > 0)
+        var = _aj_variance(
+            np.ascontiguousarray(survival_before, dtype=np.float64),
+            np.ascontiguousarray(d, dtype=np.float64),
+            np.ascontiguousarray(total, dtype=np.float64),
+            np.ascontiguousarray(n_risk, dtype=np.float64),
+            np.ascontiguousarray(cif, dtype=np.float64),
+            np.ascontiguousarray(all_haz, dtype=np.float64),
+        )
+        std = np.sqrt(np.clip(var, 0, None))
+        frames.append(
+            pl.DataFrame(
+                {
+                    "time": stamps,
+                    "state": [str(cause)] * len(stamps),
+                    "n_risk": n_risk,
+                    "n_event": d,
+                    "n_censor": np.zeros(len(stamps)),
+                    "estimate": cif,
+                    "std_error": std,
+                    "conf_low": np.clip(cif - z * std, 0, 1),
+                    "conf_high": np.clip(cif + z * std, 0, 1),
+                }
+            )
+        )
+    return pl.concat(frames)
