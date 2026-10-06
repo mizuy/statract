@@ -1,6 +1,6 @@
 """Example-local paths, parquet cache, and flowchart.
 
-Gallery scripts import this module instead of studyloop internals. It is not part of the
+Gallery scripts import this module instead of statract internals. It is not part of the
 public ``statract`` API and does not set facility defaults.
 """
 

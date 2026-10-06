@@ -208,7 +208,7 @@ def write_tableone_artifacts(
         すでに組み立てた Table One DataFrame（Pre/Post 横並び等）。
         指定時は ``df``/``params`` は不要。
     """
-    from studyloop.reporting import write_csv_companion
+    from .reporting import write_csv_companion
 
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
