@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Copy curated example ``*_out/`` artifacts into ``docs/stat/examples/assets/``.
+"""Copy curated example ``*_out/`` artifacts into ``docs/examples/assets/``.
 
 Source of truth is the example analysis output. Docs Pages embeds must use the
 exact files produced by ``examples/<stem>/<stem>.py`` (via ``task analysis`` /
@@ -20,7 +20,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
-ASSETS = ROOT / "docs" / "stat" / "examples" / "assets"
+ASSETS = ROOT / "docs" / "examples" / "assets"
 
 # Relative paths under ``examples/<stem>/<stem>_out/`` → same relative path under assets.
 CURATED: dict[str, list[str]] = {

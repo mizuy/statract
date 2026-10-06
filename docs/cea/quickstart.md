@@ -154,5 +154,5 @@ task cea:run       # Detection 比較（statract.cea を内部利用）
 
 - [概要](overview.md)
 - [R との対応](vs-r.md)
-- 公開教学例: [cea_sicksicker](../stat/examples/cea_sicksicker.md)（DARTH Sick-Sicker）
+- 公開教学例: [cea_sicksicker](../examples/cea_sicksicker.md)（DARTH Sick-Sicker）
 - API: [markov](../api/cea/markov.md) · [summarize](../api/cea/summarize.md) · [sensitivity](../api/cea/sensitivity.md)

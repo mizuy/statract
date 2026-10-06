@@ -2,7 +2,7 @@
 
 施設変量 `fit_mixed(..., family="binomial")`（lme-python / lme-rs）+ MOR / 施設 BLUP。固定効果二項 GLM は比較。ホールドアウト較正は使わない。
 
-**読む:** [docs 単一ページ](../../docs/stat/examples/logit_indo.md)（ギャラリー: [解析例](https://mizuy.github.io/statract/stat/examples/logit_indo/)）。データ出典・プロトコル詳細・図つき Results はそちら。
+**読む:** [docs 単一ページ](../../docs/examples/logit_indo.md)（ギャラリー: [解析例](https://mizuy.github.io/statract/examples/logit_indo/)）。データ出典・プロトコル詳細・図つき Results はそちら。
 
 ## 実行
 
@@ -16,7 +16,7 @@ PYTHONPATH=. uv run python build.py
 PYTHONPATH=. uv run python logit_indo.py
 ```
 
-完全な成果物は `logit_indo_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/stat/examples/assets/logit_indo/`](../../docs/stat/examples/assets/logit_indo/) にあります。
+完全な成果物は `logit_indo_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/examples/assets/logit_indo/`](../../docs/examples/assets/logit_indo/) にあります。
 
 ## 付随文書
 

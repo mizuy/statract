@@ -1,6 +1,6 @@
 # pred_support_protocol
 
-読者向けの一続き版（推奨）: [`docs/stat/examples/pred_support.md`](../../docs/stat/examples/pred_support.md)。本ファイルは既存の付随文書（列名・inclusion / exclusion・出力対応）です。
+読者向けの一続き版（推奨）: [`docs/examples/pred_support.md`](../../docs/examples/pred_support.md)。本ファイルは既存の付随文書（列名・inclusion / exclusion・出力対応）です。
 
 問い・式の正本: [pred_support_concept.md](pred_support_concept.md)
 

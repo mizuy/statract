@@ -1,0 +1,4 @@
+# tableone
+
+::: statract.tableone
+

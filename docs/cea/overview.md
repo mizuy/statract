@@ -79,6 +79,6 @@ flowchart LR
 ## 次のページ
 
 - [Quickstart](quickstart.md) — 動く最小例
-- [公開教学例 cea_sicksicker](../stat/examples/cea_sicksicker.md) — DARTH Sick-Sicker（Markov / ICER / DSA / PSA）
+- [公開教学例 cea_sicksicker](../examples/cea_sicksicker.md) — DARTH Sick-Sicker（Markov / ICER / DSA / PSA）
 - [R パッケージとの対応](vs-r.md)
 - API: [markov](../api/cea/markov.md) · [summarize](../api/cea/summarize.md) · [sensitivity](../api/cea/sensitivity.md)

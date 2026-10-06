@@ -42,8 +42,12 @@ from studyloop.task_io import prepare_task_output, save_frames
 
 ## 次に読む
 
-- [Quickstart](stat/quickstart.md) — 回帰、生存時間、マッチングの短い呼び出し
-- [Examples / Gallery](stat/examples.md) — 公開データで、入力から結果の図まで
-- [Benchmarks](stat/benchmarks.md) — 同じ表を R と比べた壁時計と数値差
+| 節 | 中身 |
+|----|------|
+| [Table One](tableone/overview.md) | ベースライン表、集計、群間の検定 |
+| [Models](models/overview.md) | 回帰、生存時間、混合、GAM、木、マッチング。[Quickstart](models/quickstart.md)、[R との対応](models/vs-r.md)、[速度](models/benchmarks.md) |
+| [Figures](viz/overview.md) | forest、Kaplan–Meier、較正、funnel |
+| [CEA](cea/overview.md) | cohort Markov、ICER、DSA / PSA |
+| [解析例](examples/index.md) | 公開データで、入力から図まで |
 
-分野ごとの入口は [統計](stat/overview.md) と [CEA](cea/overview.md) です。
+出力ディレクトリと CSV companion の型は studyloop です。`statract.reporting` と `statract.task_io` はそこへの shim です。

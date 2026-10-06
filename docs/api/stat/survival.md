@@ -1,4 +1,0 @@
-# stat.survival
-
-::: statract.survival
-

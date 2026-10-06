@@ -1,4 +1,0 @@
-# stat.agg
-
-::: statract.agg
-

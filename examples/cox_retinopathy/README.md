@@ -2,7 +2,7 @@
 
 KM / log-rank / Cox（Lin–Wei sandwich、`cluster(id)`）。両眼が同一患者に属する公開 RCT。
 
-**読む:** [docs 単一ページ](../../docs/stat/examples/cox_retinopathy.md)（ギャラリー: [解析例](https://mizuy.github.io/statract/stat/examples/cox_retinopathy/)）。データ出典・図つき Results はそちら。
+**読む:** [docs 単一ページ](../../docs/examples/cox_retinopathy.md)（ギャラリー: [解析例](https://mizuy.github.io/statract/examples/cox_retinopathy/)）。データ出典・図つき Results はそちら。
 
 ## 実行
 
@@ -16,7 +16,7 @@ PYTHONPATH=. uv run python build.py
 PYTHONPATH=. uv run python cox_retinopathy.py
 ```
 
-完全な成果物は `cox_retinopathy_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/stat/examples/assets/cox_retinopathy/`](../../docs/stat/examples/assets/cox_retinopathy/) にあります。
+完全な成果物は `cox_retinopathy_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/examples/assets/cox_retinopathy/`](../../docs/examples/assets/cox_retinopathy/) にあります。
 
 ## 付随文書
 

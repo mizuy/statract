@@ -1,6 +1,6 @@
 # lmm_pbcseq_protocol
 
-読者向けの一続き版（推奨）: [`docs/stat/examples/lmm_pbcseq.md`](../../docs/stat/examples/lmm_pbcseq.md)。本ファイルは既存の付随文書（列名・inclusion / exclusion・出力対応）です。
+読者向けの一続き版（推奨）: [`docs/examples/lmm_pbcseq.md`](../../docs/examples/lmm_pbcseq.md)。本ファイルは既存の付随文書（列名・inclusion / exclusion・出力対応）です。
 
 問い・式の正本: [lmm_pbcseq_concept.md](lmm_pbcseq_concept.md)
 

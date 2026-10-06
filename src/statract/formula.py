@@ -13,7 +13,7 @@ intercept is removed).
 and ``fine_gray`` accept ``Surv(time, status) ~ ...``. The column interface
 stays available.
 The language, column names, and contrast rules are written up in
-``docs/stat/formula.md``.
+``docs/models/formula.md``.
 """
 
 from __future__ import annotations
