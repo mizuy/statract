@@ -12,6 +12,8 @@
 
 リポジトリルートで `uv sync` したあと、各ディレクトリで `task all`（または `uv run python build.py` → `uv run python {stem}.py`）。
 
+取得元に届かない環境では、取得済みの生データを 1 か所に集めて使えます。`uv run python scripts/snapshot_private_data.py <dir>` が各例の snapshot を `<dir>/<name>.parquet` と `MANIFEST.csv`（SHA-256 つき）に書き出します。既定は再配布しないデータ（`pred_support`、`psm_rhc`）だけです。`STATRACT_DATA_DIR=<dir>` を設定すると、例はそこから読み、ハッシュが合わなければ止まります。このディレクトリは公開リポジトリに commit しません。
+
 | ディレクトリ | docs ページ | 問い | 見る API | データ |
 |--------------|-------------|------|----------|--------|
 | [surv_colon/](surv_colon/) | [docs](../docs/examples/surv_colon.md) | 補助化学療法 `rx` と再発時間 | `plot_survival`（NAR）、`cox_ph`, `proportional_hazards_test`, `write_cox_diagnostic_suite`, `plot_forest`（表一体） | R `survival::colon`（患者単位）。ライセンス GPL-2/3。git 非収載 |

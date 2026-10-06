@@ -2,13 +2,20 @@
 
 Gallery scripts import this module instead of statract internals. It is not part of the
 public ``statract`` API and does not set facility defaults.
+
+Set ``STATRACT_DATA_DIR`` to a directory made by ``scripts/snapshot_private_data.py``
+to read raw snapshots from there instead of fetching them. A file listed in its
+``MANIFEST.csv`` must match the recorded SHA-256.
 """
 
 from __future__ import annotations
 
 
+import csv
 import datetime
 import functools
+import hashlib
+import os
 import shutil
 import sys
 import zoneinfo
@@ -157,6 +164,11 @@ class _Cached:
     def __call__(self, *, force: bool = False) -> T:
         if force:
             self.clear_cache()
+        if self.generated_object is None and self.snapshot and not force:
+            shared = _shared_snapshot(self.cache_basepath.name)
+            if shared is not None:
+                logger.info("Loading shared snapshot: %s", shared)
+                self.generated_object = load_data(shared)  # type: ignore[assignment]
         if self.generated_object is None:
             cache_path = self._path(force=force)
             if cache_path.exists():
@@ -179,6 +191,25 @@ class _Cached:
                 else:
                     cache_path.unlink()
         self.generated_object = None
+
+
+def _shared_snapshot(name: str) -> Path | None:
+    """``$STATRACT_DATA_DIR/<name>`` when set and present, checked against MANIFEST.csv."""
+    root = os.environ.get("STATRACT_DATA_DIR")
+    if not root:
+        return None
+    path = Path(root).expanduser() / name
+    if not path.is_file():
+        return None
+    manifest = path.parent / "MANIFEST.csv"
+    if manifest.is_file():
+        with manifest.open(newline="", encoding="utf-8") as fh:
+            expected = {row["file"]: row["sha256"] for row in csv.DictReader(fh)}
+        if name in expected:
+            actual = hashlib.sha256(path.read_bytes()).hexdigest()
+            if actual != expected[name]:
+                raise RuntimeError(f"{path}: SHA-256 {actual} does not match MANIFEST.csv")
+    return path
 
 
 def cache(path: Path | str) -> Callable[[Callable[P, T]], _Cached]:
