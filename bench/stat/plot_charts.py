@@ -16,7 +16,7 @@ from matplotlib.patches import Patch
 import japanize_matplotlib  # noqa: F401  # registers the Japanese font
 
 ROOT = Path(__file__).resolve().parents[2]
-CSV_PATH = ROOT / "docs" / "stat" / "benchmarks" / "comparison.csv"
+CSV_PATH = ROOT / "docs" / "models" / "benchmarks" / "comparison.csv"
 OUT = CSV_PATH.parent
 
 PYTHON = "#1C4D7C"
