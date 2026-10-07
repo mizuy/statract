@@ -54,6 +54,8 @@ class _Problem:
         self.lgamma_y1 = special.gammaln(self.y + 1.0)
         self.u = np.zeros((self.m, self.q))
         self.evals = 0
+        self._const_key = None
+        self._const = None
         if self.n_agq > 1:
             nodes, weights = np.polynomial.hermite.hermgauss(self.n_agq)
             self.gh_nodes = nodes
@@ -78,24 +80,23 @@ class _Problem:
             ll = y * eta - mu - self.lgamma_y1
             return ll, y - mu, mu
         theta = np.exp(log_theta)
+        if self._const_key != log_theta:
+            # The gamma-function terms do not depend on eta; compute them once per theta.
+            self._const = special.gammaln(y + theta) - special.gammaln(theta) - self.lgamma_y1 + theta * log_theta
+            self._const_key = log_theta
         log_tm = np.logaddexp(log_theta, eta)
         ratio = np.exp(eta - log_tm)  # mu / (theta + mu)
-        ll = (
-            special.gammaln(y + theta)
-            - special.gammaln(theta)
-            - self.lgamma_y1
-            + theta * log_theta
-            + y * eta
-            - (y + theta) * log_tm
-        )
-        d1 = theta * (y - np.exp(eta)) / np.exp(log_tm)
+        ll = self._const + y * eta - (y + theta) * log_tm
+        d1 = theta * (y - np.exp(eta)) * np.exp(-log_tm)
         w = (y + theta) * ratio * (1.0 - ratio)
         return ll, d1, w
 
     def _by_group(self, values):
-        out = np.zeros((self.m,) + values.shape[1:])
-        np.add.at(out, self.group, values)
-        return out
+        flat = values.reshape(len(values), -1)
+        out = np.empty((self.m, flat.shape[1]))
+        for k in range(flat.shape[1]):
+            out[:, k] = np.bincount(self.group, weights=flat[:, k], minlength=self.m)
+        return out.reshape((self.m,) + values.shape[1:])
 
     def _group_ll(self, eta, log_theta):
         ll, _, _ = self._terms(eta, log_theta)
@@ -227,11 +228,19 @@ def fit_count_glmm(y, x, z, group, offset, *, family: str, n_agq: int = 1) -> La
     phi = first.x
     n_iter = int(first.nit)
 
-    # Newton polish over parameters off the boundary.
+    # A random-effect SD that L-BFGS drives toward zero is a singular fit, as
+    # glmer reports it. Pin it at the floor when that does not lower the
+    # likelihood, and polish the rest with Newton steps.
     free = np.ones(prob.n_par, dtype=bool)
     for i in range(prob.q):
-        if phi[prob.p + i] <= _LOG_SD_FLOOR + 1e-6:
-            free[prob.p + i] = False
+        at = prob.p + i
+        if phi[at] < -8.0:
+            pinned = phi.copy()
+            pinned[at] = _LOG_SD_FLOOR
+            if objective(pinned) <= objective(phi) + 1e-8:
+                phi = pinned
+        if phi[at] <= _LOG_SD_FLOOR + 1e-6:
+            free[at] = False
     converged = bool(first.success)
 
     def sub(fun_full):
@@ -247,6 +256,9 @@ def fit_count_glmm(y, x, z, group, offset, *, family: str, n_agq: int = 1) -> La
         h_grad = 1e-5 * np.maximum(1.0, np.abs(phi[free]))
         grad = _gradient(f_sub, phi[free], h_grad)
         hess = _hessian(f_sub, phi[free], 1e-3 * np.maximum(1.0, np.abs(phi[free])))
+        # At the optimum the line search can fail on numerical noise alone, so
+        # a small gradient counts as converged.
+        converged = converged or bool(np.max(np.abs(grad)) < 1e-3)
         try:
             step = np.linalg.solve(hess, grad)
         except np.linalg.LinAlgError:

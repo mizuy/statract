@@ -20,10 +20,12 @@
 | log-rank | `survdiff` | `log_rank` | 層なし、rho = 0 のカイ二乗 |
 | Cox | `coxph(Surv(time, status) ~ x)`。既定の同順位は Efron | `cox_ph`。式は `Surv(time, status) ~ x`、列名も残す | Efron、Breslow、`strata` の係数、モデルベース SE、部分尤度 |
 | 条件付きロジスティック | `clogit`。既定は exact | `conditional_logit`。式は `y ~ x + strata(set)`、列名も残す | exact の係数、モデルベース SE、条件付き対数尤度。`method="efron"` は時間を 1 にした `cox_ph` |
-| 重み付き Cox | `coxph(..., weights=)` の Lin–Wei 分散 | `cox_ph(..., weights=)` | 係数、頑健 SE、部分尤度 |
+| 重み付き Cox | `coxph(..., weights=)`。整数でない重みは Lin–Wei 分散、整数の重みはモデルベース | `cox_ph(..., weights=)` | 係数、頑健 SE、部分尤度 |
+| Cox の推論 | `residuals.coxph`（7 種）、`cox.zph(transform="km")`、`concordance`、`basehaz(centered=FALSE)`、`predict(type="expected")` | `fit.residuals(kind=)`、`proportional_hazards_test`、`fit.concordance()`、`fit.baseline_hazard()`、`fit.predict(kind="expected")` | fixture `cox_inference.json`。同順位あり（Efron / Breslow）、層と重み、計数過程（クラスタありとなし）の 6 標本。残差 rtol 1e-6、`cox.zph` は項ごとのカイ二乗と自由度、C と SE |
+| クラスタ頑健分散 | `coxph(..., cluster=id)`。計数過程 `Surv(start, stop, status)` を含む | `cox_ph(..., cluster=)` または式の `cluster(id)` | 頑健共分散 rtol 1e-6 |
 | 加速故障時間 | `survreg` | `accelerated_failure` | weibull、lognormal、exponential の係数、SE、対数尤度。尺度は `Log(scale)` |
 | Aalen–Johansen | `survfit(Surv(time, factor(event)) ~ 1)`。左切り捨ては `Surv(entry, time, factor(event))` | `survival_curve(..., kind="aalen_johansen", entry=)` | 累積発生、Aalen 型 SE、plain 区間 |
-| Fine–Gray | `finegray` のあと `coxph` | `fine_gray` のあと `cox_ph(..., entry=, weights=)` | 係数、モデルベース SE、部分尤度 |
+| Fine–Gray | `finegray` のあと `coxph` | `fine_gray` のあと `cox_ph(..., entry=, weights=)` | 係数、モデルベース SE と行ごとの頑健 SE（重みが整数でないので coxph の既定）、部分尤度 |
 | 最近傍（logit） | `matchit(..., distance="glm", link="logit", m.order="data")` | `match_sample(..., distance="logit", order="data")` | 組、x1 のマッチ後標準化差 |
 | 最近傍（マハラノビス） | `distance="mahalanobis"` | `distance="mahalanobis"` | `order="data"` の組 |
 | 完全一致、CEM | `method="exact"`、`method="cem"` | `method="exact"`、`method="cem"` | 重み |
@@ -38,6 +40,8 @@
 | 条件付き推論木 | `partykit::ctree`。二次形式、Šidák（`testtype="Bonferroni"`）、`minsplit=20`、`minbucket=7` | `conditional_tree` | 根の統計量と調整済み p 値、終端ノードの平均 |
 | 共線性 | `performance::check_collinearity` | `check_collinearity` | VIF、SE factor、許容度と区間 |
 | 線形混合 | `lmer`。`(1 \| g)` または `(1 + x \| g)`、REML または ML | `fit_mixed`（既定 `engine="lme"` = lme-python 0.2.6） | fixture `lmm.json` 3 標本: coef rel 最大約 1.9×10⁻⁴。pytest は coef 5e-4、SE 1e-3、RE 1e-2、σ² 5e-4、loglik atol 1e-5。STAR 公開スライス（2026-10-04）では lme の coef rel 最大 1.18×10⁻³（変量傾き 10,000 行）、ML 1,000 行は 7.41×10⁻⁴。mixedlm-rs extra は変量切片で旧 1e-6 級に近い |
+| ポアソン GLMM | `glmmTMB(..., family=poisson)`、`glmer(..., family=poisson, nAGQ=9)`。`offset(log(years))`、`(1 \| g)` と `(1 + x \| g)` | `fit_mixed(..., family="poisson")`（`engine="laplace"`）、`n_agq=` | fixture `glmm_count.json` 3 標本。係数 rtol 1e-4 / atol 2e-5（glmmTMB は自分の許容差で止まるので、こちらの対数尤度は常に同じか高い）、SE rtol 1e-4、対数尤度 atol 1e-6、変量効果の分散 rtol 1e-3。求積は glmer と係数 rtol 1e-4 |
+| 負の二項 GLMM | `glmmTMB(..., family=nbinom2)` | `fit_mixed(..., family="negative_binomial")` | 同じ 3 標本で係数、SE、対数尤度、分散、`theta`（rtol 1e-4） |
 | 二項 GLMM | `glmer(..., family=binomial)`。`(1 \| g)`、Laplace | `fit_mixed(..., family="binomial")` | fixture 未固定。indo n=602（2026-10-04）: インドメタシン OR rel 3.66×10⁻³（0.466 vs 0.464）、クラスタ分散 rel 1.44×10⁻³、loglik abs 2.14×10⁻³。固定効果の最大 rel は小さい係数 `sod_yes` で 0.115 |
 | Wilkinson 式 | `model.matrix`、`lm` | `model_matrix`、`fit_ols` | 設計行列、応答、`offset()`、`y ~ x * stage` と `log(y) ~ x` と `y ~ x + offset(z)` の係数と SE。fixture は `wilkinson.json` |
 
@@ -47,7 +51,6 @@
 
 ## 呼び出せるが、fixture ではまだ固定していないもの
 
-- Cox の比例ハザード検定、残差、一致指数、ベースライン累積ハザード
 - ユークリッド、尺度つきユークリッド、ロバスト・マハラノビスの最近傍（実装は MatchIt の組と合わせてある。コミットした JSON はマハラノビス）
 - 区間分割 `split_follow_up`
 - ブートストラップ共分散（乱数生成器が R と違う）
@@ -55,7 +58,6 @@
 ## この版の対象外
 
 - クラスタ頑健分散の HC2 / HC3
-- 計数過程（`entry` がある）Cox の頑健分散。Fine–Gray の SE はモデルベースです
 
 ## 既存の名前
 

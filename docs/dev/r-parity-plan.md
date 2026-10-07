@@ -291,6 +291,8 @@ src/endolab/stat/
 
 ガウスの変量切片と変量傾きは `fit_mixed` が mixedlm-rs を呼ぶ。比べる相手は `lme4::lmer` の REML / ML で、fixture は `tests/r_oracle/fixtures/lmm.json` です。mixedlm-rs と pandas は関数の中で import する。二項・ポアソンの GLMM と glmmTMB は、積分と分散モデルが別問題なので、まだ入れていません。
 
+**追記（2026-10-07）:** ポアソンと負の二項（`nbinom2`）の GLMM は自前の Laplace 近似（`statract/_laplace.py`）で入れた。固定効果、変量効果の Cholesky 因子、`log(theta)` をまとめて最適化し、条件付きモードはグループごとの Newton で解く。分散は全パラメータの Hessian の逆行列から取る。比べる相手は glmmTMB で、fixture は `tests/r_oracle/fixtures/glmm_count.json` です。変量切片 1 本なら適応的 Gauss–Hermite（`n_agq`）も使え、`glmer(nAGQ=)` と合わせる。
+
 lme4 と glmmTMB を自前で書くときの判断は残しています。
 
 - 線形混合（lme4 の `lmer`）はプロファイル REML / ML。θ を固定すると β と σ は罰則付き最小二乗で閉じる。Laplace 近似ではない。

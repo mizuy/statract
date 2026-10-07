@@ -95,3 +95,17 @@ def test_count_family_guards() -> None:
         fit_mixed(data, "x ~ arm + offset(log(years)) + (1 | site)")
     with pytest.raises(ValueError, match="single random effect"):
         fit_mixed(data, "y ~ x + (1 + x | site)", family="poisson", n_agq=5)
+
+
+def test_singular_fit_reduces_to_the_glm() -> None:
+    """With no group effect the variance goes to zero and the fit is the Poisson GLM."""
+    from statract import fit_glm
+
+    rng = np.random.default_rng(5)
+    data = pl.DataFrame({"y": rng.poisson(2.0, 300), "x": rng.normal(size=300), "g": rng.integers(0, 15, 300)})
+    fit = fit_mixed(data, "y ~ x + (1 | g)", family="poisson")
+    glm = fit_glm(data, "y", ["x"], family="poisson")
+    assert fit.converged
+    assert fit.group_covariance[0, 0] < 1e-10
+    np.testing.assert_allclose(fit.coefficients, glm.coefficients, rtol=1e-6)
+    np.testing.assert_allclose(np.sqrt(np.diag(fit.covariance)), np.sqrt(np.diag(glm.covariance)), rtol=1e-5)

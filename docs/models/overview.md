@@ -14,7 +14,7 @@
 | マッチング | `statract.matching` | MatchIt |
 | 加法モデル | `statract.gam` | mgcv。gaussian / binomial / poisson / gamma、`cr` / `tp` / `cc` / `ps` / `re`、テンソル、`ti`、`by`、重み、offset |
 | 条件付き推論木 | `statract.tree` | `partykit::ctree`。数値の応答、二次形式、Šidák 調整 |
-| 線形・一般化線形混合 | `statract.mixed` | `lmer` / `glmer`。エンジンは lme-python（lme-rs） |
+| 線形・一般化線形混合 | `statract.mixed` | `lmer` / `glmer` / `glmmTMB`。ガウス・二項・ガンマは lme-python（lme-rs）、ポアソンと負の二項は自前の Laplace |
 | 予測の評価 | `statract.binary`、`statract.probability` | 較正、Brier、決定曲線、閾値。図は [Figures](../viz/overview.md) |
 
 公開名は `statract` からまとめて import できます。数値の対応は [R パッケージとの対応](vs-r.md)、速度と差の一覧は [Benchmarks](benchmarks.md)、実データの一連の流れは [解析例](../examples/index.md) です。
@@ -124,7 +124,9 @@ print(fitted.predict())
 
 ### 線形混合モデル
 
-`fit_mixed` は変量切片（と数値の変量傾き）の混合モデルの公開入口です。ガウスは `lmer(y ~ x + (1 | g))` に相当し、推定は lme-python（lme-rs）です。二項・ポアソン・ガンマは `family=` で `glmer` 相当です。lme-python は `fit_mixed` を呼んだときに読みます。
+`fit_mixed` は変量切片（と数値の変量傾き）の混合モデルの公開入口です。ガウスは `lmer(y ~ x + (1 | g))` に相当し、推定は lme-python（lme-rs）です。二項・ガンマは `family=` で `glmer` 相当です。lme-python は `fit_mixed` を呼んだときに読みます。
+
+ポアソンと負の二項（`family="negative_binomial"`、分散 `mu + mu^2 / theta`）は自前の Laplace 近似で推定します。`glmmTMB(..., family=nbinom2)` と `glmer(..., family=poisson)` に合わせています。率のモデルは `y ~ arm + offset(log(years)) + (1 | site)`、列で書くときは `offset="log_years"` です。変量切片 1 本なら `n_agq=9` などで適応的 Gauss–Hermite 求積になります。固定効果の分散は、全パラメータの Hessian の逆行列から取ります（glmmTMB と同じ）。負の二項の `theta` は `fit.theta` です。
 
 ```python
 from statract import fit_mixed
@@ -141,9 +143,13 @@ print(mixed.tidy())
 print(mixed.variance_table())
 logit = fit_mixed(frame.with_columns((pl.col("y") > 1).cast(pl.Int8).alias("z")), "z ~ x + (1 | g)", family="binomial")
 print(logit.tidy(exponentiate=True))
+
+counts = frame.with_columns((pl.col("y") * 3).round().cast(pl.Int64).alias("n"), pl.lit(2.0).alias("years"))
+rate = fit_mixed(counts, "n ~ x + offset(log(years)) + (1 | g)", family="negative_binomial")
+print(rate.tidy(exponentiate=True), rate.theta)
 ```
 
-列で書くときは `fit_mixed(frame, "y", ["x"], groups="g")` です。変量傾きは `y ~ x + (1 + x | g)`、または `slopes=["x"]` です。`x` は固定効果にも入ります。ガウスを最尤にするときは `method="ml"`（既定は `"reml"`）です。`(x || g)` の無相関な傾きは受け付けません。`glmm_gpboost` は optional extra の実験実装で、GLMM の本体ではありません。glmmTMB のゼロ過剰や分散モデルは対象外です。
+列で書くときは `fit_mixed(frame, "y", ["x"], groups="g")` です。変量傾きは `y ~ x + (1 + x | g)`、または `slopes=["x"]` です。`x` は固定効果にも入ります。ガウスを最尤にするときは `method="ml"`（既定は `"reml"`）です。`(x || g)` の無相関な傾きは受け付けません。`glmm_gpboost` は optional extra の実験実装で、GLMM の本体ではありません。glmmTMB のゼロ過剰や分散モデル、`nbinom1` は対象外です。
 
 ### 既存の関数
 
