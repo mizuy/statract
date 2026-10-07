@@ -2,7 +2,7 @@
 
 呼び方は Python の関数と列名です。同じ標本で R と数値が一致することを、`tests/r_oracle` の fixture で確認します。pytest の実行時に R は要りません。fixture の再生成は `Rscript tests/r_oracle/scripts/generate.R` です。
 
-使い方とモジュールの分け方は [Models](overview.md)、式の文法は [Wilkinson 式](formula.md) です。公開データでの秒数と最大誤差の一覧は [Benchmarks](benchmarks.md) です。ガウスの `lmer` は `fit_mixed`（既定エンジン lme-python）です。二項 `glmer` も同じ関数（`family="binomial"`）ですが、この表の fixture 許容差はまだガウス LMM だけです。
+使い方とモジュールの分け方は [Models](overview.md)、式の文法は [Wilkinson 式](formula.md) です。公開データでの秒数と最大誤差の一覧は [Benchmarks](benchmarks.md) です。ガウスの `lmer` は `fit_mixed`（既定エンジン lme-python）です。二項・ポアソン・負の二項の GLMM も同じ関数で、既定は自前の Laplace エンジンです。
 
 ## 役割の対応
 
@@ -42,7 +42,10 @@
 | 線形混合 | `lmer`。`(1 \| g)` または `(1 + x \| g)`、REML または ML | `fit_mixed`（既定 `engine="lme"` = lme-python 0.2.6） | fixture `lmm.json` 3 標本: coef rel 最大約 1.9×10⁻⁴。pytest は coef 5e-4、SE 1e-3、RE 1e-2、σ² 5e-4、loglik atol 1e-5。STAR 公開スライス（2026-10-04）では lme の coef rel 最大 1.18×10⁻³（変量傾き 10,000 行）、ML 1,000 行は 7.41×10⁻⁴。mixedlm-rs extra は変量切片で旧 1e-6 級に近い |
 | ポアソン GLMM | `glmmTMB(..., family=poisson)`、`glmer(..., family=poisson, nAGQ=9)`。`offset(log(years))`、`(1 \| g)` と `(1 + x \| g)` | `fit_mixed(..., family="poisson")`（`engine="laplace"`）、`n_agq=` | fixture `glmm_count.json` 3 標本。係数 rtol 1e-4 / atol 2e-5（glmmTMB は自分の許容差で止まるので、こちらの対数尤度は常に同じか高い）、SE rtol 1e-4、対数尤度 atol 1e-6、変量効果の分散 rtol 1e-3。求積は glmer と係数 rtol 1e-4 |
 | 負の二項 GLMM | `glmmTMB(..., family=nbinom2)` | `fit_mixed(..., family="negative_binomial")` | 同じ 3 標本で係数、SE、対数尤度、分散、`theta`（rtol 1e-4） |
-| 二項 GLMM | `glmer(..., family=binomial)`。`(1 \| g)`、Laplace | `fit_mixed(..., family="binomial")` | fixture 未固定。indo n=602（2026-10-04）: インドメタシン OR rel 3.66×10⁻³（0.466 vs 0.464）、クラスタ分散 rel 1.44×10⁻³、loglik abs 2.14×10⁻³。固定効果の最大 rel は小さい係数 `sod_yes` で 0.115 |
+| 二項 GLMM | `glmmTMB(..., family=binomial)`、`glmer(..., family=binomial, nAGQ=9)`。`(1 \| g)` と `(1 + x \| g)` | `fit_mixed(..., family="binomial")`（`engine="laplace"`）、`n_agq=` | fixture `glmm_binary_zero.json` 3 標本（変量切片、変量傾き、2〜3 行の小さいクラスタ多数）。許容差はポアソン GLMM と同じ。求積は glmer と係数 rtol 1e-4、分散 rtol 1e-3 |
+| ゼロ過剰 GLMM | `glmmTMB(..., ziformula = ~1 / ~z)`。poisson、nbinom2 | `fit_mixed(..., zero_inflation=True / ["z"])` | 同じ fixture の 3 例。係数、SE、対数尤度、分散、`theta`、ゼロ部分の係数と SE（rtol 1e-4） |
+| ハードル GLMM | `glmmTMB(..., family=truncated_poisson / truncated_nbinom2, ziformula = ~z)` | `fit_mixed(..., hurdle=True)` | 同じ fixture の 2 例。量は上と同じ |
+| 多重代入の統合 | `mice::pool`、`summary(pool(...), conf.int = TRUE)` | `pool`、`MultipleImputation.pool` | fixture `mice_pool.json`。mice（m=5、pmm / logreg / polyreg）で埋めた同じ 5 データに lm、ロジスティック glm、coxph を当て、推定値、ubar、b、t、Barnard–Rubin 自由度、riv、λ、fmi、SE、p 値、区間（rtol 1e-6）と `dfcom` |
 | Wilkinson 式 | `model.matrix`、`lm` | `model_matrix`、`fit_ols` | 設計行列、応答、`offset()`、`y ~ x * stage` と `log(y) ~ x` と `y ~ x + offset(z)` の係数と SE。fixture は `wilkinson.json` |
 
 各行は 3 標本です。許容差はサンドイッチ共分散は rtol 1e-8、Newton 法の係数は rtol 1e-6、平滑化パラメータは rtol 1e-3、edf は rtol 1e-4、REML は atol 1e-6、p 値は atol 1e-6 です。マッチの組は完全一致です。加法モデルの範囲、thin plate、テンソル、共線性、最適マッチ、full matching は `gam_scope.json`、`collinearity.json`、`match_opt_full.json` の 1 標本です。重みと offset、テンソル交互作用は `gam_weight_ti.json`、条件付き推論木は `ctree.json` の 1 標本です。
@@ -54,6 +57,7 @@
 - ユークリッド、尺度つきユークリッド、ロバスト・マハラノビスの最近傍（実装は MatchIt の組と合わせてある。コミットした JSON はマハラノビス）
 - 区間分割 `split_follow_up`
 - ブートストラップ共分散（乱数生成器が R と違う）
+- `impute_chained` の埋めた値（乱数生成器が R と違う。テストは型、観測値の保存、MAR での推定値の回復を見る）
 
 ## この版の対象外
 

@@ -14,7 +14,8 @@
 | マッチング | `statract.matching` | MatchIt |
 | 加法モデル | `statract.gam` | mgcv。gaussian / binomial / poisson / gamma、`cr` / `tp` / `cc` / `ps` / `re`、テンソル、`ti`、`by`、重み、offset |
 | 条件付き推論木 | `statract.tree` | `partykit::ctree`。数値の応答、二次形式、Šidák 調整 |
-| 線形・一般化線形混合 | `statract.mixed` | `lmer` / `glmer` / `glmmTMB`。ガウス・二項・ガンマは lme-python（lme-rs）、ポアソンと負の二項は自前の Laplace |
+| 線形・一般化線形混合 | `statract.mixed` | `lmer` / `glmer` / `glmmTMB`。ガウスとガンマは lme-python（lme-rs）、二項・ポアソン・負の二項は自前の Laplace。ゼロ過剰とハードルも |
+| 多重代入 | `statract.impute` | `mice`（pmm / logreg / polyreg）と `pool` |
 | 予測の評価 | `statract.binary`、`statract.probability` | 較正、Brier、決定曲線、閾値。図は [Figures](../viz/overview.md) |
 
 公開名は `statract` からまとめて import できます。数値の対応は [R パッケージとの対応](vs-r.md)、速度と差の一覧は [Benchmarks](benchmarks.md)、実データの一連の流れは [解析例](../examples/index.md) です。
@@ -124,9 +125,11 @@ print(fitted.predict())
 
 ### 線形混合モデル
 
-`fit_mixed` は変量切片（と数値の変量傾き）の混合モデルの公開入口です。ガウスは `lmer(y ~ x + (1 | g))` に相当し、推定は lme-python（lme-rs）です。二項・ガンマは `family=` で `glmer` 相当です。lme-python は `fit_mixed` を呼んだときに読みます。
+`fit_mixed` は変量切片（と数値の変量傾き）の混合モデルの公開入口です。ガウスは `lmer(y ~ x + (1 | g))` に相当し、推定は lme-python（lme-rs）です。ガンマは `family=` で `glmer` 相当です。lme-python は `fit_mixed` を呼んだときに読みます。
 
-ポアソンと負の二項（`family="negative_binomial"`、分散 `mu + mu^2 / theta`）は自前の Laplace 近似で推定します。`glmmTMB(..., family=nbinom2)` と `glmer(..., family=poisson)` に合わせています。率のモデルは `y ~ arm + offset(log(years)) + (1 | site)`、列で書くときは `offset="log_years"` です。変量切片 1 本なら `n_agq=9` などで適応的 Gauss–Hermite 求積になります。固定効果の分散は、全パラメータの Hessian の逆行列から取ります（glmmTMB と同じ）。負の二項の `theta` は `fit.theta` です。
+二項（logit リンク）、ポアソン、負の二項（`family="negative_binomial"`、分散 `mu + mu^2 / theta`）は自前の Laplace 近似で推定します（`engine="laplace"`、既定）。`glmmTMB(..., family=binomial / poisson / nbinom2)` と `glmer(..., nAGQ=)` に合わせています。二項の probit などは lme-python に回ります。率のモデルは `y ~ arm + offset(log(years)) + (1 | site)`、列で書くときは `offset="log_years"` です。変量切片 1 本なら `n_agq=9` などで適応的 Gauss–Hermite 求積になります。固定効果の分散は、全パラメータの Hessian の逆行列から取ります（glmmTMB と同じ）。負の二項の `theta` は `fit.theta` です。
+
+ゼロ過剰は `zero_inflation=True`（ゼロの確率が定数）か `zero_inflation=["z"]`（列の logit モデル）です。`glmmTMB(..., ziformula = ~z)` に当たります。`hurdle=True` にするとハードル（ゼロかどうかを logit、正の値を切断ポアソンか切断負の二項）になり、`family=truncated_poisson` / `truncated_nbinom2` と `ziformula` の組に当たります。ゼロ部分の係数は `fit.zero_table()` です。`predict()` はゼロ部分を込めた応答の平均を返します。ゼロ部分は固定効果だけで、変量効果は付けられません。
 
 ```python
 from statract import fit_mixed
@@ -149,7 +152,21 @@ rate = fit_mixed(counts, "n ~ x + offset(log(years)) + (1 | g)", family="negativ
 print(rate.tidy(exponentiate=True), rate.theta)
 ```
 
-列で書くときは `fit_mixed(frame, "y", ["x"], groups="g")` です。変量傾きは `y ~ x + (1 + x | g)`、または `slopes=["x"]` です。`x` は固定効果にも入ります。ガウスを最尤にするときは `method="ml"`（既定は `"reml"`）です。`(x || g)` の無相関な傾きは受け付けません。`glmm_gpboost` は optional extra の実験実装で、GLMM の本体ではありません。glmmTMB のゼロ過剰や分散モデル、`nbinom1` は対象外です。
+列で書くときは `fit_mixed(frame, "y", ["x"], groups="g")` です。変量傾きは `y ~ x + (1 + x | g)`、または `slopes=["x"]` です。`x` は固定効果にも入ります。ガウスを最尤にするときは `method="ml"`（既定は `"reml"`）です。`(x || g)` の無相関な傾きは受け付けません。`glmm_gpboost` は optional extra の実験実装で、GLMM の本体ではありません。glmmTMB の分散モデル、`nbinom1`、ゼロ部分の変量効果は対象外です。
+
+### 多重代入
+
+`impute_chained` は連鎖方程式（MICE）で欠損を `m` 回埋めます。既定の方法は `mice` と同じで、数値は予測平均マッチング（`pmm`、ドナー 5）、2 水準は Bayes ロジスティック（`logreg`）、3 水準以上は多項ロジスティック（`polyreg`）です。各列を他の全列から `n_iter` 回まわして埋めます。論理値と `pl.Enum` は型を保ちます。`pool` は各データで当てたモデルを Rubin のルールでまとめ、自由度は Barnard–Rubin です。`mice::pool` と `summary(pool(...), conf.int = TRUE)` に合わせています。
+
+```python
+from statract import fit_ols, impute_chained
+
+mi = impute_chained(frame_with_nulls, m=20, n_iter=10, seed=1)
+table = mi.pool(lambda d: fit_ols(d, "y ~ x1 + x2 + g"))
+print(table.select("term", "estimate", "std_error", "df", "fmi", "conf_low", "conf_high"))
+```
+
+`pool` は `names`、`coefficients`、`covariance` を持つどのモデルでも使えます（`fit_glm`、`cox_ph`、`fit_mixed` など）。完全データの自由度 `dfcom` は、線形モデルと GLM が残差自由度、Cox がイベント数 − 係数の数、それ以外が n − 係数の数です（`mice` と同じ）。乱数生成器が R と違うので、埋めた値は `mice` と分布として同じで、桁までは一致しません。
 
 ### 既存の関数
 

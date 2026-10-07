@@ -85,6 +85,7 @@ from .covariance import (
 from .fit import fit_glm, fit_ols
 from .formula import model_matrix
 from .mixed import MixedFit, fit_mixed
+from .impute import MultipleImputation, impute_chained, pool
 from .gam import compare_gams, gam, smooth, tensor_interaction, tensor_smooth
 from .tree import conditional_tree
 from .linear_tests import (
@@ -226,6 +227,9 @@ __all__ = [
     "fit_mixed",
     "MixedFit",
     "fit_ols",
+    "impute_chained",
+    "MultipleImputation",
+    "pool",
     "model_matrix",
     "gam",
     "hc_covariance",

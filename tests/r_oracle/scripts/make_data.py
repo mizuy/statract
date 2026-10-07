@@ -140,6 +140,39 @@ def _competing_sample(seed: int, n: int) -> pl.DataFrame:
     return pl.DataFrame({"time": np.round(time, 6), "status": status, "x": np.round(x, 6), "stage": stage})
 
 
+def _mi_sample(seed: int, n: int) -> pl.DataFrame:
+    rng = np.random.default_rng(seed)
+    x1 = rng.normal(size=n)
+    x2 = 0.5 * x1 + rng.normal(size=n)
+    g = rng.choice(["a", "b", "c"], size=n, p=[0.4, 0.35, 0.25])
+    effect = np.select([g == "b", g == "c"], [0.5, -0.3], 0.0)
+    y = 1.0 + 1.0 * x1 - 0.7 * x2 + effect + rng.normal(size=n)
+    b = (rng.uniform(size=n) < 1 / (1 + np.exp(-(0.5 * x1 - 0.3)))).astype(int)
+    hazard = 0.2 * np.exp(0.4 * x1 + 0.3 * b)
+    t = rng.exponential(1 / hazard)
+    censor = rng.uniform(1.0, 8.0, n)
+    time = np.round(np.minimum(t, censor), 4)
+    status = (t <= censor).astype(int)
+    # Missing at random: x2 more often missing when y is high, g and b at random.
+    p_x2 = 0.4 / (1 + np.exp(-(y - 1.0)))
+    frame = pl.DataFrame(
+        {
+            "y": np.round(y, 6),
+            "x1": np.round(x1, 6),
+            "x2": np.round(x2, 6),
+            "g": g,
+            "b": b,
+            "time": time,
+            "status": status,
+        }
+    )
+    return frame.with_columns(
+        pl.when(pl.Series(rng.uniform(size=n) < p_x2)).then(None).otherwise(pl.col("x2")).alias("x2"),
+        pl.when(pl.Series(rng.uniform(size=n) < 0.15)).then(None).otherwise(pl.col("g")).alias("g"),
+        pl.when(pl.Series(rng.uniform(size=n) < 0.15)).then(None).otherwise(pl.col("b")).alias("b"),
+    )
+
+
 def main() -> None:
     DATA.mkdir(parents=True, exist_ok=True)
     # (1) Poisson counts, random intercept, 30 sites.
@@ -162,6 +195,8 @@ def main() -> None:
     _counting_sample(20261012, 200).write_csv(DATA / "cox_c.csv")
     # Competing risks for Fine-Gray: cause 1 of interest, cause 2 competing.
     _competing_sample(20261013, 300).write_csv(DATA / "fg_a.csv")
+    # Multiple imputation: missing covariates, a binary column, and a factor.
+    _mi_sample(20261019, 250).write_csv(DATA / "mi_a.csv")
 
 
 if __name__ == "__main__":

@@ -109,6 +109,7 @@ nav:
               - gam: api/models/gam.md
               - tree: api/models/tree.md
               - mixed: api/models/mixed.md
+              - impute: api/models/impute.md
               - regression: api/models/regression.md
               - confusion: api/models/confusion.md
               - r: api/models/r.md
