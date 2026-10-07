@@ -185,7 +185,7 @@ def main() -> None:
     # Conditional inference tree on the same training rows and predictors.
     tree = conditional_tree(train, "death_180", covs)
     (out / "ctree.txt").write_text(tree.format(), encoding="utf-8")
-    _write_csv(out, "ctree_tests", tree.tests().sort("p_value"))
+    _write_csv(out, "ctree_tests", tree.tests().sort(["p_value", "statistic"], descending=[False, True]))
     p_tree_val = tree.predict(val)
 
     write_probability_artifacts(

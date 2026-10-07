@@ -44,6 +44,18 @@
 
 ### Table 1（未マッチ / マッチ後）
 
+=== "未マッチ"
+
+    --8<-- "examples/assets/psm_rhc/table1_unmatched_gt.md"
+
+    [CSV](assets/psm_rhc/table1_unmatched.csv)
+
+=== "マッチ後"
+
+    --8<-- "examples/assets/psm_rhc/table1_matched_gt.md"
+
+    [CSV](assets/psm_rhc/table1_matched.csv)
+
 === "コード"
 
     ```python

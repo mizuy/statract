@@ -1,14 +1,14 @@
 # 予測モデルの較正と DCA
 
-`pred_support` — 二項 GLM / 較正 / DCA
+`pred_support` — 二項 GLM / ctree / 較正 / DCA
 
-重症予後の **予測（点）モデル**。180 日死亡確率を train の二項 GLM で推定し、ホールドアウトで較正・Brier・決定曲線（DCA）を見ます。効果推定の [`logit_indo`](logit_indo.md) とは役割が違います。
+重症予後の **予測（点）モデル**。180 日死亡確率を train の二項 GLM と条件付き推論木（ctree）で推定し、ホールドアウトで較正・Brier・AUC・決定曲線（DCA）を比べます。効果推定の [`logit_indo`](logit_indo.md) とは役割が違います。
 
 [← ギャラリー](index.md) · [実行用ディレクトリと手順（GitHub）](https://github.com/mizuy/statract/tree/main/examples/pred_support)
 
 ## 目的概説
 
-較正曲線と DCA は予測確率 $\hat\pi$ の評価であり、RCT の OR とは別物です。`logit_indo` からホールドアウト較正を外したあとの受け皿として、公開の SUPPORT2 で `write_probability_artifacts` / `plot_calibration` / `plot_dca` / `binary_perf` / `threshold_tradeoff` を通します。学習標本の見かけ較正も併記し、内部分割の楽観を見えるようにします。
+較正曲線と DCA は予測確率 $\hat\pi$ の評価であり、RCT の OR とは別物です。`logit_indo` からホールドアウト較正を外したあとの受け皿として、公開の SUPPORT2 で `write_probability_artifacts` / `plot_calibration` / `plot_dca` / `binary_perf` / `threshold_tradeoff` を通します。学習標本の見かけ較正も併記し、内部分割の楽観を見えるようにします。同じ予測因子で `conditional_tree`（partykit::ctree 相当）も当てはめ、加法的な GLM と、交互作用を自動で拾う木を同じ物差しで比べます。
 
 ## データと列の説明
 
@@ -32,7 +32,7 @@
 
 ## CQ と大まかな解析方針
 
-**CQ** — SUPPORT2 の登録時（主に day 3）臨床・生理から 180 日死亡確率を二項 GLM で予測したとき、ホールドアウトでの較正・Brier・DCA は切片のみや年齢+性別と比べてどうか。見かけ較正はホールドアウトより楽観的か。
+**CQ** — SUPPORT2 の登録時（主に day 3）臨床・生理から 180 日死亡確率を二項 GLM で予測したとき、ホールドアウトでの較正・Brier・DCA は切片のみや年齢+性別と比べてどうか。同じ予測因子の ctree と比べてどうか。見かけ較正はホールドアウトより楽観的か。
 
 方針:
 
@@ -40,7 +40,8 @@
 2. Table 1（`hue=death_180_label`）。公開 API は `tableone(...)`
 3. 層化 70/30（seed=2026）。**train だけ** `fit_glm(..., family="binomial")`: null、年齢+性別、多変量
 4. 多変量 OR の `plot_forest(..., layout="table")`（train）
-5. 検証確率を `write_probability_artifacts`（較正 / DCA / Brier）。見かけ vs 検証は `calibration_table` + `plot_calibration`。閾値 0.40 の `binary_perf` と `threshold_tradeoff`
+5. 同じ train と予測因子で `conditional_tree`（既定 alpha=0.05、minsplit=20、minbucket=7）
+6. 検証確率を `write_probability_artifacts`（較正 / DCA / Brier。GLM と ctree を並べる）。AUC と閾値 0.40 の感度・特異度をモデル間で比較。見かけ vs 検証は `calibration_table` + `plot_calibration`。閾値 0.40 の `binary_perf` と `threshold_tradeoff`
 
 ## flowchart / tableone
 
@@ -89,6 +90,12 @@
 
 ### Table 1
 
+=== "表"
+
+    --8<-- "examples/assets/pred_support/table1_gt.md"
+
+    [CSV](assets/pred_support/table1.csv)
+
 === "コード"
 
     ```python
@@ -121,8 +128,6 @@
     # write_tableone_artifacts は *_out/ への CSV/HTML 書き出し。Table 1 の公開 API は tableone()。
     ```
 
-完全な Table 1 CSV はローカル `pred_support_out/table1.csv`（`task all` で再生成）。サイト掲載の抜粋は [table1 相当の n は flowchart](assets/pred_support/n.md)。
-
 ## メインの解析方法とそのコア
 
 アウトカム $Y$ は 180 日死亡。学習標本で
@@ -136,6 +141,8 @@ $$
 $$
 \mathrm{NB}=\frac{\mathrm{TP}}{n}-\frac{\mathrm{FP}}{n}\cdot\frac{t}{1-t}.
 $$
+
+ctree は各ノードで、予測因子と $Y$ の条件付き独立を並べ替え検定の二次形式で調べ、Šidák 調整後の最小 p が alpha を下回る変数で二分します。分割点は二標本統計量を最大にする値です。終端ノードの死亡割合がそのまま予測確率になるので、確率は終端ノードの数だけの段階値です。剪定はせず、検定で止めます。
 
 閾値 0.40 の `binary_perf` は教学用であり、臨床カットオフの提案ではありません。
 
@@ -180,6 +187,76 @@ $$
     )
     ```
 
+### 条件付き推論木（ctree、train）
+
+=== "木"
+
+    ```text
+    --8<-- "examples/assets/pred_support/ctree.txt"
+    ```
+
+    各行は `[ノード番号] 分割条件`。終端ノードは `: 180 日死亡割合 (n = 学習標本の人数)`。
+
+=== "根ノードの検定"
+
+    | term | statistic | p（Šidák） |
+    | --- | --- | --- |
+    | scoma | 447.3 | <1e-15 |
+    | dzclass | 368.0 | <1e-15 |
+    | ca | 197.1 | <1e-15 |
+    | age | 69.4 | 1.7e-15 |
+    | crea | 30.6 | 4.8e-07 |
+    | hrt | 25.4 | 6.9e-06 |
+    | meanbp | 21.4 | 5.5e-05 |
+    | dementia | 12.3 | 0.0069 |
+
+    抜粋（p < 0.05）。完全表: [CSV](assets/pred_support/ctree_tests.csv)
+
+=== "コード"
+
+    ```python
+    from statract import conditional_tree
+
+    covs = ["age", "sex", "race", "dzclass", "num_co", "diabetes", "dementia", "ca",
+            "scoma", "meanbp", "hrt", "resp", "temp", "crea", "sod"]
+    tree = conditional_tree(train, "death_180", covs)
+    print(tree.format())          # 上の「木」
+    tree.tests()                  # 根ノードの変数選択の検定
+    p_tree_val = tree.predict(val)
+    ```
+
+### GLM と ctree の比較（validation）
+
+=== "表"
+
+    | model | size | AUC | Brier | 平均予測 | 実測 | 感度（0.40） | 特異度（0.40） |
+    | --- | --- | --- | --- | --- | --- | --- | --- |
+    | glm_age_sex | 3 係数 | 0.560 | 0.2460 | 0.467 | 0.467 | 0.899 | 0.155 |
+    | glm_full | 22 係数 | 0.716 | 0.2137 | 0.464 | 0.467 | 0.722 | 0.567 |
+    | ctree | 24 終端ノード | 0.714 | 0.2143 | 0.467 | 0.467 | 0.713 | 0.613 |
+
+    [CSV](assets/pred_support/model_compare_val.csv)
+
+=== "コード"
+
+    ```python
+    from scipy.stats import rankdata
+    from statract import binary_perf
+
+
+    def auc(y, p):
+        ranks = rankdata(p)
+        n_pos = int(y.sum())
+        n_neg = y.size - n_pos
+        return (ranks[y == 1].sum() - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
+
+
+    for name, p_val in [("glm_full", p_full_val), ("ctree", p_tree_val)]:
+        perf = binary_perf(y_val, (p_val >= 0.40).astype(int))
+        print(name, auc(y_val, p_val), np.mean((p_val - y_val) ** 2),
+              perf["sensitivity"], perf["specificity"])
+    ```
+
 ### Brier（validation）
 
 === "表"
@@ -189,6 +266,7 @@ $$
     | null (validation) | validation | 0.2489 | 2699 |
     | glm_age_sex (validation) | validation | 0.2460 | 2699 |
     | glm_full (validation) | validation | 0.2137 | 2699 |
+    | ctree (validation) | validation | 0.2143 | 2699 |
 
     [CSV](assets/pred_support/table_brier.csv)
 
@@ -202,6 +280,7 @@ $$
             {"name": "null (validation)", "y_val": y_val, "prob_val": p_null},
             {"name": "glm_age_sex (validation)", "y_val": y_val, "prob_val": p_age},
             {"name": "glm_full (validation)", "y_val": y_val, "prob_val": p_full_val},
+            {"name": "ctree (validation)", "y_val": y_val, "prob_val": p_tree_val},
         ],
         out,
         positive_label="180-day death",
@@ -269,11 +348,12 @@ $$
 
 === "表"
 
-    | threshold | glm_full net_benefit | treat_all | treat_none |
-    | --- | --- | --- | --- |
-    | 0.30 | 0.261 | 0.239 | 0 |
-    | 0.40 | 0.183 | 0.112 | 0 |
-    | 0.50 | 0.132 | −0.066 | 0 |
+    | threshold | glm_full | ctree | treat_all | treat_none |
+    | --- | --- | --- | --- | --- |
+    | 0.30 | 0.261 | 0.262 | 0.239 | 0 |
+    | 0.40 | 0.183 | 0.196 | 0.112 | 0 |
+    | 0.50 | 0.132 | 0.122 | −0.066 | 0 |
+    | 0.60 | 0.089 | 0.073 | −0.332 | 0 |
 
     抜粋。完全表: [CSV](assets/pred_support/table_dca.csv)
 
@@ -313,6 +393,10 @@ $$
 多変量 GLM の検証 Brier は約 **0.214**（null 0.249、年齢+性別 0.246）。較正ビンは対角線の近くに並び、高確率側でやや過大予測です。見かけ較正は同じモデルでもホールドアウトより甘く見える、というのが内部分割の教材です。
 
 DCA では閾値 0.30–0.50 付近で多変量の net benefit が treat-all と年齢+性別を上回ります。切片のみは（定数予測なので）閾値が有病率以下では treat-all と一致します。閾値 0.40 では感度約 0.72、特異度約 0.57です。
+
+**GLM と ctree。** ctree（終端 24）は AUC 0.714、Brier 0.2143 で、多変量 GLM（22 係数、AUC 0.716、Brier 0.2137）とほぼ同じ精度です。平均予測は両者とも実測 0.467 に合い、較正ビンもどちらも対角線の近くにあります。DCA は閾値 0.30–0.45 では ctree がわずかに上、0.50 以上では GLM が上です。木の予測は段階値なので、高い閾値で確率の細かな序列が要る場面では GLM が有利です。閾値 0.40 では ctree の方が特異度が高く（0.613 対 0.567）、感度はほぼ同じです。
+
+木が最初に分けるのは疾患クラス（COPD/CHF/Cirrhosis とそれ以外）で、その下で年齢、昏睡スコア `scoma`、癌の有無が繰り返し現れます。たとえば 52.7 歳を超える ARF/MOSF または Cancer で、`scoma` > 37 かつ癌あり（転移・非転移）のノードは 180 日死亡 0.90、65 歳以下の COPD/CHF/Cirrhosis で `scoma` 0・ナトリウム > 130 のノードは 0.20 です。GLM は各変数の効果を全員に同じ大きさで足しますが、木は「どの部分集団で何が効くか」を直接示します。精度が同等なら、説明のしやすさで木を、確率の滑らかさと係数の解釈で GLM を選べます。どちらも同じ分割の 1 回の hold-out であり、差の不確かさはブートストラップや交差検証で見るべきです。
 
 係数の向きは「ARF/MOSF と転移癌・昏睡・生理異常が重い」という記述と矛盾しません。糖尿病の OR が 1 を下回るなどは完全例の予測モデルであり、因果効果ではありません。外部検証ではなく、臨床用スコアでもありません。hbiostat 教学 CSV は **再配布せず fetch only** です。
 

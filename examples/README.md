@@ -24,7 +24,7 @@
 | [cox_retinopathy/](cox_retinopathy/) | [docs](../docs/examples/cox_retinopathy.md) | 片眼レーザーと視力喪失（患者クラスター） | `cox_ph` + `cluster(id)` / `cluster=`（Lin–Wei）、`plot_survival`（NAR）、`plot_forest`（表一体）、`tableone` | R `survival::retinopathy`。GPL-2/3。git 非収載 |
 | [lmm_pbcseq/](lmm_pbcseq/) | [docs](../docs/examples/lmm_pbcseq.md) | 病日・治療と対数ビリルビン | `fit_mixed`, `cluster_covariance`, `gam` / `smooth`（主解析） | R `survival::pbcseq`。GPL-2/3 |
 | [iptw_nhefs/](iptw_nhefs/) | [docs](../docs/examples/iptw_nhefs.md) | 禁煙と体重変化（ATE） | 手計算の安定化 IPTW、`fit_ols` + `hc_covariance`。`iptw()` は無い | NHEFS（`causaldata` / Rdatasets / Hernán CSV）。**fetch only** |
-| [pred_support/](pred_support/) | [docs](../docs/examples/pred_support.md) | 180 日死亡確率の較正 / DCA | `fit_glm` binomial、`write_probability_artifacts`、`plot_calibration`、`plot_dca`、`binary_perf` | SUPPORT2（hbiostat）。**fetch only** |
+| [pred_support/](pred_support/) | [docs](../docs/examples/pred_support.md) | 180 日死亡確率の較正 / DCA、GLM と ctree の比較 | `fit_glm` binomial、`conditional_tree`、`write_probability_artifacts`、`plot_calibration`、`plot_dca`、`binary_perf` | SUPPORT2（hbiostat）。**fetch only** |
 | [cea_sicksicker/](cea_sicksicker/) | [docs](../docs/examples/cea_sicksicker.md) | 仮想 Sick-Sicker の 4 戦略 CEA | `simulate_cohort_markov`, `calculate_icers`, `one_way_dsa`, `run_psa` / `ce_plane` / `ceac` / `evpi` | DARTH 教学パラメータ（Alarid-Escudero et al. MDM 2023 Table 1）。git に CSV なし |
 
 `fit_mixed(..., family="binomial")` が indo の施設 GLMM。ガウス LMM は同じ `fit_mixed` の既定（`family="gaussian"`）。マッチングは `match_sample`、固定効果の回帰は `fit_glm` です。係数 forest は matplotlib の `plot_forest`（Cox HR / GLM OR / OLS）。R の `forest.R` は正本にしない。

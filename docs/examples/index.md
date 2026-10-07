@@ -88,14 +88,14 @@
 
 <div class="grid cards" markdown>
 
--   __[予測モデルの較正と DCA](pred_support.md)__ — `pred_support` · 二項 GLM / 較正 / DCA
+-   __[予測モデルの較正と DCA](pred_support.md)__ — `pred_support` · 二項 GLM / ctree / 較正 / DCA
 
     ---
 
     SUPPORT2 の 180 日死亡確率（train / hold-out）
 
     **データ** — hbiostat SUPPORT2（fetch only）  
-    **API** — `fit_glm` binomial, `write_probability_artifacts`, `plot_calibration`, `plot_dca`, `binary_perf`, `threshold_tradeoff`, `plot_forest`
+    **API** — `fit_glm` binomial, `conditional_tree`, `write_probability_artifacts`, `plot_calibration`, `plot_dca`, `binary_perf`, `threshold_tradeoff`, `plot_forest`
 
     [ドキュメント →](pred_support.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/pred_support)
 
@@ -175,6 +175,7 @@
 | 二項 GLMM / MOR / RE plot / `fit_mixed` | [`logit_indo`](logit_indo.md) |
 | `plot_forest`（HR / OR / OLS coef） | Cox・Fine–Gray・二項 GLM・IPTW OLS の各例 |
 | 較正 / DCA / Brier / `binary_perf` / `threshold_tradeoff` | [`pred_support`](pred_support.md) |
+| `conditional_tree`（ctree）と GLM の比較 | [`pred_support`](pred_support.md) |
 | `match_sample` nearest | [`psm_rhc`](psm_rhc.md) |
 | `match_sample` CEM（バランス感度のみ） | [`iptw_nhefs`](iptw_nhefs.md) |
 | `fit_mixed` / `gam` / `cluster_covariance` | [`lmm_pbcseq`](lmm_pbcseq.md) |

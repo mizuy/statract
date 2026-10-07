@@ -2,3 +2,4 @@ model,split,brier,n
 null (validation),validation,0.24892484513129567,2699
 glm_age_sex (validation),validation,0.246037913595537,2699
 glm_full (validation),validation,0.21368431535878732,2699
+ctree (validation),validation,0.2142887289897034,2699
