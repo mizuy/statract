@@ -68,8 +68,8 @@ plugins:
             show_root_heading: true
 
 nav:
-  - Home: index.md
   - Guide:
+      - Home: index.md
       - Table One: tableone/overview.md
       - Models:
           - Overview: models/overview.md
