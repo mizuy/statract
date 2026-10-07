@@ -40,6 +40,52 @@ def _glmm_count(seed: int, n_groups: int, size: tuple[int, int], *, slope_sd: fl
     )
 
 
+def _glmm_binary(seed: int, n_groups: int, size: tuple[int, int], *, slope_sd: float, base: float) -> pl.DataFrame:
+    rng = np.random.default_rng(seed)
+    sizes = rng.integers(size[0], size[1] + 1, n_groups)
+    group = np.repeat(np.arange(n_groups), sizes)
+    n = len(group)
+    x = rng.normal(size=n)
+    arm = rng.choice(["control", "low", "high"], size=n)
+    b0 = rng.normal(0, 0.8, n_groups)
+    b1 = rng.normal(0, slope_sd, n_groups)
+    effect = np.select([arm == "low", arm == "high"], [0.4, -0.6], 0.0)
+    p = 1.0 / (1.0 + np.exp(-(base + 0.7 * x + effect + b0[group] + b1[group] * x)))
+    return pl.DataFrame(
+        {
+            "y": (rng.uniform(size=n) < p).astype(np.int64),
+            "x": np.round(x, 6),
+            "arm": arm,
+            "site": [f"s{g:03d}" for g in group],
+        }
+    )
+
+
+def _glmm_zero(seed: int, n_groups: int, *, structural: float, theta: float | None) -> pl.DataFrame:
+    """Counts with extra zeros whose probability depends on z."""
+    rng = np.random.default_rng(seed)
+    sizes = rng.integers(15, 30, n_groups)
+    group = np.repeat(np.arange(n_groups), sizes)
+    n = len(group)
+    x = rng.normal(size=n)
+    z = rng.normal(size=n)
+    years = rng.uniform(0.5, 3.0, n)
+    b0 = rng.normal(0, 0.5, n_groups)
+    mu = years * np.exp(0.8 + 0.4 * x + b0[group])
+    count = rng.poisson(mu) if theta is None else rng.negative_binomial(theta, theta / (theta + mu))
+    pi = 1.0 / (1.0 + np.exp(-(np.log(structural / (1 - structural)) + 0.6 * z)))
+    y = np.where(rng.uniform(size=n) < pi, 0, count)
+    return pl.DataFrame(
+        {
+            "y": y.astype(np.int64),
+            "x": np.round(x, 6),
+            "z": np.round(z, 6),
+            "years": np.round(years, 6),
+            "site": [f"s{g:03d}" for g in group],
+        }
+    )
+
+
 def _cox_sample(seed: int, n: int, *, n_strata: int, weighted: bool) -> pl.DataFrame:
     rng = np.random.default_rng(seed)
     x = rng.normal(size=n)
@@ -102,6 +148,13 @@ def main() -> None:
     _glmm_count(20261008, 25, (20, 40), slope_sd=0.3, theta=1.5, base=0.5).write_csv(DATA / "glmm_count_b.csv")
     # (3) Many small sites and low counts (most outcomes are zero or one).
     _glmm_count(20261009, 120, (2, 4), slope_sd=0.0, theta=3.0, base=-1.2).write_csv(DATA / "glmm_count_c.csv")
+    # Binary outcomes: random intercept, random slope, and many pairs.
+    _glmm_binary(20261014, 40, (10, 25), slope_sd=0.0, base=-0.3).write_csv(DATA / "glmm_binary_a.csv")
+    _glmm_binary(20261015, 30, (20, 40), slope_sd=0.5, base=0.2).write_csv(DATA / "glmm_binary_b.csv")
+    _glmm_binary(20261016, 150, (2, 3), slope_sd=0.0, base=-1.0).write_csv(DATA / "glmm_binary_c.csv")
+    # Zero-inflated counts: Poisson and negative binomial.
+    _glmm_zero(20261017, 30, structural=0.25, theta=None).write_csv(DATA / "glmm_zero_a.csv")
+    _glmm_zero(20261018, 25, structural=0.35, theta=2.0).write_csv(DATA / "glmm_zero_b.csv")
     # Cox inference: tied right-censored data, then strata and weights, then
     # counting-process rows with repeated subjects.
     _cox_sample(20261010, 300, n_strata=1, weighted=False).write_csv(DATA / "cox_a.csv")

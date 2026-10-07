@@ -1,10 +1,11 @@
 """Linear and generalized linear mixed models.
 
 ``fit_mixed`` is the public mixed-model entry point, parallel to ``fit_ols`` /
-``fit_glm``. Gaussian LMMs call ``lme_python.lmer`` (lme-rs). Binomial and
-Gamma GLMMs call ``lme_python.glmer``. Poisson and negative binomial (NB2)
-GLMMs use the Laplace / adaptive Gauss–Hermite fit in ``_laplace``, which
-matches ``glmmTMB`` and ``lme4::glmer``. Wilkinson formulas such as
+``fit_glm``. Gaussian LMMs call ``lme_python.lmer`` (lme-rs). Gamma GLMMs
+and non-logit binomial links call ``lme_python.glmer``. Binomial (logit), Poisson, and
+negative binomial (NB2) GLMMs, with optional zero-inflation or hurdle parts,
+use the Laplace / adaptive Gauss–Hermite fit in ``_laplace``, which matches
+``glmmTMB`` and ``lme4::glmer``. Wilkinson formulas such as
 ``y ~ x + offset(log(t)) + (1 | g)`` work for all of them.
 """
 
@@ -18,7 +19,7 @@ import polars as pl
 from scipy import stats
 
 from .design import ColumnRef, Design, _is_factor, column_series, design_matrix
-from ._laplace import COUNT_FAMILIES, fit_count_glmm
+from ._laplace import COUNT_FAMILIES, LAPLACE_FAMILIES, fit_laplace_glmm
 from .formula import is_formula, model_matrix, reject_survival_syntax
 
 _FAMILIES = ("gaussian", "binomial", "poisson", "gamma", "negative_binomial")
@@ -36,6 +37,9 @@ class MixedFit:
     covariance for ``(Intercept)`` and any random slopes of ``group_name``.
     ``theta`` is the negative binomial size (variance ``mu + mu^2 / theta``),
     with ``theta_std_error`` from the delta method on ``log(theta)``.
+    A zero-inflated or hurdle fit (``zero_part``) keeps the logit-scale
+    coefficients of the zero probability in ``zero_coefficients``; see
+    :meth:`zero_table`.
     """
 
     coefficients: np.ndarray
@@ -62,35 +66,29 @@ class MixedFit:
     offset: np.ndarray | None = None
     theta: float | None = None
     theta_std_error: float | None = None
+    zero_part: str | None = None
+    zero_coefficients: np.ndarray | None = None
+    zero_covariance: np.ndarray | None = None
+    zero_names: list[str] | None = None
+    zero_design: Design | None = field(default=None, repr=False)
     offset_ref: ColumnRef | None = field(default=None, repr=False)
     ranef_frame: pl.DataFrame | None = field(default=None, repr=False)
     raw: Any = field(default=None, repr=False)
 
     def tidy(self, *, level: float = 0.95, exponentiate: bool = False) -> pl.DataFrame:
         """Fixed-effect table. Intervals use a normal (Wald) reference."""
-        se = np.sqrt(np.clip(np.diag(self.covariance), 0, None))
-        estimate = self.coefficients
-        with np.errstate(divide="ignore", invalid="ignore"):
-            stat = estimate / se
-        crit = float(stats.norm.ppf(0.5 + level / 2))
-        frame = pl.DataFrame(
-            {
-                "term": self.names,
-                "estimate": estimate,
-                "std_error": se,
-                "statistic": stat,
-                "p_value": 2 * stats.norm.sf(np.abs(stat)),
-                "conf_low": estimate - crit * se,
-                "conf_high": estimate + crit * se,
-            }
-        )
-        if exponentiate:
-            frame = frame.with_columns(
-                pl.col("estimate").exp().alias("exp_estimate"),
-                pl.col("conf_low").exp().alias("exp_conf_low"),
-                pl.col("conf_high").exp().alias("exp_conf_high"),
-            )
-        return frame
+        return _wald_table(self.names, self.coefficients, self.covariance, level, exponentiate)
+
+    def zero_table(self, *, level: float = 0.95, exponentiate: bool = False) -> pl.DataFrame:
+        """Coefficients of the zero part (logit of the zero probability).
+
+        For ``zero_part="inflated"`` this is the probability of a structural
+        zero; for ``"hurdle"`` it is the probability of any zero. The columns
+        match :meth:`tidy`; ``exponentiate=True`` gives odds ratios.
+        """
+        if self.zero_coefficients is None or self.zero_covariance is None or self.zero_names is None:
+            raise TypeError("this fit has no zero-inflation or hurdle part")
+        return _wald_table(self.zero_names, self.zero_coefficients, self.zero_covariance, level, exponentiate)
 
     def variance_table(self) -> pl.DataFrame:
         """Random-effect variances (and residual variance for Gaussian LMMs).
@@ -145,6 +143,9 @@ class MixedFit:
         ``kind`` is ``"link"`` or ``"response"``. Gaussian LMMs ignore ``kind``.
         A fit with an offset adds it: the stored one without ``data``, and the
         offset column or the formula's ``offset()`` evaluated on ``data``.
+        With a zero part, ``"response"`` is the mean of the whole outcome:
+        ``(1 - pi) mu`` for zero inflation and ``(1 - pi) mu / (1 - f(0))``
+        for a hurdle. ``"link"`` stays the count part's linear predictor.
         """
         if kind not in {"link", "response"}:
             raise ValueError("kind must be 'link' or 'response'")
@@ -167,7 +168,31 @@ class MixedFit:
                 eta = eta + self._new_offset(data, design)
         if kind == "link" or self.family == "gaussian":
             return eta
-        return _inv_link(self.family, eta)
+        mean = _inv_link(self.family, eta)
+        if self.zero_part is None:
+            return mean
+        if data is None:
+            zx = self.zero_design.x if self.zero_design is not None else np.ones((len(eta), 1))
+        else:
+            zx = self._new_zero_x(data, len(eta))
+        pi = 1.0 / (1.0 + np.exp(-(zx @ self.zero_coefficients)))
+        if self.zero_part == "inflated":
+            return (1.0 - pi) * mean
+        if self.family == "poisson":
+            f0 = np.exp(-mean)
+        else:
+            f0 = (self.theta / (self.theta + mean)) ** self.theta
+        return (1.0 - pi) * mean / (1.0 - f0)
+
+    def _new_zero_x(self, data: pl.DataFrame, n_rows: int) -> np.ndarray:
+        if self.zero_design is None or not self.zero_design.predictors:
+            return np.ones((n_rows, 1))
+        from .design import build_design
+
+        built = build_design(data, self.zero_design)
+        if built.n_obs != n_rows:
+            raise ValueError("new data has missing values in the zero-part columns")
+        return built.x
 
 
     def _new_offset(self, data: pl.DataFrame, design: Design) -> np.ndarray:
@@ -194,6 +219,8 @@ def fit_mixed(
     engine: str | None = None,
     link: str | None = None,
     offset: ColumnRef | None = None,
+    zero_inflation: bool | Sequence[ColumnRef] | None = None,
+    hurdle: bool = False,
 ) -> MixedFit:
     """Fit a linear or generalized linear mixed model.
 
@@ -208,18 +235,31 @@ def fit_mixed(
     of person-time in a rate model. A formula takes ``offset(log(t))`` instead.
     Offsets need the Poisson or negative binomial family.
 
-    ``engine`` defaults to ``"lme"`` (``lme-python`` / lme-rs) for Gaussian,
-    binomial, and Gamma, and to ``"laplace"`` for Poisson and negative
-    binomial. ``"laplace"`` maximises the Laplace approximation, or adaptive
-    Gauss–Hermite quadrature with ``n_agq > 1`` and a single random intercept.
-    The fixed-effect covariance inverts the Hessian over all parameters,
-    as ``glmmTMB`` and ``glmer`` do.
+    ``zero_inflation`` adds a zero part to a Poisson or negative binomial
+    model: ``True`` for a constant zero probability (glmmTMB ``ziformula=~1``),
+    or a list of columns for its logistic model. ``hurdle=True`` makes it a
+    hurdle model instead (glmmTMB ``truncated_poisson`` /
+    ``truncated_nbinom2``): zeros come only from the zero part and positive
+    counts from the zero-truncated distribution. The zero part has fixed
+    effects only. See :meth:`MixedFit.zero_table`.
+
+    ``engine`` defaults to ``"laplace"`` for binomial (logit link), Poisson,
+    and negative binomial, and to ``"lme"`` (``lme-python`` / lme-rs) for
+    Gaussian, Gamma, and other binomial links. ``"laplace"`` maximises the
+    Laplace approximation, or adaptive Gauss–Hermite quadrature with
+    ``n_agq > 1`` and a single random intercept. The covariance inverts the
+    Hessian over all parameters, as ``glmmTMB`` and ``glmer`` do.
     """
     if family not in _FAMILIES:
         raise ValueError(f"family must be one of {_FAMILIES}, got {family!r}")
     if method not in {"reml", "ml"}:
         raise ValueError("method must be 'reml' or 'ml'")
-    engine_key = _normalize_engine(engine, family)
+    engine_key = _normalize_engine(engine, family, link)
+    if hurdle and zero_inflation is None:
+        zero_inflation = True
+    zero_part = None if zero_inflation is None or zero_inflation is False else ("hurdle" if hurdle else "inflated")
+    if zero_part is not None and engine_key != "laplace":
+        raise ValueError("zero-inflated and hurdle models need the Poisson or negative binomial family")
     if family != "gaussian" and method == "reml":
         method = "ml"
 
@@ -232,6 +272,9 @@ def fit_mixed(
             offset_values = np.asarray(
                 column_series(data, offset).gather(design.row_index.tolist()).to_numpy(), dtype=float
             )
+        zero_design = None
+        if zero_part is not None:
+            zero_design = _zero_design(data, design, zero_inflation)
         return _fit_laplace(
             formula,
             design,
@@ -245,9 +288,11 @@ def fit_mixed(
             family=family,
             n_agq=n_agq,
             link=link,
+            zero_part=zero_part,
+            zero_design=zero_design,
         )
     if offset is not None or formula_offset is not None:
-        raise ValueError("offsets need the Poisson or negative binomial family (engine='laplace')")
+        raise ValueError("offsets need engine='laplace' (binomial, Poisson, or negative binomial)")
     return _fit_lme(
         data,
         formula,
@@ -261,13 +306,14 @@ def fit_mixed(
     )
 
 
-def _normalize_engine(engine: str | None, family: str) -> str:
+def _normalize_engine(engine: str | None, family: str, link: str | None = None) -> str:
+    laplace_ok = family in COUNT_FAMILIES and link in (None, "log") or family == "binomial" and link in (None, "logit")
     if engine is None:
-        return "laplace" if family in COUNT_FAMILIES else "lme"
+        return "laplace" if laplace_ok else "lme"
     key = engine.strip().lower()
     if key in _LAPLACE_ENGINES:
-        if family not in COUNT_FAMILIES:
-            raise ValueError("engine='laplace' fits the Poisson and negative binomial families")
+        if not laplace_ok:
+            raise ValueError("engine='laplace' fits binomial (logit), Poisson, and negative binomial (log) models")
         return "laplace"
     if key in _LME_ENGINES:
         if family == "negative_binomial":
@@ -410,9 +456,9 @@ def _fit_laplace(
     family: str,
     n_agq: int,
     link: str | None,
+    zero_part: str | None = None,
+    zero_design: Design | None = None,
 ) -> MixedFit:
-    if link not in (None, "log"):
-        raise ValueError("the Poisson and negative binomial GLMMs use the log link")
     columns = []
     for name in random_names:
         if name == "(Intercept)":
@@ -423,7 +469,17 @@ def _fit_laplace(
             columns.append(np.asarray(extra[name], dtype=float))
     z = np.column_stack(columns)
     level_values, group = np.unique(np.asarray([str(v) for v in labels]), return_inverse=True)
-    result = fit_count_glmm(y, design.x, z, group, offset, family=family, n_agq=n_agq)
+    result = fit_laplace_glmm(
+        y,
+        design.x,
+        z,
+        group,
+        offset,
+        family=family,
+        n_agq=n_agq,
+        zero=zero_part,
+        zero_x=None if zero_design is None else zero_design.x,
+    )
     modes = result.modes
     ranef: dict[str, Any] = {"group": list(level_values), "blup": modes[:, 0]}
     for k, name in enumerate(random_names[1:], start=1):
@@ -454,8 +510,48 @@ def _fit_laplace(
         theta=result.theta,
         theta_std_error=result.theta_std_error,
         offset_ref=offset_ref,
+        zero_part=zero_part,
+        zero_coefficients=result.zero_coefficients,
+        zero_covariance=result.zero_covariance,
+        zero_names=None if zero_design is None else list(zero_design.names),
+        zero_design=zero_design,
         ranef_frame=pl.DataFrame(ranef).sort("blup"),
     )
+
+
+def _zero_design(data: pl.DataFrame, design: Design, spec: Any) -> Design:
+    """Design of the zero part on the rows the count model uses."""
+    used = data.gather(design.row_index.tolist())
+    columns = [] if spec is True else list(spec)
+    zero = design_matrix(used, columns)
+    if zero.n_obs != design.n_obs:
+        raise ValueError("the zero-inflation columns have missing values in rows the model uses")
+    return zero
+
+
+def _wald_table(names: list[str], estimate: np.ndarray, covariance: np.ndarray, level: float, exponentiate: bool) -> pl.DataFrame:
+    se = np.sqrt(np.clip(np.diag(covariance), 0, None))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        stat = estimate / se
+    crit = float(stats.norm.ppf(0.5 + level / 2))
+    frame = pl.DataFrame(
+        {
+            "term": names,
+            "estimate": estimate,
+            "std_error": se,
+            "statistic": stat,
+            "p_value": 2 * stats.norm.sf(np.abs(stat)),
+            "conf_low": estimate - crit * se,
+            "conf_high": estimate + crit * se,
+        }
+    )
+    if exponentiate:
+        frame = frame.with_columns(
+            pl.col("estimate").exp().alias("exp_estimate"),
+            pl.col("conf_low").exp().alias("exp_conf_low"),
+            pl.col("conf_high").exp().alias("exp_conf_high"),
+        )
+    return frame
 
 
 def _group_covariance_from_var_corr(

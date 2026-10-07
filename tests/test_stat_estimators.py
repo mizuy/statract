@@ -506,7 +506,7 @@ def test_fit_mixed_accepts_a_wilkinson_formula():
         family="binomial",
     )
     assert binomial.family == "binomial"
-    assert binomial.engine == "lme"
+    assert binomial.engine == "laplace"
     tidy = binomial.tidy(exponentiate=True)
     assert "exp_estimate" in tidy.columns
 

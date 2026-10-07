@@ -79,7 +79,7 @@ class TestFitMixedBinomial:
         df = _cluster_frame()
         fit = fit_mixed(df, "outcome ~ treatment + (1 | hospital)", family="binomial")
         assert fit.family == "binomial"
-        assert fit.engine == "lme"
+        assert fit.engine == "laplace"
         assert fit.converged
         tidy = fit.tidy(exponentiate=True)
         assert "treatment" in tidy["term"].to_list()
