@@ -1,9 +1,11 @@
 """Linear and generalized linear mixed models.
 
 ``fit_mixed`` is the public mixed-model entry point, parallel to ``fit_ols`` /
-``fit_glm``. Gaussian LMMs call ``lme_python.lmer`` (lme-rs). Binomial,
-Poisson, and Gamma GLMMs call ``lme_python.glmer``. Wilkinson formulas such as
-``y ~ x + (1 | g)`` work for both.
+``fit_glm``. Gaussian LMMs call ``lme_python.lmer`` (lme-rs). Binomial and
+Gamma GLMMs call ``lme_python.glmer``. Poisson and negative binomial (NB2)
+GLMMs use the Laplace / adaptive Gauss–Hermite fit in ``_laplace``, which
+matches ``glmmTMB`` and ``lme4::glmer``. Wilkinson formulas such as
+``y ~ x + offset(log(t)) + (1 | g)`` work for all of them.
 """
 
 from __future__ import annotations
@@ -16,10 +18,12 @@ import polars as pl
 from scipy import stats
 
 from .design import ColumnRef, Design, _is_factor, column_series, design_matrix
+from ._laplace import COUNT_FAMILIES, fit_count_glmm
 from .formula import is_formula, model_matrix, reject_survival_syntax
 
-_FAMILIES = ("gaussian", "binomial", "poisson", "gamma")
+_FAMILIES = ("gaussian", "binomial", "poisson", "gamma", "negative_binomial")
 _LME_ENGINES = {"lme", "lme-rs", "lme-python", "lme_python"}
+_LAPLACE_ENGINES = {"laplace"}
 _LMER_TOLERANCE = 1e-8
 
 
@@ -30,6 +34,8 @@ class MixedFit:
     ``coefficients`` and ``covariance`` are the fixed effects. ``tidy`` uses a
     normal reference (Wald). ``group_covariance`` is the random-effect
     covariance for ``(Intercept)`` and any random slopes of ``group_name``.
+    ``theta`` is the negative binomial size (variance ``mu + mu^2 / theta``),
+    with ``theta_std_error`` from the delta method on ``log(theta)``.
     """
 
     coefficients: np.ndarray
@@ -53,6 +59,11 @@ class MixedFit:
     engine: str = "lme"
     n_agq: int = 1
     formula: str | None = None
+    offset: np.ndarray | None = None
+    theta: float | None = None
+    theta_std_error: float | None = None
+    offset_ref: ColumnRef | None = field(default=None, repr=False)
+    ranef_frame: pl.DataFrame | None = field(default=None, repr=False)
     raw: Any = field(default=None, repr=False)
 
     def tidy(self, *, level: float = 0.95, exponentiate: bool = False) -> pl.DataFrame:
@@ -122,6 +133,8 @@ class MixedFit:
 
     def random_effects(self) -> pl.DataFrame:
         """Unique-group BLUPs for the grouping factor (intercept, then slopes)."""
+        if self.ranef_frame is not None:
+            return self.ranef_frame
         if self.raw is not None and getattr(self.raw, "ranef", None) is not None:
             return _ranef_frame(self.raw.ranef, self.group_name)
         raise TypeError("random effects are not available on this fit")
@@ -130,6 +143,8 @@ class MixedFit:
         """Population mean (fixed effects only).
 
         ``kind`` is ``"link"`` or ``"response"``. Gaussian LMMs ignore ``kind``.
+        A fit with an offset adds it: the stored one without ``data``, and the
+        offset column or the formula's ``offset()`` evaluated on ``data``.
         """
         if kind not in {"link", "response"}:
             raise ValueError("kind must be 'link' or 'response'")
@@ -139,6 +154,8 @@ class MixedFit:
             return np.asarray(self.raw.predict(data), dtype=float)
         if data is None:
             eta = self.x @ self.coefficients
+            if self.offset is not None:
+                eta = eta + self.offset
         else:
             from .design import build_design
 
@@ -146,9 +163,22 @@ class MixedFit:
             if design.x.shape[1] != len(self.coefficients):
                 raise ValueError("new data produced a different number of columns")
             eta = design.x @ self.coefficients
+            if self.offset is not None:
+                eta = eta + self._new_offset(data, design)
         if kind == "link" or self.family == "gaussian":
             return eta
         return _inv_link(self.family, eta)
+
+
+    def _new_offset(self, data: pl.DataFrame, design: Design) -> np.ndarray:
+        if self.offset_ref is not None:
+            series = column_series(data, self.offset_ref).gather(design.row_index.tolist())
+            return np.asarray(series.to_numpy(), dtype=float)
+        if self.formula is not None:
+            built = model_matrix(self.formula, data)
+            if built.offset is not None and len(built.offset) == design.n_obs:
+                return np.asarray(built.offset, dtype=float)
+        raise ValueError("predict on new data needs the offset; refit with offset= or offset() in the formula")
 
 
 def fit_mixed(
@@ -161,30 +191,63 @@ def fit_mixed(
     method: str = "reml",
     family: str = "gaussian",
     n_agq: int = 1,
-    engine: str = "lme",
+    engine: str | None = None,
     link: str | None = None,
+    offset: ColumnRef | None = None,
 ) -> MixedFit:
     """Fit a linear or generalized linear mixed model.
 
     ``outcome`` may be a Wilkinson formula such as ``"y ~ x + (1 | g)"`` or a
     response column with ``predictors`` and ``groups``. ``family`` is
     ``"gaussian"`` (default, ``lmer`` / REML or ML), ``"binomial"``,
-    ``"poisson"``, or ``"gamma"`` (``glmer``). ``method`` is ``"reml"`` or
-    ``"ml"`` and applies to Gaussian LMMs only.
+    ``"poisson"``, ``"gamma"``, or ``"negative_binomial"`` (NB2, variance
+    ``mu + mu^2 / theta``). ``method`` is ``"reml"`` or ``"ml"`` and applies to
+    Gaussian LMMs only.
 
-    ``engine`` is ``"lme"`` (``lme-python`` / lme-rs), the only engine.
+    ``offset`` is a column added to the linear predictor, for example the log
+    of person-time in a rate model. A formula takes ``offset(log(t))`` instead.
+    Offsets need the Poisson or negative binomial family.
+
+    ``engine`` defaults to ``"lme"`` (``lme-python`` / lme-rs) for Gaussian,
+    binomial, and Gamma, and to ``"laplace"`` for Poisson and negative
+    binomial. ``"laplace"`` maximises the Laplace approximation, or adaptive
+    Gauss–Hermite quadrature with ``n_agq > 1`` and a single random intercept.
+    The fixed-effect covariance inverts the Hessian over all parameters,
+    as ``glmmTMB`` and ``glmer`` do.
     """
     if family not in _FAMILIES:
         raise ValueError(f"family must be one of {_FAMILIES}, got {family!r}")
     if method not in {"reml", "ml"}:
         raise ValueError("method must be 'reml' or 'ml'")
-    _normalize_engine(engine)
+    engine_key = _normalize_engine(engine, family)
     if family != "gaussian" and method == "reml":
         method = "ml"
 
-    formula, design, _, _, group_name, random_names, _ = _prepare(
-        data, outcome, predictors, groups, slopes
+    formula, design, y, labels, group_name, random_names, extra, formula_offset = _prepare(
+        data, outcome, predictors, groups, slopes, offset
     )
+    if engine_key == "laplace":
+        offset_values = formula_offset
+        if offset is not None:
+            offset_values = np.asarray(
+                column_series(data, offset).gather(design.row_index.tolist()).to_numpy(), dtype=float
+            )
+        return _fit_laplace(
+            formula,
+            design,
+            y,
+            labels,
+            group_name,
+            random_names,
+            extra,
+            offset_values,
+            offset_ref=offset,
+            family=family,
+            n_agq=n_agq,
+            link=link,
+        )
+    if offset is not None or formula_offset is not None:
+        raise ValueError("offsets need the Poisson or negative binomial family (engine='laplace')")
     return _fit_lme(
         data,
         formula,
@@ -198,11 +261,19 @@ def fit_mixed(
     )
 
 
-def _normalize_engine(engine: str) -> str:
+def _normalize_engine(engine: str | None, family: str) -> str:
+    if engine is None:
+        return "laplace" if family in COUNT_FAMILIES else "lme"
     key = engine.strip().lower()
+    if key in _LAPLACE_ENGINES:
+        if family not in COUNT_FAMILIES:
+            raise ValueError("engine='laplace' fits the Poisson and negative binomial families")
+        return "laplace"
     if key in _LME_ENGINES:
+        if family == "negative_binomial":
+            raise ValueError("the negative binomial family needs engine='laplace'")
         return "lme"
-    raise ValueError("engine must be 'lme'")
+    raise ValueError("engine must be 'lme' or 'laplace'")
 
 
 def _prepare(
@@ -211,13 +282,16 @@ def _prepare(
     predictors: Sequence[ColumnRef] | None,
     groups: ColumnRef | None,
     slopes: Sequence[str] | None,
-) -> tuple[str, Design, np.ndarray, list[object], str, list[str], dict[str, np.ndarray]]:
+    offset: ColumnRef | None = None,
+) -> tuple[str, Design, np.ndarray, list[object], str, list[str], dict[str, np.ndarray], np.ndarray | None]:
     if is_formula(outcome):
         if predictors is not None or groups is not None or slopes is not None:
             raise ValueError("a formula already names the predictors, groups, and slopes")
+        if offset is not None:
+            raise ValueError("a formula takes offset() instead of offset=")
         formula = str(outcome)
-        design, y, labels, group_name, random_names, extra = _from_formula(data, formula)
-        return formula, design, y, labels, group_name, random_names, extra
+        design, y, labels, group_name, random_names, extra, formula_offset = _from_formula(data, formula)
+        return formula, design, y, labels, group_name, random_names, extra, formula_offset
     if predictors is None or groups is None:
         raise ValueError("predictors and groups are required when outcome is a column")
     slope_names = list(slopes or [])
@@ -226,6 +300,8 @@ def _prepare(
     if missing:
         raise ValueError(f"random slopes must also be fixed effects: {missing}")
     extra_refs: list[ColumnRef] = [outcome, groups]
+    if offset is not None:
+        extra_refs.append(offset)
     design = design_matrix(data, predictors, extra=extra_refs)
     idx = design.row_index
     y = np.asarray(column_series(data, outcome).gather(idx.tolist()).to_numpy(), dtype=float)
@@ -237,7 +313,7 @@ def _prepare(
     re_rhs = " + ".join(random_names).replace("(Intercept)", "1")
     fe = " + ".join(predictor_names) if predictor_names else "1"
     formula = f"{outcome_name} ~ {fe} + ({re_rhs} | {group_name})"
-    return formula, design, y, labels, group_name, random_names, extra
+    return formula, design, y, labels, group_name, random_names, extra, None
 
 
 def _fit_lme(
@@ -320,6 +396,68 @@ def _fit_lme(
 
 
 
+def _fit_laplace(
+    formula: str,
+    design: Design,
+    y: np.ndarray,
+    labels: list[object],
+    group_name: str,
+    random_names: list[str],
+    extra: dict[str, np.ndarray],
+    offset: np.ndarray | None,
+    *,
+    offset_ref: ColumnRef | None,
+    family: str,
+    n_agq: int,
+    link: str | None,
+) -> MixedFit:
+    if link not in (None, "log"):
+        raise ValueError("the Poisson and negative binomial GLMMs use the log link")
+    columns = []
+    for name in random_names:
+        if name == "(Intercept)":
+            columns.append(np.ones(design.n_obs))
+        elif name in design.names:
+            columns.append(design.x[:, design.names.index(name)])
+        else:
+            columns.append(np.asarray(extra[name], dtype=float))
+    z = np.column_stack(columns)
+    level_values, group = np.unique(np.asarray([str(v) for v in labels]), return_inverse=True)
+    result = fit_count_glmm(y, design.x, z, group, offset, family=family, n_agq=n_agq)
+    modes = result.modes
+    ranef: dict[str, Any] = {"group": list(level_values), "blup": modes[:, 0]}
+    for k, name in enumerate(random_names[1:], start=1):
+        ranef[name] = modes[:, k]
+    return MixedFit(
+        coefficients=result.coefficients,
+        covariance=result.covariance,
+        names=list(design.names),
+        n_obs=design.n_obs,
+        n_groups=len(level_values),
+        log_likelihood=result.log_likelihood,
+        residual_variance=None,
+        group_name=group_name,
+        random_names=list(random_names),
+        group_covariance=result.group_covariance,
+        method="ml",
+        converged=result.converged,
+        n_iter=result.n_iter,
+        function_evals=result.function_evals,
+        x=design.x,
+        row_index=design.row_index,
+        design=design,
+        family=family,
+        engine="laplace",
+        n_agq=int(n_agq),
+        formula=formula,
+        offset=offset,
+        theta=result.theta,
+        theta_std_error=result.theta_std_error,
+        offset_ref=offset_ref,
+        ranef_frame=pl.DataFrame(ranef).sort("blup"),
+    )
+
+
 def _group_covariance_from_var_corr(
     var_corr: Sequence[tuple[Any, ...]],
     random_names: list[str],
@@ -370,7 +508,7 @@ def _ranef_frame(ranef: Sequence[tuple[Any, ...]], group_name: str) -> pl.DataFr
 def _inv_link(family: str, eta: np.ndarray) -> np.ndarray:
     if family == "binomial":
         return 1.0 / (1.0 + np.exp(-eta))
-    if family == "poisson":
+    if family in COUNT_FAMILIES:
         return np.exp(eta)
     if family == "gamma":
         return 1.0 / eta
@@ -394,7 +532,7 @@ def _random_names(design: Design, slope_names: list[str]) -> list[str]:
 
 def _from_formula(
     data: pl.DataFrame, formula: str
-) -> tuple[Design, np.ndarray, list[object], str, list[str], dict[str, np.ndarray]]:
+) -> tuple[Design, np.ndarray, list[object], str, list[str], dict[str, np.ndarray], np.ndarray | None]:
     built = model_matrix(formula, data)
     reject_survival_syntax(built)
     if len(built.random_effects) != 1:
@@ -402,8 +540,6 @@ def _from_formula(
     effect = built.random_effects[0]
     if not effect.correlated:
         raise ValueError("uncorrelated random slopes (||) are not supported")
-    if built.offset is not None:
-        raise ValueError("offset() is not supported in fit_mixed")
     design = built.design
     idx = design.row_index
     group = column_series(data, effect.group)
@@ -434,5 +570,6 @@ def _from_formula(
         random_names.append(name)
     if not random_names:
         raise ValueError("random effect has no intercept and no slopes")
-    return design, np.asarray(built.y, dtype=float), labels, effect.group, random_names, extra
+    offset = None if built.offset is None else np.asarray(built.offset, dtype=float)
+    return design, np.asarray(built.y, dtype=float), labels, effect.group, random_names, extra, offset
 
