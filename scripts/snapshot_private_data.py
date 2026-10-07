@@ -32,8 +32,20 @@ import polars as pl
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
 
-# Data that may not be redistributed publicly, or that we only fetch.
-DEFAULT_STEMS = ("pred_support", "psm_rhc")
+# Every example with a fetched raw file. cea_sicksicker has none.
+DEFAULT_STEMS = (
+    "pred_support",
+    "psm_rhc",
+    "surv_colon",
+    "cif_pbc",
+    "aft_rotterdam",
+    "cox_retinopathy",
+    "lmm_pbcseq",
+    "logit_indo",
+    "iptw_nhefs",
+)
+
+_RDATASETS = "https://vincentarelbundock.github.io/Rdatasets/csv"
 
 SOURCES = {
     "pred_support": (
@@ -44,6 +56,13 @@ SOURCES = {
         "https://hbiostat.org/data/repo/rhc.csv",
         "Vanderbilt RHC (Connors JAMA 1996); teaching use only, do not redistribute",
     ),
+    "surv_colon": (f"{_RDATASETS}/survival/colon.csv", "R survival, GPL-2/3"),
+    "cif_pbc": (f"{_RDATASETS}/survival/pbc.csv", "R survival, GPL-2/3"),
+    "aft_rotterdam": (f"{_RDATASETS}/survival/rotterdam.csv", "R survival, GPL-2/3"),
+    "cox_retinopathy": (f"{_RDATASETS}/survival/retinopathy.csv", "R survival, GPL-2/3"),
+    "lmm_pbcseq": (f"{_RDATASETS}/survival/pbcseq.csv", "R survival, GPL-2/3"),
+    "logit_indo": (f"{_RDATASETS}/medicaldata/indo_rct.csv", "R medicaldata, MIT; cite Elmunzer NEJM 2012"),
+    "iptw_nhefs": (f"{_RDATASETS}/causaldata/nhefs.csv", "R causaldata NHEFS; Hernan and Robins teaching data"),
 }
 
 

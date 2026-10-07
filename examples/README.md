@@ -12,7 +12,7 @@
 
 リポジトリルートで `uv sync` したあと、各ディレクトリで `task all`（または `uv run python build.py` → `uv run python {stem}.py`）。
 
-取得元に届かない環境では、取得済みの生データを 1 か所に集めて使えます。`uv run python scripts/snapshot_private_data.py <dir>` が各例の snapshot を `<dir>/<name>.parquet` と `MANIFEST.csv`（SHA-256 つき）に書き出します。既定は再配布しないデータ（`pred_support`、`psm_rhc`）だけです。`STATRACT_DATA_DIR=<dir>` を設定すると、例はそこから読み、ハッシュが合わなければ止まります。このディレクトリは公開リポジトリに commit しません。
+取得元に届かない環境では、取得済みの生データを 1 か所に集めて使えます。`uv run python scripts/snapshot_private_data.py <dir>` が各例の snapshot を `<dir>/<name>.parquet` と `MANIFEST.csv`（SHA-256 つき）に書き出します。既定は取得元から生データを取る全例（`cea_sicksicker` 以外）です。`STATRACT_DATA_DIR=<dir>` を設定すると、例はそこから読み、ハッシュが合わなければ止まります。このディレクトリは公開リポジトリに commit しません。
 
 | ディレクトリ | docs ページ | 問い | 見る API | データ |
 |--------------|-------------|------|----------|--------|
