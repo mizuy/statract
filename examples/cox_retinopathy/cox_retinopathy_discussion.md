@@ -14,4 +14,4 @@
 
 - 眼を独立とみなした KM / log-rank は記述。推論の主はクラスター Cox。
 - counting-process（entry>0）ではこの実装は sandwich を掛けない。
-- GPL パッケージ由来の教学エクスポートである。
+- LGPL パッケージ由来の教学エクスポートである。

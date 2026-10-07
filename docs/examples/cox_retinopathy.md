@@ -14,7 +14,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| ソース | R `survival::retinopathy`（糖尿病網膜症・片眼レーザー）。ライセンス GPL-2/3。git 非収載 |
+| ソース | R `survival::retinopathy`（糖尿病網膜症・片眼レーザー）。ライセンス LGPL (>= 2)。git 非収載 |
 | 取得 | `build.py`（R が使えれば `data(retinopathy, package="survival")`、否则 Rdatasets CSV） |
 | 単位 | 眼 1 行。197 人 × 両眼 = 394 行。行の除外なし |
 
@@ -287,7 +287,7 @@ sandwich が必要な理由: 両眼は同じ患者の frailty を共有する。
 限界:
 
 - KM / log-rank は眼独立の記述。推論は Lin–Wei Cox
-- 教学 GPL エクスポートであり、現行の光凝固適応を更新しない
+- 教学 LGPL エクスポートであり、現行の光凝固適応を更新しない
 - Cox の頑健分散は `cluster=` であり `hc_covariance` ではない
 
 ## 実行と成果物

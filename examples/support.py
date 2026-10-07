@@ -3,8 +3,8 @@
 Gallery scripts import this module instead of statract internals. It is not part of the
 public ``statract`` API and does not set facility defaults.
 
-Set ``STATRACT_DATA_DIR`` to a directory made by ``scripts/snapshot_private_data.py``
-to read raw snapshots from there instead of fetching them. A file listed in its
+Set ``STATRACT_DATA_DIR`` to a directory of raw snapshots (``<name>.parquet``)
+to read them from there instead of fetching them. A file listed in its
 ``MANIFEST.csv`` must match the recorded SHA-256.
 """
 

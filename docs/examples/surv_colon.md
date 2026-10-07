@@ -14,7 +14,7 @@ KM / log-rank / Cox の正本。`etype=1` で患者単位に畳み、`hue=rx` �
 
 | 項目 | 内容 |
 |------|------|
-| ソース | R `survival::colon`（Laurie's / Moertel adjuvant）。ライセンス GPL-2/3。git 非収載 |
+| ソース | R `survival::colon`（Laurie's / Moertel adjuvant）。ライセンス LGPL (>= 2)。git 非収載 |
 | 取得 | `build.py`（R が使えれば `data(colon, package="survival")`、否则 Rdatasets CSV） |
 | 単位 | 再発レコード（`etype=1`）に畳んだ患者 1 行（長表は再発+死亡の 2 行形式） |
 
@@ -309,7 +309,7 @@ $$
 
 - 患者単位は再発行のみ。死亡を競合にした Fine–Gray は出していない
 - `nodes` 欠損は Cox だけ落とす
-- GPL パッケージ由来の教学エクスポートであり、診療方針の更新を主張しない
+- LGPL パッケージ由来の教学エクスポートであり、診療方針の更新を主張しない
 
 ## 実行と成果物
 

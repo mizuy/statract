@@ -35,7 +35,7 @@ KM、log-rank、Cox HR、zph 表、Weibull AFT の時間比。因果の確定主
 
 ## 8. 限界の先取り
 
-AFT の分布は Weibull に固定（収束しないときだけ lognormal を併記）。GPL データ。
+AFT の分布は Weibull に固定（収束しないときだけ lognormal を併記）。LGPL データ。
 
 ## 9. 統計解析手法
 

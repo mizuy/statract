@@ -35,7 +35,7 @@ R `survival::retinopathy`。施設カルテではない。
 
 ## 8. 限界の先取り
 
-GPL 教学エクスポート。counting process の sandwich はこの API では right-censored のみ（entry=0）。
+LGPL 教学エクスポート。counting process の sandwich はこの API では right-censored のみ（entry=0）。
 
 ## 9. 統計解析手法
 

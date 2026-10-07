@@ -12,17 +12,17 @@
 
 リポジトリルートで `uv sync` したあと、各ディレクトリで `task all`（または `uv run python build.py` → `uv run python {stem}.py`）。
 
-取得元に届かない環境では、取得済みの生データを 1 か所に集めて使えます。`uv run python scripts/snapshot_private_data.py <dir>` が各例の snapshot を `<dir>/<name>.parquet` と `MANIFEST.csv`（SHA-256 つき）に書き出します。既定は取得元から生データを取る全例（`cea_sicksicker` 以外）です。`STATRACT_DATA_DIR=<dir>` を設定すると、例はそこから読み、ハッシュが合わなければ止まります。このディレクトリは公開リポジトリに commit しません。
+取得元に届かない環境では、取得済みの生データを 1 か所に集めて使えます。`STATRACT_DATA_DIR=<dir>` を設定すると、例は取得元に行かずに `<dir>/<name>.parquet`（`colon.parquet` など、各 `build.py` の snapshot 名）を読みます。`<dir>/MANIFEST.csv` に `file` と `sha256` の列があれば、ハッシュが合わないときに止まります。このディレクトリは公開リポジトリに commit しません。
 
 | ディレクトリ | docs ページ | 問い | 見る API | データ |
 |--------------|-------------|------|----------|--------|
-| [surv_colon/](surv_colon/) | [docs](../docs/examples/surv_colon.md) | 補助化学療法 `rx` と再発時間 | `plot_survival`（NAR）、`cox_ph`, `proportional_hazards_test`, `write_cox_diagnostic_suite`, `plot_forest`（表一体） | R `survival::colon`（患者単位）。ライセンス GPL-2/3。git 非収載 |
+| [surv_colon/](surv_colon/) | [docs](../docs/examples/surv_colon.md) | 補助化学療法 `rx` と再発時間 | `plot_survival`（NAR）、`cox_ph`, `proportional_hazards_test`, `write_cox_diagnostic_suite`, `plot_forest`（表一体） | R `survival::colon`（患者単位）。ライセンス LGPL (>= 2)。git 非収載 |
 | [logit_indo/](logit_indo/) | [docs](../docs/examples/logit_indo.md) | 直腸インドメタシンと PEP | `fit_mixed` binomial（主）、`median_odds_ratio`、`plot_random_effects`、比較用 `fit_glm` | `medicaldata::indo_rct`（MIT + Elmunzer NEJM 2012 引用） |
 | [psm_rhc/](psm_rhc/) | [docs](../docs/examples/psm_rhc.md) | 初日 RHC と 30 日死亡 | `match_sample`, `balance` / `love_plot`, マッチ後 `fit_glm` | Vanderbilt RHC（Connors JAMA 1996）。**再配布しない。教学のみ** |
-| [cif_pbc/](cif_pbc/) | [docs](../docs/examples/cif_pbc.md) | D-ペニシラミンと肝死 CIF（移植は競合） | `survival_curve(..., kind="aalen_johansen")`, `fine_gray`, 重み付き `cox_ph` | R `survival::pbc`（無作為化）。GPL-2/3 |
-| [aft_rotterdam/](aft_rotterdam/) | [docs](../docs/examples/aft_rotterdam.md) | ホルモン療法と死亡時間 | `cox_ph`, `proportional_hazards_test`, `accelerated_failure`（Weibull） | R `survival::rotterdam`。GPL-2/3 |
-| [cox_retinopathy/](cox_retinopathy/) | [docs](../docs/examples/cox_retinopathy.md) | 片眼レーザーと視力喪失（患者クラスター） | `cox_ph` + `cluster(id)` / `cluster=`（Lin–Wei）、`plot_survival`（NAR）、`plot_forest`（表一体）、`tableone` | R `survival::retinopathy`。GPL-2/3。git 非収載 |
-| [lmm_pbcseq/](lmm_pbcseq/) | [docs](../docs/examples/lmm_pbcseq.md) | 病日・治療と対数ビリルビン | `fit_mixed`, `cluster_covariance`, `gam` / `smooth`（主解析） | R `survival::pbcseq`。GPL-2/3 |
+| [cif_pbc/](cif_pbc/) | [docs](../docs/examples/cif_pbc.md) | D-ペニシラミンと肝死 CIF（移植は競合） | `survival_curve(..., kind="aalen_johansen")`, `fine_gray`, 重み付き `cox_ph` | R `survival::pbc`（無作為化）。LGPL (>= 2) |
+| [aft_rotterdam/](aft_rotterdam/) | [docs](../docs/examples/aft_rotterdam.md) | ホルモン療法と死亡時間 | `cox_ph`, `proportional_hazards_test`, `accelerated_failure`（Weibull） | R `survival::rotterdam`。LGPL (>= 2) |
+| [cox_retinopathy/](cox_retinopathy/) | [docs](../docs/examples/cox_retinopathy.md) | 片眼レーザーと視力喪失（患者クラスター） | `cox_ph` + `cluster(id)` / `cluster=`（Lin–Wei）、`plot_survival`（NAR）、`plot_forest`（表一体）、`tableone` | R `survival::retinopathy`。LGPL (>= 2)。git 非収載 |
+| [lmm_pbcseq/](lmm_pbcseq/) | [docs](../docs/examples/lmm_pbcseq.md) | 病日・治療と対数ビリルビン | `fit_mixed`, `cluster_covariance`, `gam` / `smooth`（主解析） | R `survival::pbcseq`。LGPL (>= 2) |
 | [iptw_nhefs/](iptw_nhefs/) | [docs](../docs/examples/iptw_nhefs.md) | 禁煙と体重変化（ATE） | 手計算の安定化 IPTW、`fit_ols` + `hc_covariance`。`iptw()` は無い | NHEFS（`causaldata` / Rdatasets / Hernán CSV）。**fetch only** |
 | [pred_support/](pred_support/) | [docs](../docs/examples/pred_support.md) | 180 日死亡確率の較正 / DCA、GLM と ctree の比較 | `fit_glm` binomial、`conditional_tree`、`write_probability_artifacts`、`plot_calibration`、`plot_dca`、`binary_perf` | SUPPORT2（hbiostat）。**fetch only** |
 | [cea_sicksicker/](cea_sicksicker/) | [docs](../docs/examples/cea_sicksicker.md) | 仮想 Sick-Sicker の 4 戦略 CEA | `simulate_cohort_markov`, `calculate_icers`, `one_way_dsa`, `run_psa` / `ce_plane` / `ceac` / `evpi` | DARTH 教学パラメータ（Alarid-Escudero et al. MDM 2023 Table 1）。git に CSV なし |
