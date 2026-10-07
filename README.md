@@ -12,7 +12,6 @@
 
 ```bash
 pip install statract
-pip install "statract[sm]"   # OLS、割合の信頼区間、probit
 ```
 
 ```python
