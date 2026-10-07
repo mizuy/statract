@@ -15,6 +15,8 @@ from typing import NamedTuple, TypeAlias, TypedDict
 import polars as pl
 from great_tables import GT, loc, style as gt_style, html
 
+import numpy as np
+
 from . import agg
 from . import stat
 
@@ -161,6 +163,7 @@ def tableone(
     *,
     add_all: bool = False,
     add_pvalue: bool = False,
+    add_smd: bool = False,
     group_labels: dict[str, str] | None = None,
     style: TableOneStyle | None = None,
     column_order: Sequence[str] | None = None,
@@ -171,7 +174,7 @@ def tableone(
     - Category sub-rows are detected by the fixed prefix `"  "` (two spaces).
     - For display, the prefix is replaced by a full-width space by default.
     """
-    result = tableone_raw(df, params, hue=hue, add_all=add_all, add_pvalue=add_pvalue)
+    result = tableone_raw(df, params, hue=hue, add_all=add_all, add_pvalue=add_pvalue, add_smd=add_smd)
     return tableone_gt_from_frame(
         result,
         style=style,
@@ -192,6 +195,7 @@ def write_tableone_artifacts(
     hue: str | pl.Expr | list[pl.Expr] | list[str] | None = None,
     add_all: bool = False,
     add_pvalue: bool = False,
+    add_smd: bool = False,
     style: TableOneStyle | None = None,
     group_labels: dict[str, str] | None = None,
     column_order: Sequence[str] | None = None,
@@ -219,7 +223,7 @@ def write_tableone_artifacts(
     if table is None:
         if df is None or params is None:
             raise InvalidParameterError("Provide df+params, or a prebuilt table=")
-        table = tableone_raw(df, params, hue=hue, add_all=add_all, add_pvalue=add_pvalue)
+        table = tableone_raw(df, params, hue=hue, add_all=add_all, add_pvalue=add_pvalue, add_smd=add_smd)
         table = _reorder_table_columns(table, column_order)
         gt = tableone(
             df,
@@ -227,6 +231,7 @@ def write_tableone_artifacts(
             hue=hue,
             add_all=add_all,
             add_pvalue=add_pvalue,
+            add_smd=add_smd,
             group_labels=group_labels,
             style=style,
             column_order=column_order,
@@ -431,6 +436,7 @@ def _resolve_statfunc(
             "anova": stat.stat_anova,
             "chisq": stat.stat_chisq,
             "fisher": stat.stat_fisher,
+            "kruskal": stat.stat_kruskal,
             "auto": stat.stat_auto,
         }
         if statfunc not in statfunc_map:
@@ -439,10 +445,25 @@ def _resolve_statfunc(
     return statfunc
 
 
-def _compute_pvalue(df: pl.DataFrame, param: TableOneParam, hue: pl.Expr) -> str:
-    """Compute p-value string for a param against a single hue column."""
+_MEDIAN_AGGFUNCS = {agg.agg_median, agg.agg_median_iqr, agg.agg_median_range}
+
+
+def _hue_series(df: pl.DataFrame, hue: list[pl.Expr]) -> pl.Series:
+    """One group label per row. Several hue columns combine as in the column headers."""
+    if len(hue) == 1:
+        return df.select(hue[0]).to_series()
+    parts = df.select([h.cast(pl.String) for h in hue])
+    return parts.select(pl.concat_str(pl.all(), separator=" / ").alias("_hue")).to_series()
+
+
+def _compute_pvalue(df: pl.DataFrame, param: TableOneParam, hue: list[pl.Expr]) -> str:
+    """Compute the p-value string for a param across the hue groups."""
+    statfunc = param.statfunc
+    if statfunc is None and _get_aggfunc(param.aggfunc, param.column) in _MEDIAN_AGGFUNCS:
+        # A median summary gets a rank test, as R tableone does for nonnormal variables.
+        statfunc = stat.stat_kruskal
     try:
-        resolved = _resolve_statfunc(param.statfunc, param.column, hue, df)
+        resolved = _resolve_statfunc(statfunc, param.column, hue[0], df)
     except ValueError:
         # e.g. stat_auto cannot decide
         return "-"
@@ -451,24 +472,36 @@ def _compute_pvalue(df: pl.DataFrame, param: TableOneParam, hue: pl.Expr) -> str
     try:
         # Extract Series from DataFrame before calling stat function
         col_series = df.select(param.column).to_series()
-        hue_series = df.select(hue).to_series()
+        hue_series = _hue_series(df, hue)
         return resolved(col_series, hue_series)
     except Exception:  # noqa: BLE001
         return "Failed"
 
 
-def _add_pvalue_to_rows(
+def _compute_smd(df: pl.DataFrame, param: TableOneParam, hue: list[pl.Expr]) -> str:
+    """SMD string for a param across the hue groups (mean of pairs when more than two)."""
+    aggfunc = _get_aggfunc(param.aggfunc, param.column) or _get_auto_aggfunc(param.column, df)
+    col_series = df.select(param.column).to_series()
+    if aggfunc in {agg.agg_count, agg.agg_nunique, agg.agg_size}:
+        return ""
+    categorical = True if _is_category_aggfunc(aggfunc) else None
+    try:
+        value = stat.standardized_difference(col_series, _hue_series(df, hue), categorical=categorical)
+    except Exception:  # noqa: BLE001
+        return "Failed"
+    return "-" if not np.isfinite(value) else f"{value:.3f}"
+
+
+def _add_column_to_rows(
     all_rows: list[tuple[str, dict[str, str]]],
-    df: pl.DataFrame,
-    params: dict[str, TableOneParam],
-    hue: pl.Expr,
+    column: str,
+    values: dict[str, str],
 ) -> list[tuple[str, dict[str, str]]]:
-    """Attach a 'P value' column to header rows (row_name == param_name)."""
-    pvalues = {name: _compute_pvalue(df, param, hue) for name, param in params.items()}
+    """Attach ``column`` to header rows (row_name == param_name)."""
     return [
         (
             row_name,
-            (row_data | {"P value": pvalues[row_name]}) if row_name in pvalues else row_data,
+            (row_data | {column: values[row_name]}) if row_name in values else row_data,
         )
         for row_name, row_data in all_rows
     ]
@@ -714,8 +747,8 @@ def _format_table(rows: list[tuple[str, dict[str, str]]]) -> pl.DataFrame:
     # Sort hue keys ("All" first, then alphabetical), but always place "P value" last
     # when add_pvalue=True injected it.
     hue_keys = sorted(all_hue_keys, key=lambda x: (x != "All", x))
-    if "P value" in hue_keys:
-        hue_keys = [k for k in hue_keys if k != "P value"] + ["P value"]
+    trailing = [k for k in ("P value", "SMD") if k in hue_keys]
+    hue_keys = [k for k in hue_keys if k not in trailing] + trailing
 
     # Build DataFrame
     name_col = [name for name, _ in rows]
@@ -733,6 +766,7 @@ def tableone_raw(  # noqa: C901
     *,
     add_all: bool = False,
     add_pvalue: bool = False,
+    add_smd: bool = False,
 ) -> pl.DataFrame:
     """Table One generation for medical research studies.
 
@@ -754,6 +788,13 @@ def tableone_raw(  # noqa: C901
       add_all: bool = False
         If True and hue is specified, add an "All" column with overall statistics
         as the leftmost column. Has no effect when hue is None.
+      add_pvalue: bool = False
+        Add a "P value" column. ``statfunc=None`` picks Fisher for categories,
+        Kruskal–Wallis for median summaries, and ANOVA for other numbers.
+        Several hue columns are crossed into one set of groups.
+      add_smd: bool = False
+        Add an "SMD" column, the standardized mean difference as R tableone
+        reports it (the mean of the pairwise SMDs with more than two groups).
 
     Returns:
         Polars DataFrame with Table One format
@@ -799,9 +840,6 @@ def tableone_raw(  # noqa: C901
     normalized_params = _normalize_params(params)
     normalized_hue = _normalize_hue(hue)
 
-    if add_pvalue and normalized_hue is not None and len(normalized_hue) > 1:
-        raise NotImplementedError("P-value calculation for multiple hues is not implemented yet")
-
     # Compute aggregations for all parameters
     all_rows = []
 
@@ -837,9 +875,14 @@ def tableone_raw(  # noqa: C901
             rows = _compute_aggregation(df, param_name, param, normalized_hue)
             all_rows.extend(rows)
 
-    # Add p-values (hue must be specified and single)
+    # P values and SMDs compare the hue groups. Several hue columns are crossed,
+    # so the test compares the same groups as the table's columns.
     if add_pvalue and normalized_hue is not None:
-        all_rows = _add_pvalue_to_rows(all_rows, df, normalized_params, normalized_hue[0])
+        pvalues = {name: _compute_pvalue(df, param, normalized_hue) for name, param in normalized_params.items()}
+        all_rows = _add_column_to_rows(all_rows, "P value", pvalues)
+    if add_smd and normalized_hue is not None:
+        smds = {name: _compute_smd(df, param, normalized_hue) for name, param in normalized_params.items()}
+        all_rows = _add_column_to_rows(all_rows, "SMD", smds)
 
     # Format and return
     return _format_table(all_rows)
