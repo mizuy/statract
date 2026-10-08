@@ -78,6 +78,8 @@ nav:
       - Cost-effectiveness: cea/overview.md
   - Examples:
       - Gallery: examples/index.md
+      - Basic tests:
+          - 2 群 RCT の基本検定: examples/htest_licorice.md
       - Survival:
           - 生存曲線と Cox 回帰: examples/surv_colon.md
           - 競合リスク解析: examples/cif_pbc.md
