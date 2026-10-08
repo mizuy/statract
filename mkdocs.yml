@@ -111,6 +111,7 @@ nav:
               - mixed: api/models/mixed.md
               - regression: api/models/regression.md
               - confusion: api/models/confusion.md
+              - validation: api/models/validation.md
               - r: api/models/r.md
           - Figures:
               - forest: api/viz/forest.md

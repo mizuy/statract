@@ -40,8 +40,16 @@
 | 線形混合 | `lmer`。`(1 \| g)` または `(1 + x \| g)`、REML または ML | `fit_mixed`（既定 `engine="lme"` = lme-python 0.2.6） | fixture `lmm.json` 3 標本: coef rel 最大約 1.9×10⁻⁴。pytest は coef 5e-4、SE 1e-3、RE 1e-2、σ² 5e-4、loglik atol 1e-5。STAR 公開スライス（2026-10-04）では lme の coef rel 最大 1.18×10⁻³（変量傾き 10,000 行）、ML 1,000 行は 7.41×10⁻⁴。mixedlm-rs extra は変量切片で旧 1e-6 級に近い |
 | 二項 GLMM | `glmer(..., family=binomial)`。`(1 \| g)`、Laplace | `fit_mixed(..., family="binomial")` | fixture 未固定。indo n=602（2026-10-04）: インドメタシン OR rel 3.66×10⁻³（0.466 vs 0.464）、クラスタ分散 rel 1.44×10⁻³、loglik abs 2.14×10⁻³。固定効果の最大 rel は小さい係数 `sod_yes` で 0.115 |
 | Wilkinson 式 | `model.matrix`、`lm` | `model_matrix`、`fit_ols` | 設計行列、応答、`offset()`、`y ~ x * stage` と `log(y) ~ x` と `y ~ x + offset(z)` の係数と SE。fixture は `wilkinson.json` |
+| ロジスティックの内的妥当性 | `rms::validate.lrm`（`method="boot"`） | `validate_logistic` | Dxy、R2、Intercept、Slope、Emax、D、U、Q、B、g、gp の index.orig、training、test、optimism、index.corrected、n（rtol 1e-6）。同じ再標本を `indices=` で渡す |
+| ロジスティックの較正曲線 | `rms::calibrate`（`lrm`、lowess、既定の `predy`） | `calibrate_logistic`、図は `plot_calibration_curve` | apparent と bias-corrected の曲線（atol 1e-6）、平均絶対誤差、0.9 分位 |
+| Cox の内的妥当性 | `rms::validate.cph` | `validate_cox` | Dxy、R2、Slope、D、U、Q、g の各列（rtol 1e-6） |
+| Cox の較正 | `rms::calibrate.cph(cmethod="KM")`。`cph(..., surv=TRUE, time.inc=u)` | `calibrate_cox(..., u=, m=)` | 群ごとの予測生存、KM、KM.corrected、std.err、optimism（atol 1e-6） |
+| 一致指数 | `Hmisc::somers2`、`rms` の `dxy.cens` | `somers_dxy` | C と Dxy |
+| lowess | `stats::lowess` | `statract._lowess_r.lowess_r`（内部） | 既定（iter=3）、iter=0、f=0.2 と delta=0 の当てはめ |
 
 各行は 3 標本です。許容差はサンドイッチ共分散は rtol 1e-8、Newton 法の係数は rtol 1e-6、平滑化パラメータは rtol 1e-3、edf は rtol 1e-4、REML は atol 1e-6、p 値は atol 1e-6 です。マッチの組は完全一致です。加法モデルの範囲、thin plate、テンソル、共線性、最適マッチ、full matching は `gam_scope.json`、`collinearity.json`、`match_opt_full.json` の 1 標本です。重みと offset、テンソル交互作用は `gam_weight_ti.json`、条件付き推論木は `ctree.json` の 1 標本です。
+
+rms の行は `rms.json`（rms 6.7-1、R 4.3.3）です。再生成は `Rscript tests/r_oracle/scripts/rms.R` です。R の乱数は再現しないので、スクリプトは `set.seed` のあとの `sample(n, replace=TRUE)` を B 回くり返して再標本を作り、`predab.resample(debug=TRUE)` が表示する訓練標本の行と一致することを確かめてから書き出します。rms の `lrm.fit` は −2 log L の変化が 0.025 未満で、`cph` は相対変化 1e-4 で止まるので、`statract` も同じ手順で当てはめます。係数は `fit_glm` や `cox_ph` と小さな標本で 1e-4 程度ずれることがあります。`seed=` だけで呼ぶと numpy の乱数を使うので、値は R と一致しません。
 
 ガンマ GLM の対数尤度は statsmodels の密度を返すため、fixture の比較には入れていません。係数、SE、HC0 は比べています。
 
