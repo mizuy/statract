@@ -142,6 +142,7 @@ CURATED: dict[str, list[str]] = {
         "table1.csv",
         "table1_gt.md",
         "ctree.txt",
+        "figures/ctree.png",
         "ctree_tests.csv",
         "model_compare_val.csv",
         "figures/glm_full_forest.png",

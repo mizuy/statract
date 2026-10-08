@@ -189,7 +189,17 @@ ctree は各ノードで、予測因子と $Y$ の条件付き独立を並べ替
 
 ### 条件付き推論木（ctree、train）
 
-=== "木"
+=== "図"
+
+    ![ctree (train)](assets/pred_support/ctree.png)
+
+    partykit の `plot` と同じ配置です。楕円は分割変数と Šidák 調整後の p 値、枝は分割条件、下段は終端ノードの 180 日死亡割合（濃い色）です。
+
+    ```python
+    plot_tree(tree, out / "figures" / "ctree.png")
+    ```
+
+=== "テキスト"
 
     ```text
     --8<-- "examples/assets/pred_support/ctree.txt"
