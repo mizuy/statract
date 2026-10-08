@@ -107,8 +107,10 @@ nav:
               - surv: api/models/surv.md
               - matching: api/models/matching.md
               - gam: api/models/gam.md
+              - gamm: api/models/gamm.md
               - tree: api/models/tree.md
               - mixed: api/models/mixed.md
+              - impute: api/models/impute.md
               - regression: api/models/regression.md
               - confusion: api/models/confusion.md
               - r: api/models/r.md

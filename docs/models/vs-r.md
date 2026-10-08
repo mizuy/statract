@@ -2,7 +2,7 @@
 
 呼び方は Python の関数と列名です。同じ標本で R と数値が一致することを、`tests/r_oracle` の fixture で確認します。pytest の実行時に R は要りません。fixture の再生成は `Rscript tests/r_oracle/scripts/generate.R` です。
 
-使い方とモジュールの分け方は [Models](overview.md)、式の文法は [Wilkinson 式](formula.md) です。公開データでの秒数と最大誤差の一覧は [Benchmarks](benchmarks.md) です。ガウスの `lmer` は `fit_mixed`（既定エンジン lme-python）です。二項 `glmer` も同じ関数（`family="binomial"`）ですが、この表の fixture 許容差はまだガウス LMM だけです。
+使い方とモジュールの分け方は [Models](overview.md)、式の文法は [Wilkinson 式](formula.md) です。公開データでの秒数と最大誤差の一覧は [Benchmarks](benchmarks.md) です。ガウスの `lmer` は `fit_mixed`（既定エンジン lme-python）です。二項・ポアソン・負の二項の GLMM も同じ関数で、既定は自前の Laplace エンジンです。
 
 ## 役割の対応
 
@@ -20,10 +20,13 @@
 | log-rank | `survdiff` | `log_rank` | 層なし、rho = 0 のカイ二乗 |
 | Cox | `coxph(Surv(time, status) ~ x)`。既定の同順位は Efron | `cox_ph`。式は `Surv(time, status) ~ x`、列名も残す | Efron、Breslow、`strata` の係数、モデルベース SE、部分尤度 |
 | 条件付きロジスティック | `clogit`。既定は exact | `conditional_logit`。式は `y ~ x + strata(set)`、列名も残す | exact の係数、モデルベース SE、条件付き対数尤度。`method="efron"` は時間を 1 にした `cox_ph` |
-| 重み付き Cox | `coxph(..., weights=)` の Lin–Wei 分散 | `cox_ph(..., weights=)` | 係数、頑健 SE、部分尤度 |
+| 重み付き Cox | `coxph(..., weights=)`。整数でない重みは Lin–Wei 分散、整数の重みはモデルベース | `cox_ph(..., weights=)` | 係数、頑健 SE、部分尤度 |
+| Cox の推論 | `residuals.coxph`（7 種）、`cox.zph(transform="km")`、`concordance`、`basehaz(centered=FALSE)`、`predict(type="expected")` | `fit.residuals(kind=)`、`proportional_hazards_test`、`fit.concordance()`、`fit.baseline_hazard()`、`fit.predict(kind="expected")` | fixture `cox_inference.json`。同順位あり（Efron / Breslow）、層と重み、計数過程（クラスタありとなし）の 6 標本。残差 rtol 1e-6、`cox.zph` は項ごとのカイ二乗と自由度、C と SE |
+| Cox の多方向クラスタ頑健分散 | `sandwich::vcovCL(fit, cluster = ~ id_patient + e_examiner)`（HC0、`cadjust=TRUE`） | `cluster_covariance(cox_fit, ["id_patient", "e_examiner"], data=frame)` | fixture `cox_two_way.json` 8 例: 二元、HC1、`adjust=False`、一元、係数 1 個（vcovCL が落ちるので R 側は同じ包除を手で書き、他の例で vcovCL と一致を確認）、重みと層と Breslow、三元。共分散 rtol 1e-6 |
+| クラスタ頑健分散 | `coxph(..., cluster=id)`。計数過程 `Surv(start, stop, status)` を含む | `cox_ph(..., cluster=)` または式の `cluster(id)` | 頑健共分散 rtol 1e-6 |
 | 加速故障時間 | `survreg` | `accelerated_failure` | weibull、lognormal、exponential の係数、SE、対数尤度。尺度は `Log(scale)` |
 | Aalen–Johansen | `survfit(Surv(time, factor(event)) ~ 1)`。左切り捨ては `Surv(entry, time, factor(event))` | `survival_curve(..., kind="aalen_johansen", entry=)` | 累積発生、Aalen 型 SE、plain 区間 |
-| Fine–Gray | `finegray` のあと `coxph` | `fine_gray` のあと `cox_ph(..., entry=, weights=)` | 係数、モデルベース SE、部分尤度 |
+| Fine–Gray | `finegray` のあと `coxph` | `fine_gray` のあと `cox_ph(..., entry=, weights=)` | 係数、モデルベース SE と行ごとの頑健 SE（重みが整数でないので coxph の既定）、部分尤度 |
 | 最近傍（logit） | `matchit(..., distance="glm", link="logit", m.order="data")` | `match_sample(..., distance="logit", order="data")` | 組、x1 のマッチ後標準化差 |
 | 最近傍（マハラノビス） | `distance="mahalanobis"` | `distance="mahalanobis"` | `order="data"` の組 |
 | 完全一致、CEM | `method="exact"`、`method="cem"` | `method="exact"`、`method="cem"` | 重み |
@@ -38,7 +41,14 @@
 | 条件付き推論木 | `partykit::ctree`。二次形式、Šidák（`testtype="Bonferroni"`）、`minsplit=20`、`minbucket=7` | `conditional_tree` | 根の統計量と調整済み p 値、終端ノードの平均 |
 | 共線性 | `performance::check_collinearity` | `check_collinearity` | VIF、SE factor、許容度と区間 |
 | 線形混合 | `lmer`。`(1 \| g)` または `(1 + x \| g)`、REML または ML | `fit_mixed`（既定 `engine="lme"` = lme-python 0.2.6） | fixture `lmm.json` 3 標本: coef rel 最大約 1.9×10⁻⁴。pytest は coef 5e-4、SE 1e-3、RE 1e-2、σ² 5e-4、loglik atol 1e-5。STAR 公開スライス（2026-10-04）では lme の coef rel 最大 1.18×10⁻³（変量傾き 10,000 行）、ML 1,000 行は 7.41×10⁻⁴。mixedlm-rs extra は変量切片で旧 1e-6 級に近い |
-| 二項 GLMM | `glmer(..., family=binomial)`。`(1 \| g)`、Laplace | `fit_mixed(..., family="binomial")` | fixture 未固定。indo n=602（2026-10-04）: インドメタシン OR rel 3.66×10⁻³（0.466 vs 0.464）、クラスタ分散 rel 1.44×10⁻³、loglik abs 2.14×10⁻³。固定効果の最大 rel は小さい係数 `sod_yes` で 0.115 |
+| ポアソン GLMM | `glmmTMB(..., family=poisson)`、`glmer(..., family=poisson, nAGQ=9)`。`offset(log(years))`、`(1 \| g)` と `(1 + x \| g)` | `fit_mixed(..., family="poisson")`（`engine="laplace"`）、`n_agq=` | fixture `glmm_count.json` 3 標本。係数 rtol 1e-4 / atol 2e-5（glmmTMB は自分の許容差で止まるので、こちらの対数尤度は常に同じか高い）、SE rtol 1e-4、対数尤度 atol 1e-6、変量効果の分散 rtol 1e-3。求積は glmer と係数 rtol 1e-4 |
+| 負の二項 GLMM | `glmmTMB(..., family=nbinom2)` | `fit_mixed(..., family="negative_binomial")` | 同じ 3 標本で係数、SE、対数尤度、分散、`theta`（rtol 1e-4） |
+| 二項 GLMM | `glmmTMB(..., family=binomial)`、`glmer(..., family=binomial, nAGQ=9)`。`(1 \| g)` と `(1 + x \| g)` | `fit_mixed(..., family="binomial")`（`engine="laplace"`）、`n_agq=` | fixture `glmm_binary_zero.json` 3 標本（変量切片、変量傾き、2〜3 行の小さいクラスタ多数）。許容差はポアソン GLMM と同じ。求積は glmer と係数 rtol 1e-4、分散 rtol 1e-3。fixture `glmm_binary_glmer.json`: glmer の Laplace と `nAGQ=25` で係数、SE、対数尤度、分散、MOR、`predict(re.form=NA)` の参照行。glmer は既定の `tolPwrss=1e-7` だと Laplace の対数尤度が約 1e-4 ずれるので、`tolPwrss=1e-13` の glmer とは係数 rtol 2e-6、SE rtol 2e-5、既定の glmer とは係数 rtol 1e-3、SE rtol 1e-2 |
+| 交差変量切片と ar1 | `glmmTMB(y ~ x + (1 \| id_patient) + (1 \| e_examiner))`、`ar1(year + 0 \| e_examiner)`。nbinom2、poisson、binomial | `fit_mixed(..., "... + (1 \| id_patient) + ar1(year + 0 \| e_examiner)")` | fixture `glmm_crossed.json` 5 例（990 行、患者 300 × 検査医 30 × 6 年）。係数 rtol 1e-4、SE rtol 1e-4、対数尤度 atol 1e-6、分散 rtol 1e-3、`rho` atol 1e-4、BLUP atol 1e-4。実測の差はどれも約 1e-6。二項の ar1 は rho = 1 の境界で、SE rtol 1e-3 |
+| 平滑 + 変量切片 | `gamm4(y ~ s(x), random = ~(1 \| examiner))`、binomial / poisson、`tp` と `cr` | `gamm(frame, "y", [smooth("x", basis="tp")], random="(1 \| examiner)")` | fixture `gamm4.json` 6 例。係数 atol 3e-5、検査医の分散と MOR rtol 1e-4、平滑の値と線形予測 atol 3e-5、BLUP atol 1e-4。SE と edf は gamm4 の式を pivot なしの Cholesky で計算した値と rtol 1e-4。gamm4 0.2-6 は Matrix 1.6 以降で `chol(V, pivot = TRUE)` の置換を読めず、報告する edf と SE が約 1% ずれるため |
+| ゼロ過剰 GLMM | `glmmTMB(..., ziformula = ~1 / ~z)`。poisson、nbinom2 | `fit_mixed(..., zero_inflation=True / ["z"])` | 同じ fixture の 3 例。係数、SE、対数尤度、分散、`theta`、ゼロ部分の係数と SE（rtol 1e-4） |
+| ハードル GLMM | `glmmTMB(..., family=truncated_poisson / truncated_nbinom2, ziformula = ~z)` | `fit_mixed(..., hurdle=True)` | 同じ fixture の 2 例。量は上と同じ |
+| 多重代入の統合 | `mice::pool`、`summary(pool(...), conf.int = TRUE)` | `pool`、`MultipleImputation.pool` | fixture `mice_pool.json`。mice（m=5、pmm / logreg / polyreg）で埋めた同じ 5 データに lm、ロジスティック glm、coxph を当て、推定値、ubar、b、t、Barnard–Rubin 自由度、riv、λ、fmi、SE、p 値、区間（rtol 1e-6）と `dfcom` |
 | Wilkinson 式 | `model.matrix`、`lm` | `model_matrix`、`fit_ols` | 設計行列、応答、`offset()`、`y ~ x * stage` と `log(y) ~ x` と `y ~ x + offset(z)` の係数と SE。fixture は `wilkinson.json` |
 
 各行は 3 標本です。許容差はサンドイッチ共分散は rtol 1e-8、Newton 法の係数は rtol 1e-6、平滑化パラメータは rtol 1e-3、edf は rtol 1e-4、REML は atol 1e-6、p 値は atol 1e-6 です。マッチの組は完全一致です。加法モデルの範囲、thin plate、テンソル、共線性、最適マッチ、full matching は `gam_scope.json`、`collinearity.json`、`match_opt_full.json` の 1 標本です。重みと offset、テンソル交互作用は `gam_weight_ti.json`、条件付き推論木は `ctree.json` の 1 標本です。
@@ -47,15 +57,14 @@
 
 ## 呼び出せるが、fixture ではまだ固定していないもの
 
-- Cox の比例ハザード検定、残差、一致指数、ベースライン累積ハザード
 - ユークリッド、尺度つきユークリッド、ロバスト・マハラノビスの最近傍（実装は MatchIt の組と合わせてある。コミットした JSON はマハラノビス）
 - 区間分割 `split_follow_up`
 - ブートストラップ共分散（乱数生成器が R と違う）
+- `impute_chained` の埋めた値（乱数生成器が R と違う。テストは型、観測値の保存、MAR での推定値の回復を見る）
 
 ## この版の対象外
 
 - クラスタ頑健分散の HC2 / HC3
-- 計数過程（`entry` がある）Cox の頑健分散。Fine–Gray の SE はモデルベースです
 
 ## 既存の名前
 

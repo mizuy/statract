@@ -21,6 +21,8 @@ from statract.agg import (
 )
 from great_tables import GT
 
+from statract.stat import stat_anova, stat_fisher, stat_kruskal, standardized_difference
+
 
 class TestTableOneParam:
     """Test TableOneParam type."""
@@ -571,8 +573,75 @@ class TestTableOnePValue:
         result = tableone_raw(df, params, hue="group", add_pvalue=True)
         assert result.filter(pl.col("name") == "Age")["P value"][0] != "-"
 
-    def test_tableone_add_pvalue_multi_hue_not_supported(self):
-        df = pl.DataFrame({"g1": ["A", "B"], "g2": ["X", "Y"], "age": [10, 20]})
+    def test_tableone_add_pvalue_multi_hue_crosses_the_groups(self):
+        df = pl.DataFrame(
+            {
+                "g1": ["A", "A", "A", "B", "B", "B"] * 2,
+                "g2": ["X", "Y"] * 6,
+                "age": [10.0, 30.0, 11.0, 31.0, 12.0, 33.0, 13.0, 29.0, 10.5, 30.5, 12.5, 32.0],
+            }
+        )
         params = {"Age": ("age", agg_mean_sd, None)}
-        with pytest.raises(NotImplementedError):
-            tableone_raw(df, params, hue=["g1", "g2"], add_pvalue=True)
+        result = tableone_raw(df, params, hue=["g1", "g2"], add_pvalue=True)
+        assert [c for c in result.columns if "/" in c] == ["A / X", "A / Y", "B / X", "B / Y"]
+        groups = df.select(pl.concat_str([pl.col("g1"), pl.col("g2")], separator=" / ")).to_series()
+        assert result.filter(pl.col("name") == "Age")["P value"][0] == stat_anova(df["age"], groups)
+
+    def test_tableone_median_summary_gets_a_rank_test(self):
+        df = pl.DataFrame({"group": ["A"] * 5 + ["B"] * 5, "los": [1, 2, 2, 3, 40, 5, 6, 7, 8, 9]})
+        median = tableone_raw(df, {"LOS": ("los", agg_median_range, None)}, hue="group", add_pvalue=True)
+        mean = tableone_raw(df, {"LOS": ("los", agg_mean_sd, None)}, hue="group", add_pvalue=True)
+        assert median["P value"][0] == stat_kruskal(df["los"], df["group"])
+        assert mean["P value"][0] == stat_anova(df["los"], df["group"])
+        named = tableone_raw(df, {"LOS": ("los", agg_mean_sd, "kruskal")}, hue="group", add_pvalue=True)
+        assert named["P value"][0] == median["P value"][0]
+
+    def test_fisher_on_a_larger_table_is_reproducible(self):
+        df = pl.DataFrame(
+            {"g": ["A", "B", "C"] * 10, "c": ["u", "v", "w", "w", "v"] * 6},
+        )
+        first = stat_fisher(df["c"], df["g"])
+        assert all(stat_fisher(df["c"], df["g"]) == first for _ in range(3))
+
+
+class TestTableOneSMD:
+    """Standardized mean differences, as R tableone reports them."""
+
+    def test_numeric_and_categorical_smd(self):
+        df = pl.DataFrame(
+            {
+                "group": ["A"] * 4 + ["B"] * 4,
+                "age": [10.0, 12.0, 14.0, 16.0, 13.0, 15.0, 17.0, 19.0],
+                "sex": ["M", "M", "F", "F", "M", "F", "F", "F"],
+            }
+        )
+        result = tableone_raw(
+            df,
+            {"Age": ("age", agg_mean_sd, None), "Sex": ("sex", agg_category_n, None)},
+            hue="group",
+            add_pvalue=True,
+            add_smd=True,
+        )
+        assert result.columns[-2:] == ["P value", "SMD"]
+        # |13 - 16| / sqrt((sd^2 + sd^2) / 2) with sd^2 = 20 / 3 in both groups
+        assert result.filter(pl.col("name") == "Age")["SMD"][0] == f"{3 / (20 / 3) ** 0.5:.3f}"
+        # Binary: |0.5 - 0.25| / sqrt((0.25 + 0.1875) / 2)
+        assert result.filter(pl.col("name") == "Sex")["SMD"][0] == f"{0.25 / ((0.25 + 0.1875) / 2) ** 0.5:.3f}"
+        sub = result.filter(pl.col("name").str.starts_with("  "))
+        assert all(v == "" for v in sub["SMD"].to_list())
+
+    def test_smd_averages_pairs_with_three_groups(self):
+        values = pl.Series([1.0, 2.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0])
+        groups = pl.Series(["a"] * 3 + ["b"] * 3 + ["c"] * 3)
+        pairs = [
+            standardized_difference(values.filter(groups.is_in(pair)), groups.filter(groups.is_in(pair)))
+            for pair in (["a", "b"], ["a", "c"], ["b", "c"])
+        ]
+        assert standardized_difference(values, groups) == pytest.approx(sum(pairs) / 3)
+        assert pairs[0] == pytest.approx(1.0)
+
+    def test_multinomial_smd_does_not_depend_on_the_dropped_level(self):
+        x = pl.Series(["u", "v", "w", "w", "v", "u", "u", "w", "v", "v"])
+        g = pl.Series(["A"] * 5 + ["B"] * 5)
+        y = x.replace({"u": "z"})
+        assert standardized_difference(x, g) == pytest.approx(standardized_difference(y, g))

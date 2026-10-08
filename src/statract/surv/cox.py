@@ -71,17 +71,30 @@ class CoxFit:
         self._baseline_pending = None
 
     def baseline_hazard(self) -> pl.DataFrame:
-        """Cumulative baseline hazard, matching ``basehaz(centered=FALSE)``."""
+        """Cumulative baseline hazard, matching ``basehaz(centered=FALSE)``.
+
+        One row per distinct follow-up time in each stratum, censored times
+        included, so the hazard is flat between deaths.
+        """
         self._ensure_baseline()
-        hazard = np.zeros_like(self.baseline_hazard_values)
-        for stratum in np.unique(self.baseline_strata):
+        times: list[np.ndarray] = []
+        hazards: list[np.ndarray] = []
+        labels: list[np.ndarray] = []
+        for stratum in np.unique(self.strata):
             sel = np.flatnonzero(self.baseline_strata == stratum)
-            hazard[sel] = np.cumsum(self.baseline_hazard_values[sel])
+            event_times = self.baseline_time[sel].astype(float)
+            cumulative = np.cumsum(self.baseline_hazard_values[sel])
+            grid = np.unique(self.time[self.strata == stratum])
+            at = np.searchsorted(event_times, grid, side="right")
+            hazard = np.where(at > 0, np.concatenate([[0.0], cumulative])[at], 0.0)
+            times.append(grid)
+            hazards.append(hazard)
+            labels.append(np.full(len(grid), stratum, dtype=object))
         return pl.DataFrame(
             {
-                "time": self.baseline_time,
-                "hazard": hazard,
-                "stratum": self.baseline_strata.astype(str),
+                "time": np.concatenate(times) if times else np.zeros(0),
+                "hazard": np.concatenate(hazards) if hazards else np.zeros(0),
+                "stratum": np.concatenate(labels).astype(str) if labels else np.zeros(0, dtype=str),
             }
         )
 
@@ -108,8 +121,13 @@ class CoxFit:
             return lp
         if kind == "risk":
             return np.exp(lp)
+        if data is None and times is None:
+            # predict.coxph: the fitted expected count is status minus the
+            # martingale residual, which carries the Efron tie correction.
+            expected = self.event.astype(float) - _martingale_residuals(self)
+            return expected if kind == "expected" else np.exp(-expected)
         if data is None:
-            time = self.time
+            time = np.asarray(times, dtype=float)
             strata = self.strata
             entry = self.entry
         else:
@@ -170,20 +188,46 @@ class CoxFit:
         return schoenfeld @ naive * ndead + self.coefficients
 
     def concordance(self) -> pl.DataFrame:
-        """Harrell's C and its standard error, within strata."""
+        """Harrell's C and its standard error, matching ``concordance(coxph)``.
+
+        Pairs are compared within strata and pooled. Counting-process rows are
+        compared at each death time among the rows at risk then. The standard
+        error is the infinitesimal jackknife, summed by cluster when the fit
+        has one.
+        """
         lp = self.x @ self.coefficients + self.offset
+        counting = not bool(np.all(self.entry == 0))
         concordant = discordant = tied = 0.0
-        influence = np.zeros(self.n_obs)
+        inf_c = np.zeros(self.n_obs)
+        inf_d = np.zeros(self.n_obs)
+        inf_t = np.zeros(self.n_obs)
         for stratum in np.unique(self.strata):
             idx = np.flatnonzero(self.strata == stratum)
-            c, d, t, inf = _concordance_pairs(self.time[idx], self.event[idx].astype(float), lp[idx], self.weights[idx])
+            c, d, t, ic, idd, it = _concordance_counts(
+                np.ascontiguousarray(self.time[idx], dtype=np.float64),
+                np.ascontiguousarray(self.entry[idx], dtype=np.float64),
+                np.ascontiguousarray(self.event[idx], dtype=np.float64),
+                np.ascontiguousarray(lp[idx], dtype=np.float64),
+                np.ascontiguousarray(self.weights[idx], dtype=np.float64),
+                counting,
+            )
             concordant += c
             discordant += d
             tied += t
-            influence[idx] = inf
+            inf_c[idx] = ic
+            inf_d[idx] = idd
+            inf_t[idx] = it
         usable = concordant + discordant + tied
         c_index = (concordant + 0.5 * tied) / usable if usable else float("nan")
-        # infinitesimal jackknife on the C numerator/denominator
+        if usable:
+            somer = (concordant - discordant) / usable
+            influence = ((inf_c - inf_d) - (inf_c + inf_d + inf_t) * somer) * self.weights / (2 * usable)
+        else:
+            influence = np.zeros(self.n_obs)
+        cluster = getattr(self, "_cluster", None)
+        if cluster is not None:
+            _, inverse = np.unique(cluster, return_inverse=True)
+            influence = np.bincount(inverse, weights=influence)
         se = float(np.sqrt(np.sum(influence**2)))
         return pl.DataFrame(
             {
@@ -334,17 +378,18 @@ def cox_ph(
         converged=converged,
     )
     fit._baseline_pending = (design.x, beta, time_a, event_a, weight_a, offset_a, entry_a, strata_a, ties)
-    # Score residuals used for the Lin–Wei variance are for right-censored data.
-    # Counting-process fits keep the model-based covariance, which matches naive.var.
-    ordinary = bool(np.all(entry_a == 0))
+    # survival::coxph uses the Lin–Wei variance with a cluster, or with case
+    # weights that are not all whole numbers (one cluster per row). Integer
+    # weights count as frequency weights and keep the model-based covariance.
     robust_labels = None
-    if ordinary and formula_cluster is not None:
-        robust_labels = formula_cluster
-    elif ordinary and cluster is not None:
+    if formula_cluster is not None:
+        robust_labels = np.asarray(formula_cluster)
+    elif cluster is not None:
         robust_labels = np.asarray(column_series(data, cluster).gather(design.row_index.tolist()).to_list())
-    elif ordinary and weights is not None:
-        # survival::coxph uses the Lin–Wei variance when case weights are present.
+    elif weights is not None and bool(np.any(weight_a != np.floor(weight_a))):
         robust_labels = np.arange(design.n_obs)
+    explicit_cluster = formula_cluster is not None or cluster is not None
+    fit._cluster = robust_labels if explicit_cluster else None
     if robust_labels is not None:
         scores = fit.score_contributions() * weight_a[:, None]
         _, inverse = np.unique(robust_labels, return_inverse=True)
@@ -369,18 +414,41 @@ def proportional_hazards_test(fit: CoxFit, *, time_transform: str = "kaplan_meie
     u, imat = _zph_score(fit, g)
     p = len(fit.names)
     rows = []
-    for j, name in enumerate(fit.names):
-        idx = list(range(p)) + [p + j]
+    # One row per model term, as cox.zph(terms=TRUE): a factor's columns are tested jointly.
+    for term, cols in _term_columns(fit.design, fit.names):
+        idx = list(range(p)) + [p + j for j in cols]
         block = imat[np.ix_(idx, idx)]
-        score = np.zeros(p + 1)
-        score[-1] = u[p + j]
+        score = np.zeros(len(idx))
+        score[p:] = u[[p + j for j in cols]]
         stat = float(score @ np.linalg.solve(block, score))
-        rows.append({"term": name, "statistic": stat, "df": 1.0, "p_value": float(stats.chi2.sf(stat, 1))})
+        df = float(len(cols))
+        rows.append({"term": term, "statistic": stat, "df": df, "p_value": float(stats.chi2.sf(stat, df))})
     score = np.zeros(2 * p)
     score[p:] = u[p:]
     stat = float(score @ np.linalg.solve(imat, score))
     rows.append({"term": "global", "statistic": stat, "df": float(p), "p_value": float(stats.chi2.sf(stat, p))})
     return pl.DataFrame(rows)
+
+
+def _term_columns(design: Design, names: list[str]) -> list[tuple[str, list[int]]]:
+    """Group design columns by model term (``stage`` for ``stageII`` and ``stageIII``)."""
+    labels: list[str] = []
+    if design.recipes is not None:
+        recipes = [r for r, name in zip(design.recipes, design.names, strict=False) if name in names]
+        labels = [":".join(var for var, _level in recipe) or name for recipe, name in zip(recipes, names, strict=False)]
+    else:
+        lookup = {}
+        for spec in design.predictors:
+            if spec.kind == "factor":
+                for level in spec.levels:
+                    lookup[f"{spec.name}{level}"] = spec.name
+            else:
+                lookup[spec.name] = spec.name
+        labels = [lookup.get(name, name) for name in names]
+    groups: dict[str, list[int]] = {}
+    for j, label in enumerate(labels):
+        groups.setdefault(label, []).append(j)
+    return list(groups.items())
 
 
 def _newton(x, time, event, weights, offset, entry, strata, ties):
@@ -1228,8 +1296,12 @@ def _score_ordered(x, event, weights, score, time, efron, resid):
 
 
 @njit(cache=True)
-def _concordance_counts(time, event, lp, weights):
-    """Harrell pair counts and per-row influence, in index order."""
+def _concordance_counts(time, entry, event, lp, weights, counting):
+    """Harrell pair counts and per-row influence, in index order.
+
+    With ``counting``, row ``j`` is compared with a death at ``t`` only when it
+    is at risk then (``entry[j] < t``).
+    """
     n = time.shape[0]
     concordant = 0.0
     discordant = 0.0
@@ -1251,6 +1323,8 @@ def _concordance_counts(time, event, lp, weights):
         for j in range(n):
             same = time[j] == time[i]
             if not ((time[j] > time[i]) or (same and event[j] <= 0.0)):
+                continue
+            if counting and not entry[j] < time[i]:
                 continue
             any_comp = True
             diff = lp[i] - lp[j]
@@ -1349,6 +1423,114 @@ def _zph_ordered(x, event, weights, eta, time, g, efron, u, imat):
                 _zph_add(u, imat, a, cmat, denom, wtave, timewt)
 
 
+@njit(cache=True)
+def _score_counting(x, time, entry, event, weights, score, death_times, efron, resid):
+    """Score residuals for (entry, time] rows in one stratum (``agscore3``)."""
+    m, p = x.shape
+    s1 = np.zeros(p)
+    d1 = np.zeros(p)
+    for t_i in range(death_times.shape[0]):
+        tm = death_times[t_i]
+        s0 = 0.0
+        d0 = 0.0
+        d = 0
+        wtsum = 0.0
+        s1[:] = 0.0
+        d1[:] = 0.0
+        for k in range(m):
+            if not (entry[k] < tm and time[k] >= tm):
+                continue
+            risk = score[k] * weights[k]
+            s0 += risk
+            for col in range(p):
+                s1[col] += risk * x[k, col]
+            if time[k] == tm and event[k] > 0.0:
+                d += 1
+                wtsum += weights[k]
+                d0 += risk
+                for col in range(p):
+                    d1[col] += risk * x[k, col]
+        if d == 0 or s0 <= 0.0:
+            continue
+        width = float(d) if efron else 1.0
+        steps = d if efron else 1
+        wtave = wtsum / width
+        for step in range(steps):
+            frac = step / width if efron else 0.0
+            denom = s0 - frac * d0
+            hazard = wtave / denom
+            for k in range(m):
+                if not (entry[k] < tm and time[k] >= tm):
+                    continue
+                dead = time[k] == tm and event[k] > 0.0
+                down = (1.0 - frac) if dead else 1.0
+                for col in range(p):
+                    xbar = (s1[col] - frac * d1[col]) / denom
+                    resid[k, col] -= score[k] * down * hazard * (x[k, col] - xbar)
+                    if dead:
+                        resid[k, col] += (x[k, col] - xbar) / width
+
+
+@njit(cache=True)
+def _zph_counting(x, time, entry, event, weights, eta, g_death, death_times, efron, u, imat):
+    """``cox.zph`` score and information for (entry, time] rows in one stratum."""
+    m, p = x.shape
+    a = np.zeros(p)
+    cmat = np.zeros((p, p))
+    a2 = np.zeros(p)
+    cmat2 = np.zeros((p, p))
+    for t_i in range(death_times.shape[0]):
+        tm = death_times[t_i]
+        timewt = g_death[t_i]
+        denom = 0.0
+        denom2 = 0.0
+        a[:] = 0.0
+        a2[:] = 0.0
+        cmat[:, :] = 0.0
+        cmat2[:, :] = 0.0
+        ndead = 0
+        deadwt = 0.0
+        for k in range(m):
+            if not (entry[k] < tm and time[k] >= tm):
+                continue
+            risk = np.exp(eta[k]) * weights[k]
+            if time[k] == tm and event[k] > 0.0:
+                ndead += 1
+                deadwt += weights[k]
+                denom2 += risk
+                for col in range(p):
+                    u[col] += weights[k] * x[k, col]
+                    u[p + col] += timewt * weights[k] * x[k, col]
+                    a2[col] += risk * x[k, col]
+                    for j in range(p):
+                        cmat2[col, j] += risk * x[k, col] * x[k, j]
+            else:
+                denom += risk
+                for col in range(p):
+                    a[col] += risk * x[k, col]
+                    for j in range(p):
+                        cmat[col, j] += risk * x[k, col] * x[k, j]
+        if ndead == 0:
+            continue
+        if not efron:
+            denom += denom2
+            for col in range(p):
+                a[col] += a2[col]
+                for j in range(p):
+                    cmat[col, j] += cmat2[col, j]
+            _zph_add(u, imat, a, cmat, denom, deadwt, timewt)
+        else:
+            width = float(ndead)
+            wtave = deadwt / width
+            for _step in range(ndead):
+                denom += denom2 / width
+                for col in range(p):
+                    a[col] += a2[col] / width
+                    for j in range(p):
+                        cmat[col, j] += cmat2[col, j] / width
+                _zph_add(u, imat, a, cmat, denom, wtave, timewt)
+
+
 def _martingale_residuals(fit: CoxFit) -> np.ndarray:
     """Martingale residuals from ``agmart3``: status minus score times exposed hazard."""
     score = np.exp(fit.x @ fit.coefficients + fit.offset)
@@ -1386,6 +1568,23 @@ def _score_residuals(fit: CoxFit) -> np.ndarray:
     efron = fit.ties == "efron"
     for stratum in np.unique(fit.strata):
         idx = np.flatnonzero(fit.strata == stratum)
+        if not bool(np.all(fit.entry[idx] == 0.0)):
+            block = np.zeros((len(idx), p))
+            time = np.ascontiguousarray(fit.time[idx], dtype=np.float64)
+            event = np.ascontiguousarray(fit.event[idx], dtype=np.float64)
+            _score_counting(
+                np.ascontiguousarray(fit.x[idx], dtype=np.float64),
+                time,
+                np.ascontiguousarray(fit.entry[idx], dtype=np.float64),
+                event,
+                np.ascontiguousarray(fit.weights[idx], dtype=np.float64),
+                np.ascontiguousarray(score[idx], dtype=np.float64),
+                np.ascontiguousarray(np.unique(time[event > 0.0]), dtype=np.float64),
+                efron,
+                block,
+            )
+            resid[idx] = block
+            continue
         local = np.lexsort((-fit.event[idx], fit.time[idx]))
         ix = idx[local]
         block = np.zeros((len(ix), p))
@@ -1470,27 +1669,6 @@ def _time_transform(fit: CoxFit, times: np.ndarray, name: str) -> np.ndarray:
     raise ValueError("time_transform must be kaplan_meier, rank, identity, or log")
 
 
-def _concordance_pairs(time, event, lp, weights):
-    """Harrell pairs as in ``concordance.coxph`` with ``timewt="n"``.
-
-    A censoring at the same time as a death stays in the comparison set.
-    Deaths at the same time are time-ties and are left out of C.
-    """
-    time = np.ascontiguousarray(time, dtype=np.float64)
-    event = np.ascontiguousarray(event, dtype=np.float64)
-    lp = np.ascontiguousarray(lp, dtype=np.float64)
-    weights = np.ascontiguousarray(weights, dtype=np.float64)
-    n = len(time)
-    concordant, discordant, tied, inf_c, inf_d, inf_t = _concordance_counts(time, event, lp, weights)
-    usable = concordant + discordant + tied
-    if usable == 0:
-        return concordant, discordant, tied, np.zeros(n)
-    somer = (concordant - discordant) / usable
-    # concordancefit dfbeta, with the coxph reverse already applied to the counts.
-    dfbeta = ((inf_c - inf_d) - (inf_c + inf_d + inf_t) * somer) * weights / (2 * usable)
-    return concordant, discordant, tied, dfbeta
-
-
 def _centered_time_weights(fit: CoxFit, name: str) -> np.ndarray:
     """Per-row g(t), centered by the mean over events, as in ``cox.zph``."""
     times = fit.time.astype(float)
@@ -1501,15 +1679,33 @@ def _centered_time_weights(fit: CoxFit, name: str) -> np.ndarray:
     elif name == "log":
         g = np.log(times)
     elif name == "kaplan_meier":
-        g = _kaplan_meier_transform(fit.time, fit.event > 0)
+        g = _kaplan_meier_transform(fit.time, fit.event > 0, fit.entry)
     else:
         raise ValueError("time_transform must be kaplan_meier, rank, identity, or log")
     event = fit.event > 0
     return g - float(g[event].mean())
 
 
-def _kaplan_meier_transform(time: np.ndarray, event: np.ndarray) -> np.ndarray:
-    """``1 - S(t-)`` from the pooled Kaplan–Meier, matching ``cox.zph(transform="km")``."""
+def _kaplan_meier_transform(time: np.ndarray, event: np.ndarray, entry: np.ndarray | None = None) -> np.ndarray:
+    """``1 - S(t-)`` from the pooled Kaplan–Meier, matching ``cox.zph(transform="km")``.
+
+    Counting-process rows are at risk on ``(entry, time]``.
+    """
+    if entry is not None and not bool(np.all(entry == 0)):
+        utimes = np.unique(time)
+        sorted_time = np.sort(time)
+        sorted_entry = np.sort(entry)
+        before_map: dict[float, float] = {}
+        survival = 1.0
+        for tm in utimes:
+            before_map[float(tm)] = 1.0 - survival
+            risk = (len(time) - np.searchsorted(sorted_time, tm, side="left")) - (
+                len(entry) - np.searchsorted(sorted_entry, tm, side="left")
+            )
+            deaths = int(np.sum((time == tm) & event))
+            if risk > 0:
+                survival *= 1.0 - deaths / risk
+        return np.array([before_map[float(tm)] for tm in time])
     order = np.argsort(time, kind="mergesort")
     t = time[order]
     e = event[order]
@@ -1542,6 +1738,24 @@ def _zph_score(fit: CoxFit, g: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     efron = fit.ties != "breslow"
     for stratum in np.unique(fit.strata):
         idx = np.flatnonzero(fit.strata == stratum)
+        if not bool(np.all(fit.entry[idx] == 0.0)):
+            time = fit.time[idx]
+            dead = fit.event[idx] > 0
+            death_times, first = np.unique(time[dead], return_index=True)
+            _zph_counting(
+                np.ascontiguousarray(x[idx], dtype=np.float64),
+                np.ascontiguousarray(time, dtype=np.float64),
+                np.ascontiguousarray(fit.entry[idx], dtype=np.float64),
+                np.ascontiguousarray(fit.event[idx], dtype=np.float64),
+                np.ascontiguousarray(fit.weights[idx], dtype=np.float64),
+                np.ascontiguousarray(eta[idx], dtype=np.float64),
+                np.ascontiguousarray(g[idx][dead][first], dtype=np.float64),
+                np.ascontiguousarray(death_times, dtype=np.float64),
+                efron,
+                u,
+                imat,
+            )
+            continue
         order = np.argsort(fit.time[idx], kind="mergesort")
         ix = idx[order]
         _zph_ordered(

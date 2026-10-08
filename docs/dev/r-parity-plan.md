@@ -291,6 +291,12 @@ src/endolab/stat/
 
 ガウスの変量切片と変量傾きは `fit_mixed` が mixedlm-rs を呼ぶ。比べる相手は `lme4::lmer` の REML / ML で、fixture は `tests/r_oracle/fixtures/lmm.json` です。mixedlm-rs と pandas は関数の中で import する。二項・ポアソンの GLMM と glmmTMB は、積分と分散モデルが別問題なので、まだ入れていません。
 
+**追記（2026-10-07）:** ポアソンと負の二項（`nbinom2`）の GLMM は自前の Laplace 近似（`statract/_laplace.py`）で入れた。固定効果、変量効果の Cholesky 因子、`log(theta)` をまとめて最適化し、条件付きモードはグループごとの Newton で解く。分散は全パラメータの Hessian の逆行列から取る。比べる相手は glmmTMB で、fixture は `tests/r_oracle/fixtures/glmm_count.json` です。変量切片 1 本なら適応的 Gauss–Hermite（`n_agq`）も使え、`glmer(nAGQ=)` と合わせる。
+
+**追記（2026-10-07、続き）:** 同じエンジンに二項（logit）を載せ、`family="binomial"` の既定エンジンを lme-python から Laplace に変えた。ゼロ過剰（`ziformula`）とハードル（切断ポアソン / 切断 nbinom2）も入れた。ゼロ部分は固定効果だけ。fixture は `glmm_binary_zero.json`。多重代入は `statract/impute.py`（MICE と Rubin のルール）で、`mice::pool` と `mice_pool.json` で比べる。
+
+**追記（2026-10-08）:** 複数の変量効果項（交差、入れ子）と glmmTMB の `ar1(time + 0 | g)` を Laplace エンジンに足した（`fit_laplace_terms`）。条件付きモードは全項まとめた疎な Newton 法で、一番大きい項のブロックを消去し、残りの Schur 補行列を密な Cholesky で解く。比べる相手は glmmTMB で、fixture は `glmm_crossed.json`。二項 glmer は `glmm_binary_glmer.json`（Laplace、`nAGQ=25`、MOR、参照行の予測）で固定した。glmer は既定の `tolPwrss=1e-7` だと Laplace の目的関数が約 1e-4 ずれる。Cox の多方向クラスタ頑健分散は `cluster_covariance` が `vcovCL` と一致する（`cox_two_way.json`）。`gamm`（`statract/gamm.py`）は gamm4 と同じ混合モデル形を同じ Laplace エンジンで解く。fixture は `gamm4.json`。gamm4 0.2-6 は Matrix 1.6 以降で Vp の Cholesky の置換を落とすので、SE と edf は置換を正しく扱った値と比べる。
+
 lme4 と glmmTMB を自前で書くときの判断は残しています。
 
 - 線形混合（lme4 の `lmer`）はプロファイル REML / ML。θ を固定すると β と σ は罰則付き最小二乗で閉じる。Laplace 近似ではない。
