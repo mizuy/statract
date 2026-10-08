@@ -82,6 +82,10 @@ class _Problem:
             self.gh_logw = np.log(weights) + nodes**2
 
     # parameters -------------------------------------------------------
+    def cov_start(self):
+        """Start the random-effect SDs at one, uncorrelated."""
+        return np.zeros(self.n_l)
+
     def unpack(self, phi):
         beta = phi[: self.p]
         lpar = phi[self.p : self.p + self.n_l]
@@ -378,7 +382,7 @@ def _start(prob):
     zero, family = prob.zero, prob.family
     fit_rows = prob.y > 0 if zero == "hurdle" else np.ones(prob.n, dtype=bool)
     beta0 = _glm_start(prob.y[fit_rows], prob.x[fit_rows], prob.offset[fit_rows], family)
-    phi0 = np.concatenate([beta0, np.zeros(prob.n_l)])
+    phi0 = np.concatenate([beta0, prob.cov_start()])
     if family == "negative_binomial":
         mu = np.exp(prob.x @ beta0 + prob.offset)
         extra = float(np.mean((prob.y - mu) ** 2 - mu))
@@ -456,7 +460,7 @@ def fit_count_glmm(y, x, z, group, offset, *, family: str, n_agq: int = 1) -> La
 # from a joint Newton solve on the sparse system A' W A + I, as in lme4's
 # PIRLS and TMB's sparse Laplace.
 
-STRUCTURES = ("us", "ar1")
+STRUCTURES = ("us", "ar1", "iid")
 # Largest Schur complement (in random effects outside the biggest term) that
 # is factored densely; beyond it the whole system goes to sparse LU.
 _SCHUR_MAX = 3000
@@ -466,9 +470,10 @@ _SCHUR_MAX = 3000
 class RandomTerm:
     """One random-effect term: ``z`` columns within the levels of ``group``.
 
-    ``structure`` is ``"us"`` (unstructured, a Cholesky factor) or ``"ar1"``
+    ``structure`` is ``"us"`` (unstructured, a Cholesky factor), ``"ar1"``
     (``sigma^2 rho^|i - j|`` over the ``z`` columns, which are the levels of
-    a time factor in order, as glmmTMB's ``ar1(time + 0 | group)``).
+    a time factor in order, as glmmTMB's ``ar1(time + 0 | group)``), or
+    ``"iid"`` (``sigma^2 I``, the mixed-model form of a penalized smooth).
     """
 
     z: np.ndarray
@@ -482,15 +487,19 @@ class RandomTerm:
 
     @property
     def n_par(self) -> int:
+        if self.structure == "iid":
+            return 1
         return 2 if self.structure == "ar1" else self.q * (self.q + 1) // 2
 
     @property
     def sd_slots(self) -> list[int]:
         """Positions of the log-SD parameters within this term's parameters."""
-        return [0] if self.structure == "ar1" else list(range(self.q))
+        return [0] if self.structure in ("ar1", "iid") else list(range(self.q))
 
     def factor(self, par: np.ndarray) -> np.ndarray:
         q = self.q
+        if self.structure == "iid":
+            return np.exp(par[0]) * np.eye(q)
         if self.structure == "ar1":
             sd = np.exp(par[0])
             rho = np.tanh(par[1])
@@ -590,6 +599,18 @@ class _SparseProblem(_Problem):
         log_theta = phi[at] if self.n_theta else None
         gamma = phi[at + self.n_theta :] if self.r else None
         return beta, factors, log_theta, gamma
+
+    def cov_start(self):
+        # An iid term carries a smooth's range space, whose columns can be
+        # large; start its SD where the term moves eta by about one half.
+        out = []
+        for t in self.terms:
+            start = np.zeros(t.n_par)
+            if t.structure == "iid":
+                size = float(np.sqrt(np.mean(np.sum(t.z * t.z, axis=1))))
+                start[0] = np.log(0.5 / size) if size > 0 else 0.0
+            out.append(start)
+        return np.concatenate(out)
 
     def term_params(self, phi):
         at = self.p

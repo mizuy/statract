@@ -15,6 +15,7 @@
 | 加法モデル | `statract.gam` | mgcv。gaussian / binomial / poisson / gamma、`cr` / `tp` / `cc` / `ps` / `re`、テンソル、`ti`、`by`、重み、offset |
 | 条件付き推論木 | `statract.tree` | `partykit::ctree`。数値の応答、二次形式、Šidák 調整 |
 | 線形・一般化線形混合 | `statract.mixed` | `lmer` / `glmer` / `glmmTMB`。ガウスとガンマは lme-python（lme-rs）、二項・ポアソン・負の二項は自前の Laplace。ゼロ過剰とハードルも |
+| 加法混合 | `statract.gamm` | `gamm4`。平滑と変量切片を一つの GLMM で |
 | 多重代入 | `statract.impute` | `mice`（pmm / logreg / polyreg）と `pool` |
 | 予測の評価 | `statract.binary`、`statract.probability` | 較正、Brier、決定曲線、閾値。図は [Figures](../viz/overview.md) |
 
@@ -124,6 +125,19 @@ print(fitted.predict())
 ```
 
 この版が合わせるのは、ガウス分布、`basis="cr"`、`method="reml"`、平滑 1 本です。
+
+平滑と変量切片を一つのモデルにするときは `gamm` です。`gamm4(y ~ s(pre_size_mm), random = ~(1 | examiner), family = binomial)` に当たります。
+
+```python
+from statract import gamm, median_odds_ratio, smooth
+
+fit = gamm(frame, "y", [smooth("pre_size_mm", basis="tp")], random="(1 | examiner)", family="binomial")
+print(fit.tidy(), fit.smooth_table())
+print(median_odds_ratio(fit.variance_table()["variance"][0]))
+print(fit.partial_effect("pre_size_mm", [10, 20, 30]))
+```
+
+平滑を固定の零空間と iid の変量効果に分け（`mgcv::smooth2random`）、ほかの変量効果と一緒に Laplace の最尤で解きます。`gam(..., smooth("examiner", basis="re"))` は mgcv の `bs = "re"`（REML）と一致しますが、これは gamm4 とは別の近似で、合成データでは MOR が 1.8% ずれました。混合モデル形は基底の座標に依存するので、thin plate は mgcv と同じ座標（共変量の中心化、固有値で割った基底、列の二乗平均を 1）で作ります。基底は `tp`（一意な値 2000 個まで）と `cr`、分布は binomial と poisson です。
 
 ### 線形混合モデル
 

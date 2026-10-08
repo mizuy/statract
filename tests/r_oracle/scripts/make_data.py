@@ -247,6 +247,22 @@ def _crossed_sample(seed: int, n_patients: int, n_examiners: int, *, theta: floa
     )
 
 
+def _gamm_binary(seed: int, n: int, n_examiners: int) -> pl.DataFrame:
+    """A binary outcome with a smooth in lesion size and an examiner intercept."""
+    rng = np.random.default_rng(seed)
+    size = np.round(rng.uniform(3.0, 40.0, n), 1)
+    examiner = rng.integers(0, n_examiners, n)
+    u = rng.normal(0, 0.6, n_examiners)
+    f = 1.2 * np.sin((size - 3.0) / 37.0 * np.pi) - 0.02 * (size - 20.0)
+    age = np.round(rng.normal(60, 10, n), 1)
+    eta = -0.8 + f + 0.02 * (age - 60) + u[examiner]
+    y = (rng.uniform(size=n) < 1 / (1 + np.exp(-eta))).astype(int)
+    count = rng.poisson(np.exp(0.2 + 0.5 * f + u[examiner]))
+    return pl.DataFrame(
+        {"y": y, "n": count, "pre_size_mm": size, "age": age, "examiner": [f"e{i:02d}" for i in examiner]}
+    )
+
+
 def main() -> None:
     DATA.mkdir(parents=True, exist_ok=True)
     # (1) Poisson counts, random intercept, 30 sites.
@@ -276,6 +292,8 @@ def main() -> None:
     _two_way_sample(20261021, 200, 8, weighted=True).write_csv(DATA / "cox2way_b.csv")
     # Crossed GLMMs: patients crossed with examiners, examiner-by-year AR(1).
     _crossed_sample(20261022, 300, 30, theta=2.0, rho=0.6).write_csv(DATA / "glmm_crossed_a.csv")
+    # Smooth plus examiner intercept, binary (gamm4 and mgcv bs = "re").
+    _gamm_binary(20261023, 800, 25).write_csv(DATA / "gamm_binary_a.csv")
 
 
 if __name__ == "__main__":
