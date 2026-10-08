@@ -6,6 +6,23 @@
 
 ## ギャラリー {#gallery}
 
+### 基本の検定 {#htest}
+
+<div class="grid cards" markdown>
+
+-   __[2 群 RCT の基本検定](htest_licorice.md)__ — `htest_licorice` · 比率の差 / Clopper–Pearson / Wilcoxon / McNemar / Holm
+
+    ---
+
+    甘草うがいと術後咽頭痛（RCT、4 時点）
+
+    **データ** — `medicaldata::licorice_gargle`  
+    **API** — `binom_test`, `prop_test`, `wilcox_test`, `t_test`, `mcnemar_test`, `p_adjust`, `plot_forest`
+
+    [ドキュメント →](htest_licorice.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/htest_licorice)
+
+</div>
+
 ### 生存時間 {#survival}
 
 <div class="grid cards" markdown>
@@ -152,6 +169,7 @@
 
 | 解析 | docs ページ | 実行コード |
 |----|-------------|------------|
+| 2 群 RCT の基本検定 | [htest_licorice](htest_licorice.md) | [examples/htest_licorice/](https://github.com/mizuy/statract/tree/main/examples/htest_licorice) |
 | 生存曲線と Cox 回帰 | [surv_colon](surv_colon.md) | [examples/surv_colon/](https://github.com/mizuy/statract/tree/main/examples/surv_colon) |
 | 競合リスク解析 | [cif_pbc](cif_pbc.md) | [examples/cif_pbc/](https://github.com/mizuy/statract/tree/main/examples/cif_pbc) |
 | PH 検定と AFT モデル | [aft_rotterdam](aft_rotterdam.md) | [examples/aft_rotterdam/](https://github.com/mizuy/statract/tree/main/examples/aft_rotterdam) |
@@ -168,6 +186,7 @@
 | API | 例 |
 |-----|-----|
 | Table 1 / flowchart / `write_csv_companion` | 各スタンドアロン例 |
+| `t_test` / `wilcox_test` / `mcnemar_test` / `binom_test` / `prop_test` / `p_adjust` | [`htest_licorice`](htest_licorice.md) |
 | KM / log-rank / Cox / `plot_survival` | [`surv_colon`](surv_colon.md)（正本）、[`aft_rotterdam`](aft_rotterdam.md)、[`cox_retinopathy`](cox_retinopathy.md) |
 | Cox `cluster=` / `cluster(id)`（Lin–Wei sandwich） | [`cox_retinopathy`](cox_retinopathy.md) |
 | Aalen–Johansen / Fine–Gray | [`cif_pbc`](cif_pbc.md) |

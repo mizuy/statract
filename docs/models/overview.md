@@ -10,6 +10,7 @@
 | 線形モデル | `statract.fit` | `lm` / `glm` |
 | 共分散 | `statract.covariance` | sandwich |
 | 線形の検定 | `statract.linear_tests` | lmtest |
+| 基本の検定と区間 | `statract.htest` | `t.test`、`wilcox.test`、`mcnemar.test`、`binom.test`、`prop.test`、`p.adjust` |
 | 生存時間 | `statract.surv` | survival |
 | マッチング | `statract.matching` | MatchIt |
 | 加法モデル | `statract.gam` | mgcv。gaussian / binomial / poisson / gamma、`cr` / `tp` / `cc` / `ps` / `re`、テンソル、`ti`、`by`、重み、offset |

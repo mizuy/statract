@@ -24,6 +24,10 @@
 
 ![Multivariable GLM forest](pred_support_out/figures/glm_full_forest.png)
 
+## 条件付き推論木（ctree、train）
+
+![Conditional inference tree](pred_support_out/figures/ctree.png)
+
 ## ホールドアウト較正 / Brier
 
 @import "pred_support_out/text_calibration.md"
