@@ -18,6 +18,8 @@ import scipy.stats
 # statfunc(col0, col1) -> str
 StatFunc: TypeAlias = Callable[[pl.Series, pl.Series], str]
 
+_FISHER_SEED = 20240101
+
 
 def odds(p: float) -> float:
     """Calculate odds from probability.
@@ -422,12 +424,98 @@ def stat_fisher(col_nominal0: pl.Series, col_nominal1: pl.Series) -> str:
         _, p = scipy.stats.fisher_exact(ct_array)
         return format_pvalue(p)
 
-    # RxC table: use MonteCarloMethod
-    rng = np.random.default_rng()
+    # RxC table: use MonteCarloMethod with a fixed seed so a table is reproducible.
+    rng = np.random.default_rng(_FISHER_SEED)
     method = scipy.stats.MonteCarloMethod(rng=rng)
     result = scipy.stats.fisher_exact(ct_array, method=method)
     p = result.pvalue.item() if isinstance(result.pvalue, np.ndarray) else result.pvalue
     return format_pvalue(p)
+
+
+def stat_kruskal(col_interval: pl.Series, col_nominal: pl.Series) -> str:
+    """Kruskal–Wallis rank-sum test across groups, matching R's ``kruskal.test``.
+
+    Use it for skewed variables summarized by the median. With two groups it is
+    the Wilcoxon rank-sum test without continuity correction. Ties use the
+    usual correction.
+
+    Args:
+        col_interval: Numeric variable Series
+        col_nominal: Group Series
+
+    Returns:
+        Formatted p-value string, or ``"-"`` with fewer than two groups.
+    """
+    frame = pl.DataFrame({"_value": col_interval, "_group": col_nominal}).drop_nulls()
+    groups = [
+        np.asarray(values, dtype=float)
+        for values in frame.group_by("_group", maintain_order=True).agg(pl.col("_value"))["_value"].to_list()
+        if len(values)
+    ]
+    if len(groups) < 2:
+        return "-"
+    pooled = np.concatenate(groups)
+    if np.all(pooled == pooled[0]):
+        return "-"
+    _stat, pvalue = scipy.stats.kruskal(*groups)
+    return format_pvalue(float(pvalue))
+
+
+def standardized_difference(column: pl.Series, groups: pl.Series, *, categorical: bool | None = None) -> float:
+    """Standardized mean difference between groups, as R ``tableone`` reports it.
+
+    Numeric: ``|m1 - m2| / sqrt((s1^2 + s2^2) / 2)`` with sample variances.
+    Categorical (strings, enums, booleans, or ``categorical=True``): the
+    multinomial form of Yang and Dalton (2012), which reduces to the binary
+    formula for two levels. With more than two groups this is the mean of the
+    pairwise differences. Missing values are dropped. Returns ``nan`` when it
+    cannot be computed.
+    """
+    frame = pl.DataFrame({"_value": column, "_group": groups}).drop_nulls()
+    if categorical is None:
+        categorical = not frame.schema["_value"].is_numeric()
+    labels = frame["_group"].unique(maintain_order=True).to_list()
+    if len(labels) < 2:
+        return float("nan")
+    if categorical:
+        levels = sorted({str(v) for v in frame["_value"].to_list()})
+        if isinstance(column.dtype, pl.Enum):
+            levels = [lv for lv in column.dtype.categories.to_list() if lv in set(levels)]
+        values = np.asarray([str(v) for v in frame["_value"].to_list()])
+    else:
+        values = frame["_value"].to_numpy().astype(float)
+    group = np.asarray(frame["_group"].to_list(), dtype=object)
+    pairs = []
+    for i in range(len(labels)):
+        for j in range(i + 1, len(labels)):
+            a = values[group == labels[i]]
+            b = values[group == labels[j]]
+            pairs.append(_smd_categorical(a, b, levels) if categorical else _smd_numeric(a, b))
+    return float(np.mean(pairs))
+
+
+def _smd_numeric(a: np.ndarray, b: np.ndarray) -> float:
+    if len(a) < 2 or len(b) < 2:
+        return float("nan")
+    pooled = (np.var(a, ddof=1) + np.var(b, ddof=1)) / 2.0
+    if pooled <= 0:
+        return 0.0 if np.mean(a) == np.mean(b) else float("inf")
+    return float(abs(np.mean(a) - np.mean(b)) / np.sqrt(pooled))
+
+
+def _smd_categorical(a: np.ndarray, b: np.ndarray, levels: list[str]) -> float:
+    if len(a) == 0 or len(b) == 0 or len(levels) < 2:
+        return float("nan")
+    # Drop the first level so the covariance matrix is not singular.
+    pa = np.array([np.mean(a == lv) for lv in levels[1:]])
+    pb = np.array([np.mean(b == lv) for lv in levels[1:]])
+    cov = (np.diag(pa) - np.outer(pa, pa) + np.diag(pb) - np.outer(pb, pb)) / 2.0
+    diff = pa - pb
+    if np.all(cov == 0):
+        # Both groups sit in one level. tableone reports 0 if they agree, else NaN.
+        return 0.0 if np.all(diff == 0) else float("nan")
+    value = float(diff @ np.linalg.pinv(cov) @ diff)
+    return float(np.sqrt(max(value, 0.0)))
 
 
 def stat_auto(col0: pl.Series, col1: pl.Series) -> str:

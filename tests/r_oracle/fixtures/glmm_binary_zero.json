@@ -1,0 +1,166 @@
+{
+  "meta": {
+    "r": "R version 4.3.3 (2024-02-29)",
+    "glmmTMB": "1.1.8",
+    "lme4": "1.1.35.1"
+  },
+  "binary": {
+    "glmm_binary_a": {
+      "formula": "y ~ x + arm + (1 | site)",
+      "laplace": {
+        "terms": ["(Intercept)", "x", "armlow", "armhigh"],
+        "coefficients": [-0.195107825729818, 0.500302095985538, 0.537733578604422, -0.805718051004278],
+        "std_errors": [0.182382470627655, 0.0907946380577245, 0.2099579453359, 0.206898027835372],
+        "log_likelihood": -443.849317154272,
+        "group_covariance": [
+          [0.486649802728991]
+        ],
+        "theta": null
+      },
+      "agq": {
+        "coefficients": [-0.195505050669027, 0.500452621320709, 0.537884870887724, -0.805956595138011],
+        "variance": 0.496839754995871
+      }
+    },
+    "glmm_binary_b": {
+      "formula": "y ~ x + arm + (1 + x | site)",
+      "laplace": {
+        "terms": ["(Intercept)", "x", "armlow", "armhigh"],
+        "coefficients": [0.297474092746737, 0.740178417984768, 0.224276073817742, -0.407337652676954],
+        "std_errors": [0.184087909875237, 0.104158447272901, 0.184598096338951, 0.186265126470695],
+        "log_likelihood": -563.39862108101,
+        "group_covariance": [
+          [0.487661482878126, -0.00599330927941391],
+          [-0.00599330927941391, 0.0803096171431467]
+        ],
+        "theta": null
+      },
+      "agq": null
+    },
+    "glmm_binary_c": {
+      "formula": "y ~ x + arm + (1 | site)",
+      "laplace": {
+        "terms": ["(Intercept)", "x", "armlow", "armhigh"],
+        "coefficients": [-1.19359415878359, 0.731816729527572, 0.478146815732346, -0.454572898818184],
+        "std_errors": [0.242066776498559, 0.144018142590019, 0.304179226650143, 0.336026111848288],
+        "log_likelihood": -199.631199769026,
+        "group_covariance": [
+          [0.258194382556559]
+        ],
+        "theta": null
+      },
+      "agq": {
+        "coefficients": [-1.21393934566808, 0.744170189533502, 0.490531606681287, -0.460171048926126],
+        "variance": 0.35664882068399
+      }
+    }
+  },
+  "zero": {
+    "poisson_zi_const": {
+      "sample": "glmm_zero_a",
+      "family": "poisson",
+      "zero": "inflated",
+      "zero_columns": [],
+      "formula": "y ~ x + offset(log(years)) + (1 | site)",
+      "fit": {
+        "terms": ["(Intercept)", "x"],
+        "coefficients": [1.0192986915642, 0.396895086526889],
+        "std_errors": [0.0997001587522845, 0.0196332533849028],
+        "log_likelihood": -1400.80883361381,
+        "group_covariance": [
+          [0.279476165397027]
+        ],
+        "theta": null,
+        "zero_terms": "(Intercept)",
+        "zero_coefficients": -0.950312930604372,
+        "zero_std_errors": 0.0965038030202738
+      }
+    },
+    "poisson_zi_z": {
+      "sample": "glmm_zero_a",
+      "family": "poisson",
+      "zero": "inflated",
+      "zero_columns": [
+        "z"
+      ],
+      "formula": "y ~ x + offset(log(years)) + (1 | site)",
+      "fit": {
+        "terms": ["(Intercept)", "x"],
+        "coefficients": [1.01761087974658, 0.39759323558802],
+        "std_errors": [0.0999356472133208, 0.0196457261304597],
+        "log_likelihood": -1388.13241056381,
+        "group_covariance": [
+          [0.280707495099097]
+        ],
+        "theta": null,
+        "zero_terms": ["(Intercept)", "z"],
+        "zero_coefficients": [-0.98472413159209, 0.472467961444178],
+        "zero_std_errors": [0.101712672370115, 0.0981210250617121]
+      }
+    },
+    "nb_zi_z": {
+      "sample": "glmm_zero_b",
+      "family": "negative_binomial",
+      "zero": "inflated",
+      "zero_columns": [
+        "z"
+      ],
+      "formula": "y ~ x + offset(log(years)) + (1 | site)",
+      "fit": {
+        "terms": ["(Intercept)", "x"],
+        "coefficients": [0.951671837308329, 0.375969867280509],
+        "std_errors": [0.0915881826059135, 0.0423286426577068],
+        "log_likelihood": -1145.85081779122,
+        "group_covariance": [
+          [0.152164772133794]
+        ],
+        "theta": 3.26410174810175,
+        "zero_terms": ["(Intercept)", "z"],
+        "zero_coefficients": [-0.435948365099704, 0.475028768814818],
+        "zero_std_errors": [0.105935780518434, 0.102570748756989]
+      }
+    },
+    "poisson_hurdle_z": {
+      "sample": "glmm_zero_a",
+      "family": "poisson",
+      "zero": "hurdle",
+      "zero_columns": [
+        "z"
+      ],
+      "formula": "y ~ x + offset(log(years)) + (1 | site)",
+      "fit": {
+        "terms": ["(Intercept)", "x"],
+        "coefficients": [1.03287082166434, 0.390332397431651],
+        "std_errors": [0.0980956673520765, 0.0198374799361607],
+        "log_likelihood": -1407.83939156015,
+        "group_covariance": [
+          [0.269692482106562]
+        ],
+        "theta": null,
+        "zero_terms": ["(Intercept)", "z"],
+        "zero_coefficients": [-0.674745777304073, 0.406578553931277],
+        "zero_std_errors": [0.0833052600239648, 0.0825357216412524]
+      }
+    },
+    "nb_hurdle_const": {
+      "sample": "glmm_zero_b",
+      "family": "negative_binomial",
+      "zero": "hurdle",
+      "zero_columns": [],
+      "formula": "y ~ x + offset(log(years)) + (1 | site)",
+      "fit": {
+        "terms": ["(Intercept)", "x"],
+        "coefficients": [0.971208952586428, 0.370063542635115],
+        "std_errors": [0.0913757710383313, 0.0432517490981276],
+        "log_likelihood": -1168.32016151617,
+        "group_covariance": [
+          [0.150690768691842]
+        ],
+        "theta": 3.37819582030031,
+        "zero_terms": "(Intercept)",
+        "zero_coefficients": -0.107556306243672,
+        "zero_std_errors": 0.0833815211602236
+      }
+    }
+  }
+}

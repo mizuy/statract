@@ -85,6 +85,8 @@ from .covariance import (
 from .fit import fit_glm, fit_ols
 from .formula import model_matrix
 from .mixed import MixedFit, fit_mixed
+from .impute import MultipleImputation, impute_chained, pool
+from .gamm import GammFit, gamm
 from .gam import compare_gams, gam, smooth, tensor_interaction, tensor_smooth
 from .tree import conditional_tree
 from .linear_tests import (
@@ -119,6 +121,8 @@ from .stat import (
     stat_anova,
     stat_auto,
     stat_chisq,
+    stat_kruskal,
+    standardized_difference,
     weighted_corr,
     weighted_cov,
     weighted_mean,
@@ -240,6 +244,11 @@ __all__ = [
     "fit_mixed",
     "MixedFit",
     "fit_ols",
+    "gamm",
+    "GammFit",
+    "impute_chained",
+    "MultipleImputation",
+    "pool",
     "model_matrix",
     "gam",
     "hc_covariance",
@@ -276,6 +285,8 @@ __all__ = [
     "stat_anova",
     "stat_auto",
     "stat_chisq",
+    "stat_kruskal",
+    "standardized_difference",
     "stat_fisher",
     "weighted_corr",
     "weighted_cov",

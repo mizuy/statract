@@ -44,14 +44,30 @@ def cluster_covariance(
     ``kind`` defaults to ``"HC1"`` for ordinary least squares and ``"HC0"``
     otherwise, which is the ``sandwich`` default. ``cluster`` is one column,
     a list of columns (pass ``data``), or an array aligned with the fitted rows.
+    Several columns use the Cameron–Gelbach–Miller inclusion-exclusion meat,
+    and ``adjust`` applies ``G / (G - 1)`` to each term (``cadjust``).
+
+    A Cox fit (``cox_ph``) works too, with ``kind`` HC0 or HC1. The scores are
+    the weighted score residuals and the bread is the model-based variance,
+    as ``vcovCL`` on a ``coxph``. One cluster column then differs from
+    ``cox_ph(cluster=)`` only by the ``G / (G - 1)`` factor (``adjust=False``
+    gives the ``coxph`` value). Unlike ``vcovCL``, a single coefficient works.
+    The multi-way result is not forced to be positive semidefinite.
     """
+    cox = fit.family == "cox"
     if kind is None:
         kind = "HC1" if fit.family == "ols" else "HC0"
     kind = "HC0" if kind == "HC" else kind
     if kind not in {"HC0", "HC1", "HC2", "HC3"}:
         raise ValueError("cluster kind must be HC0, HC1, HC2, or HC3")
+    if cox and kind not in {"HC0", "HC1"}:
+        raise ValueError("a Cox fit takes cluster kind HC0 or HC1")
     groups = _as_groups(fit, cluster, data)
+    if any(_has_null(groups[:, j]) for j in range(groups.shape[1])):
+        raise ValueError("cluster has missing values; drop those rows before fitting")
     scores = fit.score_contributions()
+    if cox:
+        scores = scores * np.asarray(fit.weights, dtype=float)[:, None]
     n, k = scores.shape
     meat_total = np.zeros((k, k))
     codes = _factorize_groups(groups)
@@ -193,6 +209,14 @@ def _as_groups(fit: Fit, cluster: ColumnRef | Sequence[ColumnRef] | np.ndarray, 
     if data is None:
         raise ValueError("pass data when cluster is a column name")
     return cluster_from_frame(fit, data, cluster)
+
+
+def _has_null(values: np.ndarray) -> bool:
+    if values.dtype.kind == "f":
+        return bool(np.any(np.isnan(values)))
+    if values.dtype.kind == "O":
+        return any(v is None or (isinstance(v, float) and np.isnan(v)) for v in values)
+    return False
 
 
 def _is_expr(value: object) -> bool:

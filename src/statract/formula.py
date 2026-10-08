@@ -36,6 +36,8 @@ _TOKEN = re.compile(
     r"|(?P<name>`(?:\\`|[^`])+`|[A-Za-z_.][A-Za-z0-9_.]*)"
 )
 _FUNCS = {"log", "exp", "sqrt", "log10", "abs", "I"}
+# Covariance structures for random-effect terms, as glmmTMB's ar1(time + 0 | g).
+_STRUCTURES = {"ar1"}
 _PREC = {"^": 4, "*": 3, "/": 3, "+": 2, "-": 2}
 
 
@@ -81,6 +83,7 @@ class RandomEffect:
     group: str
     correlated: bool
     slope_exprs: tuple[tuple[str, Arith], ...] = ()
+    structure: str = "us"
 
 
 @dataclass(frozen=True)
@@ -449,8 +452,13 @@ def _encode(node: object, state: _State) -> list[Term]:
         state.computed[label] = node
         return [frozenset({label})]
     if isinstance(node, tuple) and node and node[0] == "random":
-        _op, inner, group, correlated = node
-        state.random.append(_random_effect(inner, str(group), bool(correlated), state.data))
+        _op, inner, group, correlated, structure = node
+        effect = _random_effect(inner, str(group), bool(correlated), state.data)
+        if structure != "us":
+            from dataclasses import replace
+
+            effect = replace(effect, structure=structure)
+        state.random.append(effect)
         return []
     if isinstance(node, tuple):
         op = node[0]
@@ -887,6 +895,14 @@ class _Parser:
             return Col(_unquote(tok))
         if isinstance(tok, str) and re.fullmatch(r"[A-Za-z_.][A-Za-z0-9_.]*", tok):
             if self._peek() == "(":
+                if tok in _STRUCTURES:
+                    self._pop()
+                    if not self._bar_ahead():
+                        raise ValueError(f"{tok}() takes a random-effect term, for example {tok}(time + 0 | group)")
+                    node = self._parse_random()
+                    if not node[3]:
+                        raise ValueError(f"{tok}() does not take '||'")
+                    return node[:4] + (tok,)
                 return self._parse_call(tok)
             return Col(tok)
         raise ValueError(f"unexpected {tok!r} in formula")
@@ -918,7 +934,7 @@ class _Parser:
         if group.startswith("`"):
             group = _unquote(group)
         self._expect(")")
-        return ("random", inner, group, correlated)
+        return ("random", inner, group, correlated, "us")
 
     def _parse_arith(self) -> Arith:
         return self._parse_arith_sum()

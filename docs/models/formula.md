@@ -53,7 +53,8 @@ built.offset         # offset() の和。無ければ None
 | `Surv(time, status)` `Surv(start, stop, status)` | 対応 | `cox_ph`、`accelerated_failure`、`fine_gray` の左辺。`Surv(start, stop, status)` は `cox_ph` と `fine_gray` |
 | `strata(...)` | 対応 | `cox_ph` と `conditional_logit` の層。設計行列の列にはしない |
 | `cluster(...)` | 対応 | `cox_ph` のクラスター頑健分散。`conditional_logit` は `method="efron"` と `method="breslow"` で使う。exact では使えない |
-| `(1 \| g)` `(1 + x \| g)` `(0 + x \| g)` | 対応 | lme4 の変量効果。formulaic の表には無い。推定は `fit_mixed`。グループは 1 つ。傾きは数値 1 列 |
+| `(1 \| g)` `(1 + x \| g)` `(0 + x \| g)` | 対応 | lme4 の変量効果。formulaic の表には無い。推定は `fit_mixed`。傾きは数値 1 列。二項・ポアソン・負の二項は複数の項（交差、入れ子）も可 |
+| `ar1(time + 0 \| g)` | 対応 | glmmTMB の AR(1) 構造。`time` は時点の因子（数値列なら昇順の水準）。Laplace エンジンだけ |
 | `Q(...)` | 非対応 | 列名はバッククォート |
 | `C(...)` | 非対応 | 因子にするのは列の型。対比の種類は指定しない |
 | `center` `scale` `standardize` | 非対応 | |
@@ -199,7 +200,7 @@ built.offset         # offset() の和。無ければ None
 
 `(1 | g)` は lme4 の書き方で、`model_matrix` が `random_effects` に入れます。`fit_ols`、`fit_glm`、`formula_model_matrix` は変量効果があるとエラーにします。推定は `fit_mixed` です。
 
-変量効果は `+` で他の項とつなぎます。`*`、`:`、`/`、`^`、`%in%`、引き算と組み合わせるとエラーです。傾きは列 1 本で、数値です。グループの列も 1 つです。`fit_mixed` が受け取るグループは 1 つです。
+変量効果は `+` で他の項とつなぎます。`*`、`:`、`/`、`^`、`%in%`、引き算と組み合わせるとエラーです。傾きは列 1 本で、数値です。グループの列も 1 つです。ガウスとガンマでは `fit_mixed` が受け取るグループは 1 つです。二項（logit）、ポアソン、負の二項では `(1 | patient) + (1 | examiner)` のように複数の項を書けます。
 
 - `y ~ x + (1 | g)` は、固定効果が `x` と切片、変量効果が切片です。
 - `y ~ x + (1 + x | g)` は、変量切片と `x` の変量傾きです。相関があります。`method="ml"` で最尤にします。

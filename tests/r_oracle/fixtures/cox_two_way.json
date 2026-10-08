@@ -1,0 +1,173 @@
+{
+  "meta": {
+    "r": "R version 4.3.3 (2024-02-29)",
+    "survival": "3.5.8",
+    "sandwich": "3.1.0"
+  },
+  "cases": {
+    "two_way_efron": {
+      "sample": "cox2way_a",
+      "formula": "Surv(time, status) ~ x + arm",
+      "ties": "efron",
+      "weights": null,
+      "cluster": [
+        "id_patient",
+        "e_examiner"
+      ],
+      "type": "HC0",
+      "adjust": true,
+      "vcovcl": true,
+      "terms": ["x", "armlow", "armhigh"],
+      "coefficients": [0.519199744255628, 0.651960696155644, -0.397898430327089],
+      "covariance": [
+        [0.00545803258903074, 0.00732963008553148, 0.00788059889063463],
+        [0.00732963008553148, 0.0422056676504044, 0.0435938281840563],
+        [0.00788059889063463, 0.0435938281840563, 0.0780358712006887]
+      ],
+      "std_errors": [0.0738784988276748, 0.205440180223841, 0.279349013244523]
+    },
+    "two_way_hc1": {
+      "sample": "cox2way_a",
+      "formula": "Surv(time, status) ~ x + arm",
+      "ties": "efron",
+      "weights": null,
+      "cluster": [
+        "id_patient",
+        "e_examiner"
+      ],
+      "type": "HC1",
+      "adjust": true,
+      "vcovcl": true,
+      "terms": ["x", "armlow", "armhigh"],
+      "coefficients": [0.519199744255628, 0.651960696155644, -0.397898430327089],
+      "covariance": [
+        [0.00548729817932045, 0.00736893105113754, 0.00792285411256833],
+        [0.00736893105113754, 0.0424319714983958, 0.0438275752520673],
+        [0.00792285411256833, 0.0438275752520673, 0.0784542941025691]
+      ],
+      "std_errors": [0.0740762997140141, 0.205990221851417, 0.280096936974629]
+    },
+    "two_way_no_adjust": {
+      "sample": "cox2way_a",
+      "formula": "Surv(time, status) ~ x + arm",
+      "ties": "efron",
+      "weights": null,
+      "cluster": [
+        "id_patient",
+        "e_examiner"
+      ],
+      "type": "HC0",
+      "adjust": false,
+      "vcovcl": true,
+      "terms": ["x", "armlow", "armhigh"],
+      "coefficients": [0.519199744255628, 0.651960696155644, -0.397898430327089],
+      "covariance": [
+        [0.00498361207172824, 0.00674284719613932, 0.00717839016598918],
+        [0.00674284719613932, 0.0390290735874647, 0.0400901301017033],
+        [0.00717839016598918, 0.0400901301017033, 0.0715102560606508]
+      ],
+      "std_errors": [0.0705947028588423, 0.197557772784228, 0.267414016200817]
+    },
+    "one_way_patient": {
+      "sample": "cox2way_a",
+      "formula": "Surv(time, status) ~ x + arm",
+      "ties": "efron",
+      "weights": null,
+      "cluster": [
+        "id_patient"
+      ],
+      "type": "HC0",
+      "adjust": true,
+      "vcovcl": true,
+      "terms": ["x", "armlow", "armhigh"],
+      "coefficients": [0.519199744255628, 0.651960696155644, -0.397898430327089],
+      "covariance": [
+        [0.00856714175516457, -0.00282696831043008, -0.00539398427397839],
+        [-0.00282696831043009, 0.0558196673564089, 0.0350337957396416],
+        [-0.00539398427397839, 0.0350337957396416, 0.0603645286988569]
+      ],
+      "std_errors": [0.092558855627998, 0.236261861832182, 0.245691938611866]
+    },
+    "single_coefficient": {
+      "sample": "cox2way_a",
+      "formula": "Surv(time, status) ~ x",
+      "ties": "efron",
+      "weights": null,
+      "cluster": [
+        "id_patient",
+        "e_examiner"
+      ],
+      "type": "HC0",
+      "adjust": true,
+      "vcovcl": false,
+      "terms": "x",
+      "coefficients": 0.517616722305533,
+      "covariance": [
+        [0.00575508159532243]
+      ],
+      "std_errors": 0.0758622540880669
+    },
+    "single_coefficient_breslow": {
+      "sample": "cox2way_b",
+      "formula": "Surv(time, status) ~ x",
+      "ties": "breslow",
+      "weights": null,
+      "cluster": [
+        "id_patient",
+        "e_examiner"
+      ],
+      "type": "HC0",
+      "adjust": true,
+      "vcovcl": false,
+      "terms": "x",
+      "coefficients": 0.521082672536785,
+      "covariance": [
+        [0.000750028204560452]
+      ],
+      "std_errors": 0.0273866428128833
+    },
+    "weighted_strata_breslow": {
+      "sample": "cox2way_b",
+      "formula": "Surv(time, status) ~ x + arm + strata(site)",
+      "ties": "breslow",
+      "weights": "w",
+      "cluster": [
+        "id_patient",
+        "e_examiner"
+      ],
+      "type": "HC0",
+      "adjust": true,
+      "vcovcl": true,
+      "terms": ["x", "armlow", "armhigh"],
+      "coefficients": [0.524113024600564, 0.566120675612323, 0.0997132451338807],
+      "covariance": [
+        [0.00270561275711819, -0.000324721796205473, -0.0124048436785025],
+        [-0.000324721796205474, 0.0144498916821159, 0.01798482516385],
+        [-0.0124048436785025, 0.01798482516385, 0.0830924965775784]
+      ],
+      "std_errors": [0.0520155049684053, 0.120207702257867, 0.288257691272199]
+    },
+    "three_way": {
+      "sample": "cox2way_b",
+      "formula": "Surv(time, status) ~ x + arm",
+      "ties": "efron",
+      "weights": null,
+      "cluster": [
+        "id_patient",
+        "e_examiner",
+        "site"
+      ],
+      "type": "HC0",
+      "adjust": true,
+      "vcovcl": true,
+      "terms": ["x", "armlow", "armhigh"],
+      "coefficients": [0.552724374721887, 0.607319306986117, 0.047052440030654],
+      "covariance": [
+        [-0.00149609670633251, -0.00702799895630242, -0.00594369853292293],
+        [-0.00702799895630242, -0.0219950591657645, 0.00657141405654562],
+        [-0.00594369853292293, 0.00657141405654562, 0.0577716493265856]
+      ],
+      "std_errors": ["NaN", "NaN", 0.240357336743827]
+    }
+  }
+}
