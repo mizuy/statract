@@ -1,6 +1,6 @@
-# lmm_pbcseq — pbcseq のガウス LMM / GAM 例
+# lmm_pbcseq — pbcseq のガウス LMM / GAM / GAMM 例
 
-`fit_mixed`、クラスタ SE、GAM 平滑（病日）。
+`fit_mixed`、クラスタ SE、GAM 平滑（病日）、`gamm`（`gamm4` 相当: 病日平滑 + 患者変量切片、ビリルビン > 2 mg/dL の二値）。
 
 **読む:** [docs 単一ページ](../../docs/examples/lmm_pbcseq.md)（ギャラリー: [解析例](https://mizuy.github.io/statract/examples/lmm_pbcseq/)）。データ出典・プロトコル詳細・図つき Results はそちら。
 

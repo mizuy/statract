@@ -14,6 +14,7 @@ import shutil
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 import polars as pl
 
 from support import load_parquet_dir
@@ -21,6 +22,7 @@ from statract.reporting import write_csv_companion
 from statract import (
     accelerated_failure,
     agg_category,
+    calibrate_cox,
     agg_mean_sd,
     cox_ph,
     log_rank,
@@ -28,6 +30,7 @@ from statract import (
     plot_survival,
     proportional_hazards_test,
     survival_curve,
+    validate_cox,
     write_cox_diagnostic_suite,
     write_tableone_artifacts,
 )
@@ -36,6 +39,9 @@ from project import project
 
 COX_FORMULA = "Surv(dtime, event) ~ hormon + age + nodes + size + grade"
 AFT_FORMULA = COX_FORMULA
+VALIDATION_SEED = 20261008
+VALIDATION_B = 200
+CAL_U = 1825.0  # 5 years (days)
 
 
 def _clear_out(out: Path) -> Path:
@@ -50,6 +56,33 @@ def _write_csv(out: Path, stem: str, frame: pl.DataFrame) -> None:
     path = out / f"{stem}.csv"
     frame.write_csv(path)
     write_csv_companion(path, csv_link_prefix=out.name)
+
+
+def _plot_survival_calibration(cal, path: Path) -> None:
+    """Predicted vs grouped KM survival at u (plot.calibrate for cph, KM method)."""
+    t = cal.table
+    pred = t["mean_predicted"].to_numpy()
+    km = t["KM"].to_numpy()
+    se = t["std_err"].to_numpy()
+    fig, ax = plt.subplots(figsize=(5.5, 5))
+    ax.plot([0, 1], [0, 1], linestyle="--", color="gray", linewidth=1, label="Ideal")
+    lo, hi = km * np.exp(-1.96 * se), np.minimum(km * np.exp(1.96 * se), 1.0)
+    ax.errorbar(pred, km, yerr=[km - lo, hi - km], fmt="o", color="black", ms=4, capsize=2,
+                label="Observed KM (95% CI)")
+    ax.plot(pred, t["KM_corrected"].to_numpy(), "x", color="C0", ms=7, label="Bias-corrected")
+    ax.plot(cal.predicted, np.zeros_like(cal.predicted), "|", color="gray", alpha=0.3, markersize=8,
+            transform=ax.get_xaxis_transform())
+    ax.set_xlim(0.3, 1)
+    ax.set_ylim(0.3, 1)
+    ax.set_xlabel(f"Predicted survival at {cal.u / 365.25:.0f} years")
+    ax.set_ylabel("Observed (Kaplan-Meier)")
+    ax.set_title("Cox calibration at 5 years")
+    ax.text(0.98, 0.02, f"B = {cal.B}, n = {cal.n}", transform=ax.transAxes, ha="right", va="bottom",
+            fontsize=8)
+    ax.legend(fontsize=8, loc="upper left")
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
 
 
 def main() -> None:
@@ -142,6 +175,24 @@ def main() -> None:
         status="event",
         by="hormon_label",
         stem="cox",
+    )
+
+    # Internal validation (rms validate.cph / calibrate.cph, cmethod = "KM").
+    val = validate_cox(cox_df, COX_FORMULA, B=VALIDATION_B, seed=VALIDATION_SEED)
+    _write_csv(out, "cox_validate", val)
+    cal = calibrate_cox(cox_df, COX_FORMULA, u=CAL_U, m=300, B=VALIDATION_B, seed=VALIDATION_SEED)
+    _write_csv(out, "cox_calibrate_5y", cal.table)
+    _plot_survival_calibration(cal, out / "figures" / "cox_calibrate_5y.png")
+    dxy = val.filter(pl.col("index") == "Dxy")
+    slope = val.filter(pl.col("index") == "Slope")
+    (out / "cox_validate.md").write_text(
+        f"validate_cox B = {VALIDATION_B}, seed = {VALIDATION_SEED}, n = {cox_df.height}. "
+        f"Dxy apparent = {dxy['index_orig'][0]:.4f}, optimism = {dxy['optimism'][0]:.4f}, "
+        f"corrected = {dxy['index_corrected'][0]:.4f} (C = {0.5 + dxy['index_corrected'][0] / 2:.4f}). "
+        f"Slope corrected = {slope['index_corrected'][0]:.4f}. "
+        f"calibrate_cox u = {CAL_U:g} days, {cal.table.height} groups, "
+        f"mean |optimism| = {cal.table['mean_optimism'].abs().mean():.4f}.\n",
+        encoding="utf-8",
     )
 
     aft = accelerated_failure(cox_df, AFT_FORMULA, distribution="weibull")

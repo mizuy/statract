@@ -27,8 +27,10 @@ from statract import (
     fit_glm,
     fit_ols,
     hc_covariance,
+    impute_chained,
     match_sample,
     plot_forest,
+    pool,
     write_tableone_artifacts,
 )
 from config import ANALYSIS_OUT, CACHE
@@ -48,6 +50,9 @@ PS_COVS = [
 PS_FORMULA = "qsmk ~ age + sex + race + education + smokeintensity + smokeyrs + exercise + active + wt71"
 WEIGHT_CAP = 10.0
 CEM_COVS = ["age", "sex", "race", "education", "wt71"]
+MI_M = 20
+MI_ITER = 10
+MI_SEED = 20261008
 
 
 def _clear_out(out: Path) -> Path:
@@ -67,6 +72,50 @@ def _write_csv(out: Path, stem: str, frame: pl.DataFrame) -> None:
 def _tidy_hc(fit) -> pl.DataFrame:
     fit.covariance = hc_covariance(fit, kind="HC3")
     return fit.tidy()
+
+
+def _iptw_ols(frame: pl.DataFrame):
+    """PS GLM -> stabilized ATE weights (cap 10) -> weighted OLS with HC3 covariance."""
+    ps_fit = fit_glm(frame, PS_FORMULA, family="binomial")
+    ps = np.full(frame.height, np.nan)
+    ps[np.asarray(ps_fit.row_index)] = np.clip(ps_fit.predict(kind="response"), 1e-6, 1 - 1e-6)
+    a = frame["qsmk"].to_numpy().astype(float)
+    p_a = float(np.mean(a))
+    sw = np.clip(np.where(a == 1.0, p_a / ps, (1.0 - p_a) / (1.0 - ps)), 0.0, WEIGHT_CAP)
+    fit = fit_ols(frame.with_columns(pl.Series("sw_trunc", sw)), "wt82_71 ~ qsmk", weights="sw_trunc")
+    fit.covariance = hc_covariance(fit, kind="HC3")
+    return fit
+
+
+def _mi_sensitivity(out: Path, target: pl.DataFrame, covs: list[str], cc_tidy: pl.DataFrame) -> None:
+    """MICE for missing wt82_71 (and any covariate), IPTW OLS per set, Rubin pooling."""
+    frame = target.select(["qsmk", "wt82_71", *covs]).filter(pl.col("qsmk").is_not_null())
+    mi = impute_chained(frame, m=MI_M, n_iter=MI_ITER, seed=MI_SEED)
+    pooled = mi.pool(_iptw_ols)
+    _write_csv(out, "mi_pooled", pooled)
+    cc = cc_tidy.filter(pl.col("term") == "qsmk")
+    mi_row = pooled.filter(pl.col("term") == "qsmk")
+    compare = pl.DataFrame(
+        {
+            "analysis": ["Complete case (IPTW, HC3)", f"MICE m={MI_M} + Rubin (IPTW, HC3)"],
+            "n": [int(target.filter(pl.col("wt82_71").is_not_null()).height), frame.height],
+            "n_imputed": [0, int(sum(mi.missing.values()))],
+            "estimate": [float(cc["estimate"][0]), float(mi_row["estimate"][0])],
+            "std_error": [float(cc["std_error"][0]), float(mi_row["std_error"][0])],
+            "conf_low": [float(cc["conf_low"][0]), float(mi_row["conf_low"][0])],
+            "conf_high": [float(cc["conf_high"][0]), float(mi_row["conf_high"][0])],
+            "fmi": [None, float(mi_row["fmi"][0])],
+        }
+    )
+    _write_csv(out, "mi_vs_cc", compare)
+    (out / "mi_note.md").write_text(
+        f"impute_chained(m={MI_M}, n_iter={MI_ITER}, seed={MI_SEED}); "
+        f"methods {mi.methods}; missing {mi.missing}. "
+        "Imputation model: qsmk + wt82_71 + PS covariates (main effects, PMM). "
+        "Each completed set refits the PS GLM, stabilized weights (cap 10), weighted OLS, HC3; "
+        "pool() applies Rubin's rules with Barnard-Rubin df. Assumes MAR given these columns.\n",
+        encoding="utf-8",
+    )
 
 
 def main() -> None:
@@ -165,6 +214,8 @@ def main() -> None:
         xlabel="Coefficient (kg)",
         layout="table",
     )
+
+    _mi_sensitivity(out, target, covs, iptw_hc)
 
     cem_note = out / "cem_sensitivity.md"
     cem_covs = [c for c in CEM_COVS if c in cohort.columns]

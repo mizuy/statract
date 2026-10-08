@@ -24,6 +24,14 @@
 
 ![CIF of liver death](cif_pbc_out/figures/cif_death.png)
 
+## cuminc と Gray 検定
+
+@import "cif_pbc_out/gray_test_csv.md"
+
+@import "cif_pbc_out/cuminc_at_csv.md"
+
+![cuminc by treatment](cif_pbc_out/figures/cuminc.png)
+
 ## Fine–Gray（subdistribution HR）
 
 @import "cif_pbc_out/finegray_n.md"
@@ -31,3 +39,11 @@
 @import "cif_pbc_out/finegray_tidy_csv.md"
 
 ![Fine–Gray forest (subdistribution HR)](cif_pbc_out/figures/finegray_forest.png)
+
+## crr（fine_gray_regression）と fine_gray の比較
+
+@import "cif_pbc_out/crr_tidy_csv.md"
+
+@import "cif_pbc_out/crr_glance_csv.md"
+
+@import "cif_pbc_out/crr_vs_finegray_csv.md"

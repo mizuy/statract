@@ -48,6 +48,7 @@ concept §9。
 - 主: `fit_ols(..., "wt82_71 ~ qsmk", weights="sw_trunc")` + `hc_covariance(..., kind="HC3")`
 - 未調整 OLS を併記
 - 感度: `match_sample(..., method="cem")` の `balance` / `love_plot` のみ。アウトカム回帰はしない（第二推定対象にしない）
+- 感度: 欠損 `wt82_71` を `impute_chained(m=20, n_iter=10, seed=20261008)`（PMM、予測子は `qsmk` と PS 共変量）で多重代入し、各セットで IPTW OLS + HC3 を再推定して `pool`（Rubin のルール、Barnard–Rubin df）で統合。完全例と比較する（MAR 仮定）
 - **禁止**: `iptw()`（無い）、ATT 用の最近傍マッチ。マッチングを足すときは `match_sample`
 
 ## 9. 出力 ↔ results
@@ -59,3 +60,4 @@ concept §9。
 | `iptw_nhefs_out/ps_glm.csv`, `iptw_weight_summary.csv`, `iptw_n.md` | PS / 重み |
 | `iptw_nhefs_out/ols_unadjusted.csv`, `ols_iptw_hc3.csv`, `figures/ols_iptw_forest.png` | ATE |
 | `iptw_nhefs_out/cem_sensitivity.md`, `figures/cem_love.png` | CEM 感度 |
+| `iptw_nhefs_out/mi_vs_cc.csv`, `mi_pooled.csv`, `mi_note.md` | 多重代入感度 |

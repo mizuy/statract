@@ -32,6 +32,14 @@
 
 ![IPTW OLS forest (HC3)](iptw_nhefs_out/figures/ols_iptw_forest.png)
 
+## 多重代入感度（MICE + Rubin）
+
+@import "iptw_nhefs_out/mi_note.md"
+
+@import "iptw_nhefs_out/mi_vs_cc_csv.md"
+
+@import "iptw_nhefs_out/mi_pooled_csv.md"
+
 ## CEM 感度（バランスのみ・ATE ではない）
 
 @import "iptw_nhefs_out/cem_sensitivity.md"

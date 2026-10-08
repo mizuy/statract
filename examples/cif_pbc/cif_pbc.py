@@ -15,6 +15,7 @@ import shutil
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 import polars as pl
 
 from support import flowchart, load_parquet_dir
@@ -25,7 +26,9 @@ from statract import (
     agg_mean_sd,
     agg_median_iqr,
     cox_ph,
+    cumulative_incidence,
     fine_gray,
+    fine_gray_regression,
     plot_forest,
     survival_curve,
     write_tableone_artifacts,
@@ -68,6 +71,32 @@ def _plot_cif(frame: pl.DataFrame, path: Path) -> None:
     ax.set_xlabel("Time (days)")
     ax.set_ylabel("Cumulative incidence of liver death")
     ax.set_title("Aalen–Johansen CIF (cause = death; transplant competing)")
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _plot_cuminc(ci, path: Path) -> None:
+    fig, ax = plt.subplots(figsize=(6.5, 4.5))
+    frame = ci.frame()
+    tests = {row["cause"]: row["p_value"] for row in ci.tests.iter_rows(named=True)}
+    names = {"1": "transplant", "2": "death"}
+    colors = {"D-penicillamine": "#1f77b4", "placebo": "#d62728"}
+    styles = {"2": "-", "1": "--"}
+    for (group, cause), part in frame.group_by(["group", "cause"], maintain_order=True):
+        part = part.sort("time")
+        ax.step(
+            part["time"].to_list(),
+            part["estimate"].to_list(),
+            where="post",
+            color=colors.get(group),
+            linestyle=styles.get(cause, ":"),
+            label=f"{group}, {names.get(cause, cause)} (Gray p={tests[cause]:.2f})",
+        )
+    ax.set_xlabel("Time (days)")
+    ax.set_ylabel("Cumulative incidence")
+    ax.set_title("cuminc: death and transplant by treatment")
     ax.legend(fontsize=8)
     fig.tight_layout()
     fig.savefig(path, dpi=150, bbox_inches="tight")
@@ -126,6 +155,11 @@ def main() -> None:
     _write_csv(out, "cif_death_at", aj_death.at(TIMES_Y))
     _plot_cif(cif, out / "figures" / "cif_death.png")
 
+    ci = cumulative_incidence(cohort, "time", "status", by="trt_label")
+    _write_csv(out, "gray_test", ci.tests)
+    _write_csv(out, "cuminc_at", ci.at(TIMES_Y))
+    _plot_cuminc(ci, out / "figures" / "cuminc.png")
+
     fg_df = cohort.filter(
         pl.col("time").is_not_null()
         & pl.col("status").is_not_null()
@@ -148,6 +182,24 @@ def main() -> None:
         xlabel="Hazard ratio",
         layout="table",
     )
+    crr = fine_gray_regression(fg_df, FG_FORMULA, cause=2)
+    crr_tidy = crr.tidy(exponentiate=True)
+    _write_csv(out, "crr_tidy", crr_tidy)
+    _write_csv(out, "crr_glance", crr.glance())
+    model_se = np.sqrt(np.diag(fg_fit.information_inverse()))
+    compare = pl.DataFrame(
+        {
+            "term": crr_tidy["term"],
+            "crr_estimate": crr_tidy["estimate"],
+            "finegray_estimate": fg_tidy["estimate"],
+            "crr_shr": crr_tidy["exp_estimate"],
+            "finegray_shr": fg_tidy["exp_estimate"],
+            "crr_se": crr_tidy["std_error"],
+            "finegray_robust_se": fg_tidy["std_error"],
+            "finegray_model_se": model_se,
+        }
+    )
+    _write_csv(out, "crr_vs_finegray", compare)
     (out / "finegray_n.md").write_text(
         f"Fine–Gray complete-case n = {fg_df.height} (flowchart n = {cohort.height}); "
         f"expanded rows = {expanded.height}; cause of interest = death (status=2); "

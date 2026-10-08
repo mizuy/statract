@@ -87,6 +87,7 @@ nav:
           - クラスター頑健 Cox: examples/cox_retinopathy.md
       - Regression and mixed models:
           - 多施設 RCT の混合ロジスティック: examples/logit_indo.md
+          - てんかん RCT の計数 GLMM: examples/glmm_epil.md
           - 反復測定の線形混合モデル: examples/lmm_pbcseq.md
       - Prediction:
           - 予測モデルの較正と DCA: examples/pred_support.md

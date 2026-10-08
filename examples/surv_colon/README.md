@@ -1,6 +1,6 @@
 # surv_colon — colon 補助療法の生存例
 
-KM / log-rank / Cox。`etype=1` で患者単位に畳み、`hue=rx` の Table 1 から KM 図まで。
+KM / log-rank / Cox / Cox 標準化（`standardize_cox`）。`etype=1` で患者単位に畳み、`hue=rx` の Table 1 から KM 図、`rx` 別の周辺生存曲線と 5 年 RMST まで。
 
 **読む:** [docs 単一ページ](../../docs/examples/surv_colon.md)（ギャラリー: [解析例](https://mizuy.github.io/statract/examples/surv_colon/)）。データ出典・プロトコル詳細・図つき Results はそちら。
 

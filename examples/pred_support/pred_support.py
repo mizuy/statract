@@ -25,14 +25,20 @@ from statract import (
     agg_category,
     agg_mean_sd,
     binary_perf,
+    calibrate_logistic,
     calibration_table,
     conditional_tree,
     fit_glm,
     plot_calibration,
+    plot_calibration_curve,
     plot_dca,
     plot_forest,
+    plot_roc,
     plot_tree,
+    roc_curve,
+    roc_test,
     threshold_tradeoff,
+    validate_logistic,
     write_probability_artifacts,
     write_tableone_artifacts,
 )
@@ -65,6 +71,8 @@ FULL_FORMULA = (
 VAL_FRACTION = 0.30
 VAL_SEED = 2026
 DECISION_THRESHOLD = 0.40
+BOOT_B = 200
+BOOT_SEED = 2026
 
 
 def _clear_out(out: Path) -> Path:
@@ -263,6 +271,70 @@ def main() -> None:
             }
         )
     _write_csv(out, "model_compare_val", pl.DataFrame(compare_rows))
+
+    # ROC (pROC port): DeLong CI per model and paired DeLong test on the hold-out.
+    rocs = {
+        "glm_age_sex": roc_curve(y_val, p_age),
+        "glm_full": roc_curve(y_val, p_full_val),
+        "ctree": roc_curve(y_val, p_tree_val),
+    }
+    plot_roc(rocs, out / "figures" / "fig_roc.png", title="ROC (validation)")
+    roc_rows = []
+    for name, r in rocs.items():
+        lo, auc, hi = r.ci_auc()
+        roc_rows.append({"model": name, "auc": auc, "ci_low": lo, "ci_high": hi})
+    _write_csv(out, "roc_auc_val", pl.DataFrame(roc_rows))
+    test_rows = []
+    for a, b in (("glm_full", "ctree"), ("glm_full", "glm_age_sex")):
+        t = roc_test(rocs[a], rocs[b])
+        test_rows.append(
+            {
+                "comparison": f"{a} vs {b}",
+                "auc1": t.auc1,
+                "auc2": t.auc2,
+                "diff": t.auc1 - t.auc2,
+                "diff_ci_low": t.conf_int[0] if t.conf_int else None,
+                "diff_ci_high": t.conf_int[1] if t.conf_int else None,
+                "z": t.statistic,
+                "p_value": t.p_value,
+                "method": t.method,
+            }
+        )
+    _write_csv(out, "roc_test_val", pl.DataFrame(test_rows))
+
+    # rms-style bootstrap internal validation of glm_full on the training set only.
+    # Continuous predictors are standardised first: the model and every index are
+    # unchanged, but the lrm.fit port's singularity check rejects the raw design
+    # (sod ~ 135, temp ~ 37 are nearly collinear with the intercept).
+    cont = [c for c in covs if train.schema[c].is_numeric() and train[c].n_unique() > 2]
+    train_z = train.with_columns([((pl.col(c) - pl.col(c).mean()) / pl.col(c).std()).alias(c) for c in cont])
+    val_tab = validate_logistic(train_z, FULL_FORMULA, B=BOOT_B, seed=BOOT_SEED)
+    val_tab = pl.concat(
+        [
+            val_tab,
+            # C = Dxy / 2 + 0.5 for each column (n stays as is).
+            val_tab.filter(pl.col("index") == "Dxy").with_columns(
+                pl.lit("C").alias("index"),
+                *[(pl.col(c) / 2 + 0.5).alias(c) for c in ("index_orig", "training", "test", "index_corrected")],
+                (pl.col("optimism") / 2).alias("optimism"),
+            ),
+        ]
+    )
+    _write_csv(out, "validate_logistic_train", val_tab)
+    cal_boot = calibrate_logistic(train_z, FULL_FORMULA, B=BOOT_B, seed=BOOT_SEED)
+    _write_csv(out, "calibrate_logistic_train", cal_boot.table)
+    plot_calibration_curve(
+        cal_boot,
+        out / "figures" / "fig_calibrate_boot.png",
+        title="Bootstrap calibration (glm_full, train)",
+    )
+    (out / "calibrate_logistic.md").write_text(
+        f"calibrate_logistic B={cal_boot.B}, n={cal_boot.n}: "
+        f"mean |error|={cal_boot.mean_absolute_error:.4f}, "
+        f"mean squared error={cal_boot.mean_squared_error:.5f}, "
+        f"0.9 quantile |error|={cal_boot.quantile_90:.4f}\n",
+        encoding="utf-8",
+    )
 
     (out / "split.md").write_text(
         f"Stratified 70/30 split (seed={VAL_SEED}): train n={train.height}, "

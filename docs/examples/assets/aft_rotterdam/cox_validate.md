@@ -1,0 +1,1 @@
+validate_cox B = 200, seed = 20261008, n = 2982. Dxy apparent = 0.3783, optimism = 0.0026, corrected = 0.3756 (C = 0.6878). Slope corrected = 0.9863. calibrate_cox u = 1825 days, 9 groups, mean |optimism| = 0.0015.

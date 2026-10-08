@@ -56,6 +56,16 @@
 
 ![Deviance](aft_rotterdam_out/figures/cox_deviance.png)
 
+## Cox 内部検証（bootstrap B=200）
+
+@import "aft_rotterdam_out/cox_validate.md"
+
+@import "aft_rotterdam_out/cox_validate_csv.md"
+
+@import "aft_rotterdam_out/cox_calibrate_5y_csv.md"
+
+![Cox calibration at 5 years](aft_rotterdam_out/figures/cox_calibrate_5y.png)
+
 ## Weibull AFT
 
 @import "aft_rotterdam_out/aft_n.md"
