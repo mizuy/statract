@@ -89,6 +89,7 @@ from .impute import MultipleImputation, impute_chained, pool
 from .gamm import GammFit, gamm
 from .gam import compare_gams, gam, smooth, tensor_interaction, tensor_smooth
 from .tree import conditional_tree
+from .tree_plot import plot_tree
 from .linear_tests import (
     breusch_godfrey_test,
     breusch_pagan_test,
@@ -235,6 +236,7 @@ __all__ = [
     "compare_gams",
     "conditional_logit",
     "conditional_tree",
+    "plot_tree",
     "cox_ph",
     "cumulative_incidence",
     "durbin_watson_test",
