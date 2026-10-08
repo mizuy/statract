@@ -9,7 +9,10 @@ quadratic statistic. Defaults match ``ctree_control``: alpha 0.05, minsplit
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 import numpy as np
 import polars as pl
@@ -46,6 +49,7 @@ class ConditionalTree:
     predictors: list[str]
     columns: dict[str, np.ndarray]
     outcome: str
+    y: np.ndarray
 
     def predict(self, data: pl.DataFrame | None = None) -> np.ndarray:
         """Mean response in the terminal node of each row."""
@@ -55,8 +59,18 @@ class ConditionalTree:
             columns = {name: np.asarray(column_series(data, name).to_numpy()) for name in self.predictors}
         n = len(next(iter(columns.values())))
         out = np.full(n, np.nan)
-        _assign(self.root, np.ones(n, dtype=bool), columns, out)
+
+        def fill(leaf: _Node, mask: np.ndarray) -> None:
+            out[mask] = leaf.mean
+
+        _route(self.root, np.ones(n, dtype=bool), columns, fill)
         return out
+
+    def plot(self, path: Path | str | None = None, **kwargs: Any) -> Any:
+        """Draw the tree like partykit's ``plot``. See :func:`plot_tree`."""
+        from .tree_plot import plot_tree
+
+        return plot_tree(self, path, **kwargs)
 
     def format(self, digits: int = 3) -> str:
         """Text drawing of the tree, numbered depth first like partykit's print.
@@ -139,7 +153,7 @@ def conditional_tree(
     }
     factors = {name for name, values in columns.items() if values.dtype.kind in {"U", "O", "S"}}
     root = _grow(y, columns, factors, alpha, minsplit, minbucket)
-    return ConditionalTree(root=root, predictors=list(predictors), columns=columns, outcome=y_series.name)
+    return ConditionalTree(root=root, predictors=list(predictors), columns=columns, outcome=y_series.name, y=y)
 
 
 def _grow(y, columns, factors, alpha, minsplit, minbucket) -> _Node:
@@ -185,9 +199,12 @@ def _grow(y, columns, factors, alpha, minsplit, minbucket) -> _Node:
     return node
 
 
-def _assign(node: _Node, mask: np.ndarray, columns: dict[str, np.ndarray], out: np.ndarray) -> None:
+def _route(
+    node: _Node, mask: np.ndarray, columns: dict[str, np.ndarray], visit: Callable[[_Node, np.ndarray], None]
+) -> None:
+    """Send the rows in ``mask`` down the tree and call ``visit(leaf, mask)`` at each leaf."""
     if node.split is None or node.left is None or node.right is None:
-        out[mask] = node.mean
+        visit(node, mask)
         return
     values = columns[node.split.column]
     if node.split.break_at is not None:
@@ -199,8 +216,8 @@ def _assign(node: _Node, mask: np.ndarray, columns: dict[str, np.ndarray], out: 
         labels = np.asarray(values).astype(str)
         go_left = np.isin(labels, node.split.left_levels)
         go_right = np.isin(labels, node.split.right_levels)
-    _assign(node.left, mask & go_left, columns, out)
-    _assign(node.right, mask & go_right, columns, out)
+    _route(node.left, mask & go_left, columns, visit)
+    _route(node.right, mask & go_right, columns, visit)
 
 
 def _numeric_association(x: np.ndarray, y: np.ndarray) -> tuple[float, float] | None:
