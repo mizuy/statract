@@ -162,6 +162,17 @@ from .task_io import (
     save_frames,
     task_output_dir,
 )
+from .validation import (
+    CalibrationCurve,
+    SurvivalCalibration,
+    calibrate_cox,
+    calibrate_logistic,
+    gini_mean_difference,
+    plot_calibration_curve,
+    somers_dxy,
+    validate_cox,
+    validate_logistic,
+)
 
 
 
@@ -286,4 +297,13 @@ __all__ = [
     "tableone_raw",
     "write_tableone_artifacts",
     "TableOneStyle",
+    "CalibrationCurve",
+    "SurvivalCalibration",
+    "calibrate_cox",
+    "calibrate_logistic",
+    "gini_mean_difference",
+    "plot_calibration_curve",
+    "somers_dxy",
+    "validate_cox",
+    "validate_logistic",
 ]
