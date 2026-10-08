@@ -29,6 +29,8 @@
 | Fine–Gray | `finegray` のあと `coxph` | `fine_gray` のあと `cox_ph(..., entry=, weights=)` | 係数、モデルベース SE と行ごとの頑健 SE（重みが整数でないので coxph の既定）、部分尤度 |
 | 累積発生（cmprsk） | `cuminc(ftime, fstatus, group, strata, rho=)`、`timepoints` | `cumulative_incidence(data, time, event, by, strata=, rho=)`、`.at(times)` | 曲線の角の時刻・推定値・分散、Gray 検定の統計量と p 値（層あり、rho = 0 と 1）、時点の推定値と分散。fixture は `cmprsk.json` |
 | Fine–Gray（cmprsk） | `crr(ftime, fstatus, cov1, failcode=, cengroup=)`、`predict.crr` | `fine_gray_regression`。式は `Surv(time, status) ~ x + grp`、`cause=`、`censor_group=` | 係数、Fine–Gray のサンドイッチ分散、情報行列、擬似対数尤度（null も）、基準ハザードの跳び、スコア残差、予測 CIF。rtol 1e-8 |
+| Cox 回帰標準化（生存関数） | `stdReg2::standardize_coxph(measure="survival")` と `tidy()`。Breslow の Cox、Sjölander (2016) のサンドイッチ | `standardize_cox(..., measure="survival")`、`.tidy(contrast=, reference=, transform=, ci=)` | fixture `stdreg_cox.json` の 4 例: 二値曝露と交互作用（打ち切りと事象が同じ時刻に重なる）、クラスタ、3 水準の連続曝露、変換。推定値、水準間の共分散、表を rtol 1e-6 |
+| Cox 回帰標準化（RMST） | `standardize_coxph(measure="rmean")`。群ごとの Efron の Cox、Chen–Tsiatis (2001) | `standardize_cox(..., measure="rmean")` | 同じ fixture の 3 例（主効果、交互作用、同順位）。同順位の例は、下の「群の取り方」の 1 行だけを直した R と比べる |
 | 最近傍（logit） | `matchit(..., distance="glm", link="logit", m.order="data")` | `match_sample(..., distance="logit", order="data")` | 組、x1 のマッチ後標準化差 |
 | 最近傍（マハラノビス） | `distance="mahalanobis"` | `distance="mahalanobis"` | `order="data"` の組 |
 | 完全一致、CEM | `method="exact"`、`method="cem"` | `method="exact"`、`method="cem"` | 重み |
@@ -89,6 +91,21 @@ rms の行は `rms.json`（rms 6.7-1、R 4.3.3）です。再生成は `Rscript 
 
 - クラスタ頑健分散の HC2 / HC3
 - `crr` の時間依存項（`cov2`、`tf`）。`crr` と同じサンドイッチ SE は `fine_gray_regression` です
+
+## stdReg2 と違うところ
+
+`standardize_cox` は stdReg2 1.0.8 に合わせていますが、次の点は R と違います。
+
+- 生存関数の分散では、事象時刻と同じ時刻で打ち切られた行にも、その時刻の基底ハザードの増分が入ります。R が時刻の値で行に割り当てるためで、これは R に合わせています。
+- RMST で外す項: R は `grep(曝露名, 項名)` で外すので、曝露が `ope` なら `operation` の項も消えます。statract は曝露の列を使う項だけを外します。
+- RMST の各事象の群: R は事象時刻を `match()` で同じ時刻の最初の行に当て、その行の群を使います。その行は打ち切りや別の群のこともあります。statract は事象を起こした行の群を使います。同じ時刻の事象が無ければ一致します。
+- RMST で曝露のほかに共変量が無い式は拒否します。R も `reformulate()` で止まります。
+- RMST の `times` が 2 個以上なら `ValueError` です。R は警告を出して最大値を使います。
+- RMST の `values` を `[1, 0]` の順に渡しても、各行の値と推定値は対応します。R は推定値を 0、1 の順に並べたまま、ラベルだけを `values` の順にします。
+- 文字列のクラスタ列も使えます。R は列を data.table の `by` に渡すので、文字列だと列名と読んで止まります。fixture のクラスタは整数です。
+- `transform="logit"` と `"odds"` は生存関数で使えます。R の `summary_std_coxph` は作る前の `out$measure` を読むので止まります。fixture はグローバルに `out` を置いて R に計算させています。
+- `ci="log"` と `contrast="difference"` の組み合わせは拒否します。参照行の推定値が 0 になり、R では区間が NaN になります。
+- ケースウェイトはありません。R も Cox にウェイトを渡しません。
 
 ## 既存の名前
 
