@@ -94,6 +94,8 @@ print(model.tidy())
 
 競合リスクの累積発生と Gray 検定は `cumulative_incidence(frame, "time", "status", by="arm")` です（`cmprsk::cuminc`）。`.tests` が原因ごとの検定、`.at([1, 3])` が時点の値です。`crr` と同じ Fine–Gray 回帰は `fine_gray_regression(frame, "Surv(time, status) ~ x + arm", cause=1)` で、SE は打ち切り分布の推定を含むサンドイッチです。`.predict(new)` が共変量ごとの CIF を返します。
 
+Cox モデルでの回帰標準化は `standardize_cox(frame, "Surv(time, status) ~ ope * age + sex", values={"ope": [0, 1]}, times=[1, 3, 5])` です（`stdReg2::standardize_coxph`）。曝露を各値に置き換えた生存の標本平均で、分散は共変量のばらつきを含むサンドイッチです。`.tidy()` が曲線、`.tidy(contrast="difference", reference=0)` が差です。`measure="rmean"` は 0/1 の曝露での制限付き平均生存時間です。R との違いは [vs R](vs-r.md) の「stdReg2 と違うところ」 にあります。
+
 ### マッチング
 
 ```python

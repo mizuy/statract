@@ -141,6 +141,7 @@ from .surv import (
     plot_loglog,
     proportional_hazards_test,
     split_follow_up,
+    standardize_cox,
     survival_curve,
     write_cox_diagnostic_suite,
 )
@@ -269,6 +270,7 @@ __all__ = [
     "ramsey_reset_test",
     "smooth",
     "split_follow_up",
+    "standardize_cox",
     "survival_curve",
     "tensor_interaction",
     "tensor_smooth",

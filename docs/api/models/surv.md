@@ -1,5 +1,5 @@
 # surv
 
-生存曲線、log-rank、Cox、条件付きロジスティック、加速故障時間、Fine–Gray、競合リスクの累積発生です。`cox_ph`、`accelerated_failure`、`fine_gray`、`fine_gray_regression` は `Surv(time, status) ~ age + sex` を受けます。`cumulative_incidence` と `fine_gray_regression` は `cmprsk` の `cuminc` と `crr` に合わせています。`conditional_logit` は `y ~ x + strata(set)` を受けます。文法は [Wilkinson 式](../../models/formula.md) です。Kaplan–Meier の図は `statract.survival` で、API は [survival](../viz/survival.md) です。
+生存曲線、log-rank、Cox、条件付きロジスティック、加速故障時間、Fine–Gray、競合リスクの累積発生です。`cox_ph`、`accelerated_failure`、`fine_gray`、`fine_gray_regression` は `Surv(time, status) ~ age + sex` を受けます。`cumulative_incidence` と `fine_gray_regression` は `cmprsk` の `cuminc` と `crr` に合わせています。`conditional_logit` は `y ~ x + strata(set)` を受けます。`standardize_cox` は `stdReg2::standardize_coxph` に合わせた Cox 回帰標準化（生存関数と RMST）です。文法は [Wilkinson 式](../../models/formula.md) です。Kaplan–Meier の図は `statract.survival` で、API は [survival](../viz/survival.md) です。
 
 ::: statract.surv
