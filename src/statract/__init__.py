@@ -101,6 +101,7 @@ from .linear_tests import (
     wald_test,
 )
 from .matching import match_sample
+from .roc import RocCurve, RocTest, plot_roc, roc_curve, roc_test
 from .forest import plot_forest
 from .regression import (
     glmm_cluster_variance,
@@ -132,7 +133,9 @@ from .surv import (
     accelerated_failure,
     conditional_logit,
     cox_ph,
+    cumulative_incidence,
     fine_gray,
+    fine_gray_regression,
     log_rank,
     plot_cox_residuals,
     plot_loglog,
@@ -162,6 +165,17 @@ from .task_io import (
     print_saved,
     save_frames,
     task_output_dir,
+)
+from .validation import (
+    CalibrationCurve,
+    SurvivalCalibration,
+    calibrate_cox,
+    calibrate_logistic,
+    gini_mean_difference,
+    plot_calibration_curve,
+    somers_dxy,
+    validate_cox,
+    validate_logistic,
 )
 
 
@@ -222,8 +236,10 @@ __all__ = [
     "conditional_logit",
     "conditional_tree",
     "cox_ph",
+    "cumulative_incidence",
     "durbin_watson_test",
     "fine_gray",
+    "fine_gray_regression",
     "fit_glm",
     "fit_mixed",
     "MixedFit",
@@ -239,6 +255,11 @@ __all__ = [
     "likelihood_ratio_test",
     "log_rank",
     "match_sample",
+    "RocCurve",
+    "RocTest",
+    "plot_roc",
+    "roc_curve",
+    "roc_test",
     "meat",
     "newey_west_covariance",
     "proportional_hazards_test",
@@ -287,4 +308,13 @@ __all__ = [
     "tableone_raw",
     "write_tableone_artifacts",
     "TableOneStyle",
+    "CalibrationCurve",
+    "SurvivalCalibration",
+    "calibrate_cox",
+    "calibrate_logistic",
+    "gini_mean_difference",
+    "plot_calibration_curve",
+    "somers_dxy",
+    "validate_cox",
+    "validate_logistic",
 ]

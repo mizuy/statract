@@ -106,6 +106,7 @@ nav:
               - linear_tests: api/models/linear_tests.md
               - surv: api/models/surv.md
               - matching: api/models/matching.md
+              - roc: api/models/roc.md
               - gam: api/models/gam.md
               - gamm: api/models/gamm.md
               - tree: api/models/tree.md
@@ -113,6 +114,7 @@ nav:
               - impute: api/models/impute.md
               - regression: api/models/regression.md
               - confusion: api/models/confusion.md
+              - validation: api/models/validation.md
               - r: api/models/r.md
           - Figures:
               - forest: api/viz/forest.md

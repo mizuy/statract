@@ -27,6 +27,8 @@
 | 加速故障時間 | `survreg` | `accelerated_failure` | weibull、lognormal、exponential の係数、SE、対数尤度。尺度は `Log(scale)` |
 | Aalen–Johansen | `survfit(Surv(time, factor(event)) ~ 1)`。左切り捨ては `Surv(entry, time, factor(event))` | `survival_curve(..., kind="aalen_johansen", entry=)` | 累積発生、Aalen 型 SE、plain 区間 |
 | Fine–Gray | `finegray` のあと `coxph` | `fine_gray` のあと `cox_ph(..., entry=, weights=)` | 係数、モデルベース SE と行ごとの頑健 SE（重みが整数でないので coxph の既定）、部分尤度 |
+| 累積発生（cmprsk） | `cuminc(ftime, fstatus, group, strata, rho=)`、`timepoints` | `cumulative_incidence(data, time, event, by, strata=, rho=)`、`.at(times)` | 曲線の角の時刻・推定値・分散、Gray 検定の統計量と p 値（層あり、rho = 0 と 1）、時点の推定値と分散。fixture は `cmprsk.json` |
+| Fine–Gray（cmprsk） | `crr(ftime, fstatus, cov1, failcode=, cengroup=)`、`predict.crr` | `fine_gray_regression`。式は `Surv(time, status) ~ x + grp`、`cause=`、`censor_group=` | 係数、Fine–Gray のサンドイッチ分散、情報行列、擬似対数尤度（null も）、基準ハザードの跳び、スコア残差、予測 CIF。rtol 1e-8 |
 | 最近傍（logit） | `matchit(..., distance="glm", link="logit", m.order="data")` | `match_sample(..., distance="logit", order="data")` | 組、x1 のマッチ後標準化差 |
 | 最近傍（マハラノビス） | `distance="mahalanobis"` | `distance="mahalanobis"` | `order="data"` の組 |
 | 完全一致、CEM | `method="exact"`、`method="cem"` | `method="exact"`、`method="cem"` | 重み |
@@ -39,6 +41,10 @@
 | テンソル交互作用 | `ti(x, z)` | `tensor_interaction` | edf（rtol 3e-3）、REML（atol 1e-3）、当てはめ（atol 1e-3）。ヌルに近い周辺の平滑化パラメータは平坦 |
 | 重みと offset | `gam(..., weights=, offset=)` | `gam(..., weights=, offset=)`。列名 | 平滑化パラメータ、edf、REML、係数、当てはめ |
 | 条件付き推論木 | `partykit::ctree`。二次形式、Šidák（`testtype="Bonferroni"`）、`minsplit=20`、`minbucket=7` | `conditional_tree` | 根の統計量と調整済み p 値、終端ノードの平均 |
+| ROC 曲線と AUC | `pROC::roc`（既定の水準、`direction="auto"`、`na.rm=TRUE`） | `roc_curve` | 閾値、感度、特異度、AUC（rtol 1e-10）。fixture は `proc.json` の 3 標本（同順位なし、同順位と欠測あり、完全分離の小標本） |
+| AUC の分散と区間 | `var`、`ci.auc(method="delong")` | `RocCurve.var_auc`、`RocCurve.ci_auc` | DeLong の分散と 95% / 90% 区間（rtol 1e-8） |
+| 最適な閾値 | `coords(..., "best", best.method=, transpose=FALSE)`、閾値の指定 | `RocCurve.coords` | youden と closest.topleft の閾値、特異度、感度、正確度、NPV、PPV（rtol 1e-10） |
+| 2 本の AUC の比較 | `roc.test(method="delong")` | `roc_test` | 対応あり（Z）と対応なし（t と自由度）の統計量（rtol 1e-8）と p 値（atol 1e-8）。欠測の位置が違うときの共通部分での再計算も含む |
 | 共線性 | `performance::check_collinearity` | `check_collinearity` | VIF、SE factor、許容度と区間 |
 | 線形混合 | `lmer`。`(1 \| g)` または `(1 + x \| g)`、REML または ML | `fit_mixed`（既定 `engine="lme"` = lme-python 0.2.6） | fixture `lmm.json` 3 標本: coef rel 最大約 1.9×10⁻⁴。pytest は coef 5e-4、SE 1e-3、RE 1e-2、σ² 5e-4、loglik atol 1e-5。STAR 公開スライス（2026-10-04）では lme の coef rel 最大 1.18×10⁻³（変量傾き 10,000 行）、ML 1,000 行は 7.41×10⁻⁴。mixedlm-rs extra は変量切片で旧 1e-6 級に近い |
 | ポアソン GLMM | `glmmTMB(..., family=poisson)`、`glmer(..., family=poisson, nAGQ=9)`。`offset(log(years))`、`(1 \| g)` と `(1 + x \| g)` | `fit_mixed(..., family="poisson")`（`engine="laplace"`）、`n_agq=` | fixture `glmm_count.json` 3 標本。係数 rtol 1e-4 / atol 2e-5（glmmTMB は自分の許容差で止まるので、こちらの対数尤度は常に同じか高い）、SE rtol 1e-4、対数尤度 atol 1e-6、変量効果の分散 rtol 1e-3。求積は glmer と係数 rtol 1e-4 |
@@ -50,8 +56,16 @@
 | ハードル GLMM | `glmmTMB(..., family=truncated_poisson / truncated_nbinom2, ziformula = ~z)` | `fit_mixed(..., hurdle=True)` | 同じ fixture の 2 例。量は上と同じ |
 | 多重代入の統合 | `mice::pool`、`summary(pool(...), conf.int = TRUE)` | `pool`、`MultipleImputation.pool` | fixture `mice_pool.json`。mice（m=5、pmm / logreg / polyreg）で埋めた同じ 5 データに lm、ロジスティック glm、coxph を当て、推定値、ubar、b、t、Barnard–Rubin 自由度、riv、λ、fmi、SE、p 値、区間（rtol 1e-6）と `dfcom` |
 | Wilkinson 式 | `model.matrix`、`lm` | `model_matrix`、`fit_ols` | 設計行列、応答、`offset()`、`y ~ x * stage` と `log(y) ~ x` と `y ~ x + offset(z)` の係数と SE。fixture は `wilkinson.json` |
+| ロジスティックの内的妥当性 | `rms::validate.lrm`（`method="boot"`） | `validate_logistic` | Dxy、R2、Intercept、Slope、Emax、D、U、Q、B、g、gp の index.orig、training、test、optimism、index.corrected、n（rtol 1e-6）。同じ再標本を `indices=` で渡す |
+| ロジスティックの較正曲線 | `rms::calibrate`（`lrm`、lowess、既定の `predy`） | `calibrate_logistic`、図は `plot_calibration_curve` | apparent と bias-corrected の曲線（atol 1e-6）、平均絶対誤差、0.9 分位 |
+| Cox の内的妥当性 | `rms::validate.cph` | `validate_cox` | Dxy、R2、Slope、D、U、Q、g の各列（rtol 1e-6） |
+| Cox の較正 | `rms::calibrate.cph(cmethod="KM")`。`cph(..., surv=TRUE, time.inc=u)` | `calibrate_cox(..., u=, m=)` | 群ごとの予測生存、KM、KM.corrected、std.err、optimism（atol 1e-6） |
+| 一致指数 | `Hmisc::somers2`、`rms` の `dxy.cens` | `somers_dxy` | C と Dxy |
+| lowess | `stats::lowess` | `statract._lowess_r.lowess_r`（内部） | 既定（iter=3）、iter=0、f=0.2 と delta=0 の当てはめ |
 
-各行は 3 標本です。許容差はサンドイッチ共分散は rtol 1e-8、Newton 法の係数は rtol 1e-6、平滑化パラメータは rtol 1e-3、edf は rtol 1e-4、REML は atol 1e-6、p 値は atol 1e-6 です。マッチの組は完全一致です。加法モデルの範囲、thin plate、テンソル、共線性、最適マッチ、full matching は `gam_scope.json`、`collinearity.json`、`match_opt_full.json` の 1 標本です。重みと offset、テンソル交互作用は `gam_weight_ti.json`、条件付き推論木は `ctree.json` の 1 標本です。
+各行は 3 標本です。許容差はサンドイッチ共分散は rtol 1e-8、Newton 法の係数は rtol 1e-6、平滑化パラメータは rtol 1e-3、edf は rtol 1e-4、REML は atol 1e-6、p 値は atol 1e-6 です。マッチの組は完全一致です。加法モデルの範囲、thin plate、テンソル、共線性、最適マッチ、full matching は `gam_scope.json`、`collinearity.json`、`match_opt_full.json` の 1 標本です。重みと offset、テンソル交互作用は `gam_weight_ti.json`、条件付き推論木は `ctree.json` の 1 標本です。ROC の 4 行は `proc.json` で、再生成は `Rscript tests/r_oracle/scripts/proc.R` です。
+
+rms の行は `rms.json`（rms 6.7-1、R 4.3.3）です。再生成は `Rscript tests/r_oracle/scripts/rms.R` です。R の乱数は再現しないので、スクリプトは `set.seed` のあとの `sample(n, replace=TRUE)` を B 回くり返して再標本を作り、`predab.resample(debug=TRUE)` が表示する訓練標本の行と一致することを確かめてから書き出します。rms の `lrm.fit` は −2 log L の変化が 0.025 未満で、`cph` は相対変化 1e-4 で止まるので、`statract` も同じ手順で当てはめます。係数は `fit_glm` や `cox_ph` と小さな標本で 1e-4 程度ずれることがあります。`seed=` だけで呼ぶと numpy の乱数を使うので、値は R と一致しません。
 
 ガンマ GLM の対数尤度は statsmodels の密度を返すため、fixture の比較には入れていません。係数、SE、HC0 は比べています。
 
@@ -65,6 +79,7 @@
 ## この版の対象外
 
 - クラスタ頑健分散の HC2 / HC3
+- `crr` の時間依存項（`cov2`、`tf`）。`crr` と同じサンドイッチ SE は `fine_gray_regression` です
 
 ## 既存の名前
 
