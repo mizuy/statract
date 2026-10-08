@@ -71,6 +71,18 @@ CURATED: dict[str, list[str]] = {
         "mermaid_flowchart.md",
         "text_flowchart.md",
     ],
+    "htest_licorice": [
+        "table1.csv",
+        "table1_gt.md",
+        "figures/incidence.png",
+        "figures/risk_difference_forest.png",
+        "incidence.csv",
+        "sore_throat_tests.csv",
+        "pain_tests.csv",
+        "paired_tests.csv",
+        "mermaid_flowchart.md",
+        "text_flowchart.md",
+    ],
     "logit_indo": [
         "table1.csv",
         "table1_gt.md",

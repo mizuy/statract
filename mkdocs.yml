@@ -78,6 +78,8 @@ nav:
       - Cost-effectiveness: cea/overview.md
   - Examples:
       - Gallery: examples/index.md
+      - Basic tests:
+          - 2 群 RCT の基本検定: examples/htest_licorice.md
       - Survival:
           - 生存曲線と Cox 回帰: examples/surv_colon.md
           - 競合リスク解析: examples/cif_pbc.md
@@ -104,6 +106,7 @@ nav:
               - fit: api/models/fit.md
               - covariance: api/models/covariance.md
               - linear_tests: api/models/linear_tests.md
+              - htest: api/models/htest.md
               - surv: api/models/surv.md
               - matching: api/models/matching.md
               - roc: api/models/roc.md

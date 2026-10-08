@@ -83,6 +83,7 @@ HR / OR / 係数の forest は再実装した `plot_forest(..., layout="table")`
 
 | stem | 備考 |
 |------|------|
+| `htest_licorice` | 基本検定の正本（`binom_test` / `prop_test` / `wilcox_test` / `t_test` / `mcnemar_test` / `p_adjust`）。回帰なし |
 | `surv_colon` | 単一イベント生存の正本（KM+NAR、PH、診断、table forest） |
 | `aft_rotterdam` | PH 検定 + AFT の正本 |
 | `cox_retinopathy` | Cox Lin–Wei sandwich（`cluster(id)`）。両眼クラスター |
