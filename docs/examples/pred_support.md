@@ -189,14 +189,6 @@ ctree は各ノードで、予測因子と $Y$ の条件付き独立を並べ替
 
 ### 条件付き推論木（ctree、train）
 
-=== "木"
-
-    ```text
-    --8<-- "examples/assets/pred_support/ctree.txt"
-    ```
-
-    各行は `[ノード番号] 分割条件`。終端ノードは `: 180 日死亡割合 (n = 学習標本の人数)`。
-
 === "図"
 
     ![ctree (train)](assets/pred_support/ctree.png)
@@ -206,6 +198,14 @@ ctree は各ノードで、予測因子と $Y$ の条件付き独立を並べ替
     ```python
     plot_tree(tree, out / "figures" / "ctree.png")
     ```
+
+=== "テキスト"
+
+    ```text
+    --8<-- "examples/assets/pred_support/ctree.txt"
+    ```
+
+    各行は `[ノード番号] 分割条件`。終端ノードは `: 180 日死亡割合 (n = 学習標本の人数)`。
 
 === "根ノードの検定"
 
