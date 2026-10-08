@@ -89,6 +89,7 @@ from .impute import MultipleImputation, impute_chained, pool
 from .gamm import GammFit, gamm
 from .gam import compare_gams, gam, smooth, tensor_interaction, tensor_smooth
 from .tree import conditional_tree
+from .htest import HTest, binom_test, mcnemar_test, p_adjust, prop_test, t_test, wilcox_test
 from .linear_tests import (
     breusch_godfrey_test,
     breusch_pagan_test,
@@ -182,6 +183,13 @@ from .validation import (
 
 
 __all__ = [
+    "HTest",
+    "binom_test",
+    "mcnemar_test",
+    "p_adjust",
+    "prop_test",
+    "t_test",
+    "wilcox_test",
     "agg_bool_category",
     "agg_bool_ci",
     "agg_bool_n",
