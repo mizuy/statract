@@ -173,6 +173,42 @@ def _mi_sample(seed: int, n: int) -> pl.DataFrame:
     )
 
 
+def _two_way_sample(seed: int, n_patients: int, n_examiners: int, *, weighted: bool) -> pl.DataFrame:
+    """Right-censored exams, crossed by patient and examiner, with frailties for both."""
+    rng = np.random.default_rng(seed)
+    per_patient = rng.integers(1, 5, n_patients)
+    patient = np.repeat(np.arange(n_patients), per_patient)
+    n = len(patient)
+    examiner = rng.integers(0, n_examiners, n)
+    u_patient = rng.normal(0, 0.5, n_patients)
+    u_examiner = rng.normal(0, 0.4, n_examiners)
+    x = rng.normal(size=n)
+    arm = rng.choice(["control", "low", "high"], size=n)
+    effect = np.select([arm == "low", arm == "high"], [0.3, -0.4], 0.0)
+    hazard = 0.15 * np.exp(0.5 * x + effect + u_patient[patient] + u_examiner[examiner])
+    t = rng.exponential(1.0 / hazard)
+    censor = rng.uniform(1.0, 6.0, n)
+    # Round to a grid so that event times tie.
+    time = np.ceil(np.minimum(t, censor) * 4.0) / 4.0
+    status = (t <= censor).astype(int)
+    frame = pl.DataFrame(
+        {
+            "id_patient": [f"p{i:03d}" for i in patient],
+            "e_examiner": [f"e{i:02d}" for i in examiner],
+            "time": time,
+            "status": status,
+            "x": np.round(x, 6),
+            "arm": arm,
+            "site": rng.choice(["A", "B"], size=n),
+        }
+    )
+    if weighted:
+        frame = frame.with_columns(pl.Series("w", np.round(rng.uniform(0.5, 2.0, n), 3)))
+    # A few missing covariates check that clusters follow the rows the fit used.
+    gone = rng.uniform(size=n) < 0.03
+    return frame.with_columns(pl.when(pl.Series(gone)).then(None).otherwise(pl.col("x")).alias("x"))
+
+
 def main() -> None:
     DATA.mkdir(parents=True, exist_ok=True)
     # (1) Poisson counts, random intercept, 30 sites.
@@ -197,6 +233,9 @@ def main() -> None:
     _competing_sample(20261013, 300).write_csv(DATA / "fg_a.csv")
     # Multiple imputation: missing covariates, a binary column, and a factor.
     _mi_sample(20261019, 250).write_csv(DATA / "mi_a.csv")
+    # Two-way clustered Cox: patients crossed with examiners.
+    _two_way_sample(20261020, 150, 12, weighted=False).write_csv(DATA / "cox2way_a.csv")
+    _two_way_sample(20261021, 200, 8, weighted=True).write_csv(DATA / "cox2way_b.csv")
 
 
 if __name__ == "__main__":

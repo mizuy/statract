@@ -87,6 +87,8 @@ print(model.tidy())
 # cox_ph(frame, "time", "event", ["x", "arm"])
 ```
 
+患者と検査医のような交差する二元クラスタは `cluster_covariance(fit, ["id_patient", "e_examiner"], data=frame)` です。`sandwich::vcovCL(fit, cluster = ~ id_patient + e_examiner)` と同じ値で、係数が 1 個でも使えます。係数表は `coefficient_test(fit, cov)` です。`cox_ph(cluster=)` は 1 列の Lin–Wei（`coxph` と同じ）で、`cluster_covariance` の 1 列とは `G / (G - 1)` だけ違います。
+
 `survival_curve` の既定は Kaplan–Meier で、信頼区間は log です。Nelson–Aalen は `kind="nelson_aalen"` です。Cox の同順位は既定で Efron、`ties="breslow"` も選べます。層は `strata(arm)` か `strata=`、重みは `weights=` です。加速故障時間は `accelerated_failure(frame, "Surv(time, event) ~ x")`、Fine–Gray の展開は `fine_gray(frame, "Surv(time, status) ~ x", cause=1)` です。
 
 ### マッチング

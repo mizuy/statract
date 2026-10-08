@@ -22,6 +22,7 @@
 | 条件付きロジスティック | `clogit`。既定は exact | `conditional_logit`。式は `y ~ x + strata(set)`、列名も残す | exact の係数、モデルベース SE、条件付き対数尤度。`method="efron"` は時間を 1 にした `cox_ph` |
 | 重み付き Cox | `coxph(..., weights=)`。整数でない重みは Lin–Wei 分散、整数の重みはモデルベース | `cox_ph(..., weights=)` | 係数、頑健 SE、部分尤度 |
 | Cox の推論 | `residuals.coxph`（7 種）、`cox.zph(transform="km")`、`concordance`、`basehaz(centered=FALSE)`、`predict(type="expected")` | `fit.residuals(kind=)`、`proportional_hazards_test`、`fit.concordance()`、`fit.baseline_hazard()`、`fit.predict(kind="expected")` | fixture `cox_inference.json`。同順位あり（Efron / Breslow）、層と重み、計数過程（クラスタありとなし）の 6 標本。残差 rtol 1e-6、`cox.zph` は項ごとのカイ二乗と自由度、C と SE |
+| Cox の多方向クラスタ頑健分散 | `sandwich::vcovCL(fit, cluster = ~ id_patient + e_examiner)`（HC0、`cadjust=TRUE`） | `cluster_covariance(cox_fit, ["id_patient", "e_examiner"], data=frame)` | fixture `cox_two_way.json` 8 例: 二元、HC1、`adjust=False`、一元、係数 1 個（vcovCL が落ちるので R 側は同じ包除を手で書き、他の例で vcovCL と一致を確認）、重みと層と Breslow、三元。共分散 rtol 1e-6 |
 | クラスタ頑健分散 | `coxph(..., cluster=id)`。計数過程 `Surv(start, stop, status)` を含む | `cox_ph(..., cluster=)` または式の `cluster(id)` | 頑健共分散 rtol 1e-6 |
 | 加速故障時間 | `survreg` | `accelerated_failure` | weibull、lognormal、exponential の係数、SE、対数尤度。尺度は `Log(scale)` |
 | Aalen–Johansen | `survfit(Surv(time, factor(event)) ~ 1)`。左切り捨ては `Surv(entry, time, factor(event))` | `survival_curve(..., kind="aalen_johansen", entry=)` | 累積発生、Aalen 型 SE、plain 区間 |
