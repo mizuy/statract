@@ -106,6 +106,7 @@ nav:
               - linear_tests: api/models/linear_tests.md
               - surv: api/models/surv.md
               - matching: api/models/matching.md
+              - roc: api/models/roc.md
               - gam: api/models/gam.md
               - tree: api/models/tree.md
               - mixed: api/models/mixed.md

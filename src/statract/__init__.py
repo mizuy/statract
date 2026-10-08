@@ -99,6 +99,7 @@ from .linear_tests import (
     wald_test,
 )
 from .matching import match_sample
+from .roc import RocCurve, RocTest, plot_roc, roc_curve, roc_test
 from .forest import plot_forest
 from .regression import (
     glmm_cluster_variance,
@@ -230,6 +231,11 @@ __all__ = [
     "likelihood_ratio_test",
     "log_rank",
     "match_sample",
+    "RocCurve",
+    "RocTest",
+    "plot_roc",
+    "roc_curve",
+    "roc_test",
     "meat",
     "newey_west_covariance",
     "proportional_hazards_test",
