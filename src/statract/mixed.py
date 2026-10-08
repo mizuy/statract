@@ -73,6 +73,7 @@ class MixedFit:
     zero_design: Design | None = field(default=None, repr=False)
     offset_ref: ColumnRef | None = field(default=None, repr=False)
     ranef_frame: pl.DataFrame | None = field(default=None, repr=False)
+    random_terms: list[dict[str, Any]] | None = field(default=None, repr=False)
     raw: Any = field(default=None, repr=False)
 
     def tidy(self, *, level: float = 0.95, exponentiate: bool = False) -> pl.DataFrame:
@@ -96,6 +97,8 @@ class MixedFit:
         ``correlation`` is the correlation with the intercept. The residual
         row leaves it empty.
         """
+        if self.random_terms is not None:
+            return _terms_variance_table(self.random_terms)
         cov = self.group_covariance
         intercept_at = self.random_names.index("(Intercept)") if "(Intercept)" in self.random_names else None
         intercept_sd = 0.0 if intercept_at is None else float(np.sqrt(max(cov[intercept_at, intercept_at], 0.0)))
@@ -130,7 +133,13 @@ class MixedFit:
         return pl.DataFrame(rows)
 
     def random_effects(self) -> pl.DataFrame:
-        """Unique-group BLUPs for the grouping factor (intercept, then slopes)."""
+        """Conditional modes (BLUPs) of the random effects.
+
+        One term: a row per group with ``blup`` (the intercept) and a column
+        per slope, sorted by ``blup``. Several terms or ``ar1()``: a long
+        frame with ``group`` (the grouping column), ``level``, ``term``, and
+        ``blup``, as ``ranef()`` lists them.
+        """
         if self.ranef_frame is not None:
             return self.ranef_frame
         if self.raw is not None and getattr(self.raw, "ranef", None) is not None:
@@ -266,6 +275,14 @@ def fit_mixed(
     formula, design, y, labels, group_name, random_names, extra, formula_offset = _prepare(
         data, outcome, predictors, groups, slopes, offset
     )
+    terms = extra.pop("__terms__", None)
+    if terms is not None:
+        if engine_key != "laplace":
+            raise ValueError(
+                "several random-effect terms and ar1() need engine='laplace' (binomial, Poisson, or negative binomial)"
+            )
+        if n_agq > 1:
+            raise ValueError("n_agq > 1 needs a single random effect, for example (1 | g)")
     if engine_key == "laplace":
         offset_values = formula_offset
         if offset is not None:
@@ -275,6 +292,18 @@ def fit_mixed(
         zero_design = None
         if zero_part is not None:
             zero_design = _zero_design(data, design, zero_inflation)
+        if terms is not None:
+            return _fit_laplace_terms(
+                formula,
+                design,
+                y,
+                terms,
+                offset_values,
+                offset_ref=offset,
+                family=family,
+                zero_part=zero_part,
+                zero_design=zero_design,
+            )
         return _fit_laplace(
             formula,
             design,
@@ -519,6 +548,139 @@ def _fit_laplace(
     )
 
 
+@dataclass
+class _TermColumns:
+    group: str
+    structure: str
+    names: list[str]
+    z: np.ndarray
+    codes: np.ndarray
+    levels: list[str]
+
+
+def _effect_columns(data: pl.DataFrame, design: Design, effect: Any) -> _TermColumns:
+    """Columns of one random-effect term on the rows the model uses."""
+    idx = design.row_index
+    labels = np.asarray([str(v) for v in column_series(data, effect.group).gather(idx.tolist()).to_list()])
+    levels, codes = np.unique(labels, return_inverse=True)
+    if effect.structure == "ar1":
+        if effect.intercept or len(effect.slopes) != 1 or effect.slope_exprs:
+            raise ValueError("ar1() takes one time factor without an intercept, for example ar1(year + 0 | g)")
+        name = effect.slopes[0]
+        series = column_series(data, name)
+        if series.dtype.is_numeric():
+            order = sorted(series.drop_nulls().unique().to_list())
+            keys = [str(v) for v in order]
+            values = [str(v) for v in series.gather(idx.tolist()).to_list()]
+        else:
+            from .design import _factor_levels, _level_key
+
+            keys = _factor_levels(series, None)
+            values = [_level_key(v) for v in series.gather(idx.tolist()).to_list()]
+        position = {key: k for k, key in enumerate(keys)}
+        z = np.zeros((len(idx), len(keys)))
+        z[np.arange(len(idx)), [position[v] for v in values]] = 1.0
+        return _TermColumns(effect.group, "ar1", [f"{name}{key}" for key in keys], z, codes, list(levels))
+    columns: list[np.ndarray] = []
+    names: list[str] = []
+    if effect.intercept:
+        columns.append(np.ones(len(idx)))
+        names.append("(Intercept)")
+    expressed = dict(effect.slope_exprs)
+    for name in effect.slopes:
+        if name in design.names:
+            columns.append(design.x[:, design.names.index(name)])
+        elif name in expressed:
+            from .formula import _columns_in, _eval_arith
+
+            keep = np.zeros(data.height, dtype=bool)
+            keep[idx] = True
+            cache = {col: column_series(data, col).to_numpy() for col in _columns_in(expressed[name])}
+            columns.append(_eval_arith(expressed[name], cache, keep))
+        else:
+            series = column_series(data, name)
+            if series.dtype == pl.Boolean or _is_factor(series):
+                raise ValueError(f"random slope {name!r} must be numeric")
+            columns.append(np.asarray(series.gather(idx.tolist()).to_numpy(), dtype=float))
+        names.append(name)
+    if not names:
+        raise ValueError("random effect has no intercept and no slopes")
+    return _TermColumns(effect.group, "us", names, np.column_stack(columns), codes, list(levels))
+
+
+def _fit_laplace_terms(
+    formula: str,
+    design: Design,
+    y: np.ndarray,
+    terms: list[_TermColumns],
+    offset: np.ndarray | None,
+    *,
+    offset_ref: ColumnRef | None,
+    family: str,
+    zero_part: str | None,
+    zero_design: Design | None,
+) -> MixedFit:
+    from ._laplace import RandomTerm, fit_laplace_terms
+
+    result = fit_laplace_terms(
+        y,
+        design.x,
+        [RandomTerm(t.z, t.codes, len(t.levels), t.structure) for t in terms],
+        offset,
+        family=family,
+        zero=zero_part,
+        zero_x=None if zero_design is None else zero_design.x,
+    )
+    random_terms = []
+    blups = []
+    for t, cov, rho, modes in zip(terms, result.group_covariances, result.correlations, result.modes, strict=True):
+        random_terms.append(
+            {"group": t.group, "structure": t.structure, "names": list(t.names), "covariance": cov, "correlation": rho}
+        )
+        for k, name in enumerate(t.names):
+            blups.append(
+                pl.DataFrame(
+                    {"group": t.group, "level": list(t.levels), "term": name, "blup": modes[:, k]},
+                    schema={"group": pl.String, "level": pl.String, "term": pl.String, "blup": pl.Float64},
+                )
+            )
+    first = terms[0]
+    return MixedFit(
+        coefficients=result.coefficients,
+        covariance=result.covariance,
+        names=list(design.names),
+        n_obs=design.n_obs,
+        n_groups=len(first.levels),
+        log_likelihood=result.log_likelihood,
+        residual_variance=None,
+        group_name=first.group,
+        random_names=list(first.names),
+        group_covariance=result.group_covariances[0],
+        method="ml",
+        converged=result.converged,
+        n_iter=result.n_iter,
+        function_evals=result.function_evals,
+        x=design.x,
+        row_index=design.row_index,
+        design=design,
+        family=family,
+        engine="laplace",
+        n_agq=1,
+        formula=formula,
+        offset=offset,
+        theta=result.theta,
+        theta_std_error=result.theta_std_error,
+        offset_ref=offset_ref,
+        zero_part=zero_part,
+        zero_coefficients=result.zero_coefficients,
+        zero_covariance=result.zero_covariance,
+        zero_names=None if zero_design is None else list(zero_design.names),
+        zero_design=zero_design,
+        ranef_frame=pl.concat(blups),
+        random_terms=random_terms,
+    )
+
+
 def _zero_design(data: pl.DataFrame, design: Design, spec: Any) -> Design:
     """Design of the zero part on the rows the count model uses."""
     used = data.gather(design.row_index.tolist())
@@ -527,6 +689,35 @@ def _zero_design(data: pl.DataFrame, design: Design, spec: Any) -> Design:
     if zero.n_obs != design.n_obs:
         raise ValueError("the zero-inflation columns have missing values in rows the model uses")
     return zero
+
+
+def _terms_variance_table(terms: list[dict[str, Any]]) -> pl.DataFrame:
+    rows: list[dict[str, object]] = []
+    for term in terms:
+        cov = np.asarray(term["covariance"], dtype=float)
+        names = term["names"]
+        intercept_at = names.index("(Intercept)") if "(Intercept)" in names else None
+        for i, name in enumerate(names):
+            variance = float(cov[i, i])
+            std_dev = float(np.sqrt(max(variance, 0.0)))
+            if term["structure"] == "ar1":
+                correlation = term["correlation"]
+            elif intercept_at is None or i == intercept_at:
+                correlation = None
+            else:
+                denom = np.sqrt(max(cov[intercept_at, intercept_at], 0.0)) * std_dev
+                correlation = None if denom == 0 else float(cov[i, intercept_at] / denom)
+            rows.append(
+                {
+                    "group": term["group"],
+                    "term": name,
+                    "structure": term["structure"],
+                    "variance": variance,
+                    "std_dev": std_dev,
+                    "correlation": correlation,
+                }
+            )
+    return pl.DataFrame(rows)
 
 
 def _wald_table(names: list[str], estimate: np.ndarray, covariance: np.ndarray, level: float, exponentiate: bool) -> pl.DataFrame:
@@ -631,13 +822,18 @@ def _from_formula(
 ) -> tuple[Design, np.ndarray, list[object], str, list[str], dict[str, np.ndarray], np.ndarray | None]:
     built = model_matrix(formula, data)
     reject_survival_syntax(built)
-    if len(built.random_effects) != 1:
-        raise ValueError("fit_mixed needs exactly one grouping factor, for example (1 | group)")
+    if not built.random_effects:
+        raise ValueError("fit_mixed needs a random effect, for example (1 | group)")
+    for one in built.random_effects:
+        if not one.correlated:
+            raise ValueError("uncorrelated random slopes (||) are not supported")
     effect = built.random_effects[0]
-    if not effect.correlated:
-        raise ValueError("uncorrelated random slopes (||) are not supported")
     design = built.design
     idx = design.row_index
+    offset = None if built.offset is None else np.asarray(built.offset, dtype=float)
+    if len(built.random_effects) > 1 or effect.structure != "us":
+        terms = [_effect_columns(data, design, one) for one in built.random_effects]
+        return design, np.asarray(built.y, dtype=float), [], effect.group, [], {"__terms__": terms}, offset
     group = column_series(data, effect.group)
     labels = group.gather(idx.tolist()).to_list()
     random_names = ["(Intercept)"] if effect.intercept else []
@@ -666,6 +862,5 @@ def _from_formula(
         random_names.append(name)
     if not random_names:
         raise ValueError("random effect has no intercept and no slopes")
-    offset = None if built.offset is None else np.asarray(built.offset, dtype=float)
     return design, np.asarray(built.y, dtype=float), labels, effect.group, random_names, extra, offset
 

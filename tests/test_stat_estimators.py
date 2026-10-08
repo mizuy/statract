@@ -498,7 +498,7 @@ def test_fit_mixed_accepts_a_wilkinson_formula():
     assert no_intercept.random_names == ["x"]
     with pytest.raises(ValueError, match="\\|\\|"):
         fit_mixed(data, "y ~ x + (1 + x || g)")
-    with pytest.raises(ValueError, match="exactly one"):
+    with pytest.raises(ValueError, match="several random-effect terms"):
         fit_mixed(data, "y ~ x + (1 | g) + (1 | g)")
     binomial = fit_mixed(
         data.with_columns((pl.col("y") > 1.0).cast(pl.Int8).alias("z")),

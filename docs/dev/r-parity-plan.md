@@ -295,6 +295,8 @@ src/endolab/stat/
 
 **追記（2026-10-07、続き）:** 同じエンジンに二項（logit）を載せ、`family="binomial"` の既定エンジンを lme-python から Laplace に変えた。ゼロ過剰（`ziformula`）とハードル（切断ポアソン / 切断 nbinom2）も入れた。ゼロ部分は固定効果だけ。fixture は `glmm_binary_zero.json`。多重代入は `statract/impute.py`（MICE と Rubin のルール）で、`mice::pool` と `mice_pool.json` で比べる。
 
+**追記（2026-10-08）:** 複数の変量効果項（交差、入れ子）と glmmTMB の `ar1(time + 0 | g)` を Laplace エンジンに足した（`fit_laplace_terms`）。条件付きモードは全項まとめた疎な Newton 法で、一番大きい項のブロックを消去し、残りの Schur 補行列を密な Cholesky で解く。比べる相手は glmmTMB で、fixture は `glmm_crossed.json`。二項 glmer は `glmm_binary_glmer.json`（Laplace、`nAGQ=25`、MOR、参照行の予測）で固定した。glmer は既定の `tolPwrss=1e-7` だと Laplace の目的関数が約 1e-4 ずれる。Cox の多方向クラスタ頑健分散は `cluster_covariance` が `vcovCL` と一致する（`cox_two_way.json`）。
+
 lme4 と glmmTMB を自前で書くときの判断は残しています。
 
 - 線形混合（lme4 の `lmer`）はプロファイル REML / ML。θ を固定すると β と σ は罰則付き最小二乗で閉じる。Laplace 近似ではない。

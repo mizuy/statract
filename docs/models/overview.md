@@ -131,6 +131,8 @@ print(fitted.predict())
 
 二項（logit リンク）、ポアソン、負の二項（`family="negative_binomial"`、分散 `mu + mu^2 / theta`）は自前の Laplace 近似で推定します（`engine="laplace"`、既定）。`glmmTMB(..., family=binomial / poisson / nbinom2)` と `glmer(..., nAGQ=)` に合わせています。二項の probit などは lme-python に回ります。率のモデルは `y ~ arm + offset(log(years)) + (1 | site)`、列で書くときは `offset="log_years"` です。変量切片 1 本なら `n_agq=9` などで適応的 Gauss–Hermite 求積になります。固定効果の分散は、全パラメータの Hessian の逆行列から取ります（glmmTMB と同じ）。負の二項の `theta` は `fit.theta` です。
 
+交差する変量切片は `y ~ x + (1 | id_patient) + (1 | e_examiner)` です。検査医ごとの年次変動は `ar1(year + 0 | e_examiner)` で、分散 `sigma^2 rho^|i - j|` の AR(1) になります（glmmTMB と同じ書き方）。複数の項では条件付きモードを疎な Newton 法でまとめて解き、一番大きい項（患者など）を消去してから残りを密に分解します。`fit.variance_table()` は項ごとの分散と ar1 の `rho`、`fit.random_effects()` は `group`、`level`、`term`、`blup` の縦長の表です。`fit.group_covariance` は最初の項の分散です。
+
 ゼロ過剰は `zero_inflation=True`（ゼロの確率が定数）か `zero_inflation=["z"]`（列の logit モデル）です。`glmmTMB(..., ziformula = ~z)` に当たります。`hurdle=True` にするとハードル（ゼロかどうかを logit、正の値を切断ポアソンか切断負の二項）になり、`family=truncated_poisson` / `truncated_nbinom2` と `ziformula` の組に当たります。ゼロ部分の係数は `fit.zero_table()` です。`predict()` はゼロ部分を込めた応答の平均を返します。ゼロ部分は固定効果だけで、変量効果は付けられません。
 
 ```python
