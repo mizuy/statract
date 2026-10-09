@@ -9,11 +9,12 @@ Aalen–Johansen CIF と Fine–Gray（移植を競合イベント）。cmprsk �
 リポジトリルートで `uv sync` のあと:
 
 ```bash
-cd examples/cif_pbc
-task all
+cd examples
+task cif_pbc:all
 # または
-PYTHONPATH=. uv run python build.py
-PYTHONPATH=. uv run python cif_pbc.py
+cd cif_pbc
+uv run python build.py
+uv run python cif_pbc.py
 ```
 
 完全な成果物は `cif_pbc_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/examples/assets/cif_pbc/`](../../docs/examples/assets/cif_pbc/) にあります。

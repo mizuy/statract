@@ -13,11 +13,12 @@
 リポジトリルートで `uv sync` のあと:
 
 ```bash
-cd examples/glmm_epil
-task all
+cd examples
+task glmm_epil:all
 # または
-PYTHONPATH=. uv run python build.py
-PYTHONPATH=. uv run python glmm_epil.py
+cd glmm_epil
+uv run python build.py
+uv run python glmm_epil.py
 ```
 
-完全な成果物は `glmm_epil_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/examples/assets/glmm_epil/`](../../docs/examples/assets/glmm_epil/) にあります（`uv run python scripts/sync_example_assets.py --stem glmm_epil`）。
+完全な成果物は `glmm_epil_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/examples/assets/glmm_epil/`](../../docs/examples/assets/glmm_epil/) にあります（`uv run python tools/sync_example_assets.py --stem glmm_epil`）。

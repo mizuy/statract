@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 
-from support import load_parquet_dir
+from support import ProjectPath, load_parquet_dir
 from statract.report.artifacts import write_csv_companion
 from statract import (
     agg_category,
@@ -31,8 +31,10 @@ from statract import (
     smooth,
     write_tableone_artifacts,
 )
-from config import ANALYSIS_OUT, CACHE
-from project import project
+
+project = ProjectPath(__file__)
+CACHE = project.cache
+ANALYSIS_OUT = project.out
 
 LMM_FORMULA = "log_bili ~ day_years + dp + (1 | id)"
 OLS_FORMULA = "log_bili ~ day_years + dp"

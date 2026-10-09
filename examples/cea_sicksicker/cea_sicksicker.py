@@ -29,8 +29,7 @@ from build import (
     STRATEGIES,
     WTP,
 )
-from config import ANALYSIS_OUT, CACHE
-from support import load_parquet_dir
+from support import ProjectPath, load_parquet_dir
 from statract.cea import (
     calculate_icers,
     ce_plane,
@@ -43,7 +42,10 @@ from statract.cea import (
     tornado_table,
 )
 from statract.report.artifacts import write_csv_companion
-from project import project
+
+project = ProjectPath(__file__)
+CACHE = project.cache
+ANALYSIS_OUT = project.out
 
 STATES = ("H", "S1", "S2", "D")
 AGES = range(AGE_START, AGE_END + 1)

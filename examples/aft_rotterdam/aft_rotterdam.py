@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 
-from support import load_parquet_dir
+from support import ProjectPath, load_parquet_dir
 from statract.report.artifacts import write_csv_companion
 from statract import (
     accelerated_failure,
@@ -34,8 +34,10 @@ from statract import (
     write_cox_diagnostic_suite,
     write_tableone_artifacts,
 )
-from config import ANALYSIS_OUT, CACHE
-from project import project
+
+project = ProjectPath(__file__)
+CACHE = project.cache
+ANALYSIS_OUT = project.out
 
 COX_FORMULA = "Surv(dtime, event) ~ hormon + age + nodes + size + grade"
 AFT_FORMULA = COX_FORMULA

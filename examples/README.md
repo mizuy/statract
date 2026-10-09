@@ -8,9 +8,9 @@
 
 **読める入口（カードギャラリー + 各例の単一ページ）は公開ドキュメント側:**  
 [解析例ギャラリー](https://mizuy.github.io/statract/examples/)（ソース: [`docs/examples/index.md`](../docs/examples/index.md)）。  
-各例は docs の **1 HTML ページ**にまとめてあります（例: [surv_colon](https://mizuy.github.io/statract/examples/surv_colon/)）。本ディレクトリには実行コードと既存の付随文書を置きます。完全な `*_out/` は gitignore です。サイト掲載用の選別図・表は **`*_out/` と同一ファイル**を [`docs/examples/assets/`](../docs/examples/assets/) へコピーします（`uv run python scripts/sync_example_assets.py`）。
+各例は docs の **1 HTML ページ**にまとめてあります（例: [surv_colon](https://mizuy.github.io/statract/examples/surv_colon/)）。本ディレクトリには実行コードと既存の付随文書を置きます。完全な `*_out/` は gitignore です。サイト掲載用の選別図・表は **`*_out/` と同一ファイル**を [`docs/examples/assets/`](../docs/examples/assets/) へコピーします（`uv run python tools/sync_example_assets.py`）。
 
-リポジトリルートで `uv sync` したあと、各ディレクトリで `task all`（または `uv run python build.py` → `uv run python {stem}.py`）。
+リポジトリルートで `uv sync` したあと、`examples/` で `task <stem>:all`（全例は `task all`）。または各ディレクトリで `uv run python build.py` → `uv run python {stem}.py`。
 
 取得元に届かない環境では、取得済みの生データを 1 か所に集めて使えます。`STATRACT_DATA_DIR=<dir>` を設定すると、例は取得元に行かずに `<dir>/<name>.parquet`（`colon.parquet` など、各 `build.py` の snapshot 名）を読みます。`<dir>/MANIFEST.csv` に `file` と `sha256` の列があれば、ハッシュが合わないときに止まります。このディレクトリは公開リポジトリに commit しません。
 

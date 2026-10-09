@@ -17,8 +17,9 @@ from pathlib import Path
 
 import polars as pl
 
-from support import cache, snapshot_cache
-from project import project
+from support import ProjectPath, cache, snapshot_cache
+
+project = ProjectPath(__file__)
 
 RDATASETS_PBCSEQ = "https://vincentarelbundock.github.io/Rdatasets/csv/survival/pbcseq.csv"
 

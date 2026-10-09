@@ -17,8 +17,9 @@ from pathlib import Path
 
 import polars as pl
 
-from support import cache, snapshot_cache
-from project import project
+from support import ProjectPath, cache, snapshot_cache
+
+project = ProjectPath(__file__)
 
 # MASS is GPL-2 | GPL-3. The CSV is fetched at run time and never committed.
 RDATASETS_EPIL = "https://vincentarelbundock.github.io/Rdatasets/csv/MASS/epil.csv"

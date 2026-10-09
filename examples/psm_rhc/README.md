@@ -9,11 +9,12 @@
 リポジトリルートで `uv sync` のあと:
 
 ```bash
-cd examples/psm_rhc
-task all
+cd examples
+task psm_rhc:all
 # または
-PYTHONPATH=. uv run python build.py
-PYTHONPATH=. uv run python psm_rhc.py
+cd psm_rhc
+uv run python build.py
+uv run python psm_rhc.py
 ```
 
 完全な成果物は `psm_rhc_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/examples/assets/psm_rhc/`](../../docs/examples/assets/psm_rhc/) にあります。

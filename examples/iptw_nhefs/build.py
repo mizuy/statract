@@ -17,8 +17,9 @@ from pathlib import Path
 
 import polars as pl
 
-from support import cache, snapshot_cache
-from project import project
+from support import ProjectPath, cache, snapshot_cache
+
+project = ProjectPath(__file__)
 
 RDATASETS_NHEFS = "https://vincentarelbundock.github.io/Rdatasets/csv/causaldata/nhefs.csv"
 HERNAN_NHEFS = "https://cdn1.sph.harvard.edu/wp-content/uploads/sites/1268/1268/20/nhefs.csv"

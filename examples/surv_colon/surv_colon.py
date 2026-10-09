@@ -17,7 +17,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import polars as pl
 
-from support import flowchart, load_parquet_dir
+from support import ProjectPath, flowchart, load_parquet_dir
 from statract.report.artifacts import mermaid_flowchart
 from statract.report.artifacts import markdown_flowchart, write_csv_companion
 from statract import (
@@ -33,8 +33,10 @@ from statract import (
     write_cox_diagnostic_suite,
     write_tableone_artifacts,
 )
-from config import ANALYSIS_OUT, CACHE
-from project import project
+
+project = ProjectPath(__file__)
+CACHE = project.cache
+ANALYSIS_OUT = project.out
 
 COX_FORMULA = "Surv(time, event) ~ rx + age + sex + nodes"
 RX_LEVELS = ["Obs", "Lev", "Lev+5FU"]

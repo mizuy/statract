@@ -12,8 +12,9 @@ if str(_EXAMPLES) not in sys.path:
 
 import polars as pl
 
-from support import cache, snapshot_cache
-from project import project
+from support import ProjectPath, cache, snapshot_cache
+
+project = ProjectPath(__file__)
 
 RHC_CSV = "https://hbiostat.org/data/repo/rhc.csv"
 

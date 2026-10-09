@@ -9,11 +9,12 @@ KM / log-rank / Cox（Lin–Wei sandwich、`cluster(id)`）。両眼が同一患
 リポジトリルートで `uv sync` のあと:
 
 ```bash
-cd examples/cox_retinopathy
-task all
+cd examples
+task cox_retinopathy:all
 # または
-PYTHONPATH=. uv run python build.py
-PYTHONPATH=. uv run python cox_retinopathy.py
+cd cox_retinopathy
+uv run python build.py
+uv run python cox_retinopathy.py
 ```
 
 完全な成果物は `cox_retinopathy_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/examples/assets/cox_retinopathy/`](../../docs/examples/assets/cox_retinopathy/) にあります。

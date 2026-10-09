@@ -20,7 +20,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import polars as pl
 
-from support import flowchart, load_parquet_dir
+from support import ProjectPath, flowchart, load_parquet_dir
 from statract.report.artifacts import mermaid_flowchart, write_csv_companion
 from statract import (
     agg_category,
@@ -35,8 +35,10 @@ from statract import (
     write_tableone_artifacts,
 )
 from build import TIMES
-from config import ANALYSIS_OUT, CACHE
-from project import project
+
+project = ProjectPath(__file__)
+CACHE = project.cache
+ANALYSIS_OUT = project.out
 
 ARMS = ["Sugar", "Licorice"]
 # Same two hues as the KM figures (JCO palette in statract.viz.km); markers differ too.

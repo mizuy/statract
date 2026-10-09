@@ -9,11 +9,12 @@
 リポジトリルートで `uv sync` のあと:
 
 ```bash
-cd examples/pred_support
-task all
+cd examples
+task pred_support:all
 # または
-PYTHONPATH=. uv run python build.py
-PYTHONPATH=. uv run python pred_support.py
+cd pred_support
+uv run python build.py
+uv run python pred_support.py
 ```
 
 完全な成果物は `pred_support_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/examples/assets/pred_support/`](../../docs/examples/assets/pred_support/) にあります。生の SUPPORT2 CSV はリポジトリに入れません。

@@ -9,11 +9,12 @@
 リポジトリルートで `uv sync` のあと:
 
 ```bash
-cd examples/lmm_pbcseq
-task all
+cd examples
+task lmm_pbcseq:all
 # または
-PYTHONPATH=. uv run python build.py
-PYTHONPATH=. uv run python lmm_pbcseq.py
+cd lmm_pbcseq
+uv run python build.py
+uv run python lmm_pbcseq.py
 ```
 
 完全な成果物は `lmm_pbcseq_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/examples/assets/lmm_pbcseq/`](../../docs/examples/assets/lmm_pbcseq/) にあります。
