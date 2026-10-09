@@ -4,11 +4,12 @@ Variable selection uses the quadratic form of the conditional linear
 statistic, with a Šidák adjustment across the covariates at the node (the
 adjustment partykit calls Bonferroni). The split then maximises the two-sample
 quadratic statistic. Defaults match ``ctree_control``: alpha 0.05, minsplit
-20, minbucket 7.
+20, minbucket 7, minprob 0.01, splittry 2.
 """
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -130,12 +131,19 @@ def conditional_tree(
     alpha: float = 0.05,
     minsplit: int = 20,
     minbucket: int = 7,
+    minprob: float = 0.01,
+    splittry: int = 2,
 ) -> ConditionalTree:
     """Grow a conditional inference tree for a numeric outcome.
 
     Predictors are column names. Strings are unordered factors and are split
     by a binary partition of the levels. Numeric columns are split at an
     observed value, and values equal to the break go left.
+
+    As in partykit, a split search at a node of size n needs at least
+    ``max(minbucket, ceil(minprob * n))`` rows on each side, and when the most
+    significant covariate has no admissible split the next ones are tried, up
+    to ``splittry`` covariates in all.
     """
     if not predictors:
         raise ValueError("conditional_tree needs at least one predictor")
@@ -152,11 +160,11 @@ def conditional_tree(
         name: np.asarray(column_series(data, name).filter(pl.Series(keep)).to_numpy()) for name in predictors
     }
     factors = {name for name, values in columns.items() if values.dtype.kind in {"U", "O", "S"}}
-    root = _grow(y, columns, factors, alpha, minsplit, minbucket)
+    root = _grow(y, columns, factors, alpha, minsplit, minbucket, minprob, splittry)
     return ConditionalTree(root=root, predictors=list(predictors), columns=columns, outcome=y_series.name, y=y)
 
 
-def _grow(y, columns, factors, alpha, minsplit, minbucket) -> _Node:
+def _grow(y, columns, factors, alpha, minsplit, minbucket, minprob, splittry) -> _Node:
     node = _Node(n=int(y.size), mean=float(np.mean(y)), terms=[], statistic=np.array([]), p_value=np.array([]))
     if y.size < minsplit:
         return node
@@ -164,38 +172,52 @@ def _grow(y, columns, factors, alpha, minsplit, minbucket) -> _Node:
     for name, values in columns.items():
         result = _factor_association(values, y) if name in factors else _numeric_association(values, y)
         if result is not None:
-            tested.append((name, result[0], result[1]))
+            tested.append((name, *result))
     if not tested:
         return node
     m = len(tested)
+    stats = np.array([stat for _name, stat, _p in tested])
     raw = np.array([p for _name, _stat, p in tested])
-    adjusted = 1 - (1 - raw) ** m
+    # Work on the log scale like partykit: 1 - (1 - p) ** m rounds every
+    # p below about 1e-17 to 0, and the first such column would then win.
+    crit = m * np.log1p(-raw)
+    adjusted = -np.expm1(crit)
     node.terms = [name for name, _stat, _p in tested]
-    node.statistic = np.array([stat for _name, stat, _p in tested])
+    node.statistic = stats
     node.p_value = adjusted
-    best = int(np.argmin(adjusted))
-    if adjusted[best] > alpha:
-        return node
-    name = tested[best][0]
-    values = columns[name]
-    if name in factors:
-        split = _best_factor_split(name, values, y, minbucket)
-        if split is None:
-            return node
-        labels = np.asarray(values).astype(str)
-        left_mask = np.isin(labels, split.left_levels)
+    # partykit treats values closer than sqrt(DBL_MIN) as ties and breaks
+    # them by the larger statistic.
+    ties = np.flatnonzero(np.abs(crit - crit.max()) < math.sqrt(np.finfo(float).tiny))
+    if ties.size > 1:
+        ranks = np.argsort(np.argsort(stats[ties], kind="stable"), kind="stable") + 1.0
+        crit[ties] += ranks / (ties.size * 1000)
+    logmin = math.log1p(-alpha)
+    order = [int(j) for j in np.argsort(-crit, kind="stable") if crit[j] > logmin][:splittry]
+    # partykit widens minbucket at large nodes during the split search only.
+    search_bucket = max(minbucket, math.ceil(minprob * y.size))
+    for best in order:
+        name = tested[best][0]
+        values = columns[name]
+        if name in factors:
+            split = _best_factor_split(name, values, y, search_bucket)
+            if split is None:
+                continue
+            left_mask = np.isin(np.asarray(values).astype(str), split.left_levels)
+        else:
+            split = _best_numeric_split(name, np.asarray(values, dtype=float), y, search_bucket)
+            if split is None:
+                continue
+            left_mask = np.asarray(values, dtype=float) <= split.break_at
+        break
     else:
-        split = _best_numeric_split(name, np.asarray(values, dtype=float), y, minbucket)
-        if split is None:
-            return node
-        left_mask = np.asarray(values, dtype=float) <= split.break_at
+        return node
     if int(left_mask.sum()) < minbucket or int((~left_mask).sum()) < minbucket:
         return node
     node.split = split
     child = {key: value[left_mask] for key, value in columns.items()}
-    node.left = _grow(y[left_mask], child, factors, alpha, minsplit, minbucket)
+    node.left = _grow(y[left_mask], child, factors, alpha, minsplit, minbucket, minprob, splittry)
     child = {key: value[~left_mask] for key, value in columns.items()}
-    node.right = _grow(y[~left_mask], child, factors, alpha, minsplit, minbucket)
+    node.right = _grow(y[~left_mask], child, factors, alpha, minsplit, minbucket, minprob, splittry)
     return node
 
 

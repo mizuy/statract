@@ -49,3 +49,17 @@ def test_plot_tree(tmp_path):
         assert len(fig.axes) == 1 + tree.n_terminal()
     with pytest.raises(ValueError):
         plot_tree(tree, terminal="barplot")
+
+
+def test_tiny_p_values_pick_the_smallest():
+    # Both covariates have p-values far below 1e-17. The Šidák adjustment must
+    # stay on the log scale, or both round to 0 and the first column wins.
+    rng = np.random.default_rng(2)
+    n = 4000
+    weak = rng.normal(size=n)
+    strong = rng.normal(size=n)
+    y = 0.15 * weak + 0.4 * strong + rng.normal(size=n)
+    tree = conditional_tree(pl.DataFrame({"y": y, "weak": weak, "strong": strong}), "y", ["weak", "strong"])
+    tests = tree.tests()
+    assert tests["p_value"].to_list()[0] > 0
+    assert tree.root.split.column == "strong"
