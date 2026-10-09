@@ -16,7 +16,6 @@ from statract import (
     gam,
     match_sample,
     smooth,
-    sm_summary2df,
     tensor_interaction,
     tensor_smooth,
 )
@@ -352,20 +351,6 @@ def test_matrix_distance_rejects_subclass_matching():
     data = pl.DataFrame({"treat": [1, 1, 0, 0], "x1": [0.1, 0.2, 0.3, 0.4], "x2": [1.0, 0.0, 1.0, 0.0]})
     with pytest.raises(ValueError, match="subclass"):
         match_sample(data, "treat", ["x1", "x2"], method="subclass", distance="mahalanobis")
-
-
-def test_sm_summary2df_warns():
-    class Result:
-        params = (0.1, 0.2)
-        pvalues = (0.5, 0.01)
-
-        def conf_int(self):
-            return {0: [0.0, 0.1], 1: [0.2, 0.3]}
-
-    result = Result()
-    with pytest.warns(DeprecationWarning, match="Fit.tidy"):
-        summary = sm_summary2df(result)
-    assert summary.height == 2
 
 
 def test_formula_model_matrix_uses_treatment_contrasts():

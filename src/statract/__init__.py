@@ -65,7 +65,6 @@ from .agg import (
     agg_size,
 )
 from .binary import binary_perf, decision_rates, threshold_tradeoff
-from .confusion import confusion_matrix, ratio, sm_summary2df
 from .probability import (
     brier_score,
     calibration_table,
@@ -153,7 +152,6 @@ from .survival import (
     default_at_risk_xticks,
     log_rank_pvalue,
     plot_survival,
-    plot_survival_grid,
 )
 from .tableone import (
     TableOneStyle,
@@ -222,7 +220,6 @@ __all__ = [
     "binary_perf",
     "brier_score",
     "calibration_table",
-    "confusion_matrix",
     "decision_curve_table",
     "decision_rates",
     "net_benefit",
@@ -309,7 +306,6 @@ __all__ = [
     "default_at_risk_xticks",
     "log_rank_pvalue",
     "plot_survival",
-    "plot_survival_grid",
     "clear_task_output_dir",
     "prepare_task_output",
     "print_saved",

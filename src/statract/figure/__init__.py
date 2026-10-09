@@ -1,116 +1,17 @@
-"""Visualization utilities.
+"""Small figure helpers: a Plotly funnel plot and image grids.
 
-Plotly helpers (funnel, concat, parallel categories) and matplotlib subplot
-helpers live here. Statistical forests are ``statract.plot_forest``;
-:mod:`statract.figure.hr_forest` is a compatibility shim.
+Statistical figures are ``plot_forest``, ``plot_survival`` and ``plot_tree``.
 """
 
 from __future__ import annotations
 
-import io
 from typing import Any
 
-from .hr_forest import (
-    FigureWidthPreset,
-    ForestRow,
-    ForestTextCol,
-    rows_from_prepared,
-    rows_from_prepared_grouped,
-    rows_from_prepared_named_groups,
-    save_forest_panel_rows,
-    save_prepared_hr_forest,
-)
-
-import matplotlib.pyplot as plt
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-import plotly.io as pio
 import polars as pl
 from PIL import Image
-
-
-def parallel_categories_keeporder(
-    df: pl.DataFrame,
-    dimensions: list[str],
-    orders: list[list[Any]],
-    **kwargs: Any,
-) -> go.Figure:
-    """Create parallel categories plot with custom order for each dimension.
-
-    Args:
-        df: Polars DataFrame with categorical data
-        dimensions: List of column names to use as dimensions
-        orders: List of lists specifying the desired order for each dimension
-        **kwargs: Additional arguments passed to px.parallel_categories
-
-    Returns:
-        Plotly figure with ordered categories
-
-    Examples:
-        >>> import polars as pl
-        >>> from statract.figure import parallel_categories_keeporder
-        >>>
-        >>> df = pl.DataFrame({
-        ...     "category": ["A", "B", "C", "A", "B"],
-        ...     "value": [1, 2, 3, 4, 5],
-        ...     "group": ["X", "Y", "X", "Y", "X"]
-        ... })
-        >>> fig = parallel_categories_keeporder(
-        ...     df,
-        ...     dimensions=["category", "group", "value"],
-        ...     orders=[["A", "B", "C"], ["X", "Y"], [1, 2, 3, 4, 5]]
-        ... )
-        >>> fig.show()
-    """
-    assert len(dimensions) == len(orders)
-    options = []
-    for dim, order in zip(dimensions, orders, strict=False):
-        e = list(df[dim].unique())
-        o = list(order)
-        categoryarray = [i for i in o if i in e] + [i for i in e if i not in o]
-        options.append(
-            {
-                "categoryorder": "array",
-                "categoryarray": categoryarray,
-            },
-        )
-    return px.parallel_categories(df, dimensions=dimensions, **kwargs).update_traces(dimensions=options)
-
-
-def concat_plotly_figures(fig0: go.Figure, fig1: go.Figure) -> Image.Image:
-    """Concatenate two plotly figures horizontally into a single PIL Image.
-
-    Args:
-        fig0: First plotly figure
-        fig1: Second plotly figure
-
-    Returns:
-        PIL Image with both figures side by side
-
-    Examples:
-        >>> import polars as pl
-        >>> import plotly.express as px
-        >>> from statract.figure import concat_plotly_figures
-        >>>
-        >>> df1 = pl.DataFrame({"x": [1, 2, 3], "y": [1, 4, 9]})
-        >>> df2 = pl.DataFrame({"x": [1, 2, 3], "y": [2, 3, 4]})
-        >>> fig1 = px.scatter(df1, x="x", y="y")
-        >>> fig2 = px.scatter(df2, x="x", y="y")
-        >>> combined = concat_plotly_figures(fig1, fig2)
-        >>> combined.save("combined.png")
-    """
-    png0 = io.BytesIO()
-    png1 = io.BytesIO()
-    pio.write_image(fig0, png0)
-    pio.write_image(fig1, png1)
-
-    i0 = Image.open(png0)
-    i1 = Image.open(png1)
-    i = Image.new("RGB", (i0.width + i1.width, max(i0.height, i1.height)))
-    i.paste(i0, (0, 0))
-    i.paste(i1, (i0.width, 0))
-    return i
 
 
 def concat_images(images: list[Image.Image], ncols: int = 10) -> Image.Image:
@@ -237,131 +138,7 @@ def funnel_plot(
     return fig
 
 
-class Subplot:
-    """Helper class for creating matplotlib subplots with sequential access.
-
-    Examples:
-        >>> import matplotlib.pyplot as plt
-        >>> from statract.figure import Subplot
-        >>>
-        >>> # Create 2x2 subplot grid
-        >>> subplot = Subplot(2, 2, figsize=(12, 8))
-        >>>
-        >>> # Get axes sequentially
-        >>> ax1 = subplot.get_ax()  # Top-left
-        >>> ax1.plot([1, 2, 3], [1, 4, 9])
-        >>>
-        >>> ax2 = subplot.get_ax()  # Top-right
-        >>> ax2.bar(['A', 'B', 'C'], [1, 2, 3])
-        >>>
-        >>> ax3 = subplot.get_ax()  # Bottom-left
-        >>> ax3.scatter([1, 2, 3], [2, 3, 4])
-        >>>
-        >>> ax4 = subplot.get_ax()  # Bottom-right
-        >>> ax4.hist([1, 2, 2, 3, 3, 3])
-        >>>
-        >>> # Display the figure
-        >>> subplot.show()
-        >>>
-        >>> # Single plot
-        >>> subplot = Subplot(1, 1)
-        >>> ax = subplot.get_ax()
-        >>> ax.plot([1, 2, 3])
-        >>> subplot.show()
-    """
-
-    def __init__(self, nrows: int, ncols: int, figsize: tuple[float, float] = (10, 5)) -> None:
-        """Initialize subplot grid.
-
-        Args:
-            nrows: Number of rows in the grid
-            ncols: Number of columns in the grid
-            figsize: Figure size tuple (width, height) in inches
-        """
-        self.ncols = ncols
-        self.nrows = nrows
-        self.fig, self.axes = plt.subplots(nrows, ncols, figsize=figsize)
-        self.fig.set_layout_engine("tight")
-        self.counter = 0
-
-    def get_ax(self) -> plt.Axes:
-        """Get the next axis in the grid.
-
-        Returns:
-            Matplotlib axis object for the next position in the grid
-
-        Raises:
-            AssertionError: If all axes have been used
-
-        Examples:
-            >>> from statract.figure import Subplot
-            >>> import matplotlib.pyplot as plt
-            >>>
-            >>> subplot = Subplot(2, 2)
-            >>> ax = subplot.get_ax()
-            >>> ax.plot([1, 2, 3], [1, 4, 9])
-            >>> subplot.show()
-        """
-        assert self.counter < self.ncols * self.nrows
-        if self.ncols == 1 and self.nrows == 1:
-            ret = self.axes
-        elif self.ncols == 1 or self.nrows == 1:
-            ret = self.axes[self.counter]
-        else:
-            ret = self.axes[self.counter // self.ncols][self.counter % self.ncols]
-        self.counter += 1
-        return ret
-
-    def show(self) -> None:
-        """Display the figure with tight layout.
-
-        Examples:
-            >>> from statract.figure import Subplot
-            >>> import matplotlib.pyplot as plt
-            >>>
-            >>> subplot = Subplot(1, 1)
-            >>> ax = subplot.get_ax()
-            >>> ax.plot([1, 2, 3])
-            >>> subplot.show()  # Displays the figure
-        """
-        plt.tight_layout()
-        plt.show()
-
-
-def labeled_subplot_grid(
-    labels: list[str],
-    *,
-    ncols: int | None = None,
-    cell_size: tuple[float, float] = (5.0, 4.0),
-) -> tuple[Any | None, list[Any]]:
-    """Return ``(fig, axes)`` with one subplot per label. Empty labels → ``(None, [])``."""
-    n = len(labels)
-    if n == 0:
-        return None, []
-    ncol = ncols or min(n, 3)
-    nrows = (n + ncol - 1) // ncol
-    fig, axes = plt.subplots(
-        nrows,
-        ncol,
-        figsize=(cell_size[0] * ncol, cell_size[1] * nrows),
-        squeeze=False,
-    )
-    return fig, [axes.flat[i] for i in range(n)]
-
-
 __all__ = [
-    "FigureWidthPreset",
-    "ForestRow",
-    "ForestTextCol",
-    "Subplot",
     "concat_images",
-    "concat_plotly_figures",
     "funnel_plot",
-    "labeled_subplot_grid",
-    "parallel_categories_keeporder",
-    "rows_from_prepared",
-    "rows_from_prepared_grouped",
-    "rows_from_prepared_named_groups",
-    "save_forest_panel_rows",
-    "save_prepared_hr_forest",
 ]
