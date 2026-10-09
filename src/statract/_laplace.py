@@ -19,6 +19,12 @@ The outer optimisation runs over ``(beta, log diag L, offdiag L, log theta,
 gamma)``. The covariance is the inverse Hessian of the negative marginal
 log-likelihood over all parameters, as in glmer (``use.hessian=TRUE``) and
 glmmTMB. The Laplace term uses the exact Hessian in the random effects.
+
+For a random intercept or single slope per factor without a zero part (and,
+in the several-term engine, small dense problems whose terms each have one
+SD) the outer gradient is exact and the Hessian comes from its central
+differences, as TMB's ``optimHess``; the other models use finite differences
+of the log-likelihood.
 """
 
 from __future__ import annotations
@@ -166,10 +172,10 @@ class _Problem:
         zl = self.z @ L
         u = u0.copy()
         eye = np.eye(self.q)
+        eta = eta0 + np.einsum("ij,ij->i", zl, u[self.group])
+        ll, d1, w = self._terms(eta, log_theta, zeta)
+        f_old = np.bincount(self.group, weights=ll, minlength=self.m) - 0.5 * np.sum(u * u, axis=1)
         for _ in range(100):
-            eta = eta0 + np.einsum("ij,ij->i", zl, u[self.group])
-            ll, d1, w = self._terms(eta, log_theta, zeta)
-            f_old = np.bincount(self.group, weights=ll, minlength=self.m) - 0.5 * np.sum(u * u, axis=1)
             grad = self._by_group(zl * d1[:, None]) - u
             # A zero-inflated row can have negative curvature; Newton uses its
             # positive part, which still ascends. The Laplace term below keeps
@@ -181,19 +187,21 @@ class _Problem:
             for _half in range(40):
                 trial = u + scale[:, None] * step
                 eta_t = eta0 + np.einsum("ij,ij->i", zl, trial[self.group])
-                f_new = self._group_ll(eta_t, log_theta, zeta) - 0.5 * np.sum(trial * trial, axis=1)
+                terms_t = self._terms(eta_t, log_theta, zeta)
+                f_new = np.bincount(self.group, weights=terms_t[0], minlength=self.m) - 0.5 * np.sum(
+                    trial * trial, axis=1
+                )
                 bad = ~(f_new >= f_old - 1e-12 * (1.0 + np.abs(f_old)))
                 if not bad.any():
                     break
                 scale[bad] *= 0.5
-            u = trial
+            # The accepted point's terms carry over to the next step.
+            u, f_old = trial, f_new
+            _, d1, w = terms_t
             if np.max(np.abs(scale[:, None] * step)) < 1e-11:
                 break
-        eta = eta0 + np.einsum("ij,ij->i", zl, u[self.group])
-        ll, _, w = self._terms(eta, log_theta, zeta)
         hess = self._by_group(w[:, None, None] * zl[:, :, None] * zl[:, None, :]) + eye
-        f = np.bincount(self.group, weights=ll, minlength=self.m) - 0.5 * np.sum(u * u, axis=1)
-        return u, f, hess, eta0, zl
+        return u, f_old, hess, eta0, zl
 
     def loglik(self, phi):
         self.evals += 1
@@ -219,6 +227,77 @@ class _Problem:
             total[:, k] = self._group_ll(eta, log_theta, zeta) - 0.5 * uk**2 + self.gh_logw[k]
         per_group = special.logsumexp(total, axis=1) + np.log(s) - 0.5 * np.log(2.0 * np.pi)
         return float(np.sum(per_group))
+
+    # exact gradient ---------------------------------------------------
+    def has_gradient(self) -> bool:
+        """Whether ``loglik_grad`` covers this model: one random effect per group, no zero part, Laplace."""
+        return self.q == 1 and self.zero is None and self.n_agq <= 1
+
+    def _derivs(self, eta, log_theta):
+        """Row derivatives for the exact gradient.
+
+        Returns ``d1 = dll/deta``, ``w = -d2ll/deta2``, ``w3 = dw/deta`` and,
+        for NB2, the log-theta derivatives of ``ll``, ``d1`` and ``w``.
+        """
+        y = self.y
+        if self.family == "binomial":
+            p = special.expit(eta)
+            w = p * (1.0 - p)
+            return y - p, w, w * (1.0 - 2.0 * p), None, None, None
+        if self.family == "poisson":
+            mu = np.exp(eta)
+            return y - mu, mu, mu, None, None, None
+        theta = np.exp(log_theta)
+        log_tm = np.logaddexp(log_theta, eta)
+        r = np.exp(eta - log_tm)  # mu / (theta + mu)
+        yt = y + theta
+        d1 = y - yt * r
+        w = yt * r * (1.0 - r)
+        w3 = w * (1.0 - 2.0 * r)
+        ll_t = theta * (special.digamma(yt) - special.digamma(theta) + log_theta + 1.0 - log_tm) - yt * (1.0 - r)
+        d1_t = w - theta * r
+        w_t = theta * r * (1.0 - r) - (1.0 - 2.0 * r) * w
+        return d1, w, w3, ll_t, d1_t, w_t
+
+    def loglik_grad(self, phi):
+        """Laplace log-likelihood and its exact gradient (``has_gradient`` models only).
+
+        The modes solve ``df/du = 0``, so the gradient of ``f(u*)`` is the
+        partial derivative (envelope theorem); ``log det H`` also moves with
+        the modes, ``du/dphi = H^-1 d2f/du dphi`` (implicit differentiation).
+        """
+        value = self.loglik(phi)
+        if not np.isfinite(value):
+            return value, np.full(self.n_par, np.nan)
+        beta, L, log_theta, _ = self.unpack(phi)
+        g, m = self.group, self.m
+        u = self.u[:, 0]
+        a = self.z[:, 0] * L[0, 0]  # d eta / d u
+        au = a * u[g]
+        eta = self.x @ beta + self.offset + au
+        d1, w, w3, ll_t, d1_t, w_t = self._derivs(eta, log_theta)
+
+        def by_group(v):
+            return np.bincount(g, weights=v, minlength=m)
+
+        a2 = a * a
+        wa2 = w * a2
+        h = by_group(wa2) + 1.0
+        # Each parameter k contributes df/dk - (dH/dk + dH/du * du/dk) / (2 H),
+        # with du/dk = d2f/du dk / H, summed over groups.
+        c = by_group(w3 * a2 * a) / h  # dH/du / H
+        inv2h = 0.5 / h
+        xg = self._by_group(self.x * (w3 * a2)[:, None])  # dH/dbeta
+        xc = self._by_group(self.x * (-w * a)[:, None])  # d2f/du dbeta
+        g_beta = self.x.T @ d1 - (inv2h[:, None] * (xg + c[:, None] * xc)).sum(axis=0)
+        dh_s = 2.0 * by_group(wa2) + by_group(w3 * a2 * au)
+        cross_s = by_group(d1 * a - wa2 * u[g])
+        g_sd = float(np.sum(d1 * au) - np.sum(inv2h * (dh_s + c * cross_s)))
+        grad = np.r_[g_beta, g_sd]
+        if self.n_theta:
+            g_theta = float(np.sum(ll_t) - np.sum(inv2h * (by_group(w_t * a2) + c * by_group(d1_t * a))))
+            grad = np.r_[grad, g_theta]
+        return value, grad
 
 
 def _gradient(fun, phi, h):
@@ -248,19 +327,51 @@ def _hessian(fun, phi, h):
     return out
 
 
+def _hessian_from_grad(gfun, phi, h):
+    """Symmetrised central differences of an exact gradient (TMB's ``optimHess``)."""
+    k = len(phi)
+    out = np.zeros((k, k))
+    for i in range(k):
+        e = np.zeros(k)
+        e[i] = h[i]
+        out[i] = (gfun(phi + e) - gfun(phi - e)) / (2 * h[i])
+    return 0.5 * (out + out.T)
+
+
+# The Newton polish stops once its predicted gain, half the Newton decrement
+# g' H^-1 g, falls below this share of |loglik|: below that, finite-difference
+# noise in the objective outweighs the step.
+_POLISH_GAIN = 1e-15
+
+
 def _maximize(prob, phi0, sd_index):
     """Maximise ``prob.loglik``; return the optimum, its inverse Hessian, and status.
 
     ``sd_index`` lists the log-SD parameters that may hit the singular floor.
+    Models with an exact gradient (``prob.has_gradient()``) pass it to
+    L-BFGS-B and take the Hessian from its central differences; the others
+    use finite differences of the log-likelihood.
     """
+    exact = prob.has_gradient()
+
     def objective(phi):
         value = -prob.loglik(phi)
         return value if np.isfinite(value) else 1e300
 
+    def objective_grad(phi):
+        value, grad = prob.loglik_grad(phi)
+        if not (np.isfinite(value) and np.all(np.isfinite(grad))):
+            return 1e300, np.zeros_like(phi)
+        return -value, -grad
+
     bounds = [(None, None)] * prob.n_par
     for at in sd_index:
         bounds[at] = (_LOG_SD_FLOOR, None)
-    first = optimize.minimize(objective, phi0, method="L-BFGS-B", bounds=bounds, options={"maxiter": 2000, "ftol": 1e-15, "gtol": 1e-9})
+    options = {"maxiter": 2000, "ftol": 1e-15, "gtol": 1e-9}
+    if exact:
+        first = optimize.minimize(objective_grad, phi0, jac=True, method="L-BFGS-B", bounds=bounds, options=options)
+    else:
+        first = optimize.minimize(objective, phi0, method="L-BFGS-B", bounds=bounds, options=options)
     phi = first.x
     n_iter = int(first.nit)
 
@@ -286,11 +397,27 @@ def _maximize(prob, phi0, sd_index):
 
         return fun
 
+    def sub_grad(sub_phi):
+        full = phi.copy()
+        full[free] = sub_phi
+        return objective_grad(full)[1][free]
+
+    def hessian():
+        h = 1e-3 * np.maximum(1.0, np.abs(phi[free]))
+        if exact:
+            return _hessian_from_grad(sub_grad, phi[free], h)
+        return _hessian(sub(objective), phi[free], h)
+
     for _ in range(30):
-        f_sub = sub(objective)
-        h_grad = 1e-5 * np.maximum(1.0, np.abs(phi[free]))
-        grad = _gradient(f_sub, phi[free], h_grad)
-        hess = _hessian(f_sub, phi[free], 1e-3 * np.maximum(1.0, np.abs(phi[free])))
+        if exact:
+            f_now, grad = objective_grad(phi)
+            grad = grad[free]
+        else:
+            grad = _gradient(sub(objective), phi[free], 1e-5 * np.maximum(1.0, np.abs(phi[free])))
+            f_now = None
+        hess = hessian()
+        if f_now is None:
+            f_now = objective(phi)
         # At the optimum the line search can fail on numerical noise alone, so
         # a small gradient counts as converged.
         converged = converged or bool(np.max(np.abs(grad)) < 1e-3)
@@ -298,7 +425,9 @@ def _maximize(prob, phi0, sd_index):
             step = np.linalg.solve(hess, grad)
         except np.linalg.LinAlgError:
             break
-        f_now = objective(phi)
+        if 0.5 * abs(grad @ step) < _POLISH_GAIN * (1.0 + abs(f_now)):
+            converged = True
+            break
         scale = 1.0
         while scale > 1e-4:
             trial = phi.copy()
@@ -314,9 +443,7 @@ def _maximize(prob, phi0, sd_index):
             converged = True
             break
 
-    f_sub = sub(objective)
-    hess = _hessian(f_sub, phi[free], 1e-3 * np.maximum(1.0, np.abs(phi[free])))
-    cov_free = np.linalg.pinv(hess)
+    cov_free = np.linalg.pinv(hessian())
     cov_full = np.full((prob.n_par, prob.n_par), np.nan)
     idx = np.flatnonzero(free)
     cov_full[np.ix_(idx, idx)] = cov_free
@@ -464,6 +591,13 @@ STRUCTURES = ("us", "ar1", "iid")
 # Largest Schur complement (in random effects outside the biggest term) that
 # is factored densely; beyond it the whole system goes to sparse LU.
 _SCHUR_MAX = 3000
+# Up to this many random effects (twice as many for several terms, which
+# would otherwise go through the block elimination), A' W A + I is built and
+# factored densely: scipy.sparse overhead dominates such small systems, such
+# as a smooth plus a few groups.
+_DENSE_MAX = 100
+# Largest dense n x n_u copy of A (in entries) for the BLAS product and the exact gradient.
+_DENSE_A_MAX = 4_000_000
 
 
 @dataclass
@@ -534,7 +668,21 @@ class _SparseProblem(_Problem):
             base += t.n_levels * t.q
         self.n_u = base
         self.cols = np.hstack(cols)
+        self.u = np.zeros(self.n_u)
         width = self.cols.shape[1]
+        self.use_dense = self.n_u <= (_DENSE_MAX if len(self.terms) == 1 else 2 * _DENSE_MAX)
+        self.use_blocks = False
+        # With few random effects per row's width, H = A' W A is one BLAS
+        # product of the dense n x n_u matrix A; otherwise it sums the width^2
+        # products of each row.
+        self.dense_matmul = (
+            self.use_dense and self.n_u * self.n_u <= 8 * width * width and self.n * self.n_u <= _DENSE_A_MAX
+        )
+        if self.use_dense:
+            if not self.dense_matmul:
+                # Flat index of each row's width x width products in the dense H.
+                self.dense_key = (self.cols[:, :, None] * self.n_u + self.cols[:, None, :]).ravel()
+            return
         # Fixed CSC pattern of A' W A + I; each row adds width^2 products.
         left = np.repeat(self.cols, width, axis=1)
         right = np.tile(self.cols, (1, width))
@@ -547,7 +695,6 @@ class _SparseProblem(_Problem):
         self.h_cols = unique // self.n_u
         self.h_indptr = np.searchsorted(self.h_cols, np.arange(self.n_u + 1)).astype(np.int32)
         self.h_nnz = len(unique)
-        self.u = np.zeros(self.n_u)
         self._setup_blocks()
 
     def _setup_blocks(self):
@@ -589,6 +736,54 @@ class _SparseProblem(_Problem):
         self.br_rows = np.repeat(rows_b, w_r, axis=1).ravel()
         self.br_cols = np.tile(self.rest_cols, (1, tb.q)).ravel()
 
+    def has_gradient(self) -> bool:
+        """``loglik_grad`` covers dense problems without a zero part whose terms have one SD each."""
+        return (
+            self.use_dense
+            and self.zero is None
+            and self.n * self.n_u <= _DENSE_A_MAX
+            and all(t.structure == "iid" or t.q == 1 for t in self.terms)
+        )
+
+    def loglik_grad(self, phi):
+        """Laplace log-likelihood and its exact gradient (``has_gradient`` problems only).
+
+        With ``P = H^-1`` and the leverages ``lev_i = a_i' P a_i``, the
+        gradient of ``f(u*) - log det H / 2`` is the partial derivative of
+        ``f`` minus half of ``tr(P dH)``, where ``dH`` includes the move of
+        the modes, ``du = P d(grad_u f)`` (implicit differentiation).
+        """
+        value = self.loglik(phi)
+        if not np.isfinite(value):
+            return value, np.full(self.n_par, np.nan)
+        beta, factors, log_theta, _ = self.unpack(phi)
+        vals = np.hstack([t.z @ L for t, L in zip(self.terms, factors, strict=True)])
+        a = self._dense_matrix(vals)
+        u = self.last_u
+        eta = self.x @ beta + self.offset + np.einsum("ij,ij->i", vals, u[self.cols])
+        d1, w, w3, ll_t, d1_t, w_t = self._derivs(eta, log_theta)
+        hess = (a * w[:, None]).T @ a
+        hess[np.diag_indices(self.n_u)] += 1.0
+        p_inv = scipy_linalg.cho_solve(scipy_linalg.cho_factor(hess, lower=True), np.eye(self.n_u))
+        ap = a @ p_inv
+        lev = np.sum(ap * a, axis=1)
+        # s = P A' (w3 lev) carries the move of the modes into log det H.
+        s_vec = p_inv @ (a.T @ (w3 * lev))
+        a_s = a @ s_vec
+        grad = [self.x.T @ (d1 - 0.5 * w3 * lev + 0.5 * w * a_s)]
+        for t, base in zip(self.terms, self.u_base, strict=True):
+            # The term's one parameter is a log SD: d vals / d par = vals.
+            sl = slice(base, base + t.n_levels * t.q)
+            a_k = a[:, sl]
+            e = a_k @ u[sl]  # d eta / d par at fixed modes
+            lev_k = np.sum(ap[:, sl] * a_k, axis=1)
+            a_k_s = a_k @ s_vec[sl]
+            trace = 2.0 * w @ lev_k + (w3 * e) @ lev + d1 @ a_k_s - (w * e) @ a_s
+            grad.append([d1 @ e - 0.5 * trace])
+        if self.n_theta:
+            grad.append([np.sum(ll_t) - 0.5 * (w_t @ lev + d1_t @ a_s)])
+        return value, np.concatenate(grad)
+
     def unpack(self, phi):
         beta = phi[: self.p]
         factors = []
@@ -628,7 +823,15 @@ class _SparseProblem(_Problem):
             at += t.n_par
         return out
 
-    def _factorize(self, vals, w):
+    def _dense_matrix(self, vals):
+        """A as a dense n x n_u array (the columns of a row are distinct)."""
+        a = np.zeros((self.n, self.n_u))
+        np.put_along_axis(a, self.cols, vals, axis=1)
+        return a
+
+    def _factorize(self, vals, w, a=None):
+        if self.use_dense:
+            return _DenseSystem(self, vals, w, a)
         if self.use_blocks:
             return _BlockSystem(self, vals, w)
         products = (w[:, None, None] * vals[:, :, None] * vals[:, None, :]).ravel()
@@ -648,33 +851,42 @@ class _SparseProblem(_Problem):
         vals = np.hstack([t.z @ L for t, L in zip(self.terms, factors, strict=True)])
         cols = self.cols
 
-        def value(v):
-            ll, _, _ = self._terms(eta0 + np.einsum("ij,ij->i", vals, v[cols]), log_theta, zeta)
-            return float(np.sum(ll) - 0.5 * v @ v)
+        def state(v):
+            ll, d1, w = self._terms(eta0 + np.einsum("ij,ij->i", vals, v[cols]), log_theta, zeta)
+            return float(np.sum(ll) - 0.5 * v @ v), d1, w
 
+        a = self._dense_matrix(vals) if self.dense_matmul else None
         u = u0.copy()
-        f_old = value(u)
+        f_old, d1, w = state(u)
+        self.settled = False
         for _ in range(100):
-            _, d1, w = self._terms(eta0 + np.einsum("ij,ij->i", vals, u[cols]), log_theta, zeta)
             grad = np.bincount(cols.ravel(), weights=(vals * d1[:, None]).ravel(), minlength=self.n_u) - u
             # Zero-inflated rows can curve the wrong way; Newton uses the
             # positive part, and the Laplace term below the exact curvature.
-            lu = self._factorize(vals, np.maximum(w, 0.0))
+            lu = self._factorize(vals, np.maximum(w, 0.0), a)
             if lu is None or getattr(lu, "ok", True) is False:
                 return u, f_old, None
             step = lu.solve(grad)
             scale = 1.0
             for _half in range(40):
                 trial = u + scale * step
-                f_new = value(trial)
+                f_new, d1_t, w_t = state(trial)
                 if f_new >= f_old - 1e-12 * (1.0 + abs(f_old)):
+                    stuck = False
                     break
                 scale *= 0.5
-            u, f_old = trial, f_new
-            if np.max(np.abs(scale * step)) < 1e-11:
+            else:
+                # No step length helps: rounding swamps the objective, as far
+                # from the optimum where L-BFGS may probe. More steps only crawl.
+                stuck = True
+            # The accepted point's derivatives carry over to the next step.
+            u, f_old, d1, w = trial, f_new, d1_t, w_t
+            if stuck:
                 break
-        _, _, w = self._terms(eta0 + np.einsum("ij,ij->i", vals, u[cols]), log_theta, zeta)
-        return u, f_old, _logdet_lu(self._factorize(vals, w))
+            if np.max(np.abs(scale * step)) < 1e-11:
+                self.settled = True
+                break
+        return u, f_old, _logdet_lu(self._factorize(vals, w, a))
 
     def loglik(self, phi):
         self.evals += 1
@@ -683,7 +895,11 @@ class _SparseProblem(_Problem):
         u, f, logdet = self.modes(beta, factors, log_theta, zeta, self.u)
         if logdet is None:
             return -np.inf
-        self.u = u
+        self.last_u = u
+        if self.settled:
+            # An unfinished solve, far out where L-BFGS may probe, would be a
+            # poor start for the next evaluation.
+            self.u = u
         return float(f - 0.5 * logdet)
 
 
@@ -736,11 +952,36 @@ class _BlockSystem:
         return out
 
 
+class _DenseSystem:
+    """Dense Cholesky factor of H = A' W A + I for a small number of random effects."""
+
+    def __init__(self, prob: _SparseProblem, vals: np.ndarray, w: np.ndarray, a: np.ndarray | None = None):
+        self.ok = False
+        n_u = prob.n_u
+        if a is not None:
+            hess = (a * w[:, None]).T @ a
+        else:
+            products = (w[:, None, None] * vals[:, :, None] * vals[:, None, :]).ravel()
+            hess = np.bincount(prob.dense_key, weights=products, minlength=n_u * n_u).reshape(n_u, n_u)
+        hess[np.diag_indices(n_u)] += 1.0
+        if not np.all(np.isfinite(hess)):
+            return
+        try:
+            self.chol = scipy_linalg.cho_factor(hess, lower=True, check_finite=False)
+        except np.linalg.LinAlgError:
+            return
+        self.logdet = float(2.0 * np.sum(np.log(np.diag(self.chol[0]))))
+        self.ok = True
+
+    def solve(self, grad):
+        return scipy_linalg.cho_solve(self.chol, grad, check_finite=False)
+
+
 def _logdet_lu(lu) -> float | None:
     """log det of a symmetric positive definite matrix from its factor."""
     if lu is None:
         return None
-    if isinstance(lu, _BlockSystem):
+    if isinstance(lu, (_BlockSystem, _DenseSystem)):
         return lu.logdet if lu.ok else None
     diag = lu.U.diagonal()
     if np.any(diag <= 0):

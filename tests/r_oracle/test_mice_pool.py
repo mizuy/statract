@@ -121,3 +121,45 @@ def test_impute_chained_guards() -> None:
     skipped = impute_chained(data, m=2, n_iter=2, methods={"g": "none"}, seed=0)
     assert "g" not in skipped.methods
     assert skipped.complete(0)["g"].null_count() == data["g"].null_count()
+
+
+def test_polyreg_fit_reaches_the_optimum() -> None:
+    from scipy import special
+
+    from statract.impute import _RIDGE, _multinomial
+
+    rng = np.random.default_rng(5)
+    n, k = 800, 4
+    x = np.column_stack([np.ones(n), rng.normal(size=(n, 3)), rng.integers(0, 2, n)])
+    truth = rng.normal(scale=1.5, size=(x.shape[1], k))
+    logits = x @ truth
+    prob = np.exp(logits - special.logsumexp(logits, axis=1, keepdims=True))
+    y = (rng.uniform(size=(n, 1)) > np.cumsum(prob, axis=1)).sum(axis=1)
+    coef = _multinomial(y, k, x)
+    fitted = np.column_stack([np.zeros(n), x @ coef])
+    fitted = np.exp(fitted - special.logsumexp(fitted, axis=1, keepdims=True))
+    onehot = np.eye(k)[y]
+    grad = x.T @ (fitted - onehot)[:, 1:] + _RIDGE * coef
+    assert np.max(np.abs(grad)) < 1e-6
+
+
+def test_pmm_donors_are_among_the_nearest() -> None:
+    from statract.impute import _N_DONORS, _impute_pmm, _norm_draw
+
+    for seed in range(50):
+        rng = np.random.default_rng(seed)
+        n = int(rng.integers(3, 300))
+        x_obs = np.column_stack([np.ones(n), rng.normal(size=n)])
+        # Rounded outcomes give tied predictions, which the matcher must handle.
+        y_obs = np.round(x_obs[:, 1] + rng.normal(size=n), int(rng.integers(0, 3)))
+        x_obs[:, 1] = np.round(x_obs[:, 1], 1)
+        x_mis = np.column_stack([np.ones(40), rng.normal(size=40)])
+        donors = _impute_pmm(y_obs, x_obs, x_mis, np.random.default_rng(seed))
+        # Replay the same draws to recover the predictions the matcher used.
+        beta_hat, beta_star = _norm_draw(y_obs, x_obs, np.random.default_rng(seed))
+        yhat_obs, yhat_mis = x_obs @ beta_hat, x_mis @ beta_star
+        k = min(_N_DONORS, n)
+        for target, value in zip(yhat_mis, donors, strict=True):
+            dist = np.abs(yhat_obs - target)
+            cutoff = np.partition(dist, k - 1)[k - 1]
+            assert np.any((y_obs == value) & (dist <= cutoff + 1e-12))
