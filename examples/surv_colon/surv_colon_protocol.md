@@ -53,6 +53,7 @@ concept §9。列と関数:
 - 図: `plot_survival(..., hue="rx")`（number-at-risk 表は既定 ON）
 - Cox: `cox_ph(..., "Surv(time, event) ~ rx + age + sex + nodes")` → `tidy(exponentiate=True)` → `plot_forest(..., layout="table")`
 - PH: `proportional_hazards_test(fit)` + `write_cox_diagnostic_suite(...)`
+- 標準化: `standardize_cox(cox_df, COX_FORMULA, values={"rx": [...]}, times=...)` → `tidy()` / `tidy(contrast="difference", reference="Obs")`。RMST（5 年）は `measure="rmean"` を Obs 対各群の 0/1 で
 
 ## 9. 出力 ↔ results
 
@@ -63,4 +64,5 @@ concept §9。列と関数:
 | `surv_colon_out/km_curve.csv`, `figures/km_rx.png` | KM（NAR 付き） |
 | `surv_colon_out/logrank.md` | log-rank |
 | `surv_colon_out/cox_tidy.csv`, `cox_n.md`, `figures/cox_forest.png` | Cox |
+| `surv_colon_out/std_surv_curve.csv`, `std_surv_at.csv`, `std_rmst_5y.csv`, `figures/std_surv_rx.png` | Cox 標準化 |
 | `surv_colon_out/ph_test.csv`, `figures/cox_*.png` | PH / 診断 |

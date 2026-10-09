@@ -1,6 +1,6 @@
 # cif_pbc — PBC の競合リスク例
 
-Aalen–Johansen CIF と Fine–Gray（移植を競合イベント）。
+Aalen–Johansen CIF と Fine–Gray（移植を競合イベント）。cmprsk 流の `cumulative_incidence`（Gray 検定）と `fine_gray_regression`（`crr`）も比較する。
 
 **読む:** [docs 単一ページ](../../docs/examples/cif_pbc.md)（ギャラリー: [解析例](https://mizuy.github.io/statract/examples/cif_pbc/)）。データ出典・プロトコル詳細・図つき Results はそちら。
 

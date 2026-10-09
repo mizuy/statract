@@ -103,21 +103,21 @@
     <td class="gt_row gt_center">1.4 [0.8,3.4]</td>
     <td class="gt_row gt_center">1.4 [0.8,3.2]</td>
     <td class="gt_row gt_center">1.3 [0.7,3.6]</td>
-    <td class="gt_row gt_center">0.09</td>
+    <td class="gt_row gt_center">0.79</td>
   </tr>
   <tr>
     <td style="font-weight: bold;" class="gt_row gt_left">Baseline albumin</td>
     <td class="gt_row gt_center">3.6 [3.3,3.8]</td>
     <td class="gt_row gt_center">3.6 [3.2,3.8]</td>
     <td class="gt_row gt_center">3.5 [3.3,3.8]</td>
-    <td class="gt_row gt_center">0.87</td>
+    <td class="gt_row gt_center">0.95</td>
   </tr>
   <tr>
     <td style="font-weight: bold;" class="gt_row gt_left">Baseline day</td>
     <td class="gt_row gt_center">0.0 [0.0,0.0]</td>
     <td class="gt_row gt_center">0.0 [0.0,0.0]</td>
     <td class="gt_row gt_center">0.0 [0.0,0.0]</td>
-    <td class="gt_row gt_center">P&lt;.001</td>
+    <td class="gt_row gt_center">-</td>
   </tr>
 </tbody>
 </table>

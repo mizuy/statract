@@ -2,7 +2,7 @@
 
 `surv_colon` — KM / log-rank / Cox
 
-KM / log-rank / Cox の正本。`etype=1` で患者単位に畳み、`hue=rx` の Table 1 から KM（number-at-risk 付き）・Cox forest・PH 診断まで。
+KM / log-rank / Cox の正本。`etype=1` で患者単位に畳み、`hue=rx` の Table 1 から KM（number-at-risk 付き）・Cox forest・Cox 標準化（周辺生存曲線）・PH 診断まで。
 
 [← ギャラリー](index.md) · [実行用ディレクトリと手順（GitHub）](https://github.com/mizuy/statract/tree/main/examples/surv_colon)
 
@@ -39,6 +39,7 @@ KM / log-rank / Cox の正本。`etype=1` で患者単位に畳み、`hue=rx` �
 3. KM（**number-at-risk 表付き**）+ log-rank で群間の再発フリー生存を見る
 4. Cox（`rx + age + sex + nodes`）で調整 HR を推定し、`plot_forest(..., layout="table")` で可視化する
 5. `proportional_hazards_test` と Schoenfeld / log-log / dfbeta / martingale / deviance 診断を併記する
+6. 同じ Cox を `standardize_cox` で回帰標準化し、共変量をコホートで平均した `rx` 別の生存曲線・時点差・5 年 RMST を出す
 
 競合リスク（再発 vs 死亡）は本カットの対象外（→ [`cif_pbc`](cif_pbc.md)）。
 
@@ -137,6 +138,13 @@ $$
 - log-rank: `log_rank(..., by="rx")`
 - Cox: `cox_ph` → `tidy(exponentiate=True)` → `plot_forest(..., layout="table")`（論文用白黒は `style="bw"`）
 - PH: `proportional_hazards_test` + `write_cox_diagnostic_suite`（Schoenfeld / log-log / dfbeta / martingale / deviance）
+- 標準化: `standardize_cox`（`stdReg2::standardize_coxph` 相当）。全員の `rx` を各値に置き換えた Cox 予測生存の標本平均
+
+$$
+\hat S_a(t) = \frac{1}{n}\sum_{i=1}^{n} \exp\!\left\{-\hat H_0(t)\exp(\hat\beta_{\mathrm{rx}=a} + \hat\beta^\top z_i)\right\}.
+$$
+
+  分散は共変量のばらつきも含むサンドイッチ（Sjölander 2016）。RMST は $\int_0^{t^*}\hat S_a(t)\,dt$（Chen–Tsiatis、群ごとの Cox）で、0/1 曝露しか取らないため Obs 対各群の 2 群ずつで出す
 
 
 ## 結果
@@ -246,14 +254,79 @@ $$
     )
     ```
 
+### Cox 標準化（`rx` 別の周辺生存曲線）
+
+上の HR は「同じ年齢・性別・リンパ節数の人どうし」の条件付き比較です。`standardize_cox` は同じ Cox モデルで、全員を Obs / Lev / Lev+5FU にした場合の生存を予測して平均し、コホート全体の絶対リスクの差として示します。
+
+=== "図"
+
+    ![Standardized survival by rx](assets/surv_colon/std_surv_rx.png)
+
+    帯は各点の 95% CI。点線は 3 年（1095 日）と 5 年（1825 日）。
+
+=== "表"
+
+    1 / 3 / 5 年の標準化生存と Obs との差:
+
+    | 時点 | rx | 標準化生存 (95% CI) | 差 vs Obs (95% CI) |
+    | --- | --- | --- | --- |
+    | 1 年 | Obs | 0.728 (0.687–0.769) | — |
+    | 1 年 | Lev | 0.743 (0.703–0.784) | +0.015 (−0.032 to 0.063) |
+    | 1 年 | Lev+5FU | 0.830 (0.798–0.861) | +0.102 (0.058–0.145) |
+    | 3 年 | Obs | 0.500 (0.448–0.552) | — |
+    | 3 年 | Lev | 0.523 (0.469–0.576) | +0.023 (−0.049 to 0.094) |
+    | 3 年 | Lev+5FU | 0.663 (0.613–0.713) | +0.163 (0.095–0.232) |
+    | 5 年 | Obs | 0.446 (0.393–0.499) | — |
+    | 5 年 | Lev | 0.470 (0.415–0.525) | +0.024 (−0.050 to 0.098) |
+    | 5 年 | Lev+5FU | 0.620 (0.566–0.673) | +0.173 (0.101–0.246) |
+
+    [CSV](assets/surv_colon/std_surv_at.csv)
+
+    5 年（1825 日）までの制限付き平均生存時間（RMST、日）。Obs 対各群の 2 群ずつ:
+
+    | 比較 | Obs | 治療群 | 差 (95% CI) |
+    | --- | --- | --- | --- |
+    | Lev vs Obs | 1096 | 1108 | +12 (−101 to 125) |
+    | Lev+5FU vs Obs | 1101 | 1338 | +237 (130–344) |
+
+    [CSV](assets/surv_colon/std_rmst_5y.csv)
+
+=== "コード"
+
+    ```python
+    import polars as pl
+    from statract import standardize_cox
+
+    formula = "Surv(time, event) ~ rx + age + sex + nodes"
+    levels = ["Obs", "Lev", "Lev+5FU"]
+
+    # 曲線（30 日刻み。最初の時点は最初のイベントより後に置く）
+    curve = standardize_cox(cox_df, formula, values={"rx": levels},
+                            times=[float(t) for t in range(30, 3001, 30)])
+    curve.tidy()  # time, rx, estimate, std_error, conf_low, conf_high
+
+    # 1 / 3 / 5 年の生存と Obs との差
+    at = standardize_cox(cox_df, formula, values={"rx": levels},
+                         times=[365.0, 1095.0, 1825.0])
+    at.tidy()
+    at.tidy(contrast="difference", reference="Obs")
+
+    # 5 年 RMST（measure="rmean" は 0/1 曝露のみ → Obs 対 Lev+5FU）
+    pair = cox_df.filter(pl.col("rx").is_in(["Obs", "Lev+5FU"])).with_columns(
+        (pl.col("rx") == "Lev+5FU").cast(pl.Int64).alias("trt")
+    )
+    rm = standardize_cox(pair, "Surv(time, event) ~ trt + age + sex + nodes",
+                         values={"trt": [0, 1]}, times=1825.0, measure="rmean")
+    rm.tidy(contrast="difference", reference=0)
+    ```
+
 ### 比例ハザード検定
 
 === "表"
 
     | term | statistic | df | p_value |
     | --- | --- | --- | --- |
-    | rxLev | 0.1441 | 1 | 0.7042 |
-    | rxLev+5FU | 0.5322 | 1 | 0.4657 |
+    | rx | 0.5366 | 2 | 0.7647 |
     | age | 0.0002155 | 1 | 0.9883 |
     | sex | 2.947 | 1 | 0.08604 |
     | nodes | 0.5894 | 1 | 0.4426 |
@@ -303,7 +376,9 @@ $$
 
 ## 解釈と解説
 
-補助療法 `rx` は再発時間と関連する（log-rank 統計量 23.06、df=2、p≈9.8×10⁻⁶）。Cox（年齢・性別・陽性リンパ節調整）では **Lev+5FU 対 Obs の HR が約 0.58**（95% CI 約 0.46–0.74）。Lev 単独は Obs と大きく違わない（HR≈0.93）。`proportional_hazards_test` の全体 p≈0.50 で、このモデルでは PH の強い破綻は示唆されない。
+補助療法 `rx` は再発時間と関連する（log-rank 統計量 23.06、df=2、p≈9.8×10⁻⁶）。Cox（年齢・性別・陽性リンパ節調整）では **Lev+5FU 対 Obs の HR が約 0.58**（95% CI 約 0.46–0.74）。Lev 単独は Obs と大きく違わない（HR≈0.93）。`proportional_hazards_test` の全体 p≈0.50（`rx` 項 df=2 で p≈0.76） で、このモデルでは PH の強い破綻は示唆されない。
+
+Cox 標準化は同じモデルを絶対リスクの尺度に直したものです。年齢・性別・リンパ節数をこのコホートの分布で平均すると、5 年無再発生存は Obs 0.446 に対して Lev+5FU 0.620、差は **+0.173**（95% CI 0.101–0.246）で、3 年では +0.163 です。5 年までの RMST では Lev+5FU が約 **237 日**（130–344）長い。HR 0.58 は「同じ共変量の人どうしで瞬間ハザードが約 4 割低い」という条件付き・相対的な量で、時点や基準リスクによらず一定と仮定されます。一方、標準化生存の差は集団全体の平均的な絶対差で、基準の再発リスクが高いほど大きくなり、時点とともに変わります（1 年 +0.10 → 5 年 +0.17）。Cox の HR は非折りたたみ（non-collapsible）なので、標準化曲線から読める周辺的な効果と HR は一般に一致しません。Lev 単独は、どの時点でも差の CI が 0 をまたぎ、RMST の差も +12 日（−101 to 125）で、HR≈0.93 と同じく Obs との差ははっきりしない。RCT なので交絡調整というより、予後因子で精度を上げた絶対効果の要約として読むのが適切です。標準化も同じ比例ハザードの Cox に依存し、RMST は 2 群ずつ別に当てた群ごとの Cox による値です。
 
 限界:
 

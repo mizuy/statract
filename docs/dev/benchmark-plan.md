@@ -4,7 +4,7 @@
 
 `tests/r_oracle` の小さな fixture はそのまま残す。あちらは pytest が R なしで読む数値の固定で、こちらは手元で R と Python を同じ機械で走らせるベンチマークである。速度に合格ラインは置かない。数値の許容差は [R パッケージとの対応](../models/vs-r.md) と同じにする。
 
-計測スクリプトは `bench/stat/` にある。`uv run python bench/stat/run_all.py` が取得、計測、比較まで行う。比較表は `bench/stat/results/comparison.csv`（サイト掲載は [benchmarks](../models/benchmarks.md)）。データ本体は `/tmp/statract-bench` に置き、リポジトリには入れない。R 側は `Rscript bench/stat/run_r.R`（jsonlite, sandwich, lmtest, survival, MatchIt, mgcv, lme4）。
+計測スクリプトは `bench/stat/` にある。`uv run python bench/stat/run_all.py` が取得、計測、比較まで行う。比較表は `bench/stat/results/comparison.csv`（サイト掲載は [benchmarks](../models/benchmarks.md)）。データ本体は `/tmp/statract-bench` に置き、リポジトリには入れない。R 側は `Rscript bench/stat/run_r.R`（jsonlite, sandwich, lmtest, survival, MatchIt, mgcv, lme4。後から足したタスクには pROC, rms, stdReg2, cmprsk, gamm4, glmmTMB, partykit, mice も要る。これらは `::` で呼ぶので、入っていないパッケージはそのタスクだけが失敗する）。
 
 ## 測り方
 
@@ -106,6 +106,49 @@ OLS の結果は `hours_per_week`。説明変数は次の 10 列。
 
 最近傍の組は、同じ距離の対照のどれを先に取るかで変わる。食い違う組の対照どうしが共変量まで同じなら、同じ組とみなす。MatchIt 4.6 以降の書き直しで、ロジットの 10,000 行ではこの入れ替わりが 16 組ある。マハラノビスは全水準の指標を使うので、プールした共分散が特異になる。MatchIt はその一般化逆行列をピボット付き Cholesky で分解し、末尾の塊は LAPACK のビルドで変わる。x86-64 Linux の参照 LAPACK では組が一致する。macOS（arm64）では一致せず、失敗のまま注記する。
 
+## 追加したタスク（SUPPORT2）
+
+最初の版のあとに入れた関数を、SUPPORT2 の同じ 2 つの切片（1,000 行と全件）で測る。多重代入だけは欠測を残した別の切片 `support-mi-1000` / `support-mi-large` を使う。どれも、R の呼び出しは `tests/r_oracle/scripts/` の fixture スクリプトと同じにしてある。許容差は vs-r.md のまま。
+
+SUPPORT2 の切片には次の列を足した。行は変わらない。
+
+- `hospdead`（入院中の死亡）。二値の結果に使う。
+- `slos`（入院日数）。負の二項 GLMM の結果。
+- `cause`（競合リスクの原因コード）。SUPPORT2 には原因コードが無いので、既存の列から作った。`death = 0` なら 0（打ち切り）、`death = 1` で `hospdead = 1` なら 1（入院中の死亡）、`death = 1` で `hospdead = 0` なら 2（退院後の死亡）。時間は `d.time`。臨床的な意味よりも、互いに排他な 2 つの事象を公開データで作ることを優先した。
+- `support-mi` は `hospdead`、`age`、`sex`、`num.co`、`meanbp`、`hrt` が揃った行で、`alb`、`bili`、`pafi`、`wblc`、`income` の欠測を残す。`income` は `inc1`〜`inc4`（under $11k、$11–25k、$25–50k、>$50k）に置き換え、ロケールで並びが変わらないようにした。
+
+| ID | 関数とオプション | R | 比べる量 |
+|----|------------------|---|---------|
+| ttest | `t_test`。`meanbp` を `hospdead` で 2 群、Welch と `var_equal=True` | `t.test` | t、自由度、p、区間、平均（rtol 1e-10、p は atol 1e-10） |
+| wilcox | `wilcox_test(conf_int=True)`。同じ 2 群。同順位ありの正規近似 | `wilcox.test(conf.int=TRUE)` | W、p、Hodges–Lehmann 推定値と区間（両方 `uniroot` の tol 1e-4 なので rtol 1e-6） |
+| prop | `prop_test`。性別ごとの入院中死亡の割合 | `prop.test` | χ²、p、差の区間、割合 |
+| padj | `p_adjust`。7 列の Welch t 検定の p を holm、hochberg、hommel、BH、BY | `p.adjust` | 補正後の p（rtol 1e-8） |
+| roc | 2 つの二項 GLM（10 列と 4 列）の線形予測子で `roc_curve`、`ci_auc`、対応ありの `roc_test` | `pROC::roc`、`ci.auc(method="delong")`、`var`、`roc.test(method="delong")` | AUC、DeLong の分散と区間、Z と p。秒は GLM の当てはめを含まない |
+| val-lrm | `validate_logistic`、B = 20。説明変数は Cox の 10 列から `temp` を外した 9 列 | `rms::validate(lrm(...), B=20)` | `index.orig` だけ（atol 1e-6） |
+| cal-lrm | `calibrate_logistic`、B = 20。同じ 9 列 | `rms::calibrate(lrm(...), B=20)` | `predy` と見かけの曲線 `calibrated.orig` |
+| val-cph | `validate_cox`、B = 20 | `rms::validate(cph(...), B=20)` | `index.orig` だけ |
+| cal-cph | `calibrate_cox(u=180, m=150)`、B = 20 | `rms::calibrate(cph(..., surv=TRUE, time.inc=180), cmethod="KM", u=180, m=150, B=20)` | 群ごとの平均予測、KM、std.err、`index.orig` |
+| std-cox | `standardize_cox`。曝露は `diabetes`（0 と 1）、時点は km と同じ 3 点 | `stdReg2::standardize_coxph(measure="survival")` | 標準化生存率と水準間の共分散（rtol 1e-6） |
+| cuminc | `cumulative_incidence(by=sex)`。層なしと `strata=ca` | `cmprsk::cuminc`、`timepoints` | km と同じ 3 時点の推定値と分散、原因ごとの Gray 検定（rtol 1e-8、p は atol 1e-8）。層ありは検定だけ |
+| crr | `fine_gray_regression(cause=1)`。説明変数は Cox と同じ 10 列 | `cmprsk::crr(..., failcode=1)` と `model.matrix` | 係数、SE、擬似対数尤度（rtol 1e-8） |
+| gamm | `gamm(hospdead ~ age + s(meanbp, cr, k=8), random="(1 \| dzgroup)", binomial)` | `gamm4::gamm4` | 係数（atol 3e-5）、`dzgroup` の分散（rtol 1e-4）、対数尤度（atol 1e-5）、平滑の値（atol 3e-5） |
+| glmm-pois | `fit_mixed("num_co ~ age + sex + meanbp + ca + (1 \| dzgroup)", family="poisson", engine="laplace")` | `glmmTMB(..., family=poisson)` | 係数と SE（rtol 1e-4）、対数尤度（atol 1e-6）、分散（rtol 1e-3） |
+| glmm-nb | `slos ~ age + sex + num_co + meanbp + ca + (1 \| dzgroup)`、`family="negative_binomial"` | `glmmTMB(..., family=nbinom2)` | 同じに `theta`（rtol 1e-4） |
+| ctree | `conditional_tree(hospdead, Cox と同じ 10 列)` | `partykit::ctree`（quadratic、Bonferroni、minsplit 20、minbucket 7） | 分割の変数と分割点（深さ優先、完全一致）、終端ノード数、根の統計量と調整済み p（`sctest.constparty`）、各行の予測 |
+| mice | `impute_chained(m=5, n_iter=5)` のあと二項 GLM を `pool` | `mice(m=5, maxit=5)`、`with` 相当の `glm`、`pool` | 代入する列とその方法、欠測数だけ。秒は代入から統合まで |
+
+乱数を使う 3 つは比べ方を変えた。
+
+- validate と calibrate。ブートストラップの再標本は R の `sample` と numpy で違う。比べるのは再標本に依らない見かけの値（`index.orig`、見かけの較正曲線、群ごとの KM）だけで、秒は同じ B で測る。statract は `indices=` を受け取るので、R の `set.seed` と `sample(n, replace=TRUE)` で作った行を渡せば全列を比べられる（fixture `rms.json` はそうしている）。ベンチマークではそこまでしない。
+- mice。代入値は乱数生成器が違うので一致しない。決定的な部分（どの列をどの方法で埋めるか、欠測の数）だけを比べる。統合した推定値は JSON に残すが判定には使わない。`impute_chained` は 1 回に 1,000 行で約 40 秒、全件で約 150 秒かかる（`income4` の polyreg が L-BFGS で数千回まわる）。このタスクだけはウォームアップのあと 1 回を測る（manifest の `repeats=1`）。
+- gamm。R の秒は既定の `gamm4` 呼び出しで測り、比べる数値は `tolPwrss=1e-13` まで詰めた glmer の当てはめ直しから取る（GAM と同じ扱い）。edf と SE は比べない。gamm4 0.2-6 は Matrix 1.6 以降で `chol(V, pivot=TRUE)` の置換を読めず、報告する edf と SE が約 1% ずれる。statract はピボットを正しく扱った式に合わせている（fixture `gamm4.json` のスクリプトがその補正をしている）。Python の edf は JSON に残すだけ。
+
+ロジスティックの 2 つで `temp` を外すのは、statract の `lrm.fit` の移植が、ほぼ一定の `temp`（約 37）と切片が並ぶと情報行列の最小特異値が「1e-7 × 最大要素」を下回るとして特異と判定し、「did not converge」で止まるため（2026-10 時点）。rms 6.7 の `lrm.fit` は同じデータで当てはまるはずで、R で確かめたら直すべき差である。
+
+ctree の調整済み p は `partykit:::sctest.constparty` から取る。rms の `lrm` は版によって収束判定が違う（fixture は rms 6.7-1）。新しい rms で見かけの値が 1e-6 を超えてずれたら、まずそこを疑う。
+
+手元で SUPPORT2 だけを用意するときは `uv run python bench/stat/prepare.py --only support` とする。取得できない環境では `--support-parquet <support2.csv と同じ表の Parquet>` で読み込める。`run_python.py --task ID ...` は指定したタスクだけを走らせる（そのときの `python.json` はその分だけになる）。
+
 ## 入れないオプション
 
 実装が数値を R に合わせていないもの、またはこの 4 つのデータでそのオプションが空になるものは、速度だけを並べても数値の判定ができない。
@@ -113,10 +156,10 @@ OLS の結果は `hours_per_week`。説明変数は次の 10 列。
 - ブートストラップ共分散。乱数生成器が R と違う。
 - クラスター頑健分散の HC2 と HC3。
 - Cox のケース重み。SUPPORT2 に調査重みがない。
-- Fine–Gray と Aalen–Johansen。この 4 つに競合リスクの原因コードがない。
+- `survival::finegray` 経由の Fine–Gray と Aalen–Johansen。cmprsk 版（`cuminc`、`crr`）は下の追加タスクで測る。
 - ユークリッド距離の最近傍。マハラノビスで距離のオプションは代表する。
 - ベンチマークの GAM は cubic regression のガウス 1 本。他の基底と分布は fixture で比べる。
-- 二項・ポアソンの GLMM と glmmTMB。
+- 二項 GLMM。カウントの GLMM（ポアソン、負の二項）は下の追加タスクで測る。
 - 図。`plot_survival` など既存の描画関数。
 
 ## スクリプト

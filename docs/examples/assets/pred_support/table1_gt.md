@@ -103,7 +103,7 @@
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
-    <td class="gt_row gt_center">0.24</td>
+    <td class="gt_row gt_center">0.23</td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　asian</td>

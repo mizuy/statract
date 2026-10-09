@@ -2,7 +2,7 @@
 
 `iptw_nhefs` — 安定化 IPTW（ATE）
 
-`psm_rhc` の対。連続アウトカムの安定化 IPTW（ATE のみ）。ライブラリに `iptw()` は無く、重みは例スクリプトの手計算。IPTW OLS の forest まで。
+`psm_rhc` の対。連続アウトカムの安定化 IPTW（ATE のみ）。ライブラリに `iptw()` は無く、重みは例スクリプトの手計算。IPTW OLS の forest と、欠損アウトカムの多重代入感度（`impute_chained` + `pool`）まで。
 
 [← ギャラリー](index.md) · [実行用ディレクトリと手順（GitHub）](https://github.com/mizuy/statract/tree/main/examples/iptw_nhefs)
 
@@ -37,6 +37,7 @@
 2. Table 1（`hue=qsmk`）
 3. PS 二項 GLM → 安定化 ATE 重み（上限 10）→ 重み付き OLS + HC3 + `plot_forest(..., layout="table")`
 4. 感度: CEM の `balance` / `love_plot` のみ（第二推定対象にしない）
+5. 感度: 欠損アウトカム 63 行を `impute_chained`（MICE）で多重代入し、各代入セットで IPTW OLS を再推定して `pool`（Rubin のルール）で統合。完全例の推定と比べる
 
 ## flowchart / tableone
 
@@ -221,6 +222,44 @@ $W$ を 10 で切り詰め。アウトカムモデル $E[Y\mid A]$ は重み付�
     )
     ```
 
+### 感度: 多重代入（MICE + Rubin）と完全例の比較
+
+完全例では `wt82_71` 欠損の 63 行（3.9%）を落としています。`impute_chained` で `wt82_71` を PMM により m=20 回代入（`qsmk` と PS 共変量を予測子、`n_iter=10`、`seed=20261008`）し、各セットで PS GLM → 安定化重み（上限 10）→ 重み付き OLS + HC3 をやり直して `pool` で統合しました。
+
+=== "表"
+
+    | 解析 | n | 代入数 | qsmk 推定 (kg) | SE | 95% CI | FMI |
+    | --- | --- | --- | --- | --- | --- | --- |
+    | 完全例（IPTW, HC3） | 1566 | 0 | 3.28 | 0.523 | 2.25–4.31 | — |
+    | MICE m=20 + Rubin（IPTW, HC3） | 1629 | 63 | 3.31 | 0.512 | 2.31–4.32 | 0.026 |
+
+    [比較 CSV](assets/iptw_nhefs/mi_vs_cc.csv) · [pool 出力（ubar / b / t / df / fmi）](assets/iptw_nhefs/mi_pooled.csv)
+
+=== "コード"
+
+    ```python
+    import numpy as np
+    import polars as pl
+    from statract import fit_glm, fit_ols, hc_covariance, impute_chained, pool
+
+    def iptw_ols(frame: pl.DataFrame):
+        ps_fit = fit_glm(frame, PS_FORMULA, family="binomial")
+        ps = np.full(frame.height, np.nan)
+        ps[np.asarray(ps_fit.row_index)] = np.clip(ps_fit.predict(kind="response"), 1e-6, 1 - 1e-6)
+        a = frame["qsmk"].to_numpy().astype(float)
+        p_a = float(np.mean(a))
+        sw = np.clip(np.where(a == 1.0, p_a / ps, (1.0 - p_a) / (1.0 - ps)), 0.0, 10.0)
+        fit = fit_ols(frame.with_columns(pl.Series("sw_trunc", sw)), "wt82_71 ~ qsmk", weights="sw_trunc")
+        fit.covariance = hc_covariance(fit, kind="HC3")
+        return fit
+
+    frame = target.select(["qsmk", "wt82_71", *covs])  # 1629 行、wt82_71 だけ 63 欠損
+    mi = impute_chained(frame, m=20, n_iter=10, seed=20261008)
+    mi.methods  # {'wt82_71': 'pmm'}
+    pooled = pool(mi.fit(iptw_ols))  # = mi.pool(iptw_ols)
+    pooled.filter(pl.col("term") == "qsmk")
+    ```
+
 ### 感度: CEM Love plot
 
 === "図"
@@ -241,6 +280,8 @@ $W$ を 10 で切り詰め。アウトカムモデル $E[Y\mid A]$ は重み付�
 ## 解釈と解説
 
 安定化 IPTW（ATE、上限 10、実際に cap された重みは 0、HC3）では禁煙の体重変化差は約 **+3.28 kg**（95% CI 約 2.25–4.31）。未調整は約 +2.54 kg。「禁煙後に体重が増える」方向は教科書の NHEFS 例と一致します。ライブラリに `iptw()` は無く、重みは例スクリプトの手計算です。教学 reproductions であり、禁煙指導の体重効果の確定推定ではありません。
+
+多重代入の感度では、欠損アウトカム 63 行を MICE（m=20）で埋めて Rubin のルールで統合しても約 **+3.31 kg**（95% CI 2.31–4.32）で、完全例の +3.28 kg とほぼ同じでした。欠損割合が 3.9% と小さく、欠損情報割合（FMI）も約 0.03 なので、代入による分散の上乗せもわずかです。ただしこれは「`qsmk` と PS 共変量が与えられれば欠損は MAR」という仮定のもとでの一致にすぎません。NHEFS の 1982 年体重欠損には追跡中の死亡・脱落が含まれ、その理由が体重変化そのものと関係する（MNAR）なら、MI も完全例も同じように偏ります。代入モデルは主効果のみで、PS 推定の不確かさは各セットの HC3 に含めていません。
 
 限界: ATT は出していない。CEM はバランス感度（実装が ATT 風の重みなので因果効果として読まない）。Positivity・切り詰め・未測定交絡。fetch-only データ。
 

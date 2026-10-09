@@ -42,6 +42,22 @@
 
 ![Calibration apparent vs validation](pred_support_out/figures/fig_calibration_apparent.png)
 
+## ROC と DeLong 検定（validation）
+
+@import "pred_support_out/roc_auc_val_csv.md"
+
+@import "pred_support_out/roc_test_val_csv.md"
+
+![ROC (validation)](pred_support_out/figures/fig_roc.png)
+
+## ブートストラップ内部検証（glm_full、train、B=200）
+
+@import "pred_support_out/validate_logistic_train_csv.md"
+
+@import "pred_support_out/calibrate_logistic.md"
+
+![Bootstrap calibration](pred_support_out/figures/fig_calibrate_boot.png)
+
 ## 決定曲線（DCA）
 
 @import "pred_support_out/text_dca.md"

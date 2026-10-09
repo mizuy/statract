@@ -84,15 +84,16 @@ HR / OR / 係数の forest は再実装した `plot_forest(..., layout="table")`
 | stem | 備考 |
 |------|------|
 | `htest_licorice` | 基本検定の正本（`binom_test` / `prop_test` / `wilcox_test` / `t_test` / `mcnemar_test` / `p_adjust`）。回帰なし |
-| `surv_colon` | 単一イベント生存の正本（KM+NAR、PH、診断、table forest） |
-| `aft_rotterdam` | PH 検定 + AFT の正本 |
+| `surv_colon` | 単一イベント生存の正本（KM+NAR、PH、診断、table forest）。`standardize_cox` の周辺生存曲線 |
+| `aft_rotterdam` | PH 検定 + AFT の正本。Cox の bootstrap 内部検証（`validate_cox` / `calibrate_cox`） |
 | `cox_retinopathy` | Cox Lin–Wei sandwich（`cluster(id)`）。両眼クラスター |
-| `cif_pbc` | 競合リスク（CIF / Fine–Gray） |
+| `cif_pbc` | 競合リスク（CIF / Fine–Gray）。cmprsk 版の `cumulative_incidence` / `fine_gray_regression` |
 | `logit_indo` | 施設 GLMM（主）+ MOR / RE plot。固定効果 GLM は比較。較正ホールドアウトなし |
-| `pred_support` | 予測（点モデル）の正本。train / hold-out 較正・DCA・`binary_perf`。二項 GLM と ctree の比較 |
+| `pred_support` | 予測（点モデル）の正本。train / hold-out 較正・DCA・`binary_perf`。二項 GLM と ctree の比較。ROC / DeLong、`validate_logistic` / `calibrate_logistic` |
 | `psm_rhc` | PS 最近傍マッチ |
-| `iptw_nhefs` | 安定化 IPTW（手計算重み） |
-| `lmm_pbcseq` | ガウス LMM / クラスタ SE / GAM |
+| `iptw_nhefs` | 安定化 IPTW（手計算重み）。多重代入（`impute_chained` / `pool`）の感度分析 |
+| `lmm_pbcseq` | ガウス LMM / クラスタ SE / GAM / `gamm` |
+| `glmm_epil` | 計数 GLMM の正本（ポアソン / 負の二項 / `ar1()` / ゼロ過剰） |
 | `cea_sicksicker` | `statract.cea`（DARTH Sick-Sicker 教学パラメータ。患者 tableone / flowchart なし） |
 
 ## チェックリスト（新規・改訂時）

@@ -41,3 +41,13 @@
 @import "lmm_pbcseq_out/gam_smooth_csv.md"
 
 ![GAM of log bilirubin vs day](lmm_pbcseq_out/figures/gam_day.png)
+
+## GAMM（`gamm`: s(day_years) + dp + (1 | id)、bili > 2 mg/dL）
+
+@import "lmm_pbcseq_out/gamm_n.md"
+
+@import "lmm_pbcseq_out/gamm_tidy_csv.md"
+
+@import "lmm_pbcseq_out/gamm_compare_csv.md"
+
+![GAMM vs gam vs GLMM day effect](lmm_pbcseq_out/figures/gamm_day.png)

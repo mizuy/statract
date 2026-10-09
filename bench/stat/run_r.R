@@ -34,16 +34,31 @@ match_x <- c(
   "workclass4", "relationship3", "us_native", "hours_per_week"
 )
 surv_x <- c("age", "sex", "num_co", "scoma", "meanbp", "hrt", "temp", "resp", "diabetes", "ca")
+# The tasks added for the later functions call pROC, rms, stdReg2, cmprsk,
+# gamm4, glmmTMB, partykit and mice through `::` without attaching them, so a
+# missing package fails only its own task. pROC would otherwise mask var().
+roc_x2 <- c("age", "sex", "num_co", "ca")
+# The logistic validate/calibrate tasks leave out temp, as run_python.py explains.
+lrm_x <- setdiff(surv_x, "temp")
+htest_x <- c("age", "num_co", "scoma", "meanbp", "hrt", "temp", "resp")
+std_cox_x <- c("diabetes", "age", "sex", "num_co", "meanbp", "ca")
+gamm_grid <- c(50, 70, 90, 110, 130)
+glmm_formula <- list(
+  poisson = "num_co ~ age + sex + meanbp + ca + (1 | dzgroup)",
+  negative_binomial = "slos ~ age + sex + num_co + meanbp + ca + (1 | dzgroup)"
+)
+mi_columns <- c("hospdead", "age", "sex", "num_co", "meanbp", "hrt", "alb", "bili", "pafi", "wblc", "income4")
+mi_x <- c("age", "sex", "num_co", "meanbp", "hrt", "alb", "bili", "pafi", "wblc", "income4")
 star_x <- c(
   "gender", "race", "freelunch", "birthyear", "grade", "classtype", "urban",
   "tyears", "tgen", "classsize"
 )
 
-time_call <- function(fun) {
+time_call <- function(fun, n = repeats) {
   fun()
-  samples <- numeric(repeats)
+  samples <- numeric(n)
   result <- NULL
-  for (i in seq_len(repeats)) {
+  for (i in seq_len(n)) {
     start <- proc.time()[["elapsed"]]
     result <- fun()
     samples[[i]] <- proc.time()[["elapsed"]] - start
@@ -68,11 +83,13 @@ load_slice <- function(info) {
   factors <- unlist(info$factors)
   header <- names(read.csv(info$csv, nrows = 0, check.names = FALSE))
   classes <- ifelse(header %in% factors, "character", NA)
+  # Empty fields are missing (support-mi keeps its missing laboratory values).
   frame <- read.csv(
     info$csv,
     stringsAsFactors = FALSE,
     check.names = FALSE,
-    colClasses = classes
+    colClasses = classes,
+    na.strings = c("", "NA")
   )
   apply_factors(frame, factors)
 }
@@ -130,6 +147,36 @@ pair_payload <- function(matched) {
     }
   }
   list(weights = as.numeric(matched$weights), pairs = pairs)
+}
+
+htest_payload <- function(h) {
+  out <- list(stat = unname(h$statistic), p = h$p.value)
+  if (!is.null(h$parameter)) out$df <- unname(h$parameter)
+  if (!is.null(h$conf.int)) out$ci <- as.numeric(h$conf.int)
+  out$estimate <- I(unname(as.numeric(h$estimate)))
+  out
+}
+
+# Splits of a ctree depth first, written as run_python.py writes them.
+ctree_splits <- function(tree) {
+  data <- tree$data
+  out <- character(0)
+  walk <- function(node) {
+    split <- partykit::split_node(node)
+    if (is.null(split)) return(invisible(NULL))
+    var <- names(data)[partykit::varid_split(split)]
+    breaks <- partykit::breaks_split(split)
+    if (!is.null(breaks)) {
+      out[[length(out) + 1L]] <<- sprintf("%s<=%.10g", var, breaks)
+    } else {
+      index <- partykit::index_split(split)
+      left <- levels(data[[var]])[!is.na(index) & index == 1L]
+      out[[length(out) + 1L]] <<- sprintf("%s in {%s}", var, paste(sort(left, method = "radix"), collapse = ","))
+    }
+    for (kid in partykit::kids_node(node)) walk(kid)
+  }
+  walk(partykit::node_party(tree))
+  out
 }
 
 run_task <- function(task, frame, manifest) {
@@ -333,6 +380,236 @@ run_task <- function(task, frame, manifest) {
         re = unname(re),
         sigma2 = unname(sigma(fit)^2),
         loglik = as.numeric(logLik(fit)),
+        seconds = timed$seconds
+      )
+    } else if (kind == "ttest") {
+      x <- frame$meanbp[frame$hospdead == 1]
+      y <- frame$meanbp[frame$hospdead != 1]
+      for (label in c("welch", "pooled")) {
+        equal <- label == "pooled"
+        timed <- time_call(function() t.test(x, y, var.equal = equal))
+        record$parts[[label]] <- c(htest_payload(timed$result), list(seconds = timed$seconds))
+      }
+    } else if (kind == "wilcox") {
+      x <- frame$meanbp[frame$hospdead == 1]
+      y <- frame$meanbp[frame$hospdead != 1]
+      timed <- time_call(function() suppressWarnings(wilcox.test(x, y, conf.int = TRUE)))
+      record$parts$main <- c(htest_payload(timed$result), list(seconds = timed$seconds))
+    } else if (kind == "prop") {
+      died <- frame$hospdead == 1
+      female <- frame$sex == "female"
+      counts <- c(sum(died & female), sum(died & !female))
+      totals <- c(sum(female), sum(!female))
+      timed <- time_call(function() prop.test(counts, totals))
+      record$parts$main <- c(htest_payload(timed$result), list(seconds = timed$seconds))
+    } else if (kind == "padj") {
+      raw <- vapply(htest_x, function(name) {
+        t.test(frame[[name]][frame$hospdead == 1], frame[[name]][frame$hospdead != 1])$p.value
+      }, numeric(1))
+      for (method in unlist(option$methods)) {
+        timed <- time_call(function() p.adjust(raw, method))
+        record$parts[[method]] <- list(adjusted = unname(timed$result), seconds = timed$seconds)
+      }
+    } else if (kind == "roc") {
+      score1 <- predict(glm(as.formula(paste("hospdead ~", rhs(surv_x))), data = frame, family = binomial()), type = "link")
+      score2 <- predict(glm(as.formula(paste("hospdead ~", rhs(roc_x2))), data = frame, family = binomial()), type = "link")
+      timed <- time_call(function() {
+        r1 <- pROC::roc(frame$hospdead, unname(score1), quiet = TRUE)
+        r2 <- pROC::roc(frame$hospdead, unname(score2), quiet = TRUE)
+        list(
+          r1 = r1, r2 = r2,
+          ci1 = pROC::ci.auc(r1, method = "delong"),
+          ci2 = pROC::ci.auc(r2, method = "delong"),
+          test = pROC::roc.test(r1, r2, method = "delong")
+        )
+      })
+      res <- timed$result
+      record$parts$main <- list(
+        auc = c(as.numeric(res$r1$auc), as.numeric(res$r2$auc)),
+        var = c(as.numeric(pROC::var(res$r1, method = "delong")), as.numeric(pROC::var(res$r2, method = "delong"))),
+        ci = c(as.numeric(res$ci1)[c(1, 3)], as.numeric(res$ci2)[c(1, 3)]),
+        stat = unname(as.numeric(res$test$statistic)),
+        p = res$test$p.value,
+        seconds = timed$seconds
+      )
+    } else if (kind %in% c("val_lrm", "val_cph")) {
+      b <- option$B
+      if (kind == "val_lrm") {
+        fit <- rms::lrm(as.formula(paste("hospdead ~", rhs(lrm_x))), data = frame, x = TRUE, y = TRUE)
+      } else {
+        fit <- rms::cph(as.formula(paste("Surv(d_time, death) ~", rhs(surv_x))), data = frame, x = TRUE, y = TRUE)
+      }
+      # The resamples differ from numpy's, so only index.orig is compared. The
+      # time covers the same B repetitions on both sides.
+      timed <- time_call(function() {
+        set.seed(manifest$seed)
+        rms::validate(fit, B = b)
+      })
+      tab <- unclass(timed$result)
+      record$parts$main <- list(
+        terms = rownames(tab),
+        index_orig = unname(as.numeric(tab[, "index.orig"])),
+        index_corrected = unname(as.numeric(tab[, "index.corrected"])),
+        seconds = timed$seconds
+      )
+    } else if (kind == "cal_lrm") {
+      b <- option$B
+      fit <- rms::lrm(as.formula(paste("hospdead ~", rhs(lrm_x))), data = frame, x = TRUE, y = TRUE)
+      timed <- time_call(function() {
+        set.seed(manifest$seed)
+        rms::calibrate(fit, B = b)
+      })
+      tab <- unclass(timed$result)
+      record$parts$main <- list(
+        predy = unname(as.numeric(tab[, "predy"])),
+        calibrated_orig = unname(as.numeric(tab[, "calibrated.orig"])),
+        seconds = timed$seconds
+      )
+    } else if (kind == "cal_cph") {
+      b <- option$B
+      u <- option$u
+      m <- option$m
+      fit <- rms::cph(
+        as.formula(paste("Surv(d_time, death) ~", rhs(surv_x))),
+        data = frame, x = TRUE, y = TRUE, surv = TRUE, time.inc = u
+      )
+      timed <- time_call(function() {
+        set.seed(manifest$seed)
+        rms::calibrate(fit, cmethod = "KM", u = u, m = m, B = b)
+      })
+      tab <- unclass(timed$result)
+      record$parts$main <- list(
+        mean_predicted = unname(as.numeric(tab[, "mean.predicted"])),
+        KM = unname(as.numeric(tab[, "KM"])),
+        std_err = unname(as.numeric(tab[, "std.err"])),
+        index_orig = unname(as.numeric(tab[, "index.orig"])),
+        seconds = timed$seconds
+      )
+    } else if (kind == "std_cox") {
+      times <- unlist(manifest$km_times)
+      values <- setNames(list(unlist(option$values)), option$exposure)
+      formula <- as.formula(paste("Surv(d_time, death) ~", rhs(std_cox_x)))
+      timed <- time_call(function() {
+        stdReg2::standardize_coxph(formula = formula, data = frame, values = values, times = times, measure = "survival")
+      })
+      res <- timed$result$res
+      est <- as.matrix(res$est)
+      record$parts$main <- list(
+        # Row-major (time, value), as numpy's ravel of the times x values matrix.
+        estimate = as.numeric(t(unname(est))),
+        cov = unlist(lapply(res$vcov, function(v) as.numeric(t(unname(as.matrix(v)))))),
+        seconds = timed$seconds
+      )
+    } else if (kind == "cuminc") {
+      times <- unlist(manifest$km_times)
+      for (label in c("main", "strata")) {
+        timed <- time_call(function() {
+          if (label == "main") {
+            cmprsk::cuminc(frame$d_time, frame$cause, frame$sex)
+          } else {
+            cmprsk::cuminc(frame$d_time, frame$cause, frame$sex, strata = frame$ca)
+          }
+        })
+        fit <- timed$result
+        tests <- fit$Tests[order(rownames(fit$Tests), method = "radix"), , drop = FALSE]
+        part <- list(stat = unname(tests[, "stat"]), p = unname(tests[, "pv"]), seconds = timed$seconds)
+        if (label == "main") {
+          tp <- cmprsk::timepoints(fit, times)
+          keep <- order(rownames(tp$est), method = "radix")
+          # Row by row ("female 1", "female 2", "male 1", ...), each across the times.
+          part$estimate <- as.numeric(t(unname(tp$est[keep, , drop = FALSE])))
+          part$variance <- as.numeric(t(unname(tp$var[keep, , drop = FALSE])))
+        }
+        record$parts[[label]] <- part
+      }
+    } else if (kind == "crr") {
+      mm <- model.matrix(as.formula(paste("~", rhs(surv_x))), frame)[, -1, drop = FALSE]
+      timed <- time_call(function() cmprsk::crr(frame$d_time, frame$cause, mm, failcode = option$cause, cencode = 0))
+      fit <- timed$result
+      record$parts$main <- list(
+        terms = colnames(mm),
+        coef = unname(fit$coef),
+        se = unname(sqrt(diag(fit$var))),
+        loglik = fit$loglik,
+        seconds = timed$seconds
+      )
+    } else if (kind == "gamm") {
+      k <- option$k
+      formula <- as.formula(sprintf("hospdead ~ age + s(meanbp, bs = \"cr\", k = %d)", as.integer(k)))
+      timed <- time_call(function() gamm4::gamm4(formula, random = ~ (1 | dzgroup), family = binomial(), data = frame))
+      # The time is the default call. The numbers come from a refit with glmer
+      # run to its optimum, as in tests/r_oracle/scripts/gamm4.R. edf and SEs
+      # are not compared: gamm4 0.2-6 builds them from chol(V, pivot = TRUE),
+      # whose pivot Matrix >= 1.6 no longer reports, so they are about 1% off.
+      tight <- glmerControl(
+        optimizer = "nloptwrap", tolPwrss = 1e-13,
+        optCtrl = list(xtol_abs = 1e-12, ftol_abs = 1e-14, xtol_rel = 0, ftol_rel = 0, maxeval = 1e5)
+      )
+      fit <- gamm4::gamm4(formula, random = ~ (1 | dzgroup), family = binomial(), data = frame, control = tight)
+      s <- summary(fit$gam)
+      nd <- data.frame(meanbp = gamm_grid, age = median(frame$age))
+      terms <- predict(fit$gam, newdata = nd, type = "terms")
+      record$parts$main <- list(
+        terms = rownames(s$p.table),
+        coef = unname(s$p.table[, 1]),
+        re = as.numeric(VarCorr(fit$mer)$dzgroup),
+        loglik = as.numeric(logLik(fit$mer)),
+        smooth = unname(terms[, rownames(s$s.table)[1]]),
+        edf = unname(s$edf),
+        seconds = timed$seconds
+      )
+    } else if (kind == "glmm") {
+      family <- if (option$family == "poisson") poisson() else glmmTMB::nbinom2()
+      formula <- as.formula(glmm_formula[[option$family]])
+      timed <- time_call(function() glmmTMB::glmmTMB(formula, data = frame, family = family))
+      fit <- timed$result
+      payload <- list(
+        terms = names(fixef(fit)$cond),
+        coef = unname(fixef(fit)$cond),
+        se = unname(sqrt(diag(vcov(fit)$cond))),
+        loglik = as.numeric(logLik(fit)),
+        re = unname(as.numeric(VarCorr(fit)$cond$dzgroup)[1]),
+        seconds = timed$seconds
+      )
+      if (option$family != "poisson") payload$theta <- unname(sigma(fit))
+      record$parts$main <- payload
+    } else if (kind == "ctree") {
+      formula <- as.formula(paste("hospdead ~", rhs(surv_x)))
+      control <- partykit::ctree_control(
+        teststat = "quadratic", testtype = "Bonferroni", alpha = 0.05, minsplit = 20L, minbucket = 7L
+      )
+      timed <- time_call(function() partykit::ctree(formula, data = frame, control = control))
+      tree <- timed$result
+      tests <- partykit:::sctest.constparty(tree, node = 1L)
+      record$parts$main <- list(
+        splits = I(ctree_splits(tree)),
+        n_terminal = length(partykit::nodeids(tree, terminal = TRUE)),
+        stat = unname(as.numeric(tests["statistic", ])),
+        p = unname(as.numeric(tests["p.value", ])),
+        pred = unname(as.numeric(predict(tree, newdata = frame))),
+        seconds = timed$seconds
+      )
+    } else if (kind == "mice") {
+      work <- frame[, mi_columns]
+      m <- option$m
+      maxit <- option$maxit
+      mi_formula <- as.formula(paste("hospdead ~", rhs(mi_x)))
+      n_time <- if (is.null(option$repeats)) repeats else option$repeats
+      timed <- time_call(function() {
+        imp <- mice::mice(work, m = m, maxit = maxit, seed = manifest$seed, printFlag = FALSE)
+        fits <- lapply(seq_len(m), function(i) glm(mi_formula, data = mice::complete(imp, i), family = binomial()))
+        list(imp = imp, pooled = mice::pool(fits))
+      }, n = n_time)
+      imp <- timed$result$imp
+      used <- imp$method[imp$method != ""]
+      nmis <- imp$nmis[names(used)]
+      record$parts$main <- list(
+        # Only which columns are imputed, by which method, and how many cells
+        # are compared. mice's draws come from R's generator.
+        methods = I(sort(paste0(names(used), ":", unname(used)), method = "radix")),
+        nmis = I(unname(as.integer(nmis[order(names(nmis), method = "radix")]))),
+        pooled_terms = I(as.character(timed$result$pooled$pooled$term)),
+        pooled_estimate = timed$result$pooled$pooled$estimate,
         seconds = timed$seconds
       )
     } else {

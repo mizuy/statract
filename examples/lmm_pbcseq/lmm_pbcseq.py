@@ -27,6 +27,7 @@ from statract import (
     fit_mixed,
     fit_ols,
     gam,
+    gamm,
     smooth,
     write_tableone_artifacts,
 )
@@ -35,6 +36,8 @@ from project import project
 
 LMM_FORMULA = "log_bili ~ day_years + dp + (1 | id)"
 OLS_FORMULA = "log_bili ~ day_years + dp"
+HIGH_BILI = 2.0  # mg/dL; gamm has binomial / Poisson only, so the gamm section uses bili > 2
+GLMM_FORMULA = "high_bili ~ day_years + dp + (1 | id)"
 
 
 def _clear_out(out: Path) -> Path:
@@ -148,7 +151,70 @@ def main() -> None:
     fig.tight_layout()
     fig.savefig(out / "figures" / "gam_day.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
+    _gamm_section(out, visits)
     print(f"wrote {out} from {project.project_root}")
+
+
+def _gamm_section(out: Path, visits: pl.DataFrame) -> None:
+    """gamm (gamm4 port): s(day) + dp + (1 | id) on bili > 2, vs gam and a linear GLMM."""
+    v = visits.with_columns((pl.col("bili") > HIGH_BILI).cast(pl.Int64).alias("high_bili"))
+    sm = smooth("day_years", k=10, basis="tp")  # mgcv / gamm4 default s(day_years)
+    fit_gamm = gamm(v, "high_bili", [sm], random="(1 | id)", predictors=["dp"], family="binomial")
+    fit_gam = gam(v, "high_bili", [sm], predictors=["dp"], family="binomial")
+    fit_glmm = fit_mixed(v, GLMM_FORMULA, family="binomial")
+    _write_csv(out, "gamm_tidy", fit_gamm.tidy())
+    _write_csv(out, "gamm_smooth", fit_gamm.smooth_table())
+    _write_csv(out, "gamm_variance", fit_gamm.variance_table())
+
+    def _row(model, tidy, edf, var):
+        r = tidy.filter(pl.col("term") == "dp").row(0, named=True)
+        return {
+            "model": model,
+            "dp_estimate": r["estimate"],
+            "dp_std_error": r["std_error"],
+            "dp_p_value": r["p_value"],
+            "day_edf": edf,
+            "id_variance": var,
+        }
+
+    compare = pl.DataFrame(
+        [
+            _row("gamm: s(day) + dp + (1|id)", fit_gamm.tidy(), float(fit_gamm.edf[0]),
+                 float(fit_gamm.variance_table()["variance"][0])),
+            _row("gam: s(day) + dp", fit_gam.tidy(), float(fit_gam.smooth_table()["edf"][0]), None),
+            _row("GLMM: day + dp + (1|id)", fit_glmm.tidy(), 1.0,
+                 float(fit_glmm.variance_table()["variance"][0])),
+        ]
+    )
+    _write_csv(out, "gamm_compare", compare)
+    (out / "gamm_n.md").write_text(
+        f"gamm binomial: high_bili = bili > {HIGH_BILI} mg/dL; visits {v.height}, "
+        f"prevalence {v['high_bili'].mean():.3f}; converged = {fit_gamm.converged}.\n",
+        encoding="utf-8",
+    )
+
+    # Smooths on the log-odds scale, each centred to mean zero over the visits.
+    grid = np.linspace(float(v["day_years"].min()), float(v["day_years"].max()), 100)
+    pe_mm = fit_gamm.partial_effect("day_years", grid)
+    pe_gam = fit_gam.partial_effect("day_years", n=100)
+    slope = fit_glmm.tidy().filter(pl.col("term") == "day_years")["estimate"][0]
+    lin = slope * (grid - float(v["day_years"].mean()))
+    fig, ax = plt.subplots(figsize=(6.5, 4.2))
+    for x, f, se, color, ls, label in (
+        (pe_mm["day_years"], pe_mm["fit"], pe_mm["std_error"], "C0", "-", "gamm (random intercept)"),
+        (pe_gam["day_years"], pe_gam["estimate"], pe_gam["std_error"], "C1", "--", "gam (no random effect)"),
+    ):
+        x, f, se = (np.asarray(a, dtype=float) for a in (x, f, se))
+        ax.fill_between(x, f - 1.96 * se, f + 1.96 * se, color=color, alpha=0.15, linewidth=0)
+        ax.plot(x, f, color=color, linestyle=ls, linewidth=2, label=label)
+    ax.plot(grid, lin, color="0.35", linestyle=":", linewidth=2, label="GLMM linear day")
+    ax.axhline(0, color="0.8", linewidth=0.8)
+    ax.set_xlabel("Day (years)")
+    ax.set_ylabel(f"s(day) on log-odds of bili > {HIGH_BILI:g} (centred)")
+    ax.legend(fontsize=8, frameon=False)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "gamm_day.png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
 
 
 if __name__ == "__main__":

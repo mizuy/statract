@@ -122,8 +122,57 @@ MAHALANOBIS_NOTE = (
 )
 
 
+# Checks of the tasks added for the later functions (htest, ROC, rms, stdReg2,
+# cmprsk, gamm4, glmmTMB, partykit, mice). Tolerances follow docs/models/vs-r.md.
+# "equal" is exact equality of strings or integers. A field missing from both
+# sides is skipped, so parts of one task may carry different fields.
+LATER_CHECKS: dict[str, list[tuple[str, str, float]]] = {
+    "ttest": [("stat", "rel", 1e-10), ("df", "rel", 1e-10), ("p", "abs", 1e-10), ("ci", "rel", 1e-10), ("estimate", "rel", 1e-10)],
+    # The Hodges-Lehmann estimate and interval come from uniroot (tol 1e-4) on both sides.
+    "wilcox": [("stat", "rel", 1e-10), ("p", "abs", 1e-10), ("estimate", "rel", 1e-6), ("ci", "rel", 1e-6)],
+    "prop": [("stat", "rel", 1e-10), ("df", "rel", 1e-10), ("p", "abs", 1e-10), ("ci", "rel", 1e-10), ("estimate", "rel", 1e-10)],
+    "padj": [("adjusted", "rel", 1e-8)],
+    "roc": [("auc", "rel", 1e-10), ("var", "rel", 1e-8), ("ci", "rel", 1e-8), ("stat", "rel", 1e-8), ("p", "abs", 1e-8)],
+    # Bootstrap resamples differ between R and numpy: only the apparent column.
+    "val-lrm": [("index_orig", "abs", 1e-6)],
+    "val-cph": [("index_orig", "abs", 1e-6)],
+    "cal-lrm": [("predy", "abs", 1e-6), ("calibrated_orig", "abs", 1e-6)],
+    "cal-cph": [("mean_predicted", "abs", 1e-6), ("KM", "abs", 1e-6), ("std_err", "abs", 1e-6), ("index_orig", "abs", 1e-6)],
+    "std-cox": [("estimate", "rel", 1e-6), ("cov", "rel", 1e-6)],
+    "cuminc": [("estimate", "rel", 1e-8), ("variance", "rel", 1e-8), ("stat", "rel", 1e-8), ("p", "abs", 1e-8)],
+    "crr": [("coef", "rel", 1e-8), ("se", "rel", 1e-8), ("loglik", "rel", 1e-8)],
+    # edf and SEs are left out: gamm4 0.2-6 reports them from a mis-pivoted Cholesky.
+    "gamm": [("coef", "abs", 3e-5), ("re", "rel", 1e-4), ("loglik", "abs", 1e-5), ("smooth", "abs", 3e-5)],
+    # Coefficients: rtol 1e-4 with atol 2e-5, as the glmm_count fixture (meanbp is near 0).
+    "glmm-pois": [("coef", "close", 1e-4), ("se", "rel", 1e-4), ("loglik", "abs", 1e-6), ("re", "rel", 1e-3)],
+    "glmm-nb": [("coef", "close", 1e-4), ("se", "rel", 1e-4), ("loglik", "abs", 1e-6), ("re", "rel", 1e-3), ("theta", "rel", 1e-4)],
+    "ctree": [("splits", "equal", 0.0), ("n_terminal", "equal", 0.0), ("stat", "rel", 1e-6), ("p", "abs", 1e-6), ("pred", "rel", 1e-8)],
+    # mice draws from R's generator: only the method per column and the missing counts.
+    "mice": [("methods", "equal", 0.0), ("nmis", "equal", 0.0)],
+}
+
+
+CLOSE_ATOL = 2e-5
+
+
+def _close_error(left, right, rtol: float) -> float:
+    """max |dL| / (atol + rtol |R|); 1 is the edge of numpy's allclose."""
+    left_arr = np.atleast_1d(np.asarray(left, dtype=float))
+    right_arr = np.atleast_1d(np.asarray(right, dtype=float))
+    return float(np.max(np.abs(left_arr - right_arr) / (CLOSE_ATOL + rtol * np.abs(right_arr))))
+
+
+def _equal(left, right) -> bool:
+    def norm(value):
+        return [value] if not isinstance(value, list) else list(value)
+
+    return norm(left) == norm(right)
+
+
 def _checks(task_id: str) -> list[tuple[str, str, float]]:
-    """Return (field, rule, tolerance). rule is rel, abs, or corr (covariance)."""
+    """Return (field, rule, tolerance). rule is rel, abs, corr (covariance), or equal."""
+    if task_id in LATER_CHECKS:
+        return LATER_CHECKS[task_id]
     if task_id.startswith("lmm"):
         # lme-python loses accuracy on STAR's uncentred birth year (cond(X)
         # near 7e6). Centring it brings theta and the log-likelihood onto
@@ -178,7 +227,7 @@ def _quantity_rows(
     task_id: str, part_name: str, py: dict, r: dict, profiles: list[tuple] | None = None
 ) -> list[dict]:
     note = ""
-    py, r, mismatch = _align(py, r, ["coef", "se", "t", "p", "cov"])
+    py, r, mismatch = _align(py, r, ["coef", "se", "t", "p", "cov", "index_orig", "index_corrected"])
     if mismatch:
         return [{"quantity": "terms", "error": "", "criterion": "names", "tol": 0, "passed": False, "note": mismatch}]
     if task_id in {"km", "km-sex", "na"}:
@@ -188,6 +237,8 @@ def _quantity_rows(
     for field, rule, tol in _checks(task_id):
         if field == "pairs":
             rows.append(_pair_check(task_id, py, r, profiles))
+            continue
+        if field not in py and field not in r and task_id in LATER_CHECKS:
             continue
         if field not in py or field not in r:
             rows.append(
@@ -201,7 +252,18 @@ def _quantity_rows(
                 }
             )
             continue
-        if rule == "abs":
+        row_note = note
+        if rule == "equal":
+            passed = _equal(py[field], r[field])
+            error = 0.0 if passed else 1.0
+            if not passed:
+                row_note = f"python {py[field]} r {r[field]}"[:300]
+        elif rule == "close":
+            error = _close_error(py[field], r[field], tol)
+            passed = error <= 1.0
+            if not passed:
+                row_note = f"rtol {tol:g} + atol {CLOSE_ATOL:g}; error is the allclose ratio"
+        elif rule == "abs":
             error = _max_abs(py[field], r[field])
             passed = error <= tol
         elif rule == "corr":
@@ -211,7 +273,7 @@ def _quantity_rows(
             error = _max_rel(py[field], r[field])
             passed = error <= tol
         label = field if part_name in {"", "main"} else f"{part_name}:{field}"
-        rows.append({"quantity": label, "error": error, "criterion": rule, "tol": tol, "passed": passed, "note": note})
+        rows.append({"quantity": label, "error": error, "criterion": rule, "tol": tol, "passed": passed, "note": row_note})
     if part_name not in {"", "main"}:
         for row in rows:
             if not str(row["quantity"]).startswith(part_name):

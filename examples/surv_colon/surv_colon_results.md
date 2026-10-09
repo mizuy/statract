@@ -36,6 +36,14 @@
 
 ![Cox forest (HR, table+forest)](surv_colon_out/figures/cox_forest.png)
 
+## Cox 標準化（周辺生存曲線）
+
+![Standardized survival by rx](surv_colon_out/figures/std_surv_rx.png)
+
+@import "surv_colon_out/std_surv_at_csv.md"
+
+@import "surv_colon_out/std_rmst_5y_csv.md"
+
 ## 比例ハザード検定
 
 @import "surv_colon_out/ph_test.md"

@@ -2,7 +2,7 @@
 
 `cif_pbc` — 競合リスク（CIF / Fine–Gray）
 
-単一イベントの colon に対し、競合リスク（肝死 vs 移植）の正本。Fine–Gray forest まで。
+単一イベントの colon に対し、競合リスク（肝死 vs 移植）の正本。Fine–Gray forest、cmprsk 流の `cuminc`（Gray 検定）と `crr` まで。
 
 [← ギャラリー](index.md) · [実行用ディレクトリと手順（GitHub）](https://github.com/mizuy/statract/tree/main/examples/cif_pbc)
 
@@ -38,6 +38,7 @@
 2. Table 1（`hue=trt_label`）
 3. 誤用 KM（対比）と Aalen–Johansen CIF（肝死）
 4. Fine–Gray（`fine_gray` → 重み付き `cox_ph`）と `plot_forest(..., layout="table")`
+5. cmprsk 移植版: `cumulative_incidence`（`cuminc`、Gray 検定）と `fine_gray_regression`（`crr`）で同じ問いを確かめる
 
 ## flowchart / tableone
 
@@ -126,6 +127,8 @@ $$
 
 $z$ は年齢、性別、ビリルビン、アルブミン、浮腫、病期。実装: `fine_gray(..., cause=2)` のあと `cox_ph("Surv(fgstart, fgstop, fgstatus) ~ ...", weights="fgwt")` → `plot_forest(..., layout="table")`（論文用白黒は `style="bw"`）。CIF 図は matplotlib ステップ（`plot_survival` は使わない）。偽の PH 診断スイートは載せない。
 
+同じ解析を R `cmprsk` 流でも行う。`cumulative_incidence(..., by="trt_label")` は群・原因ごとの CIF と、群間の **Gray 検定**（$(1-\hat F(t-))^\rho$ 重み、既定 $\rho=0$）を返す。`fine_gray_regression("Surv(time, status) ~ ...", cause=2)` は `crr` と同じ擬似尤度を直接解き、SE には打ち切り分布の推定を含む Fine–Gray のサンドイッチ分散を使う。
+
 
 ## 結果
 
@@ -179,13 +182,13 @@ $z$ は年齢、性別、ビリルビン、アルブミン、浮腫、病期。�
 
     | term | estimate | std_error | statistic | p_value | conf_low | conf_high | exp_estimate | exp_conf_low | exp_conf_high |
     | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-    | dp | -0.02607 | 0.1846 | -0.1412 | 0.8877 | -0.3879 | 0.3358 | 0.9743 | 0.6785 | 1.399 |
-    | age | 0.03255 | 0.009486 | 3.431 | 6.005e-04 | 0.01396 | 0.05114 | 1.033 | 1.014 | 1.052 |
-    | sexm | 0.4924 | 0.2527 | 1.949 | 0.05132 | -0.00283 | 0.9875 | 1.636 | 0.9972 | 2.685 |
-    | bili | 0.124 | 0.01524 | 8.137 | 0 | 0.09414 | 0.1539 | 1.132 | 1.099 | 1.166 |
-    | albumin | -0.8716 | 0.2482 | -3.511 | 4.456e-04 | -1.358 | -0.3851 | 0.4183 | 0.2572 | 0.6804 |
-    | edema | 1.042 | 0.3119 | 3.34 | 8.363e-04 | 0.4306 | 1.653 | 2.835 | 1.538 | 5.224 |
-    | stage | 0.45 | 0.1308 | 3.44 | 5.819e-04 | 0.1936 | 0.7064 | 1.568 | 1.214 | 2.027 |
+    | dp | -0.02607 | 0.1836 | -0.142 | 0.8871 | -0.386 | 0.3339 | 0.9743 | 0.6798 | 1.396 |
+    | age | 0.03255 | 0.009926 | 3.279 | 0.00104 | 0.0131 | 0.052 | 1.033 | 1.013 | 1.053 |
+    | sexm | 0.4924 | 0.2692 | 1.829 | 0.06738 | -0.03521 | 1.02 | 1.636 | 0.9654 | 2.773 |
+    | bili | 0.124 | 0.01644 | 7.543 | 4.588e-14 | 0.09179 | 0.1562 | 1.132 | 1.096 | 1.169 |
+    | albumin | -0.8716 | 0.2385 | -3.654 | 2.581e-04 | -1.339 | -0.4041 | 0.4183 | 0.2621 | 0.6676 |
+    | edema | 1.042 | 0.3175 | 3.282 | 0.00103 | 0.4197 | 1.664 | 2.835 | 1.522 | 5.281 |
+    | stage | 0.45 | 0.1245 | 3.616 | 2.994e-04 | 0.2061 | 0.6939 | 1.568 | 1.229 | 2.002 |
 
     [CSV](assets/cif_pbc/finegray_tidy.csv)
 
@@ -219,9 +222,70 @@ $z$ は年齢、性別、ビリルビン、アルブミン、浮腫、病期。�
     )
     ```
 
+### cuminc と Gray 検定
+
+`cumulative_incidence` は肝死（cause 2）と移植（cause 1）の CIF を群ごとに返す。点推定は上の Aalen–Johansen と一致する（5 年肝死 0.284 / 0.282）。SE は `cuminc` の分散式なので `survival_curve` の値と少し違う（例: D-ペニシラミン 5 年 0.037 vs 0.044）。
+
+=== "図"
+
+    ![cuminc by treatment](assets/cif_pbc/cuminc.png)
+
+=== "表"
+
+    Gray 検定（D-ペニシラミン vs プラセボ、$\rho=0$）:
+
+    | cause | statistic | p_value | df |
+    | --- | --- | --- | --- |
+    | 1（移植） | 0.01943 | 0.8891 | 1 |
+    | 2（肝死） | 0.06659 | 0.7964 | 1 |
+
+    [Gray 検定 CSV](assets/cif_pbc/gray_test.csv) · [時点値 CSV](assets/cif_pbc/cuminc_at.csv)
+
+=== "コード"
+
+    ```python
+    from statract import cumulative_incidence
+
+    ci = cumulative_incidence(cohort, "time", "status", by="trt_label")
+    ci.tests                          # Gray 検定（原因ごと）
+    ci.at([365, 730, 1825, 3650])     # timepoints() 相当
+    ci.frame()                        # 曲線の角（time, estimate, variance, std_error）
+    ```
+
+### crr と fine_gray の比較
+
+=== "表"
+
+    | term | crr 係数 | fine_gray 係数 | crr SHR | fine_gray SHR | crr SE | fine_gray SE（robust） | fine_gray SE（モデル） |
+    | --- | --- | --- | --- | --- | --- | --- | --- |
+    | dp | -0.02662 | -0.02607 | 0.9737 | 0.9743 | 0.1888 | 0.1836 | 0.1846 |
+    | age | 0.03259 | 0.03255 | 1.033 | 1.033 | 0.01019 | 0.009926 | 0.009486 |
+    | sexm | 0.4926 | 0.4924 | 1.637 | 1.636 | 0.277 | 0.2692 | 0.2527 |
+    | bili | 0.1239 | 0.124 | 1.132 | 1.132 | 0.01646 | 0.01644 | 0.01524 |
+    | albumin | -0.8701 | -0.8716 | 0.4189 | 0.4183 | 0.2449 | 0.2385 | 0.2482 |
+    | edema | 1.041 | 1.042 | 2.832 | 2.835 | 0.3224 | 0.3175 | 0.3119 |
+    | stage | 0.4495 | 0.45 | 1.568 | 1.568 | 0.1279 | 0.1245 | 0.1308 |
+
+    `crr` の `dp` SHR 0.97（95% CI 0.67–1.41）。擬似尤度比検定 χ² = 168.5（df 7）。[比較 CSV](assets/cif_pbc/crr_vs_finegray.csv) · [crr tidy CSV](assets/cif_pbc/crr_tidy.csv)
+
+=== "コード"
+
+    ```python
+    import numpy as np
+    from statract import fine_gray_regression
+
+    crr = fine_gray_regression(fg_df, FG_FORMULA, cause=2)
+    crr_tidy = crr.tidy(exponentiate=True)
+    crr.glance()                      # 擬似尤度比検定
+    # 比較相手: fine_gray → cox_ph(weights="fgwt") の fg_fit
+    model_se = np.sqrt(np.diag(fg_fit.information_inverse()))
+    ```
+
+係数の差は小数第 3 位以下。差の主因は同時点死亡の扱いで、`crr` は Breslow、`cox_ph` の既定は Efron（`ties="breslow"` にすると係数は 5 桁一致）。SE は推定量が違う: `crr` は打ち切り分布 $\hat G$ の推定誤差を含む Fine–Gray サンドイッチ。重み付き `cox_ph` は非整数重みなので展開行ごとの robust（`survival::coxph` と同じ既定）で、$\hat G$ の変動は入らない。ここでは `crr` の SE が robust SE より 0–3% 大きい程度で、結論は変わらない。
+
 ## 解釈と解説
 
-肝死の 5 年 CIF は D-ペニシラミン約 0.28、プラセボ約 0.28。Fine–Gray の `dp` subdistribution HR は約 **0.97**（95% CI 約 0.68–1.40）。治療の点推定が 1 付近なのは、歴史的試験で生存利益が明確でなかったことと方向が一致します。ビリルビンの SHR は約 1.13（1 mg/dL あたり）。
+肝死の 5 年 CIF は D-ペニシラミン約 0.28、プラセボ約 0.28。Fine–Gray の `dp` subdistribution HR は約 **0.97**（95% CI 約 0.68–1.40、robust SE）。`crr` でも SHR 0.97（0.67–1.41）、Gray 検定も肝死 p = 0.80、移植 p = 0.89 で、群差の証拠はない。治療の点推定が 1 付近なのは、歴史的試験で生存利益が明確でなかったことと方向が一致します。ビリルビンの SHR は約 1.13（1 mg/dL あたり）。
 
 限界: 非無作為化例は除外。誤用 KM は対比用。CIF 図は公式 `plot_survival` ではない。LGPL 教学データ。
 

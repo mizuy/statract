@@ -9,8 +9,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 CSV_PATH = ROOT / "docs" / "models" / "benchmarks" / "comparison.csv"
 
-LARGE = ("adult-10000", "bike-10000", "support-large", "star-large", "star-rs-large")
-SMALL = ("adult-1000", "bike-1000", "support-1000", "star-1000", "star-rs-1000")
+LARGE = ("adult-10000", "bike-10000", "support-large", "support-mi-large", "star-large", "star-rs-large")
+SMALL = ("adult-1000", "bike-1000", "support-1000", "support-mi-1000", "star-1000", "star-rs-1000")
 
 # Task order, label, and API column of the page.
 TASKS = [
@@ -48,6 +48,23 @@ TASKS = [
     ("lmm-ri", "LMM 変量切片 REML", "`fit_mixed` / `lmer`"),
     ("lmm-ml", "LMM ML", '`method="ml"`'),
     ("lmm-rs", "LMM 変量傾き", "`slopes=`"),
+    ("ttest", "t 検定", "`t_test` / `t.test`"),
+    ("wilcox", "Wilcoxon 順位和", "`wilcox_test` / `wilcox.test`"),
+    ("prop", "比率の検定", "`prop_test` / `prop.test`"),
+    ("padj", "p 値の補正", "`p_adjust` / `p.adjust`"),
+    ("roc", "ROC と DeLong", "`roc_curve`, `roc_test` / pROC"),
+    ("val-lrm", "validate（ロジスティック）", "`validate_logistic` / `rms::validate`"),
+    ("cal-lrm", "calibrate（ロジスティック）", "`calibrate_logistic` / `rms::calibrate`"),
+    ("val-cph", "validate（Cox）", "`validate_cox` / `rms::validate`"),
+    ("cal-cph", "calibrate（Cox）", "`calibrate_cox` / `rms::calibrate`"),
+    ("std-cox", "Cox 標準化", "`standardize_cox` / `stdReg2`"),
+    ("cuminc", "累積発生と Gray 検定", "`cumulative_incidence` / `cuminc`"),
+    ("crr", "Fine–Gray（crr）", "`fine_gray_regression` / `crr`"),
+    ("gamm", "GAMM", "`gamm` / `gamm4`"),
+    ("glmm-pois", "GLMM ポアソン", "`fit_mixed(poisson)` / `glmmTMB`"),
+    ("glmm-nb", "GLMM 負の二項", "`fit_mixed(negative_binomial)` / `glmmTMB`"),
+    ("ctree", "条件付き推論木", "`conditional_tree` / `ctree`"),
+    ("mice", "多重代入と統合", "`impute_chained`, `pool` / `mice`"),
 ]
 
 

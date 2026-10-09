@@ -1,0 +1,1 @@
+Main model: `fit_mixed(visits, 'y ~ progabide + log_base2wk + age + (1 | subject)', family='negative_binomial')`. Progabide rate ratio = 0.727 (95% CI 0.541-0.977); theta = 7.20; patient variance = 0.233; median rate ratio = 1.58.
