@@ -84,7 +84,7 @@ PH のスコア検定は時間変換 Kaplan–Meier（R の `km`）。Weibull AF
 
 ## 結果
 
-n=2982。サイト掲載は `task all` 後の `aft_rotterdam_out/` から `scripts/sync_example_assets.py` でコピーした同一ファイルです。
+n=2982。サイト掲載は `task aft_rotterdam:all` 後の `aft_rotterdam_out/` から `tools/sync_example_assets.py` でコピーした同一ファイルです。
 
 ### Kaplan–Meier（`hormon`、number-at-risk 付き）
 
@@ -334,9 +334,9 @@ log-rank はホルモン療法群で差がある（統計量 23.7、p≈1.1×10�
 ## 実行と成果物
 
 ```bash
-cd examples/aft_rotterdam
-task all
-uv run python ../../scripts/sync_example_assets.py --stem aft_rotterdam
+cd examples
+task aft_rotterdam:all
+uv run python ../tools/sync_example_assets.py --stem aft_rotterdam
 ```
 
 既存の付随文書: [concept](https://github.com/mizuy/statract/blob/main/examples/aft_rotterdam/aft_rotterdam_concept.md) · [protocol](https://github.com/mizuy/statract/blob/main/examples/aft_rotterdam/aft_rotterdam_protocol.md) · [results](https://github.com/mizuy/statract/blob/main/examples/aft_rotterdam/aft_rotterdam_results.md) · [discussion](https://github.com/mizuy/statract/blob/main/examples/aft_rotterdam/aft_rotterdam_discussion.md)

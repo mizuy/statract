@@ -243,8 +243,8 @@ WTP $100{,}000$/QALY で 4 戦略のうち最大の NMB。教学レンジ（論�
 ## 実行と成果物
 
 ```bash
-cd examples/cea_sicksicker
-task all
+cd examples
+task cea_sicksicker:all
 ```
 
 ローカル分割: [concept](https://github.com/mizuy/statract/blob/main/examples/cea_sicksicker/cea_sicksicker_concept.md) · [protocol](https://github.com/mizuy/statract/blob/main/examples/cea_sicksicker/cea_sicksicker_protocol.md) · [results](https://github.com/mizuy/statract/blob/main/examples/cea_sicksicker/cea_sicksicker_results.md) · [discussion](https://github.com/mizuy/statract/blob/main/examples/cea_sicksicker/cea_sicksicker_discussion.md)

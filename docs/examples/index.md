@@ -2,7 +2,7 @@
 
 [tableone](../tableone/overview.md)、[models](../models/overview.md)、[viz](../viz/overview.md)、[cea](../cea/overview.md) を、公開教学データで **入力 → 解析 → 図** まで通した例です。生データ CSV はリポジトリに入れていません。実行手順とコードの目次は [`examples/README.md`](https://github.com/mizuy/statract/blob/main/examples/README.md) です。
 
-方針の正本は [ギャラリー方針](https://github.com/mizuy/statract/blob/main/docs/examples/policy.md)。各カードの**主リンクは docs 内の単一ページ**です。読み順は **目的概説 → データと列 → CQ と方針 → flowchart / tableone → メイン解析 → 結果（図/表＋コードタブ）→ 解釈**（7 節。独立のライブラリコード節は置かない）。Results の図・表は **`examples/<stem>/<stem>_out/` が正本**で、選別コピーを `docs/examples/assets/<stem>/` に載せます（別経路で再描画しない）。同期は `uv run python scripts/sync_example_assets.py`。完全な `*_out/` は gitignore のままローカル再生成用です。実行はリポジトリルートで `uv sync` のあと、各 `examples/<stem>/` で `task all`（手順は各 README）。
+方針の正本は [ギャラリー方針](https://github.com/mizuy/statract/blob/main/docs/examples/policy.md)。各カードの**主リンクは docs 内の単一ページ**です。読み順は **目的概説 → データと列 → CQ と方針 → flowchart / tableone → メイン解析 → 結果（図/表＋コードタブ）→ 解釈**（7 節。独立のライブラリコード節は置かない）。Results の図・表は **`examples/<stem>/<stem>_out/` が正本**で、選別コピーを `docs/examples/assets/<stem>/` に載せます（別経路で再描画しない）。同期は `uv run python tools/sync_example_assets.py`。完全な `*_out/` は gitignore のままローカル再生成用です。実行はリポジトリルートで `uv sync` のあと、`examples/` で `task <stem>:all`（手順は各 README）。
 
 ## ギャラリー {#gallery}
 

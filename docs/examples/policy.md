@@ -24,7 +24,7 @@
 6. **結果**
 7. **解釈と解説**
 
-末尾に短い「実行と成果物」（`task all`・実行用ディレクトリへのリンク）を置いてよい。
+末尾に短い「実行と成果物」（`task <stem>:all`・実行用ディレクトリへのリンク）を置いてよい。
 
 ### Flowchart は除外があるときだけ
 
@@ -50,9 +50,9 @@
 
 | 項目 | 方針 |
 |------|------|
-| 正本 | `examples/<stem>/<stem>_out/`（`task analysis` / `task all` が生成） |
+| 正本 | `examples/<stem>/<stem>_out/`（`task <stem>:analysis` / `task <stem>:all` が生成） |
 | サイト掲載 | 選別コピーを `docs/examples/assets/<stem>/` に置く |
-| 同期 | `uv run python scripts/sync_example_assets.py`（または同等）。手作業で別経路の図を描き直して差を作らない。2026-10-05 に runners を再実行し、掲載ファイルは再生成後も同一だった |
+| 同期 | `uv run python tools/sync_example_assets.py`（または同等）。手作業で別経路の図を描き直して差を作らない。2026-10-05 に runners を再実行し、掲載ファイルは再生成後も同一だった |
 | git | 完全な `*_out/` は gitignore。生データ CSV もリポジトリに入れない。掲載用アセットのみ commit |
 
 ## Forest（GLM / Cox 系）
@@ -104,6 +104,6 @@ HR / OR / 係数の forest は再実装した `plot_forest(..., layout="table")`
 - [ ] 生存例は NAR（軸揃え）・PH・診断スイートが揃っている（型に応じて）
 - [ ] 患者行がある例は Table 1 を gt（`table1_gt.md`）で「表」タブに載せている
 - [ ] 除外がある例だけ flowchart + Mermaid（適用可なら）を docs + `*_out/` に持つ。除外ゼロなら flowchart を置かない
-- [ ] `scripts/sync_example_assets.py` 経由で assets が `*_out/` と同一
+- [ ] `tools/sync_example_assets.py` 経由で assets が `*_out/` と同一
 - [ ] 生 CSV / 完全 `*_out/` を commit していない
 - [ ] ギャラリーカードの主リンクが docs ページになっている

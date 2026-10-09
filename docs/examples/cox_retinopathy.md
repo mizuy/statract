@@ -99,7 +99,7 @@ $$
 
 ## 結果
 
-**394 眼 / 197 人**。サイト掲載は `task all` 後の `cox_retinopathy_out/` から `scripts/sync_example_assets.py` でコピーした同一ファイルです。
+**394 眼 / 197 人**。サイト掲載は `task cox_retinopathy:all` 後の `cox_retinopathy_out/` から `tools/sync_example_assets.py` でコピーした同一ファイルです。
 
 ### Kaplan–Meier（`trt_label`、number-at-risk 付き）
 
@@ -293,9 +293,9 @@ sandwich が必要な理由: 両眼は同じ患者の frailty を共有する。
 ## 実行と成果物
 
 ```bash
-cd examples/cox_retinopathy
-task all
-uv run python ../../scripts/sync_example_assets.py --stem cox_retinopathy
+cd examples
+task cox_retinopathy:all
+uv run python ../tools/sync_example_assets.py --stem cox_retinopathy
 ```
 
 サイト掲載は `assets/cox_retinopathy/` のみ（`*_out/` からのコピー）。既存の付随文書: [concept](https://github.com/mizuy/statract/blob/main/examples/cox_retinopathy/cox_retinopathy_concept.md) · [protocol](https://github.com/mizuy/statract/blob/main/examples/cox_retinopathy/cox_retinopathy_protocol.md) · [results](https://github.com/mizuy/statract/blob/main/examples/cox_retinopathy/cox_retinopathy_results.md) · [discussion](https://github.com/mizuy/statract/blob/main/examples/cox_retinopathy/cox_retinopathy_discussion.md)

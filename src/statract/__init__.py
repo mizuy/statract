@@ -1,30 +1,16 @@
-"""Statistical analysis: Table One, survival analysis, regression, and more.
+"""Statistics on Polars frames: Table One, models, survival, figures, and CEA.
 
-This module provides statistical analysis utilities for Polars DataFrames, including:
-- Table One generation
-- Survival analysis (Kaplan-Meier, log-rank test)
-- Statistical tests (ANOVA, chi-square, Fisher's exact, etc.)
-- Aggregation functions for descriptive statistics
-- Propensity score matching (experimental)
-- Linear and generalized linear mixed models (``fit_mixed``; lme-rs / lme-python)
-- Experimental extras (``glmm_gpboost`` via optional ``statract[gpboost]``)
-- Confusion matrix and related metrics (experimental)
-- Binary classification metrics (``binary_perf``) and probability evaluation
-  (calibration / Brier / decision curve)
+The names below are re-exported from these subpackages:
 
-.. warning::
-    Some functions in this module are experimental implementations:
-    - ``confusion_matrix``, ``ratio``, ``sm_summary2df`` (from ``.confusion``)
-    - ``glmm_gpboost`` (optional extra; not the default GLMM engine),
-      ``glmm_forestplot``
-    - ``median_odds_ratio``, ``glmm_random_effects``, ``plot_random_effects``
-      (MOR / BLUP helpers for ``fit_mixed``)
-    - ``plot_forest`` (from ``.forest``) — canonical Cox HR / GLM OR / OLS forest
+- ``statract.tableone``: Table One, aggregation columns, and group tests
+- ``statract.models``: OLS / GLM, sandwich covariance, tests, mixed and additive
+  models, trees, imputation, matching, ROC, calibration, and validation
+- ``statract.surv``: survival curves, log-rank, Cox, AFT, Fine–Gray
+- ``statract.viz``: forest, Kaplan–Meier, and tree plots
+- ``statract.report``: CSV companions and task output folders
+- ``statract.cea``: cost-effectiveness analysis (import it directly)
 
-    These may change or be removed in future versions. Use with caution.
-
-Statistical figures: ``plot_forest`` / ``plot_survival`` (and diagnostic helpers).
-Plotly funnel / image concat stay in ``statract.viz.misc``.
+``glmm_gpboost`` needs the optional ``statract[gpboost]`` extra and is experimental.
 
 R integration lives in ``statract.r`` and needs the optional ``statract[r]`` extra plus a
 working R installation. Importing ``statract`` does not load rpy2; rpy2

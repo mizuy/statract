@@ -193,8 +193,8 @@ $$
 ## 実行と成果物
 
 ```bash
-cd examples/psm_rhc
-task all
+cd examples
+task psm_rhc:all
 ```
 
 既存の付随文書: [concept](https://github.com/mizuy/statract/blob/main/examples/psm_rhc/psm_rhc_concept.md) · [protocol](https://github.com/mizuy/statract/blob/main/examples/psm_rhc/psm_rhc_protocol.md) · [results](https://github.com/mizuy/statract/blob/main/examples/psm_rhc/psm_rhc_results.md) · [discussion](https://github.com/mizuy/statract/blob/main/examples/psm_rhc/psm_rhc_discussion.md)

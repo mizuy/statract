@@ -1,12 +1,12 @@
 # 速度と R との差
 
-公開データで **同じ表** を Python（このライブラリ）と R に渡し、壁時計と数値差を測った結果。設計・許容差・データの引用は [リポジトリの benchmark-plan](https://github.com/mizuy/statract/blob/main/docs/dev/benchmark-plan.md)。R 関数の対応は [vs R](vs-r.md)。
+公開データで **同じ表** を Python（このライブラリ）と R に渡し、壁時計と数値差を測った結果。設計・許容差・データの引用は [リポジトリの benchmark-plan](https://github.com/mizuy/statract/blob/main/dev-notes/benchmark-plan.md)。R 関数の対応は [vs R](vs-r.md)。
 
-**このページの表は 2026-10-09 の全タスク再計測（ctree の Šidák 補正の修正後）。** 出典は [`comparison.csv`](benchmarks/comparison.csv)（`bench/stat/run_all.py` と同じ比較。344 行、102 タスク）。表は `bench/stat/render_tables.py`、図は `bench/stat/plot_charts.py` が CSV から作る。2026-10-07 の 68 タスクに、SUPPORT2 の 17 種（両スライスで 34 タスク）を足した。足したのは検定（`t.test` ほか）、pROC、rms の validate / calibrate、stdReg2、cmprsk、gamm4、glmmTMB（ポアソン / 負の二項）、partykit の ctree、mice。設計と比べる量は [benchmark-plan](https://github.com/mizuy/statract/blob/main/docs/dev/benchmark-plan.md)。Python は statract 0.1.0。R の版は前回の表と同じ機械で、足したパッケージの版はこの CSV に記録していない。ウォームアップ 1 回のあと 5 回の中央値（mice は 1 回）。BLAS / OMP スレッドは 1。混合モデルの Python 側は lme-python（`fit_mixed`）。
+**このページの表は 2026-10-09 の全タスク再計測（ctree の Šidák 補正の修正後）。** 出典は [`comparison.csv`](benchmarks/comparison.csv)（`bench/run_all.py` と同じ比較。344 行、102 タスク）。表は `bench/render_tables.py`、図は `bench/plot_charts.py` が CSV から作る。2026-10-07 の 68 タスクに、SUPPORT2 の 17 種（両スライスで 34 タスク）を足した。足したのは検定（`t.test` ほか）、pROC、rms の validate / calibrate、stdReg2、cmprsk、gamm4、glmmTMB（ポアソン / 負の二項）、partykit の ctree、mice。設計と比べる量は [benchmark-plan](https://github.com/mizuy/statract/blob/main/dev-notes/benchmark-plan.md)。Python は statract 0.1.0。R の版は前回の表と同じ機械で、足したパッケージの版はこの CSV に記録していない。ウォームアップ 1 回のあと 5 回の中央値（mice は 1 回）。BLAS / OMP スレッドは 1。混合モデルの Python 側は lme-python（`fit_mixed`）。
 
 秒は Apple M4 Max（macOS）の壁時計で、前回（2026-10-05）の VM とは機械が違う。前回の表とは秒を比べない。R の秒はおおむね 1 ms 刻み。比が空なのは R 側が 0 s と記録されたため。
 
-前回からの数値の変化は次のとおり。OLS は悪条件の計画行列で QR に回し、(X'WX)⁻¹ を列スケールした QR から作るようにした。これで HC とクラスタが R にそろった。共分散は |ΔV_ij| / √(V_ii V_jj) で比べる。GAM は mgcv の外側の Newton 法を収束させた当てはめ直しと比べる（R の秒は既定の呼び出し）。混合モデルは lme-python に収束の許容差 1e-8 を渡す。クラスタ頑健分散と混合モデルは、STAR の生まれ年を中心化しないことによる悪条件のため許容差を緩めた（表の「緩めた許容差」）。最近傍の組は、共変量が同じ対照への入れ替わりをタイとして同じ組とみなす。理由と数値は [benchmark-plan](https://github.com/mizuy/statract/blob/main/docs/dev/benchmark-plan.md) にある。
+前回からの数値の変化は次のとおり。OLS は悪条件の計画行列で QR に回し、(X'WX)⁻¹ を列スケールした QR から作るようにした。これで HC とクラスタが R にそろった。共分散は |ΔV_ij| / √(V_ii V_jj) で比べる。GAM は mgcv の外側の Newton 法を収束させた当てはめ直しと比べる（R の秒は既定の呼び出し）。混合モデルは lme-python に収束の許容差 1e-8 を渡す。クラスタ頑健分散と混合モデルは、STAR の生まれ年を中心化しないことによる悪条件のため許容差を緩めた（表の「緩めた許容差」）。最近傍の組は、共変量が同じ対照への入れ替わりをタイとして同じ組とみなす。理由と数値は [benchmark-plan](https://github.com/mizuy/statract/blob/main/dev-notes/benchmark-plan.md) にある。
 
 データは実行時に取得し、リポジトリには入れない。UCI Adult、Bike Sharing、Vanderbilt SUPPORT2、Harvard Dataverse STAR（file 666716）。STAR の取得は User-Agent 付きの HTTPS が必要だった。
 
@@ -14,7 +14,7 @@
 
 | 列 | 意味 |
 |----|------|
-| 手法 | `bench/stat` のタスク ID |
+| 手法 | `bench` のタスク ID |
 | n | 切ったあとの行数 |
 | Python / R | そのタスクの壁時計 |
 | 比 | Python ÷ R。1 未満なら Python が速い |
@@ -106,7 +106,7 @@ SUPPORT2 の生存は完全ケース 9,103 行。STAR の変量傾きは生徒�
 
 マハラノビスは、全水準の指標でプールした共分散が特異になり、MatchIt はその一般化逆行列をピボット付き Cholesky で分解する。末尾の塊が LAPACK のビルドで変わるので、x86-64 Linux の参照 LAPACK では組が一致し、この macOS では一致しない。ロジットの 10,000 行では 16 組が、共変量の同じ別の対照を取っている（タイの破り方）。
 
-速さで Python が遅いのは、変量傾きの LMM（比 5.9）だけになった。lme-python の反復が 150 回を超える。GLMM（ポアソン 0.55、負の二項 0.17）、GAMM（0.10）、mice（0.07）は、2026-10-09 のアルゴリズム改良（mice の多項ロジットを Newton 法に、GLMM と GAMM に Laplace 近似の厳密勾配など）で R より速くなった。改良前の比は GLMM ポアソン 9.8、負の二項 2.9、GAMM 3.7、mice 12.9 だった。経緯は [speed-plan](https://github.com/mizuy/statract/blob/main/docs/dev/speed-plan.md)。累積発生（cuminc）は 1.9 だが、どちらも 10 ms 未満である。変量切片は収束の許容差を 1e-8 に締めたぶん前回より秒が延びたが、`lmer` より速い。R の `lmer` は変量傾きで `boundary (singular) fit` を出した。
+速さで Python が遅いのは、変量傾きの LMM（比 5.9）だけになった。lme-python の反復が 150 回を超える。GLMM（ポアソン 0.55、負の二項 0.17）、GAMM（0.10）、mice（0.07）は、2026-10-09 のアルゴリズム改良（mice の多項ロジットを Newton 法に、GLMM と GAMM に Laplace 近似の厳密勾配など）で R より速くなった。改良前の比は GLMM ポアソン 9.8、負の二項 2.9、GAMM 3.7、mice 12.9 だった。経緯は [speed-plan](https://github.com/mizuy/statract/blob/main/dev-notes/speed-plan.md)。累積発生（cuminc）は 1.9 だが、どちらも 10 ms 未満である。変量切片は収束の許容差を 1e-8 に締めたぶん前回より秒が延びたが、`lmer` より速い。R の `lmer` は変量傾きで `boundary (singular) fit` を出した。
 
 ## 1,000 行側
 
@@ -172,7 +172,7 @@ SUPPORT2 の生存は完全ケース 9,103 行。STAR の変量傾きは生徒�
 
 | 手法 | 理由 |
 |------|------|
-| `tableone` / `write_tableone_artifacts` | `bench/stat` のタスク表に無い |
+| `tableone` / `write_tableone_artifacts` | `bench` のタスク表に無い |
 | `glmm_gpboost` | experimental extra。この実行では入れてない |
 | `plot_survival` など図 | 数値ベンチ対象外 |
 | indo の二項 GLMM | 下の 2026-10-04 記録。再計測していない |
@@ -181,7 +181,7 @@ SUPPORT2 の生存は完全ケース 9,103 行。STAR の変量傾きは生徒�
 
 ## 2026-10-04 の indo 二項 GLMM（再計測していない）
 
-`bench/stat` のタスク表に indo は無い。次の数は 2026-10-04 の記録で、出典は [`indo_glmm_compare.json`](benchmarks/indo_glmm_compare.json)。今回の機械では再計算していない。
+`bench` のタスク表に indo は無い。次の数は 2026-10-04 の記録で、出典は [`indo_glmm_compare.json`](benchmarks/indo_glmm_compare.json)。今回の機械では再計算していない。
 
 式 `pep ~ indomethacin + age + risk + sod_yes + pdstent_yes + (1 | site)`。Laplace。n=602。
 

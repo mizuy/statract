@@ -193,7 +193,7 @@ print(table.select("term", "estimate", "std_error", "df", "fmi", "conf_low", "co
 
 ### 既存の関数
 
-`cumulative_survival_ci`、`log_rank_pvalue`、`plot_survival`、`tableone` はそのまま使えます。`sm_summary2df` は呼び出すと `DeprecationWarning` を出します（置き換え先は `Fit.tidy`）。マッチングは `match_sample`、係数表は `fit_glm` / `Fit.tidy` です。
+`cumulative_survival_ci`、`log_rank_pvalue`、`plot_survival`、`tableone` はそのまま使えます。`sm_summary2df` は削除しました（置き換え先は `Fit.tidy`）。マッチングは `match_sample`、係数表は `fit_glm` / `Fit.tidy` です。
 
 ## 次に読む
 

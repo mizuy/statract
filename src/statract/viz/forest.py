@@ -319,8 +319,7 @@ def plot_forest(
     """Draw a publication-ready forest plot from a tidy coefficient table.
 
     This is the canonical statistical forest (GLM OR / Cox HR / OLS). Gallery
-    figures use ``layout="table"``; print journals use ``style="bw"``. Prefer
-    this over ``statract.viz.misc.save_prepared_hr_forest``.
+    figures use ``layout="table"``; print journals use ``style="bw"``.
 
     Default ``layout="table"`` joins term / estimate (CI) / p-value text columns
     with the forest panel (table + forest as one figure). Use ``layout="points"``

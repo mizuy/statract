@@ -268,8 +268,8 @@ $$
 ## 実行と成果物
 
 ```bash
-cd examples/lmm_pbcseq
-task all
+cd examples
+task lmm_pbcseq:all
 ```
 
 既存の付随文書: [concept](https://github.com/mizuy/statract/blob/main/examples/lmm_pbcseq/lmm_pbcseq_concept.md) · [protocol](https://github.com/mizuy/statract/blob/main/examples/lmm_pbcseq/lmm_pbcseq_protocol.md) · [results](https://github.com/mizuy/statract/blob/main/examples/lmm_pbcseq/lmm_pbcseq_results.md) · [discussion](https://github.com/mizuy/statract/blob/main/examples/lmm_pbcseq/lmm_pbcseq_discussion.md)
