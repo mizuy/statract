@@ -19,7 +19,7 @@ from typing import Any
 
 import numpy as np
 import polars as pl
-from scipy import optimize, special, stats
+from scipy import special, stats
 
 _N_DONORS = 5
 _RIDGE = 1e-5
@@ -229,18 +229,29 @@ def _predictor_matrix(values: dict[str, np.ndarray], specs: dict[str, _ColumnSpe
 
 
 def _impute_pmm(y_obs: np.ndarray, x_obs: np.ndarray, x_mis: np.ndarray, rng: np.random.Generator) -> np.ndarray:
-    """Predictive mean matching (mice ``pmm``, type-1 matching, 5 donors)."""
+    """Predictive mean matching (mice ``pmm``, type-1 matching, 5 donors).
+
+    The observed predictions are sorted once; the 5 nearest to each target
+    lie in the 10 sorted values around its insertion point, so matching is
+    O(n log n). Shuffling before a stable sort breaks ties at random, as
+    mice's matcher does.
+    """
     beta_hat, beta_star = _norm_draw(y_obs, x_obs, rng)
     yhat_obs = x_obs @ beta_hat
     yhat_mis = x_mis @ beta_star
-    donors = min(_N_DONORS, len(y_obs))
-    out = np.empty(len(x_mis))
-    for i, target in enumerate(yhat_mis):
-        # Break ties at random, as mice's matcher does.
-        dist = np.abs(yhat_obs - target) + rng.uniform(0, 1e-12, len(yhat_obs))
-        nearest = np.argpartition(dist, donors - 1)[:donors]
-        out[i] = y_obs[rng.choice(nearest)]
-    return out
+    n = len(yhat_obs)
+    donors = min(_N_DONORS, n)
+    shuffled = rng.permutation(n)
+    order = shuffled[np.argsort(yhat_obs[shuffled], kind="stable")]
+    ranked = yhat_obs[order]
+    window = np.searchsorted(ranked, yhat_mis)[:, None] + np.arange(-donors, donors)
+    inside = (window >= 0) & (window < n)
+    window = np.clip(window, 0, n - 1)
+    dist = np.where(inside, np.abs(ranked[window] - yhat_mis[:, None]), np.inf)
+    nearest = np.argpartition(dist, donors - 1, axis=1)[:, :donors]
+    rows = np.arange(len(yhat_mis))
+    pick = nearest[rows, rng.integers(0, donors, len(yhat_mis))]
+    return y_obs[order[window[rows, pick]]]
 
 
 def _norm_draw(y: np.ndarray, x: np.ndarray, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
@@ -285,27 +296,55 @@ def _logistic(y: np.ndarray, x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 def _impute_polyreg(y_obs: np.ndarray, k: int, x_obs: np.ndarray, x_mis: np.ndarray, rng: np.random.Generator) -> np.ndarray:
     """Multinomial logistic regression (mice ``polyreg``): draw from the fitted probabilities."""
-    p = x_obs.shape[1]
-    onehot = np.zeros((len(y_obs), k))
-    onehot[np.arange(len(y_obs)), y_obs] = 1.0
-
-    def objective(flat: np.ndarray) -> tuple[float, np.ndarray]:
-        coef = np.column_stack([np.zeros(p), flat.reshape(p, k - 1)])
-        logits = x_obs @ coef
-        log_prob = logits - special.logsumexp(logits, axis=1, keepdims=True)
-        prob = np.exp(log_prob)
-        penalty = 0.5 * _RIDGE * float(flat @ flat)
-        value = -float(np.sum(onehot * log_prob)) + penalty
-        grad = -(x_obs.T @ (onehot - prob))[:, 1:].ravel() + _RIDGE * flat
-        return value, grad
-
-    result = optimize.minimize(objective, np.zeros(p * (k - 1)), jac=True, method="L-BFGS-B")
-    coef = np.column_stack([np.zeros(p), result.x.reshape(p, k - 1)])
+    coef = np.column_stack([np.zeros(x_obs.shape[1]), _multinomial(y_obs, k, x_obs)])
     logits = x_mis @ coef
     prob = np.exp(logits - special.logsumexp(logits, axis=1, keepdims=True))
     cumulative = np.cumsum(prob, axis=1)
     draws = rng.uniform(size=(len(prob), 1))
     return np.minimum((draws > cumulative).sum(axis=1), k - 1).astype(float)
+
+
+def _multinomial(y: np.ndarray, k: int, x: np.ndarray) -> np.ndarray:
+    """Ridge-penalised multinomial logit, first level as reference.
+
+    Damped Newton with the exact Hessian and step halving; returns the
+    ``p x (k - 1)`` coefficients of levels 2..k.
+    """
+    n, p = x.shape
+    q = k - 1
+    onehot = np.zeros((n, k))
+    onehot[np.arange(n), y] = 1.0
+
+    def objective(coef: np.ndarray) -> tuple[float, np.ndarray]:
+        logits = np.column_stack([np.zeros(n), x @ coef])
+        log_prob = logits - special.logsumexp(logits, axis=1, keepdims=True)
+        value = -float(np.sum(onehot * log_prob)) + 0.5 * _RIDGE * float(np.sum(coef * coef))
+        return value, np.exp(log_prob[:, 1:])
+
+    coef = np.zeros((p, q))
+    value, prob = objective(coef)
+    for _ in range(100):
+        grad = x.T @ (prob - onehot[:, 1:]) + _RIDGE * coef
+        # Block (j, l) of the Hessian is X' diag(P_j (delta_jl - P_l)) X.
+        hess = np.empty((p, q, p, q))
+        for j in range(q):
+            for l in range(j, q):
+                w = prob[:, j] * ((j == l) - prob[:, l])
+                hess[:, j, :, l] = hess[:, l, :, j] = (x * w[:, None]).T @ x
+        hess = hess.reshape(p * q, p * q) + np.eye(p * q) * _RIDGE
+        step = np.linalg.solve(hess, grad.ravel()).reshape(p, q)
+        scale = 1.0
+        while True:
+            trial, trial_prob = objective(coef - scale * step)
+            if trial <= value or scale < 1e-8:
+                break
+            scale *= 0.5
+        coef = coef - scale * step
+        decrease = value - trial
+        value, prob = trial, trial_prob
+        if np.max(np.abs(scale * step)) < 1e-8 or decrease < 1e-14 * abs(value):
+            break
+    return coef
 
 
 def pool(
