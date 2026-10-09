@@ -21,8 +21,8 @@ OUT = CSV_PATH.parent
 
 PYTHON = "#1C4D7C"
 R_COLOR = "#21A6B6"
-LARGE = {"adult-10000", "bike-10000", "support-large", "star-large", "star-rs-large"}
-SMALL = {"adult-1000", "bike-1000", "support-1000", "star-1000", "star-rs-1000"}
+LARGE = {"adult-10000", "bike-10000", "support-large", "support-mi-large", "star-large", "star-rs-large"}
+SMALL = {"adult-1000", "bike-1000", "support-1000", "support-mi-1000", "star-1000", "star-rs-1000"}
 LABELS = {
     "ols": "OLS",
     "ols-w": "OLS (weighted)",
@@ -58,6 +58,23 @@ LABELS = {
     "lmm-ri": "LMM random intercept REML",
     "lmm-ml": "LMM ML",
     "lmm-rs": "LMM random slope",
+    "ttest": "t test",
+    "wilcox": "Wilcoxon rank sum",
+    "prop": "prop test",
+    "padj": "p.adjust",
+    "roc": "ROC AUC + DeLong",
+    "val-lrm": "validate lrm",
+    "cal-lrm": "calibrate lrm",
+    "val-cph": "validate cph",
+    "cal-cph": "calibrate cph",
+    "std-cox": "Cox standardization",
+    "cuminc": "cumulative incidence",
+    "crr": "Fine–Gray crr",
+    "gamm": "GAMM (gamm4)",
+    "glmm-pois": "GLMM Poisson",
+    "glmm-nb": "GLMM negative binomial",
+    "ctree": "conditional tree",
+    "mice": "MICE + pool",
 }
 
 

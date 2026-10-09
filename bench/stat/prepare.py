@@ -6,6 +6,7 @@ same rows without the arrow package. Nothing under the cache is committed.
 
 from __future__ import annotations
 
+import argparse
 import csv
 import io
 import json
@@ -20,6 +21,10 @@ CACHE = Path("/tmp/statract-bench")
 RAW = CACHE / "raw"
 OUT = CACHE / "prepared"
 SEED = 20260927
+# Bootstrap repetitions for validate/calibrate. R and Python draw different
+# resamples, so only the apparent column is compared; both run the same B.
+VALIDATE_B = 20
+DATASETS = ("adult", "bike", "support", "star")
 
 ADULT_URLS = {
     "adult.data": "https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data",
@@ -217,7 +222,15 @@ def _blank(value: str) -> bool:
     return value.strip() in {"", "NA", "NaN"}
 
 
-def _load_support() -> pl.DataFrame:
+def _support_records(parquet: Path | None = None) -> list[dict[str, str]]:
+    """Rows of support2.csv as stripped strings, from the zip or from a local Parquet copy."""
+    if parquet is not None:
+        frame = pl.read_parquet(parquet)
+        columns = {name: frame[name].cast(pl.String).to_list() for name in frame.columns}
+        return [
+            {name: ("" if columns[name][i] is None else columns[name][i].strip()) for name in frame.columns}
+            for i in range(frame.height)
+        ]
     with zipfile.ZipFile(RAW / "support2.zip") as archive:
         text = archive.read("support2.csv").decode()
     reader = csv.reader(io.StringIO(text))
@@ -229,9 +242,22 @@ def _load_support() -> pl.DataFrame:
         if len(record) != len(header):
             continue
         records.append({name: value.strip() for name, value in zip(header, record, strict=True)})
+    return records
+
+
+def _cause(death: float, hospdead: float) -> float:
+    """Competing-risk code: 1 death in hospital, 2 death after discharge, 0 alive (censored)."""
+    if death == 0:
+        return 0.0
+    return 1.0 if hospdead == 1 else 2.0
+
+
+def _load_support(records: list[dict[str, str]]) -> pl.DataFrame:
     source_cols = [
         "d.time",
         "death",
+        "hospdead",
+        "slos",
         "age",
         "sex",
         "num.co",
@@ -260,10 +286,43 @@ def _load_support() -> pl.DataFrame:
             "diabetes": [float(row["diabetes"]) for row in kept],
             "ca": [row["ca"] for row in kept],
             "dzgroup": [row["dzgroup"] for row in kept],
+            "hospdead": [float(row["hospdead"]) for row in kept],
+            "slos": [float(row["slos"]) for row in kept],
+            "cause": [_cause(float(row["death"]), float(row["hospdead"])) for row in kept],
         }
     )
     positive = frame.filter(pl.col("d_time") > 0)
     return positive.with_columns(pl.arange(0, positive.height).alias("row_id"))
+
+
+INCOME4 = {"under $11k": "inc1", "$11-$25k": "inc2", "$25-$50k": "inc3", ">$50k": "inc4"}
+
+
+def _number_or_none(value: str) -> float | None:
+    return None if _blank(value) else float(value)
+
+
+def _load_support_mi(records: list[dict[str, str]]) -> pl.DataFrame:
+    """SUPPORT2 with its missing laboratory values and income kept, for multiple imputation."""
+    complete = ["hospdead", "age", "sex", "num.co", "meanbp", "hrt"]
+    kept = [row for row in records if all(not _blank(row[col]) for col in complete)]
+    frame = pl.DataFrame(
+        {
+            "hospdead": [float(row["hospdead"]) for row in kept],
+            "age": [float(row["age"]) for row in kept],
+            "sex": [row["sex"] for row in kept],
+            "num_co": [float(row["num.co"]) for row in kept],
+            "meanbp": [float(row["meanbp"]) for row in kept],
+            "hrt": [float(row["hrt"]) for row in kept],
+            "alb": [_number_or_none(row["alb"]) for row in kept],
+            "bili": [_number_or_none(row["bili"]) for row in kept],
+            "pafi": [_number_or_none(row["pafi"]) for row in kept],
+            "wblc": [_number_or_none(row["wblc"]) for row in kept],
+            "income4": [None if _blank(row["income"]) else INCOME4[row["income"]] for row in kept],
+        },
+        schema_overrides={name: pl.Float64 for name in ("alb", "bili", "pafi", "wblc")} | {"income4": pl.String},
+    )
+    return frame.with_columns(pl.arange(0, frame.height).alias("row_id"))
 
 
 def _load_star() -> pl.DataFrame:
@@ -342,6 +401,8 @@ def _tasks(slices: dict[str, dict]) -> list[dict]:
     tasks = []
 
     def add(slice_name: str, kind: str, task_id: str, **option: object) -> None:
+        if slice_name not in slices:
+            return
         tasks.append({"id": task_id, "slice": slice_name, "kind": kind, "option": option, "n": slices[slice_name]["n"]})
 
     for size in ("1000", "10000"):
@@ -378,6 +439,28 @@ def _tasks(slices: dict[str, dict]) -> list[dict]:
         add(name, "aft", "aft-w", distribution="weibull")
         add(name, "aft", "aft-ln", distribution="lognormal")
         add(name, "aft", "aft-ex", distribution="exponential")
+        # Functions added after the first round. The binary outcome is death in
+        # hospital (hospdead); the competing-risk code is the column cause.
+        add(name, "ttest", "ttest")
+        add(name, "wilcox", "wilcox")
+        add(name, "prop", "prop")
+        add(name, "padj", "padj", methods=["holm", "hochberg", "hommel", "BH", "BY"])
+        add(name, "roc", "roc")
+        add(name, "val_lrm", "val-lrm", B=VALIDATE_B)
+        add(name, "cal_lrm", "cal-lrm", B=VALIDATE_B)
+        add(name, "val_cph", "val-cph", B=VALIDATE_B)
+        add(name, "cal_cph", "cal-cph", B=VALIDATE_B, u=180.0, m=150)
+        add(name, "std_cox", "std-cox", exposure="diabetes", values=[0.0, 1.0])
+        add(name, "cuminc", "cuminc")
+        add(name, "crr", "crr", cause=1)
+        add(name, "gamm", "gamm", k=8)
+        add(name, "glmm", "glmm-pois", family="poisson")
+        add(name, "glmm", "glmm-nb", family="negative_binomial")
+        add(name, "ctree", "ctree")
+    for name in ("support-mi-1000", "support-mi-large"):
+        # One timed call after the warm-up: impute_chained takes minutes on the
+        # full slice (polyreg for income4 needs thousands of L-BFGS steps).
+        add(name, "mice", "mice", m=5, maxit=5, repeats=1)
     for name in ("star-1000", "star-large"):
         add(name, "cl1", "cl1")
         add(name, "cl2", "cl2")
@@ -388,53 +471,82 @@ def _tasks(slices: dict[str, dict]) -> list[dict]:
     return tasks
 
 
-def main() -> None:
-    RAW.mkdir(parents=True, exist_ok=True)
-    for name, url in ADULT_URLS.items():
-        _download(url, RAW / name)
-    _download(BIKE_URL, RAW / "bike.zip")
-    _download(SUPPORT_URL, RAW / "support2.zip")
-    _download(STAR_URL, RAW / "STAR_Students.tab")
-
-    adult = _load_adult()
-    bike = _load_bike()
-    support = _load_support()
-    star = _load_star()
-    rng = np.random.default_rng(SEED)
-
-    slices = {}
-    # Draw 10,000 with the published seed, then a stratified 1,000 from that slice.
-    adult_10k = _take(adult, _stratified_indices(adult["income_gt_50k"].to_numpy(), 10000, rng))
-    small_pos = _stratified_indices(adult_10k["income_gt_50k"].to_numpy(), 1000, np.random.default_rng(SEED))
-    slices["adult-10000"] = _write_frame("adult-10000", adult_10k)
-    slices["adult-1000"] = _write_frame("adult-1000", _take(adult_10k, small_pos))
-
-    bike_predictors = ["season", "mnth", "hr", "weekday", "workingday", "weathersit", "temp", "hum", "windspeed", "yr"]
-    for size in (1000, 10000):
-        part = bike.head(size)
-        info = _write_frame(f"bike-{size}", part)
-        info["predictors"] = _varying_predictors(part, bike_predictors)
-        info["dropped_constant"] = [name for name in bike_predictors if name not in info["predictors"]]
-        slices[f"bike-{size}"] = info
-
-    support_large = support
-    support_pos = _stratified_indices(support_large["death"].to_numpy(), 1000, np.random.default_rng(SEED))
-    slices["support-large"] = _write_frame("support-large", support_large)
-    slices["support-1000"] = _write_frame("support-1000", _take(support_large, support_pos))
-    times = np.quantile(support_large["d_time"].to_numpy(), [0.25, 0.5, 0.75]).tolist()
-
-    star_rng = np.random.default_rng(SEED)
-    star_large = _student_prefix(star, 10000, star_rng)
-    star_small = _student_prefix(star_large, 1000, np.random.default_rng(SEED))
-    slices["star-large"] = _write_frame("star-large", star_large)
-    slices["star-1000"] = _write_frame("star-1000", star_small)
-    multi = (
-        star.join(star.group_by("student").len().filter(pl.col("len") >= 2).select("student"), on="student", how="inner")
+def _args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--only",
+        nargs="+",
+        choices=DATASETS,
+        default=list(DATASETS),
+        help="prepare only these data sets (and their tasks)",
     )
-    rs_large = _student_prefix(multi, 10000, np.random.default_rng(SEED))
-    rs_small = _student_prefix(rs_large, 1000, np.random.default_rng(SEED))
-    slices["star-rs-large"] = _write_frame("star-rs-large", rs_large)
-    slices["star-rs-1000"] = _write_frame("star-rs-1000", rs_small)
+    parser.add_argument(
+        "--support-parquet",
+        type=Path,
+        default=None,
+        help="read SUPPORT2 from a local Parquet copy of support2.csv instead of downloading it",
+    )
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = _args()
+    only = set(args.only)
+    RAW.mkdir(parents=True, exist_ok=True)
+    rng = np.random.default_rng(SEED)
+    slices = {}
+    times: list[float] = []
+
+    if "adult" in only:
+        for name, url in ADULT_URLS.items():
+            _download(url, RAW / name)
+        adult = _load_adult()
+        # Draw 10,000 with the published seed, then a stratified 1,000 from that slice.
+        adult_10k = _take(adult, _stratified_indices(adult["income_gt_50k"].to_numpy(), 10000, rng))
+        small_pos = _stratified_indices(adult_10k["income_gt_50k"].to_numpy(), 1000, np.random.default_rng(SEED))
+        slices["adult-10000"] = _write_frame("adult-10000", adult_10k)
+        slices["adult-1000"] = _write_frame("adult-1000", _take(adult_10k, small_pos))
+
+    if "bike" in only:
+        _download(BIKE_URL, RAW / "bike.zip")
+        bike = _load_bike()
+        bike_predictors = ["season", "mnth", "hr", "weekday", "workingday", "weathersit", "temp", "hum", "windspeed", "yr"]
+        for size in (1000, 10000):
+            part = bike.head(size)
+            info = _write_frame(f"bike-{size}", part)
+            info["predictors"] = _varying_predictors(part, bike_predictors)
+            info["dropped_constant"] = [name for name in bike_predictors if name not in info["predictors"]]
+            slices[f"bike-{size}"] = info
+
+    if "support" in only:
+        if args.support_parquet is None:
+            _download(SUPPORT_URL, RAW / "support2.zip")
+        records = _support_records(args.support_parquet)
+        support_large = _load_support(records)
+        support_pos = _stratified_indices(support_large["death"].to_numpy(), 1000, np.random.default_rng(SEED))
+        slices["support-large"] = _write_frame("support-large", support_large)
+        slices["support-1000"] = _write_frame("support-1000", _take(support_large, support_pos))
+        times = np.quantile(support_large["d_time"].to_numpy(), [0.25, 0.5, 0.75]).tolist()
+        mi_large = _load_support_mi(records)
+        mi_pos = _stratified_indices(mi_large["hospdead"].to_numpy(), 1000, np.random.default_rng(SEED))
+        slices["support-mi-large"] = _write_frame("support-mi-large", mi_large)
+        slices["support-mi-1000"] = _write_frame("support-mi-1000", _take(mi_large, mi_pos))
+
+    if "star" in only:
+        _download(STAR_URL, RAW / "STAR_Students.tab")
+        star = _load_star()
+        star_rng = np.random.default_rng(SEED)
+        star_large = _student_prefix(star, 10000, star_rng)
+        star_small = _student_prefix(star_large, 1000, np.random.default_rng(SEED))
+        slices["star-large"] = _write_frame("star-large", star_large)
+        slices["star-1000"] = _write_frame("star-1000", star_small)
+        multi = star.join(
+            star.group_by("student").len().filter(pl.col("len") >= 2).select("student"), on="student", how="inner"
+        )
+        rs_large = _student_prefix(multi, 10000, np.random.default_rng(SEED))
+        rs_small = _student_prefix(rs_large, 1000, np.random.default_rng(SEED))
+        slices["star-rs-large"] = _write_frame("star-rs-large", rs_large)
+        slices["star-rs-1000"] = _write_frame("star-rs-1000", rs_small)
 
     manifest = {
         "seed": SEED,
@@ -444,7 +556,11 @@ def main() -> None:
         "notes": {
             "adult": "UCI Adult, CC BY 4.0. Question marks in workclass or native country are missing.",
             "bike": "First 1000 hours drop predictors that do not vary. season and yr are constant there.",
-            "support": "Vanderbilt SUPPORT2. d.time and num.co are renamed d_time and num_co.",
+            "support": (
+                "Vanderbilt SUPPORT2. d.time and num.co are renamed d_time and num_co. cause is 1 for death"
+                " in hospital (hospdead), 2 for death after discharge, 0 for alive at last follow-up."
+                " support-mi keeps missing alb, bili, pafi, wblc and income (income4 = inc1..inc4)."
+            ),
             "star": "Harvard Dataverse 10.7910/DVN/SIWH9F. The tenth predictor is class size; special education is not recorded in grades 2 and 3.",
         },
     }
