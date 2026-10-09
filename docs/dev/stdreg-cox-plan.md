@@ -1,10 +1,10 @@
 # Cox 回帰標準化の実装計画
 
-`stdReg2::standardize_coxph` の生存関数と制限付き平均生存時間（RMST）を `statract` に足す。数値の目標は R と同じ出力で、呼び出し方は Python 側の流儀にする。実行時に R は起動しない。オラクルは `Rscript` と JSON である。
+`stdReg2::standardize_coxph` の標準化生存関数と制限付き平均生存時間（RMST）を `statract` に足す。数値は R と同じにする。実行時に R は起動しない。R は fixture の再生成だけに使う。
 
-合わせる版は [stdReg2 の `R/coxph_methods.R` と `R/utils.R`](https://github.com/sachsmc/stdReg2) である。生存関数の分散は Sjölander (2016) のサンドイッチで、共変量の経験分布のばらつきを含む。Gail–Byar の条件付き分散には合わせない。RMST は Chen and Tsiatis (2001) で、群ごとに別の Cox を当てる。
+合わせる版は stdReg2 1.0.8 の `R/coxph_methods.R` と `R/utils.R` である。生存関数の分散は Sjölander (2016) のサンドイッチ、RMST は Chen and Tsiatis (2001) である。
 
-jweb の手術比較は生存関数だけを使っている。
+jweb の手術比較が使うのは生存関数と、参照 0 との差だけである。
 
 ```r
 standardize_coxph(
@@ -15,159 +15,138 @@ standardize_coxph(
 )
 ```
 
-`tidy()` の `contrast == "none"` が曲線、`difference` が参照 0 との差である。時点 0 の生存 1 は呼び出し側が足している。
+時点 0 の生存 1 は jweb 側で足している。
 
 ## 0. 方針
 
-1. 新しい計算は R を起動しない。fixture の再生成だけ `Rscript` を使う。
-2. テストは複数標本で、推定値・標準誤差・区間を比べる。呼び出しの形は比べない。
-3. 同順位は measure ごとに R の実装へ合わせる。生存関数は関数内で Breslow に固定する。RMST は `coxph` の既定である Efron である。
-4. 公開名は `standardize_cox`。第 1 引数は Polars の `DataFrame`、式は `Surv(time, status) ~ x`、オプションはキーワード専用である。
-5. 戻りは Polars の表である。`contrast` を渡したときは、stdReg2 の `format_result_standardize` と同じく `none` と指定した対比の両方を返す。
-6. 図は作らない。`plot.std_surv` は再現しない。
-7. `standardize_glm`、GEE、`standardize_parfrailty` は入れない。
+1. 段階を分ける。段階 1 で jweb が要るものを出し、そこで jweb を切り替えられるようにする。RMST は段階 3 で、別の PR にする。
+2. R の挙動に合わせる。R の癖のうち、合わせると誤りになるものは合わせず、`docs/models/vs-r.md` に書く。どれがそうかは下の各節に挙げる。
+3. R で検証できないものは入れない。生存関数のケースウェイトはこれに当たる。`standardize_coxph` には weights 引数が無く、中の `coxph` にも渡していないので、R では常にウェイト 1 である。
+4. 既存の `cox_ph` を使う。点推定、スコア残差、情報行列は既存のものを使い、新しく書くのは基底ハザードのサンドイッチと RMST の分散だけにする。
+5. 図は作らない。`standardize_glm`、GEE、`standardize_parfrailty` も入れない。
 
 ## 1. 呼び出し
 
+推定と表示を分ける。R の `standardize_coxph` と `tidy()` の関係に合わせ、`cox_ph` の `.tidy()` とも形をそろえる。
+
 ```python
-from statract import standardize_cox
+from statract.surv import standardize_cox
 
-curve = standardize_cox(
-    data,
-    "Surv(time, status) ~ ope + age + sex",
-    values={"ope": [0, 1]},
-    times=[1.0, 3.0, 5.0],
-    measure="survival",
-    contrast="difference",
-    reference=0,
-)
-
-rmst = standardize_cox(
+std = standardize_cox(
     data,
     "Surv(time, status) ~ ope * age + sex",
     values={"ope": [0, 1]},
-    times=[5.0],
-    measure="rmean",
-    contrast="difference",
-    reference=0,
+    times=[1.0, 3.0, 5.0],
 )
+std.tidy()                                          # 曲線
+std.tidy(contrast="difference", reference=0)        # 差
+std.covariance(3.0)                                 # 水準間の共分散行列
+
+rmst = standardize_cox(data, "Surv(time, status) ~ ope + age", values={"ope": [0, 1]}, times=5.0, measure="rmean")
 ```
+
+`standardize_cox(data, formula, *, values, times, measure="survival", cluster=None)`
 
 | 引数 | 内容 |
 |------|------|
-| `data` | 第 1 引数。欠損のある行は、その式が使う列についてまとめて落とす |
-| 式 | `Surv(time, status) ~ ...`。演算子は既存の Wilkinson 式 |
-| `values` | 曝露名から水準の列への辞書。生存関数は 1 列の曝露に複数水準。RMST は 0 と 1 の 2 水準 |
-| `times` | 生存関数は評価時点の列。RMST は制限時刻。複数なら最大値だけを使い、表は 1 行 |
+| `data` | Polars の `DataFrame`。式が使う列（と `cluster`）に欠損がある行は落とす |
+| `formula` | `Surv(time, status) ~ ...`。既存の Wilkinson 式 |
+| `values` | 曝露名 1 つから水準の列への辞書 |
+| `times` | 生存関数は評価時点の列。RMST は制限時刻 1 つ |
 | `measure` | `"survival"` または `"rmean"` |
-| `contrast` | `None`、`"difference"`、`"ratio"`。指定したときは `reference` が要る |
-| `reference` | `values` にある水準 |
-| `transform` | `None`、`"log"`、`"logit"`、`"odds"`。RMST は `"logit"` と `"odds"` を拒否する |
-| `weights` | 生存関数のケースウェイト列。RMST は受けない |
-| `cluster` | 生存関数のクラスタ列。残差を先に合計する。RMST は受けない |
-| `level` | 区間の被覆確率。既定 0.95 |
-| `ci` | `"plain"` または `"log"`。既定は `"plain"` |
+| `cluster` | 生存関数だけ。クラスタ列の名前 |
 
-表の列は `time`、曝露、`estimate`、`std_error`、`conf_low`、`conf_high`、`contrast`、`transform`、`measure` である。各時点の曝露水準間の共分散は結果オブジェクトが持つ。差と比の標準誤差はそこからデルタ法で作る。
-
-カテゴリの参照水準は既存の Cox と同じで、`pl.Enum` の先頭、文字列はソート順である。曝露を置き換えたあとは、交互作用を含めて設計行列を組み直す。
+`.tidy(*, contrast=None, reference=None, transform=None, ci="plain", level=0.95)` は Polars の表を返す。列は `time`、曝露、`estimate`、`std_error`、`conf_low`、`conf_high`。`contrast` を渡したら `reference` が要る。順番は R と同じで、変換をかけてから対比を取る。
 
 両 measure で次を拒否する。
 
 - 式の `strata()`、`cluster()`、`tt()`、`frailty`
-- `Surv(start, stop, status)` の左切り捨て
-- 曝露が 2 列以上
+- `Surv(start, stop, status)`
+- 曝露が 2 つ以上
+- `ci="log"` と `contrast="difference"` の組み合わせ。参照行の推定値が 0 になり、R では区間が NaN になるため
 
-生存関数で、最初の評価時点以前に事象が 1 つも無いときは `"No events before first value in times"` と同じ条件で止める。時点 0 を格子に含めても、最小時点が最初の事象より前なら止まる。jweb が時点 0 を外で足しているのはこのためである。
+曝露の水準を置き換えるときは、`data` の曝露列を `values` の値に置き換え、`build_design(new, fit.design)` で設計行列を組み直す。交互作用、因子、スプラインはこれで扱える。`pl.Enum` の曝露は dtype を保つ。
 
 ## 2. 生存関数
 
-1 本の Cox を `ties="breslow"` で当てる。時点 \(t\)、曝露 \(x\) の推定値は
+### 点推定
+
+`cox_ph(data, formula, ties="breslow", cluster=None)` を当てる。曝露を \(x\) に置き換えた行列で `predict(kind="survival", times=[t])` を出し、行で平均する。
 
 \[
-\hat\theta(t,x)=\sum_i \hat S(t\mid X=x,Z_i)\,w_i\Big/\sum_i w_i.
+\hat\theta(t,x)=\frac1n\sum_i \hat S(t\mid X=x,Z_i).
 \]
 
-\(\hat S=\exp\{-\hat\Lambda(t)\exp(h)\}\) である。\(\hat\Lambda\) は `coxph.detail$hazard` の累積で、共変量を標本平均に中心化した基底ハザードである。リスクは `predict(type="risk")` で、同じ中心化の線形予測の指数である。`statract` の `baseline_hazard` は `basehaz(centered=FALSE)` なので、この積には使わない。`H(t)` は事象時刻で右連続な階段関数（`stepfun`）である。
+R は中心化した基底ハザードと中心化した risk の積を使う。中心化しない側の積と同じ値なので、点推定には既存の `predict` が使える。
 
-分散は `utils.R` の `sandwich` と、`standardize_coxph` の時点ループを写す。
+最初の評価時点以前にモデルの事象時刻が 1 つも無いときは、R と同じく `"No events before first value in times"` で止める。時点 0 を入れても、最初の事象時刻が 0 より後なら止まる。
 
-- 係数の肉はウェイト付きスコア残差。パンは \(-\mathrm{vcov}(\hat\beta)^{-1}/n\)。
-- 各時点の基底ハザードの肉 `UH` と、係数に対する微分 `IH` は `sandwich()` の Cox 分岐である。同順位は Breslow で、タイの中のウェイトは等しいとして `nevent` で割る。
-- 標準化生存の残差は \(w_i(\hat S_i-\hat\theta)\)。これを係数と基底ハザードのスコアと横に結ぶ。
-- \(J\) は残差行列の `var`（分母 \(n-1\)）。情報行列 \(I\) は、\(\theta\) のヤコビアン `SI` の下に Cox の情報 `oI` を積む。
-- クラスタが無いとき \(V=(I^{-1} J I^{-\top}/n)\) の \(\theta\) ブロック。クラスタがあるときは残差をクラスタで合計してから `var` し、\(n_{\mathrm{cluster}}/n^2\) を掛ける。
-- 時点 0 は推定値 1、分散 0。ループの前の「最初の時点以前に事象がある」判定は残す。
+### 分散
 
-対比と変換は `summary_std_coxph` のデルタ法である。`difference` は参照を引く。`ratio` は参照で割る。参照行の分散は 0 にする。`log`、`logit`、`odds` は変換後のヤコビアンを掛ける。`ci="plain"` は \(\hat\theta\pm z\cdot\mathrm{se}\)。`ci="log"` は \(\hat\theta\exp(\pm z\cdot\mathrm{se}/\hat\theta)\) である。
+`utils.R` の `sandwich()`（Cox 分岐）と、`standardize_coxph` の時点ループを写す。ここだけは中心化が要る。\(m\) を共変量の標本平均（`fit$means`）とする。
+
+- 係数の肉は `score_contributions()`、パンは \(-\mathrm{vcov}^{-1}/n\)。
+- 基底ハザードの肉 `UH` と微分 `IH` は R の式どおりに作る。R は `expand(dH / nevent, data[, t2])` で、時刻の値で行に割り当てる。このため、事象時刻と同じ時刻で打ち切られた行にも \(dH/\text{nevent}\) が入る。これは R に合わせる。jweb の実データは時刻の同順位が多いはずで、ここがずれると数値が合わないからである。
+- `tempmat` は \(m\) で中心化した設計行列を使う。中心化するのは観測した \(X\) の平均で、置き換えた \(x\) の平均ではない。
+- 残差 \(\hat S_i-\hat\theta\) と係数・基底ハザードの肉を横に結び、`var`（分母 \(n-1\)）で \(J\) を作る。クラスタがあるときは先にクラスタで合計し、最後に \(n_\text{cluster}/n^2\) を掛ける。クラスタが無いときは \(1/n\)。
+- 時点 0 は推定値 1、分散 0。
+
+### 表示
+
+`summary_std_coxph` を写す。変換 `log`、`logit`、`odds` のヤコビアンを掛け、次に対比を取る。`difference` は参照を引き、`ratio` は参照で割る。参照行の分散は 0 にする。`ci="plain"` は \(\hat\theta\pm z\,\mathrm{se}\)、`ci="log"` は \(\hat\theta\exp(\pm z\,\mathrm{se}/\hat\theta)\)。
 
 ## 3. RMST
 
-曝露は数値の 0/1 で、水準も 0 と 1 だけである。式から、曝露名を含む項（主効果と交互作用）を外す。外した式で群 0 と群 1 に別々の `cox_ph` を当てる。同順位は Efron である。両モデルの完全ケースの和集合を、あとの平均に使う。
+R の手順は次のとおりである。曝露は数値の 0/1。式から曝露の項を外し、群 0 と群 1 に別々の Cox（Efron）を当てる。プールした全員について、事象時刻 \(t_k\le t^\star\) ごとの期待事象数から \(\bar S_a(t_k)\) を出し、矩形積分（`rsum`）で RMST にする。分散は R の 3 項（係数の影響、基底ハザード、個人別 RMST の標本分散）と群間共分散である。人ごとのループはベクトル化する。
 
-各群のモデルで、プールした全員について事象時刻 \(t_k\le t^\star\) の期待事象数を出す。これは `predict(type="expected", reference="zero")` で、中心化しない線形予測と、そのモデルの累積ハザードの積である。`statract` の `predict(kind="expected")` がこの積と一致する範囲を使う。群 \(a\) の生存は、その期待事象数の指数の標本平均 \(\bar S_a(t_k)\) である。RMST は時刻 0 で生存 1 から始め、事象時刻の階段を \(t^\star\) まで矩形積分する（`rsum`）。
+R と変えるところは次の 3 つで、どれも vs-r.md に書く。
 
-\[
-\hat\mu_a(t^\star)=\sum_k \bar S_a(t_{k-1})\,(t_k-t_{k-1}),\quad t_0=0,\; t_{K+1}=t^\star.
-\]
+1. **外す項。** R は `grep(曝露名, 項名)` で外すので、曝露が `ope` なら `operation` も消える。statract は、曝露の列を含む項だけを正確に外す。
+2. **同順位。** R は `Ai <- data[[exp]][match(etimes, time)]` で、各事象時刻の群を「同じ時刻の最初の行」から取る。その行が打ち切りや別群でも拾う。statract は事象を起こした行そのものの群を使う。同じ時刻の事象が同じ群の中だけなら R と一致する。`etimes` の重複（事象 1 件ごとに 1 項）は R のまま残す。
+3. **共変量なし。** 曝露を外すと共変量が 0 個になる式は拒否する。R はこの場合 `solve()` に 0×0 行列を渡して止まる（fixture 作成時に確認する）。
 
-分散は次の 3 項を群ごとに足し、\(n\) で割ったものである。
-
-1. 共変量係数の影響。リスク集合内の共変量分散 \(\Sigma_a\) と、個人別の積分影響 \(g_{ai}\) から \(g_a=\Sigma_a^{-1}\sum_i g_{ai}/n_a\) を作り、\((n_a/n)\,g_a^\top\Sigma_a g_a\)。
-2. ハザード増分。群 \(a\) の事象について \(h_a(t)^2 / (S^{(0)}(t)\,\sum_i Y_i(t)r_i)\) を足す。
-3. 個人別 RMST の標本分散。\((n-1)/n\cdot\mathrm{var}_i(\int_0^{t^\star}\exp(-\hat\Lambda_{a,i}))\)。
-
-群間共分散は、2 本の個人別 RMST の `cov` に \((n-1)/n^2\) を掛けたものである。差の分散は \(\mathrm{var}_1+\mathrm{var}_0-2\mathrm{cov}\) で、`summary_std_coxph` が共分散行列から作る。R の実装は人ごとに行列を組む。同じ式をベクトル化し、fixture の \(n\) は数百行に留める。
-
-`times` が 2 個以上のときは最大値を \(t^\star\) にし、警告を出す。表の `time` はその 1 点である。
+`times` が 2 個以上なら R は最大値を使って警告する。statract は `ValueError` にする。RMST は `cluster`、`logit`、`odds` を拒否する。
 
 ## 4. テスト
 
 ```
 tests/r_oracle/
   scripts/stdreg_cox.R
+  data/stdreg_*.csv
   fixtures/stdreg_cox.json
   test_stdreg_cox.py
 ```
 
-合成データ、seed 固定。pytest の実行時に R は要らない。
+データは `scripts/make_data.py` で作り、seed を固定する。pytest の実行時に R は要らない。
 
-| 標本 | measure | 中身 |
-|------|---------|------|
-| 連続曝露 | survival | 数時点、対比なし、交互作用 |
-| 二値曝露 | survival | `ope * age` と因子、`difference` と `ratio`、参照 0 |
-| ウェイトとクラスタ | survival | 1 列クラスタ、ケースウェイト |
-| 二値、共変量なし | rmean | 水準 0/1、1 時点、差 |
-| 二値、交互作用を落とす | rmean | 元の式に曝露の交互作用、差と比 |
+| 標本 | measure | 確かめること |
+|------|---------|----------|
+| 二値曝露、整数時刻 | survival | `ope * age` と因子。打ち切りと事象が同じ時刻に重なる。曲線、差、比。jweb の使い方に当たる |
+| 連続曝露 | survival | 3 水準、交互作用、対比なし |
+| クラスタ | survival | 1 列のクラスタ |
+| 変換 | survival | `log`、`logit`、`odds` と `ci="log"` |
+| 二値、連続時刻 | rmean | 共変量 1 つ、同順位なし、差と比 |
+| 二値、交互作用あり | rmean | 式に `ope * age`。外したあと R と一致 |
 
-比べる量は `estimate`、`std_error`、区間である。許容差は rtol 1e-6、p 値を出す段は無い。生存関数の標本では、中の Breslow Cox の係数が `cox_ph(..., ties="breslow")` と一致することも見る。RMST の 2 本は Efron の `cox_ph` と一致することを見る。
+比べるのは `estimate`、`std_error`、区間、水準間の共分散で、rtol 1e-6 である。R と変えたところ（項の外し方、同順位の群、共変量なし）は R と比べず、期待する挙動を単体テストで確かめる。生成スクリプトは stdReg2 と survival の版を fixture に書く。
 
-再生成スクリプトは stdReg2 の版を fixture に書く。
+## 5. 順序
 
-## 5. 順序と受け入れ基準
+| 段階 | 中身 | 受け入れ |
+|------|------|----------|
+| 1 | 生存関数の点推定とサンドイッチ、`.tidy()` の差と比（`ci="plain"`） | 二値・連続・クラスタの 3 標本が fixture と一致。jweb の呼び出しを置き換えられる |
+| 2 | 変換と `ci="log"` | 変換の標本が一致 |
+| 3 | RMST の点推定と分散 | rmean の 2 標本が一致。R と変えた 3 点に単体テスト |
+| 4 | 文書 | `docs/models/vs-r.md`、`docs/api/models/surv.md`、`docs/models/overview.md` |
 
-| 順 | 成果物 | 受け入れ |
-|----|--------|----------|
-| 1 | 結果表、plain / log の区間、差と比のデルタ法 | 既知の \(\theta\) と共分散から `summary_std_coxph` の表と一致 |
-| 2 | 生存関数の点推定とサンドイッチ | 3 標本の推定値と標準誤差が fixture と一致。中心化しない基底ハザードを混ぜない |
-| 3 | RMST の点推定 | 2 本の Efron Cox、矩形積分が fixture の `estimate` と一致 |
-| 4 | RMST の 3 項の分散と群間共分散 | 同じ 2 標本の標準誤差と差の標準誤差が一致 |
-| 5 | 文書 | 下の 3 ファイル |
-
-配置は `src/statract/surv/standardize.py`。`standardize_cox` を `statract.surv` とパッケージの公開入口から出す。
-
-実装が終わったら次を更新する。
-
-- `docs/models/vs-r.md` に 2 行。生存は Breslow とサンドイッチ、RMST は Efron と Chen–Tsiatis
-- `docs/api/models/surv.md`
-- `docs/models/overview.md` の生存の行
+段階 1 と 2 は 1 つの PR、段階 3 は別の PR にする。置き場所は `src/statract/surv/standardize.py` で、`statract.surv` とパッケージの入口から出す。
 
 ## 6. 対象外
 
-- `measure` 以外の stdReg2（`standardize_glm`、GEE、`standardize_parfrailty`、`standardize_custom`）
-- RMST のウェイト、クラスタ、`logit`、`odds`
-- 層別、時間依存共変量、左切り捨て、複数の曝露列
-- `plot.std_surv`
+- ケースウェイト（R で検証できない）
+- RMST のクラスタ、`logit`、`odds`、共変量なし
+- 層別、時間依存共変量、左切り捨て、複数の曝露
+- `plot.std_surv`、`standardize_glm`、GEE、`standardize_parfrailty`、`standardize_custom`
 
 ## 参考
 
