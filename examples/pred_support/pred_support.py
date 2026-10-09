@@ -31,6 +31,7 @@ from statract import (
     plot_calibration,
     plot_dca,
     plot_forest,
+    plot_tree,
     threshold_tradeoff,
     write_probability_artifacts,
     write_tableone_artifacts,
@@ -185,6 +186,7 @@ def main() -> None:
     # Conditional inference tree on the same training rows and predictors.
     tree = conditional_tree(train, "death_180", covs)
     (out / "ctree.txt").write_text(tree.format(), encoding="utf-8")
+    plot_tree(tree, out / "figures" / "ctree.png")
     _write_csv(out, "ctree_tests", tree.tests().sort(["p_value", "statistic"], descending=[False, True]))
     p_tree_val = tree.predict(val)
 

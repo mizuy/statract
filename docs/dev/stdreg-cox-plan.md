@@ -86,7 +86,7 @@ R は中心化した基底ハザードと中心化した risk の積を使う。
 `utils.R` の `sandwich()`（Cox 分岐）と、`standardize_coxph` の時点ループを写す。ここだけは中心化が要る。\(m\) を共変量の標本平均（`fit$means`）とする。
 
 - 係数の肉は `score_contributions()`、パンは \(-\mathrm{vcov}^{-1}/n\)。
-- 基底ハザードの肉 `UH` と微分 `IH` は R の式どおりに作る。R は `expand(dH / nevent, data[, t2])` で、時刻の値で行に割り当てる。このため、事象時刻と同じ時刻で打ち切られた行にも \(dH/\text{nevent}\) が入る。これは R に合わせる。jweb の実データは時刻の同順位が多いはずで、ここがずれると数値が合わないからである。
+- 基底ハザードの肉 `UH` と微分 `IH` は R の式どおりに作る。R は `expand(dH / nevent, data[, t2])` で、時刻の値で行に割り当てる。このため、事象時刻と同じ時刻で打ち切られた行にも \(dH/\text{nevent}\) が入る。これは R に合わせる。時刻が整数に丸めてあるデータでは同順位が多く、ここがずれると数値が合わないからである。
 - `tempmat` は \(m\) で中心化した設計行列を使う。中心化するのは観測した \(X\) の平均で、置き換えた \(x\) の平均ではない。
 - 残差 \(\hat S_i-\hat\theta\) と係数・基底ハザードの肉を横に結び、`var`（分母 \(n-1\)）で \(J\) を作る。クラスタがあるときは先にクラスタで合計し、最後に \(n_\text{cluster}/n^2\) を掛ける。クラスタが無いときは \(1/n\)。
 - 時点 0 は推定値 1、分散 0。
@@ -154,3 +154,7 @@ tests/r_oracle/
 - Chen PY, Tsiatis AA. Causal inference on the difference of the restricted mean lifetime between two groups. *Biometrics.* 2001;57(4):1030-1038.
 - Sachs MC, Ohlendorff JS, Brand A, et al. The next generation of regression standardization with the R package stdReg2. *Ann Epidemiol.* 2025;105:66-74.
 - `docs/dev/r-parity-plan.md`
+
+## 実装メモ
+
+段階 1〜3 を `src/statract/surv/standardize.py` に実装した。fixture は 7 例で、推定値、共分散、表がすべて rtol 1e-6 で一致する。実装中に見つかった R の癖（文字列のクラスタで止まる、`logit` と `odds` の変換で止まる、RMST の `values` の順）は `docs/models/vs-r.md` の「stdReg2 と違うところ」にまとめた。

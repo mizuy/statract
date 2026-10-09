@@ -89,6 +89,8 @@ from .impute import MultipleImputation, impute_chained, pool
 from .gamm import GammFit, gamm
 from .gam import compare_gams, gam, smooth, tensor_interaction, tensor_smooth
 from .tree import conditional_tree
+from .htest import HTest, binom_test, mcnemar_test, p_adjust, prop_test, t_test, wilcox_test
+from .tree_plot import plot_tree
 from .linear_tests import (
     breusch_godfrey_test,
     breusch_pagan_test,
@@ -141,6 +143,7 @@ from .surv import (
     plot_loglog,
     proportional_hazards_test,
     split_follow_up,
+    standardize_cox,
     survival_curve,
     write_cox_diagnostic_suite,
 )
@@ -182,6 +185,13 @@ from .validation import (
 
 
 __all__ = [
+    "HTest",
+    "binom_test",
+    "mcnemar_test",
+    "p_adjust",
+    "prop_test",
+    "t_test",
+    "wilcox_test",
     "agg_bool_category",
     "agg_bool_ci",
     "agg_bool_n",
@@ -235,6 +245,7 @@ __all__ = [
     "compare_gams",
     "conditional_logit",
     "conditional_tree",
+    "plot_tree",
     "cox_ph",
     "cumulative_incidence",
     "durbin_watson_test",
@@ -269,6 +280,7 @@ __all__ = [
     "ramsey_reset_test",
     "smooth",
     "split_follow_up",
+    "standardize_cox",
     "survival_curve",
     "tensor_interaction",
     "tensor_smooth",

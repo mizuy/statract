@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable
-from typing import TypeAlias
+from typing import Literal, TypeAlias
 
 import numpy as np
 import polars as pl
 import scipy.stats
 
+from .htest import _clopper_pearson, _wilson
 
 # statfunc(col0, col1) -> str
 StatFunc: TypeAlias = Callable[[pl.Series, pl.Series], str]
@@ -132,12 +133,18 @@ def weighted_corr(x: pl.Expr, y: pl.Expr, w: pl.Expr) -> pl.Expr:
     return cov_xy / (cov_xx * cov_yy).sqrt()
 
 
-def proportion_ci(expr: pl.Expr, alpha: float = 0.05) -> pl.Expr:
+def proportion_ci(
+    expr: pl.Expr,
+    alpha: float = 0.05,
+    method: Literal["wald", "wilson", "clopper-pearson"] = "wald",
+) -> pl.Expr:
     """Return an expression for (lo, hi) confidence interval of a proportion as a struct.
 
     This expects `expr` to represent a boolean-like indicator where `expr > 0`
-    counts as success. The interval is the Wald (normal approximation) interval,
-    clipped to [0, 1].
+    counts as success. ``method="wald"`` (default) is the normal approximation
+    clipped to [0, 1]. ``"wilson"`` is the score interval of
+    ``prop.test(correct=FALSE)``. ``"clopper-pearson"`` is the exact interval of
+    ``binom.test``.
 
     Examples:
         >>> import polars as pl
@@ -156,13 +163,23 @@ def proportion_ci(expr: pl.Expr, alpha: float = 0.05) -> pl.Expr:
     out_dtype = pl.Struct([pl.Field("lo", pl.Float64), pl.Field("hi", pl.Float64)])
     z = float(scipy.stats.norm.isf(alpha / 2.0))
 
+    if method not in ("wald", "wilson", "clopper-pearson"):
+        raise ValueError("method must be 'wald', 'wilson' or 'clopper-pearson'")
+
     def interval(s: pl.Series) -> pl.Series:
         count = int(s.struct.field("_count")[0])
         total = int(s.struct.field("_total")[0])
-        p = count / total if total else float("nan")
-        half = z * math.sqrt(p * (1.0 - p) / total) if total else float("nan")
-        lo = min(max(p - half, 0.0), 1.0)
-        hi = min(max(p + half, 0.0), 1.0)
+        if not total:
+            lo = hi = float("nan")
+        elif method == "wilson":
+            lo, hi = _wilson(count, total, 1.0 - alpha)
+        elif method == "clopper-pearson":
+            lo, hi = _clopper_pearson(count, total, 1.0 - alpha)
+        else:
+            p = count / total
+            half = z * math.sqrt(p * (1.0 - p) / total)
+            lo = min(max(p - half, 0.0), 1.0)
+            hi = min(max(p + half, 0.0), 1.0)
         return pl.Series([{"lo": lo, "hi": hi}], dtype=out_dtype)
 
     return pl.struct(

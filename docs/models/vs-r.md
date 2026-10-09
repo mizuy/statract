@@ -29,6 +29,8 @@
 | Fine–Gray | `finegray` のあと `coxph` | `fine_gray` のあと `cox_ph(..., entry=, weights=)` | 係数、モデルベース SE と行ごとの頑健 SE（重みが整数でないので coxph の既定）、部分尤度 |
 | 累積発生（cmprsk） | `cuminc(ftime, fstatus, group, strata, rho=)`、`timepoints` | `cumulative_incidence(data, time, event, by, strata=, rho=)`、`.at(times)` | 曲線の角の時刻・推定値・分散、Gray 検定の統計量と p 値（層あり、rho = 0 と 1）、時点の推定値と分散。fixture は `cmprsk.json` |
 | Fine–Gray（cmprsk） | `crr(ftime, fstatus, cov1, failcode=, cengroup=)`、`predict.crr` | `fine_gray_regression`。式は `Surv(time, status) ~ x + grp`、`cause=`、`censor_group=` | 係数、Fine–Gray のサンドイッチ分散、情報行列、擬似対数尤度（null も）、基準ハザードの跳び、スコア残差、予測 CIF。rtol 1e-8 |
+| Cox 回帰標準化（生存関数） | `stdReg2::standardize_coxph(measure="survival")` と `tidy()`。Breslow の Cox、Sjölander (2016) のサンドイッチ | `standardize_cox(..., measure="survival")`、`.tidy(contrast=, reference=, transform=, ci=)` | fixture `stdreg_cox.json` の 4 例: 二値曝露と交互作用（打ち切りと事象が同じ時刻に重なる）、クラスタ、3 水準の連続曝露、変換。推定値、水準間の共分散、表を rtol 1e-6 |
+| Cox 回帰標準化（RMST） | `standardize_coxph(measure="rmean")`。群ごとの Efron の Cox、Chen–Tsiatis (2001) | `standardize_cox(..., measure="rmean")` | 同じ fixture の 3 例（主効果、交互作用、同順位）。同順位の例は、下の「群の取り方」の 1 行だけを直した R と比べる |
 | 最近傍（logit） | `matchit(..., distance="glm", link="logit", m.order="data")` | `match_sample(..., distance="logit", order="data")` | 組、x1 のマッチ後標準化差 |
 | 最近傍（マハラノビス） | `distance="mahalanobis"` | `distance="mahalanobis"` | `order="data"` の組 |
 | 完全一致、CEM | `method="exact"`、`method="cem"` | `method="exact"`、`method="cem"` | 重み |
@@ -45,6 +47,13 @@
 | AUC の分散と区間 | `var`、`ci.auc(method="delong")` | `RocCurve.var_auc`、`RocCurve.ci_auc` | DeLong の分散と 95% / 90% 区間（rtol 1e-8） |
 | 最適な閾値 | `coords(..., "best", best.method=, transpose=FALSE)`、閾値の指定 | `RocCurve.coords` | youden と closest.topleft の閾値、特異度、感度、正確度、NPV、PPV（rtol 1e-10） |
 | 2 本の AUC の比較 | `roc.test(method="delong")` | `roc_test` | 対応あり（Z）と対応なし（t と自由度）の統計量（rtol 1e-8）と p 値（atol 1e-8）。欠測の位置が違うときの共通部分での再計算も含む |
+| t 検定 | `t.test`（1 標本、Welch、`var.equal=TRUE`、`paired=TRUE`） | `t_test` | t、自由度、p 値、区間、平均（rtol 1e-10）。fixture は `htest.json` |
+| Wilcoxon 検定 | `wilcox.test`（符号付き順位、順位和、`paired`、`conf.int=TRUE`） | `wilcox_test` | V / W、p 値、Hodges–Lehmann 推定値と区間（rtol 1e-10）。正確分布（n < 50、同順位なし）と正規近似（同順位・ゼロ、連続性補正の有無）。正規近似の区間は R の `uniroot` の移植なので R と同じ値になる |
+| McNemar 検定 | `mcnemar.test` | `mcnemar_test` | 2 × 2（補正あり / なし）、3 × 3 の Bowker 検定、欠測を含む 2 列の統計量と p 値 |
+| 正確二項検定 | `binom.test` | `binom_test` | p 値と Clopper–Pearson 区間。0 / n の端、片側 |
+| 比率の検定 | `prop.test` | `prop_test` | 1 標本の Wilson 区間（補正あり / なし）、2 標本の差の区間、k 標本と `p` 指定の χ²。片側も |
+| 多重比較の補正 | `p.adjust` | `p_adjust` | holm、hochberg、hommel、bonferroni、BH、BY、fdr、none。欠測と `n` 指定 |
+| 比率の区間 | `prop.test(correct=FALSE)$conf.int`、`binom.test(...)$conf.int` | `proportion_ci(..., method="wilson" / "clopper-pearson")` | 下限と上限（rtol 1e-10）。既定の `method="wald"` は今までどおり |
 | 共線性 | `performance::check_collinearity` | `check_collinearity` | VIF、SE factor、許容度と区間 |
 | 線形混合 | `lmer`。`(1 \| g)` または `(1 + x \| g)`、REML または ML | `fit_mixed`（既定 `engine="lme"` = lme-python 0.2.6） | fixture `lmm.json` 3 標本: coef rel 最大約 1.9×10⁻⁴。pytest は coef 5e-4、SE 1e-3、RE 1e-2、σ² 5e-4、loglik atol 1e-5。STAR 公開スライス（2026-10-04）では lme の coef rel 最大 1.18×10⁻³（変量傾き 10,000 行）、ML 1,000 行は 7.41×10⁻⁴。mixedlm-rs extra は変量切片で旧 1e-6 級に近い |
 | ポアソン GLMM | `glmmTMB(..., family=poisson)`、`glmer(..., family=poisson, nAGQ=9)`。`offset(log(years))`、`(1 \| g)` と `(1 + x \| g)` | `fit_mixed(..., family="poisson")`（`engine="laplace"`）、`n_agq=` | fixture `glmm_count.json` 3 標本。係数 rtol 1e-4 / atol 2e-5（glmmTMB は自分の許容差で止まるので、こちらの対数尤度は常に同じか高い）、SE rtol 1e-4、対数尤度 atol 1e-6、変量効果の分散 rtol 1e-3。求積は glmer と係数 rtol 1e-4 |
@@ -65,6 +74,8 @@
 
 各行は 3 標本です。許容差はサンドイッチ共分散は rtol 1e-8、Newton 法の係数は rtol 1e-6、平滑化パラメータは rtol 1e-3、edf は rtol 1e-4、REML は atol 1e-6、p 値は atol 1e-6 です。マッチの組は完全一致です。加法モデルの範囲、thin plate、テンソル、共線性、最適マッチ、full matching は `gam_scope.json`、`collinearity.json`、`match_opt_full.json` の 1 標本です。重みと offset、テンソル交互作用は `gam_weight_ti.json`、条件付き推論木は `ctree.json` の 1 標本です。ROC の 4 行は `proc.json` で、再生成は `Rscript tests/r_oracle/scripts/proc.R` です。
 
+`htest.json` は R 4.3.3 の stats です。再生成は `Rscript tests/r_oracle/scripts/htest.R` です。R の `t.test` は等分散の方法名を `" Two Sample t-test"` と先頭に空白つきで返しますが、`t_test` は空白を付けません。
+
 rms の行は `rms.json`（rms 6.7-1、R 4.3.3）です。再生成は `Rscript tests/r_oracle/scripts/rms.R` です。R の乱数は再現しないので、スクリプトは `set.seed` のあとの `sample(n, replace=TRUE)` を B 回くり返して再標本を作り、`predab.resample(debug=TRUE)` が表示する訓練標本の行と一致することを確かめてから書き出します。rms の `lrm.fit` は −2 log L の変化が 0.025 未満で、`cph` は相対変化 1e-4 で止まるので、`statract` も同じ手順で当てはめます。係数は `fit_glm` や `cox_ph` と小さな標本で 1e-4 程度ずれることがあります。`seed=` だけで呼ぶと numpy の乱数を使うので、値は R と一致しません。
 
 ガンマ GLM の対数尤度は statsmodels の密度を返すため、fixture の比較には入れていません。係数、SE、HC0 は比べています。
@@ -80,6 +91,21 @@ rms の行は `rms.json`（rms 6.7-1、R 4.3.3）です。再生成は `Rscript 
 
 - クラスタ頑健分散の HC2 / HC3
 - `crr` の時間依存項（`cov2`、`tf`）。`crr` と同じサンドイッチ SE は `fine_gray_regression` です
+
+## stdReg2 と違うところ
+
+`standardize_cox` は stdReg2 1.0.8 に合わせていますが、次の点は R と違います。
+
+- 生存関数の分散では、事象時刻と同じ時刻で打ち切られた行にも、その時刻の基底ハザードの増分が入ります。R が時刻の値で行に割り当てるためで、これは R に合わせています。
+- RMST で外す項: R は `grep(曝露名, 項名)` で外すので、曝露が `ope` なら `operation` の項も消えます。statract は曝露の列を使う項だけを外します。
+- RMST の各事象の群: R は事象時刻を `match()` で同じ時刻の最初の行に当て、その行の群を使います。その行は打ち切りや別の群のこともあります。statract は事象を起こした行の群を使います。同じ時刻の事象が無ければ一致します。
+- RMST で曝露のほかに共変量が無い式は拒否します。R も `reformulate()` で止まります。
+- RMST の `times` が 2 個以上なら `ValueError` です。R は警告を出して最大値を使います。
+- RMST の `values` を `[1, 0]` の順に渡しても、各行の値と推定値は対応します。R は推定値を 0、1 の順に並べたまま、ラベルだけを `values` の順にします。
+- 文字列のクラスタ列も使えます。R は列を data.table の `by` に渡すので、文字列だと列名と読んで止まります。fixture のクラスタは整数です。
+- `transform="logit"` と `"odds"` は生存関数で使えます。R の `summary_std_coxph` は作る前の `out$measure` を読むので止まります。fixture はグローバルに `out` を置いて R に計算させています。
+- `ci="log"` と `contrast="difference"` の組み合わせは拒否します。参照行の推定値が 0 になり、R では区間が NaN になります。
+- ケースウェイトはありません。R も Cox にウェイトを渡しません。
 
 ## 既存の名前
 

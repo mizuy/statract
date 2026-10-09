@@ -10,6 +10,7 @@ from .curve import SurvivalCurve, survival_curve
 from .diagnostics import plot_cox_residuals, plot_loglog, write_cox_diagnostic_suite
 from .fine_gray import fine_gray, split_follow_up
 from .logrank import LogRankResult, log_rank
+from .standardize import StandardizedSurvival, standardize_cox
 
 __all__ = [
     "AftFit",
@@ -17,6 +18,7 @@ __all__ = [
     "CoxFit",
     "CumulativeIncidence",
     "LogRankResult",
+    "StandardizedSurvival",
     "SurvivalCurve",
     "accelerated_failure",
     "conditional_logit",
@@ -29,6 +31,7 @@ __all__ = [
     "plot_loglog",
     "proportional_hazards_test",
     "split_follow_up",
+    "standardize_cox",
     "survival_curve",
     "write_cox_diagnostic_suite",
 ]

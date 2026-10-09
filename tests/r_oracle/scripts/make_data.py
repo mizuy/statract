@@ -263,6 +263,38 @@ def _gamm_binary(seed: int, n: int, n_examiners: int) -> pl.DataFrame:
     )
 
 
+def _stdreg_sample(seed: int, n: int, *, exposure: str, whole_tenths: bool, max_follow_up: float) -> pl.DataFrame:
+    """Cox data for standardization: a binary ``ope`` or a continuous ``dose``."""
+    rng = np.random.default_rng(seed)
+    age = rng.normal(65.0, 10.0, n)
+    sex = rng.choice(["F", "M"], size=n)
+    # Integer sites: stdReg2 passes the cluster column to data.table's ``by``,
+    # which reads a character vector as column names.
+    site = rng.integers(1, 31, n)
+    if exposure == "ope":
+        value = (rng.uniform(size=n) < 1.0 / (1.0 + np.exp(-(age - 65.0) / 10.0))).astype(int)
+        effect = -0.5 * value + 0.01 * value * (age - 65.0)
+    else:
+        value = np.round(rng.uniform(0.0, 2.0, n), 6)
+        effect = -0.3 * value + 0.01 * value * (age - 65.0)
+    rate = 0.2 * np.exp(0.03 * (age - 65.0) + 0.3 * (sex == "M") + effect)
+    event_time = rng.exponential(1.0 / rate)
+    censor = rng.uniform(1.0, max_follow_up, n)
+    time = np.minimum(event_time, censor)
+    # Tenths of a year tie events with each other and with censored rows.
+    time = np.ceil(time * 10.0) / 10.0 if whole_tenths else time
+    return pl.DataFrame(
+        {
+            "time": np.round(time, 6),
+            "status": (event_time <= censor).astype(int),
+            exposure: value,
+            "age": np.round(age, 6),
+            "sex": sex,
+            "site": site,
+        }
+    )
+
+
 def main() -> None:
     DATA.mkdir(parents=True, exist_ok=True)
     # (1) Poisson counts, random intercept, 30 sites.
@@ -294,6 +326,11 @@ def main() -> None:
     _crossed_sample(20261022, 300, 30, theta=2.0, rho=0.6).write_csv(DATA / "glmm_crossed_a.csv")
     # Smooth plus examiner intercept, binary (gamm4 and mgcv bs = "re").
     _gamm_binary(20261023, 800, 25).write_csv(DATA / "gamm_binary_a.csv")
+    # Cox standardization: tied times with sites, a continuous exposure, and
+    # untied times for the restricted mean.
+    _stdreg_sample(20261024, 300, exposure="ope", whole_tenths=True, max_follow_up=8.0).write_csv(DATA / "stdreg_a.csv")
+    _stdreg_sample(20261025, 250, exposure="dose", whole_tenths=False, max_follow_up=8.0).write_csv(DATA / "stdreg_b.csv")
+    _stdreg_sample(20261026, 300, exposure="ope", whole_tenths=False, max_follow_up=6.0).write_csv(DATA / "stdreg_c.csv")
 
 
 if __name__ == "__main__":

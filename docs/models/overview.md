@@ -10,6 +10,7 @@
 | 線形モデル | `statract.fit` | `lm` / `glm` |
 | 共分散 | `statract.covariance` | sandwich |
 | 線形の検定 | `statract.linear_tests` | lmtest |
+| 基本の検定と区間 | `statract.htest` | `t.test`、`wilcox.test`、`mcnemar.test`、`binom.test`、`prop.test`、`p.adjust` |
 | 生存時間 | `statract.surv` | survival |
 | マッチング | `statract.matching` | MatchIt |
 | 加法モデル | `statract.gam` | mgcv。gaussian / binomial / poisson / gamma、`cr` / `tp` / `cc` / `ps` / `re`、テンソル、`ti`、`by`、重み、offset |
@@ -93,6 +94,8 @@ print(model.tidy())
 `survival_curve` の既定は Kaplan–Meier で、信頼区間は log です。Nelson–Aalen は `kind="nelson_aalen"` です。Cox の同順位は既定で Efron、`ties="breslow"` も選べます。層は `strata(arm)` か `strata=`、重みは `weights=` です。加速故障時間は `accelerated_failure(frame, "Surv(time, event) ~ x")`、Fine–Gray の展開は `fine_gray(frame, "Surv(time, status) ~ x", cause=1)` です。
 
 競合リスクの累積発生と Gray 検定は `cumulative_incidence(frame, "time", "status", by="arm")` です（`cmprsk::cuminc`）。`.tests` が原因ごとの検定、`.at([1, 3])` が時点の値です。`crr` と同じ Fine–Gray 回帰は `fine_gray_regression(frame, "Surv(time, status) ~ x + arm", cause=1)` で、SE は打ち切り分布の推定を含むサンドイッチです。`.predict(new)` が共変量ごとの CIF を返します。
+
+Cox モデルでの回帰標準化は `standardize_cox(frame, "Surv(time, status) ~ ope * age + sex", values={"ope": [0, 1]}, times=[1, 3, 5])` です（`stdReg2::standardize_coxph`）。曝露を各値に置き換えた生存の標本平均で、分散は共変量のばらつきを含むサンドイッチです。`.tidy()` が曲線、`.tidy(contrast="difference", reference=0)` が差です。`measure="rmean"` は 0/1 の曝露での制限付き平均生存時間です。R との違いは [vs R](vs-r.md) の「stdReg2 と違うところ」 にあります。
 
 ### マッチング
 

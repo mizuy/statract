@@ -16,6 +16,7 @@
 
 | ディレクトリ | docs ページ | 問い | 見る API | データ |
 |--------------|-------------|------|----------|--------|
+| [htest_licorice/](htest_licorice/) | [docs](../docs/examples/htest_licorice.md) | 甘草うがいと術後咽頭痛（4 時点） | `binom_test`, `prop_test`, `wilcox_test`, `t_test`, `mcnemar_test`, `p_adjust` | `medicaldata::licorice_gargle`（MIT + Ruetzler Anesth Analg 2013 引用） |
 | [surv_colon/](surv_colon/) | [docs](../docs/examples/surv_colon.md) | 補助化学療法 `rx` と再発時間 | `plot_survival`（NAR）、`cox_ph`, `proportional_hazards_test`, `write_cox_diagnostic_suite`, `plot_forest`（表一体） | R `survival::colon`（患者単位）。ライセンス LGPL (>= 2)。git 非収載 |
 | [logit_indo/](logit_indo/) | [docs](../docs/examples/logit_indo.md) | 直腸インドメタシンと PEP | `fit_mixed` binomial（主）、`median_odds_ratio`、`plot_random_effects`、比較用 `fit_glm` | `medicaldata::indo_rct`（MIT + Elmunzer NEJM 2012 引用） |
 | [psm_rhc/](psm_rhc/) | [docs](../docs/examples/psm_rhc.md) | 初日 RHC と 30 日死亡 | `match_sample`, `balance` / `love_plot`, マッチ後 `fit_glm` | Vanderbilt RHC（Connors JAMA 1996）。**再配布しない。教学のみ** |
