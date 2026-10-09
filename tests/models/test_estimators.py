@@ -90,7 +90,7 @@ def test_mixed_module_imports_engine_lazily():
     import ast
     from pathlib import Path
 
-    source = Path(__file__).parents[1] / "src/statract/models/mixed.py"
+    source = Path(__file__).parents[2] / "src/statract/models/mixed.py"
     tree = ast.parse(source.read_text())
     for node in tree.body:
         if isinstance(node, ast.Import):

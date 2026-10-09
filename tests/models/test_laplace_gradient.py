@@ -16,7 +16,7 @@ import pytest
 from statract._core import laplace as L
 from statract import fit_mixed, gamm, smooth
 
-DATA = Path(__file__).resolve().parent / "r_oracle" / "data"
+DATA = Path(__file__).resolve().parents[1] / "r_oracle" / "data"
 ARM = pl.Enum(["control", "low", "high"])
 FAMILIES = ["poisson", "negative_binomial", "binomial"]
 

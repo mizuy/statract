@@ -32,7 +32,7 @@ def _se(fit) -> np.ndarray:
 
 
 def test_src_has_no_statsmodels_import() -> None:
-    root = Path(__file__).resolve().parents[1] / "src" / "statract"
+    root = Path(__file__).resolve().parents[2] / "src" / "statract"
     offenders = []
     for path in root.rglob("*.py"):
         text = path.read_text(encoding="utf-8")

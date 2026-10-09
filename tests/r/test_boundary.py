@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-_SRC = Path(__file__).resolve().parents[1] / "src" / "statract"
+_SRC = Path(__file__).resolve().parents[2] / "src" / "statract"
 _ALLOWED = {
     Path("r/__init__.py"),
     Path("r/_env.py"),

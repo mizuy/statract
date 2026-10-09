@@ -45,7 +45,7 @@ def _surv_frame(n: int = 40) -> pl.DataFrame:
 
 
 def test_src_has_no_lifelines_import() -> None:
-    root = Path(__file__).resolve().parents[1] / "src" / "statract"
+    root = Path(__file__).resolve().parents[2] / "src" / "statract"
     offenders = []
     for path in root.rglob("*.py"):
         text = path.read_text(encoding="utf-8")
