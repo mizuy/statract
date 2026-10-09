@@ -93,7 +93,7 @@ class RconsoleSuppress(RconsoleBase):
 def _require_rpy2() -> Any:
     global rpy2, robjects, RRuntimeError, ListVector, Vector, rpy2polars, _rpy2_loaded
     if not _rpy2_loaded:
-        from . import _rpy2_env  # noqa: F401 — RPY2_CFFI_MODE=ABI before rpy2 import
+        from . import _env  # noqa: F401 — RPY2_CFFI_MODE=ABI before rpy2 import
 
         try:
             import rpy2 as _rpy2_mod
@@ -203,7 +203,7 @@ def init() -> None:
     if _r_resources_initialized or _r_resources_initializing:
         return
     _r_resources_initializing = True
-    rdir = Path(__file__).parent
+    rdir = Path(__file__).parent / "R"
     try:
         init_r = rdir / "init.R"
         if init_r.exists():

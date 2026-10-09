@@ -5,5 +5,5 @@
     ``median_odds_ratio`` / ``glmm_random_effects`` / ``plot_random_effects``
     are the MOR / BLUP helpers for ``MixedFit``.
 
-::: statract.regression
+::: statract.models.glmm_extras
 

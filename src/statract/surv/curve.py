@@ -15,7 +15,7 @@ import polars as pl
 from numba import njit
 from scipy import stats
 
-from ..design import ColumnRef, column_series
+from ..models.design import ColumnRef, column_series
 
 _CONFIDENCE = ("log", "log-log", "plain", "logit", "arcsin")
 _Z_CACHE: dict[float, float] = {}

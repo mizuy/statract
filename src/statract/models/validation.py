@@ -32,8 +32,8 @@ from numba import njit
 from scipy import special
 from scipy.stats import rankdata
 
-from . import _mpl as _mpl  # noqa: F401
-from ._lowess_r import approx_r, lowess_r
+from .._core import mpl as _mpl  # noqa: F401
+from .._core.lowess_r import approx_r, lowess_r
 from .design import ColumnRef
 from .fit import fit_glm
 
@@ -288,7 +288,7 @@ class _CoxFit:
 
 
 def _cox_layout(x, time, event):
-    from .surv.cox import _ordinary_layout
+    from ..surv.cox import _ordinary_layout
 
     n = time.size
     return _ordinary_layout(
@@ -312,7 +312,7 @@ def _cox_fit(
     init: np.ndarray | None = None,
 ) -> _CoxFit:
     """``rms:::coxphFit`` on right-censored data without strata."""
-    from .surv.cox import _score_layout
+    from ..surv.cox import _score_layout
 
     layout = _cox_layout(x, time, event)
     p = x.shape[1]
@@ -669,7 +669,7 @@ def plot_calibration_curve(
 
 
 def _cox_data(data, time, event, predictors, ties):
-    from .surv.cox import cox_ph
+    from ..surv.cox import cox_ph
 
     if ties not in {"efron", "breslow"}:
         raise ValueError("ties must be 'efron' or 'breslow'")

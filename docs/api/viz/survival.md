@@ -1,4 +1,4 @@
 # survival
 
-::: statract.survival
+::: statract.viz.km
 

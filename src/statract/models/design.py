@@ -488,7 +488,7 @@ def _take(series: pl.Series, keep: np.ndarray) -> pl.Series:
 
 
 def formula_model_matrix(formula: str, data: pl.DataFrame) -> tuple[np.ndarray, np.ndarray]:
-    """Fixed-effects matrix for a Wilkinson formula. See ``statract.formula``."""
+    """Fixed-effects matrix for a Wilkinson formula. See ``statract.models.formula``."""
     from .formula import formula_model_matrix as _expand
 
     return _expand(formula, data)

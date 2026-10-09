@@ -14,8 +14,8 @@ import polars as pl
 from matplotlib.ticker import FixedLocator, FuncFormatter, MultipleLocator
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from .surv.curve import survival_curve
-from .surv.logrank import log_rank
+from ..surv.curve import survival_curve
+from ..surv.logrank import log_rank
 
 # Type aliases
 ColumnRef: TypeAlias = str | pl.Expr

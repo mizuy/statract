@@ -82,7 +82,7 @@ KM / log-rank / Cox の正本。`etype=1` で患者単位に畳み、`hue=rx` �
     ```python
     import io
     import polars as pl
-    from statract.reporting import markdown_flowchart, mermaid_flowchart
+    from statract.report.artifacts import markdown_flowchart, mermaid_flowchart
 
     buf = io.StringIO()
     cohort = raw.pp.flowchart(

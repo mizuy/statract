@@ -13,7 +13,7 @@ import numpy as np
 import polars as pl
 from scipy import stats
 
-from ..design import ColumnRef, column_series
+from ..models.design import ColumnRef, column_series
 
 
 @dataclass(frozen=True)

@@ -1,4 +1,4 @@
 # agg
 
-::: statract.agg
+::: statract.tableone.agg
 

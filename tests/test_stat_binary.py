@@ -1,10 +1,10 @@
-"""Tests for statract.binary."""
+"""Tests for statract.models.binary."""
 
 from __future__ import annotations
 
 import numpy as np
 
-from statract.binary import binary_perf, threshold_tradeoff
+from statract.models.binary import binary_perf, threshold_tradeoff
 
 
 def test_binary_perf_basic() -> None:

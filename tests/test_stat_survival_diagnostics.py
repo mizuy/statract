@@ -23,7 +23,7 @@ from statract import (
     survival_curve,
     write_cox_diagnostic_suite,
 )
-from statract.survival import KmPlotCurve, add_at_risk_counts, _km_from_group
+from statract.viz.km import KmPlotCurve, add_at_risk_counts, _km_from_group
 
 
 def _surv_frame(n: int = 40) -> pl.DataFrame:

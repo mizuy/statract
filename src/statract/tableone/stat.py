@@ -14,7 +14,7 @@ import numpy as np
 import polars as pl
 import scipy.stats
 
-from .htest import _clopper_pearson, _wilson
+from ..models.htest import _clopper_pearson, _wilson
 
 # statfunc(col0, col1) -> str
 StatFunc: TypeAlias = Callable[[pl.Series, pl.Series], str]

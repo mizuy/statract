@@ -75,7 +75,7 @@
     ```python
     import io
     import polars as pl
-    from statract.reporting import mermaid_flowchart
+    from statract.report.artifacts import mermaid_flowchart
 
     buf = io.StringIO()
     cohort = target.pp.flowchart(

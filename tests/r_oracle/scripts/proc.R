@@ -1,4 +1,4 @@
-# pROC oracle for statract.roc. Run from the repo root:
+# pROC oracle for statract.models.roc. Run from the repo root:
 #   Rscript tests/r_oracle/scripts/proc.R
 suppressPackageStartupMessages({
   library(pROC)

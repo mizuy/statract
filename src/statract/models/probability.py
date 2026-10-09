@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import _mpl as _mpl  # noqa: F401
+from .._core import mpl as _mpl  # noqa: F401
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -148,7 +148,7 @@ def write_probability_artifacts(
 
     Each model dict needs ``prob_val``, ``y_val``, and ``name``.
     """
-    from .reporting import write_csv_companion
+    from ..report.artifacts import write_csv_companion
 
     out_dir = out_dir.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)

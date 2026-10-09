@@ -73,7 +73,7 @@
     ```python
     import io
     import polars as pl
-    from statract.reporting import markdown_flowchart, mermaid_flowchart
+    from statract.report.artifacts import markdown_flowchart, mermaid_flowchart
 
     buf = io.StringIO()
     cohort = target.pp.flowchart(

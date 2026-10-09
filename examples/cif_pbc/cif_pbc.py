@@ -19,8 +19,8 @@ import numpy as np
 import polars as pl
 
 from support import flowchart, load_parquet_dir
-from statract.reporting import mermaid_flowchart
-from statract.reporting import markdown_flowchart, write_csv_companion
+from statract.report.artifacts import mermaid_flowchart
+from statract.report.artifacts import markdown_flowchart, write_csv_companion
 from statract import (
     agg_category,
     agg_mean_sd,

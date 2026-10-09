@@ -1,4 +1,4 @@
 # stat
 
-::: statract.stat
+::: statract.tableone.stat
 

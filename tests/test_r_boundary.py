@@ -12,8 +12,8 @@ import pytest
 
 _SRC = Path(__file__).resolve().parents[1] / "src" / "statract"
 _ALLOWED = {
-    Path("r.py"),
-    Path("_rpy2_env.py"),
+    Path("r/__init__.py"),
+    Path("r/_env.py"),
 }
 
 

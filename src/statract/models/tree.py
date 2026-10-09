@@ -69,7 +69,7 @@ class ConditionalTree:
 
     def plot(self, path: Path | str | None = None, **kwargs: Any) -> Any:
         """Draw the tree like partykit's ``plot``. See :func:`plot_tree`."""
-        from .tree_plot import plot_tree
+        from ..viz.tree import plot_tree
 
         return plot_tree(self, path, **kwargs)
 

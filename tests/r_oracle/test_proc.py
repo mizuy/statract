@@ -1,4 +1,4 @@
-"""statract.roc against pROC 1.18.5 (fixture from tests/r_oracle/scripts/proc.R)."""
+"""statract.models.roc against pROC 1.18.5 (fixture from tests/r_oracle/scripts/proc.R)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from statract.roc import roc_curve, roc_test
+from statract.models.roc import roc_curve, roc_test
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "proc.json").read_text())
 SAMPLES = sorted(FIXTURE["samples"])
@@ -128,7 +128,7 @@ def test_direction_and_levels():
 
 
 def test_plot_roc(tmp_path):
-    from statract.roc import plot_roc
+    from statract.models.roc import plot_roc
 
     r1 = _curve("balanced", "y", "score1")
     r2 = _curve("balanced", "y", "score2")

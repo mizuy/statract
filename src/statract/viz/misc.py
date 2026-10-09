@@ -29,7 +29,7 @@ def concat_images(images: list[Image.Image], ncols: int = 10) -> Image.Image:
 
     Examples:
         >>> from PIL import Image
-        >>> from statract.figure import concat_images
+        >>> from statract.viz.misc import concat_images
         >>>
         >>> # Create sample images
         >>> img1 = Image.new("RGB", (100, 100), color="red")
@@ -68,7 +68,7 @@ def _get_lim(p: float, q: float) -> tuple[float, float]:
         Tuple of (min_limit, max_limit) with 0.5% margin
 
     Examples:
-        >>> from statract.figure import get_lim
+        >>> from statract.viz.misc import get_lim
         >>>
         >>> min_val, max_val = get_lim(0.0, 100.0)
         >>> min_val < 0.0
@@ -105,7 +105,7 @@ def funnel_plot(
 
     Examples:
         >>> import polars as pl
-        >>> from statract.figure import funnel_plot
+        >>> from statract.viz.misc import funnel_plot
         >>>
         >>> df = pl.DataFrame({
         ...     "n": [10, 20, 30, 40, 50],

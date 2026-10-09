@@ -488,7 +488,7 @@ def plot_roc(
     title: str = "ROC curve",
 ) -> Path:
     """Save ROC curves (sensitivity vs 1 - specificity) with AUC in the legend."""
-    from . import _mpl as _mpl  # noqa: F401
+    from .._core import mpl as _mpl  # noqa: F401
 
     import matplotlib.pyplot as plt
 

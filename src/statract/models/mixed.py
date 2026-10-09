@@ -19,7 +19,7 @@ import polars as pl
 from scipy import stats
 
 from .design import ColumnRef, Design, _is_factor, column_series, design_matrix
-from ._laplace import COUNT_FAMILIES, LAPLACE_FAMILIES, fit_laplace_glmm
+from .._core.laplace import COUNT_FAMILIES, LAPLACE_FAMILIES, fit_laplace_glmm
 from .formula import is_formula, model_matrix, reject_survival_syntax
 
 _FAMILIES = ("gaussian", "binomial", "poisson", "gamma", "negative_binomial")
@@ -620,7 +620,7 @@ def _fit_laplace_terms(
     zero_part: str | None,
     zero_design: Design | None,
 ) -> MixedFit:
-    from ._laplace import RandomTerm, fit_laplace_terms
+    from .._core.laplace import RandomTerm, fit_laplace_terms
 
     result = fit_laplace_terms(
         y,

@@ -320,7 +320,7 @@ def plot_forest(
 
     This is the canonical statistical forest (GLM OR / Cox HR / OLS). Gallery
     figures use ``layout="table"``; print journals use ``style="bw"``. Prefer
-    this over ``statract.figure.save_prepared_hr_forest``.
+    this over ``statract.viz.misc.save_prepared_hr_forest``.
 
     Default ``layout="table"`` joins term / estimate (CI) / p-value text columns
     with the forest panel (table + forest as one figure). Use ``layout="points"``

@@ -18,7 +18,7 @@ import numpy as np
 import polars as pl
 
 from support import load_parquet_dir
-from statract.reporting import write_csv_companion
+from statract.report.artifacts import write_csv_companion
 from statract import (
     accelerated_failure,
     agg_category,

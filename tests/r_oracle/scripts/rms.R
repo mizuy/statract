@@ -1,4 +1,4 @@
-# Oracle for statract.validation: rms::validate.lrm, calibrate (lrm), validate.cph and
+# Oracle for statract.models.validation: rms::validate.lrm, calibrate (lrm), validate.cph and
 # calibrate.cph (cmethod = "KM").
 #
 #   Rscript tests/r_oracle/scripts/rms.R

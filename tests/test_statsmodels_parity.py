@@ -12,7 +12,7 @@ import polars as pl
 import pytest
 
 from statract import fit_glm, fit_ols, proportion_ci
-from statract.matching import _probit_probability
+from statract.models.matching import _probit_probability
 from statract.surv.diagnostics import _maybe_lowess
 
 

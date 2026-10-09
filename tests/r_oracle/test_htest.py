@@ -1,4 +1,4 @@
-"""statract.htest against R 4.3 stats (fixture from tests/r_oracle/scripts/htest.R)."""
+"""statract.models.htest against R 4.3 stats (fixture from tests/r_oracle/scripts/htest.R)."""
 
 from __future__ import annotations
 

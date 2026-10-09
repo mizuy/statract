@@ -16,11 +16,11 @@ from typing import TYPE_CHECKING, Any, Literal
 import matplotlib.pyplot as plt
 import numpy as np
 
-from . import _mpl as _mpl  # noqa: F401
-from .tree import _Node, _route
+from .._core import mpl as _mpl  # noqa: F401
+from ..models.tree import _Node, _route
 
 if TYPE_CHECKING:
-    from .tree import ConditionalTree
+    from ..models.tree import ConditionalTree
 
 TerminalPanel = Literal["auto", "boxplot", "barplot"]
 

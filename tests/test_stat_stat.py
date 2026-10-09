@@ -1,4 +1,4 @@
-"""Tests for statract.stat module."""
+"""Tests for statract.tableone.stat module."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import math
 import numpy as np
 import polars as pl
 
-from statract.stat import (
+from statract.tableone.stat import (
     proportion_ci,
     cohen_d,
     format_pvalue,

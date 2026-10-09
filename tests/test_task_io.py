@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import polars as pl
 
-from statract.task_io import prepare_task_output, save_frames
+from statract.report.task_io import prepare_task_output, save_frames
 
 
 def test_prepare_task_output_writes_csv(tmp_path) -> None:

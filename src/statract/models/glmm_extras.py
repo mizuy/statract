@@ -19,7 +19,7 @@ import polars as pl
 import scipy.stats
 
 from .formula import model_matrix
-from .stat import format_pvalue
+from ..tableone.stat import format_pvalue
 
 _Z075 = float(scipy.stats.norm.ppf(0.75))
 
@@ -349,7 +349,7 @@ def glmm_gpboost(
     )
 
     if return_dict:
-        from .forest import plot_forest
+        from ..viz.forest import plot_forest
 
         plot = plot_forest(
             summary_table,
@@ -399,7 +399,7 @@ def glmm_forestplot(
         ``Path`` when ``path`` is set, otherwise a matplotlib ``Figure``.
     """
     del cell_height, width  # accepted for backward-compatible call sites
-    from .forest import plot_forest
+    from ..viz.forest import plot_forest
 
     kwargs: dict[str, Any] = {
         "null_value": 1.0,

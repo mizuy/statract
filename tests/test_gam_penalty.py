@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from statract.gam.general import _logdet_penalty, _penalty_rank, _total_penalty
+from statract.models.gam.general import _logdet_penalty, _penalty_rank, _total_penalty
 
 
 def test_logdet_keeps_tiny_eigenvalues_when_smoothing_parameters_differ() -> None:

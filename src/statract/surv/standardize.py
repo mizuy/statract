@@ -19,8 +19,8 @@ import numpy as np
 import polars as pl
 from scipy import stats
 
-from ..design import Design, build_design
-from ..formula import _columns_in
+from ..models.design import Design, build_design
+from ..models.formula import _columns_in
 from .cox import CoxFit, _baseline, _newton, cox_ph
 from .spec import parse_survival_formula
 

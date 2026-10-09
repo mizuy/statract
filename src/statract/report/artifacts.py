@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ._markdown import github_markdown_table_from_csv, github_markdown_table_from_polars
+from .markdown import github_markdown_table_from_csv, github_markdown_table_from_polars
 
 REPORT_SECTION_FILENAME = "section_report.md"
 MAX_EMBED_TABLE_ROWS = 100

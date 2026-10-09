@@ -11,4 +11,4 @@ r1.coords("best", best_method="youden", ret=["threshold", "specificity", "sensit
 roc_test(r1, roc_curve(df["y"], df["score2"]))  # 同じ応答なので対応ありの DeLong
 ```
 
-::: statract.roc
+::: statract.models.roc

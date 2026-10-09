@@ -25,7 +25,7 @@ import numpy as np
 import polars as pl
 from scipy import special, stats
 
-from ._laplace import RandomTerm, fit_laplace_terms
+from .._core.laplace import RandomTerm, fit_laplace_terms
 from .design import ColumnRef, column_series, design_matrix
 from .gam import Smooth
 

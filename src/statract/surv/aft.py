@@ -14,9 +14,9 @@ import numpy as np
 import polars as pl
 from scipy import stats
 
-from ..design import ColumnRef, column_series, design_matrix
-from ..fit import Fit
-from ..formula import is_formula
+from ..models.design import ColumnRef, column_series, design_matrix
+from ..models.fit import Fit
+from ..models.formula import is_formula
 from .spec import parse_survival_formula
 
 _LOG_TIME = {"weibull", "exponential", "lognormal", "loglogistic"}

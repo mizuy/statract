@@ -6,7 +6,7 @@ from pathlib import Path
 
 import polars as pl
 
-from statract.reporting import (
+from statract.report.artifacts import (
     csv_companion_markdown,
     mermaid_flowchart,
     out_asset,

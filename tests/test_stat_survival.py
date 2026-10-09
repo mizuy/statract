@@ -1,11 +1,11 @@
-"""Tests for statract.survival module."""
+"""Tests for statract.viz.km module."""
 
 from __future__ import annotations
 
 import polars as pl
 import pytest
 
-from statract.survival import (
+from statract.viz.km import (
     cumulative_survival_ci,
     log_rank_pvalue,
     timedelta_to_years,

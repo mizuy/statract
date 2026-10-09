@@ -126,7 +126,7 @@ def test_impute_chained_guards() -> None:
 def test_polyreg_fit_reaches_the_optimum() -> None:
     from scipy import special
 
-    from statract.impute import _RIDGE, _multinomial
+    from statract.models.impute import _RIDGE, _multinomial
 
     rng = np.random.default_rng(5)
     n, k = 800, 4
@@ -144,7 +144,7 @@ def test_polyreg_fit_reaches_the_optimum() -> None:
 
 
 def test_pmm_donors_are_among_the_nearest() -> None:
-    from statract.impute import _N_DONORS, _impute_pmm, _norm_draw
+    from statract.models.impute import _N_DONORS, _impute_pmm, _norm_draw
 
     for seed in range(50):
         rng = np.random.default_rng(seed)

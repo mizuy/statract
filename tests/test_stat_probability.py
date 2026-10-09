@@ -1,4 +1,4 @@
-"""Tests for statract.probability."""
+"""Tests for statract.models.probability."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
-from statract.probability import (
+from statract.models.probability import (
     brier_score,
     calibration_table,
     decision_curve_table,

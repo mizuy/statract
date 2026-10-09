@@ -213,7 +213,7 @@ def write_tableone_artifacts(
         すでに組み立てた Table One DataFrame（Pre/Post 横並び等）。
         指定時は ``df``/``params`` は不要。
     """
-    from .reporting import write_csv_companion
+    from ..report.artifacts import write_csv_companion
 
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -802,7 +802,7 @@ def tableone_raw(  # noqa: C901
     Examples:
         >>> import polars as pl
         >>> from statract import tableone_raw
-        >>> from statract import agg
+        >>> from statract.tableone import agg
         >>>
         >>> # Create sample data
         >>> df = pl.DataFrame({

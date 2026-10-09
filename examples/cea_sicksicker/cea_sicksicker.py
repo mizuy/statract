@@ -42,7 +42,7 @@ from statract.cea import (
     simulate_cohort_markov,
     tornado_table,
 )
-from statract.reporting import write_csv_companion
+from statract.report.artifacts import write_csv_companion
 from project import project
 
 STATES = ("H", "S1", "S2", "D")

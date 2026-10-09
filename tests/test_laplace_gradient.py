@@ -13,7 +13,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from statract import _laplace as L
+from statract._core import laplace as L
 from statract import fit_mixed, gamm, smooth
 
 DATA = Path(__file__).resolve().parent / "r_oracle" / "data"

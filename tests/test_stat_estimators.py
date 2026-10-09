@@ -19,7 +19,7 @@ from statract import (
     tensor_interaction,
     tensor_smooth,
 )
-from statract.design import design_matrix, formula_model_matrix
+from statract.models.design import design_matrix, formula_model_matrix
 
 
 def _frame() -> pl.DataFrame:
@@ -90,7 +90,7 @@ def test_mixed_module_imports_engine_lazily():
     import ast
     from pathlib import Path
 
-    source = Path(__file__).parents[1] / "src/statract/mixed.py"
+    source = Path(__file__).parents[1] / "src/statract/models/mixed.py"
     tree = ast.parse(source.read_text())
     for node in tree.body:
         if isinstance(node, ast.Import):
@@ -145,7 +145,7 @@ def test_scalar_nearest_matches_the_full_scan():
     treat = np.zeros(n, dtype=bool)
     treat[rng.choice(n, size=30, replace=False)] = True
     exact = rng.integers(0, 3, size=n)
-    from statract.matching import _nearest_on_line, _nearest_scan
+    from statract.models.matching import _nearest_on_line, _nearest_scan
 
     control = np.flatnonzero(~treat)
     for order_name, treated in (
@@ -181,7 +181,7 @@ def test_logit_tie_keeps_the_adjacent_lower_score():
 
 def test_exact_and_cem_defer_the_propensity(monkeypatch):
     calls = {"n": 0}
-    import statract.matching as matching
+    import statract.models.matching as matching
 
     real = matching.fit_glm
 
@@ -280,7 +280,7 @@ def test_mahalanobis_scale_matches_sequential_longdouble():
     column = values[:, 1]
     assert sequential(column) != np.sum(column.astype(np.longdouble), dtype=np.longdouble)
 
-    from statract.matching import _pooled_cov, _r_scale
+    from statract.models.matching import _pooled_cov, _r_scale
 
     center = np.empty(width)
     for index in range(width):
@@ -338,7 +338,7 @@ def test_squared_euclidean_tiles_match_one_row_einsum():
     rng = np.random.default_rng(0)
     left = np.ascontiguousarray(rng.normal(size=(40, 21)))
     right = np.ascontiguousarray(rng.normal(size=(4000, 21)))
-    from statract.matching import _squared_euclidean
+    from statract.models.matching import _squared_euclidean
 
     got = _squared_euclidean(left, right)
     for index in range(0, left.shape[0], 7):

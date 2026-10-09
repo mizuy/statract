@@ -1,8 +1,8 @@
-"""Tests for statract.agg module."""
+"""Tests for statract.tableone.agg module."""
 
 import polars as pl
 
-from statract.agg import agg_category_base
+from statract.tableone.agg import agg_category_base
 
 
 class TestAggCategoryBase:

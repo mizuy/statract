@@ -15,8 +15,8 @@ import polars as pl
 from numba import njit
 from scipy import stats
 
-from ..design import ColumnRef, Design, build_design, column_series, design_matrix
-from ..formula import is_formula
+from ..models.design import ColumnRef, Design, build_design, column_series, design_matrix
+from ..models.formula import is_formula
 from .spec import parse_survival_formula
 
 

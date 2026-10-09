@@ -1,9 +1,9 @@
-"""Comprehensive tests for the statract.tableone module."""
+"""Comprehensive tests for the statract.tableone.table module."""
 
 import polars as pl
 import pytest
 
-from statract.tableone import (
+from statract.tableone.table import (
     ColumnNotFoundError,
     InvalidParameterError,
     TableOneError,
@@ -11,7 +11,7 @@ from statract.tableone import (
     tableone,
     tableone_raw,
 )
-from statract.agg import (
+from statract.tableone.agg import (
     agg_category_n,
     agg_category_np,
     agg_count,
@@ -21,7 +21,7 @@ from statract.agg import (
 )
 from great_tables import GT
 
-from statract.stat import stat_anova, stat_fisher, stat_kruskal, standardized_difference
+from statract.tableone.stat import stat_anova, stat_fisher, stat_kruskal, standardized_difference
 
 
 class TestTableOneParam:
@@ -456,7 +456,7 @@ class TestTableOneGreatTables:
         assert "　X" in html
 
     def test_write_tableone_artifacts(self, tmp_path):
-        from statract.tableone import write_tableone_artifacts
+        from statract.tableone.table import write_tableone_artifacts
 
         df = pl.DataFrame(
             {
@@ -484,7 +484,7 @@ class TestTableOneGreatTables:
         """The _gt.md fragment uses a fixed id, scopes every CSS rule, and has no blank lines."""
         import re
 
-        from statract.tableone import write_tableone_artifacts
+        from statract.tableone.table import write_tableone_artifacts
 
         df = pl.DataFrame({"group": ["A", "A", "B"], "age": [10.0, 12.0, 20.0]})
         params = {"Age": ("age", agg_mean_sd)}
@@ -505,7 +505,7 @@ class TestTableOneGreatTables:
         """column_order 適用後も stub(name) が左端、指定列順が保たれること。"""
         import re
 
-        from statract.tableone import tableone_gt_from_frame
+        from statract.tableone.table import tableone_gt_from_frame
 
         table = pl.DataFrame(
             {

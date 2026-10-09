@@ -3,11 +3,11 @@ from unittest.mock import MagicMock, patch
 import polars as pl
 import pytest
 
-from statract.figure import concat_images, funnel_plot
+from statract.viz.misc import concat_images, funnel_plot
 
 
 class TestConcatImages:
-    @patch("statract.figure.Image")
+    @patch("statract.viz.misc.Image")
     def test_concat_images_basic(self, mock_image_class):
         # Create mock images
         images = []
@@ -30,7 +30,7 @@ class TestConcatImages:
 
         assert result == mock_combined
 
-    @patch("statract.figure.Image")
+    @patch("statract.viz.misc.Image")
     def test_concat_images_single_row(self, mock_image_class):
         # Create mock images for single row
         images = []
@@ -49,7 +49,7 @@ class TestConcatImages:
         assert mock_combined.paste.call_count == 3
         assert result == mock_combined
 
-    @patch("statract.figure.Image")
+    @patch("statract.viz.misc.Image")
     def test_concat_images_empty_list(self, mock_image_class):
         # The code should raise ValueError for empty list
         with pytest.raises(ValueError, match="Cannot concatenate empty list"):
@@ -57,8 +57,8 @@ class TestConcatImages:
 
 
 class TestFunnelPlot:
-    @patch("statract.figure.px")
-    @patch("statract.figure.go")
+    @patch("statract.viz.misc.px")
+    @patch("statract.viz.misc.go")
     def test_funnel_plot_basic(self, mock_go, mock_px):
         # Create test data with Polars DataFrame
         df = pl.DataFrame(
@@ -94,8 +94,8 @@ class TestFunnelPlot:
 
         assert result == mock_fig
 
-    @patch("statract.figure.px")
-    @patch("statract.figure.go")
+    @patch("statract.viz.misc.px")
+    @patch("statract.viz.misc.go")
     def test_funnel_plot_with_kwargs(self, mock_go, mock_px):
         df = pl.DataFrame(
             {
@@ -124,7 +124,7 @@ class TestFunnelPlot:
 class TestUtilityFunctions:
     def test_get_lim_via_funnel_plot(self):
         """Test _get_lim indirectly through funnel_plot."""
-        from statract.figure import funnel_plot
+        from statract.viz.misc import funnel_plot
         import polars as pl
 
         # Create test data
@@ -137,8 +137,8 @@ class TestUtilityFunctions:
 
 
 class TestEdgeCases:
-    @patch("statract.figure.px")
-    @patch("statract.figure.go")
+    @patch("statract.viz.misc.px")
+    @patch("statract.viz.misc.go")
     def test_funnel_plot_single_point(self, mock_go, mock_px):
         df = pl.DataFrame(
             {
