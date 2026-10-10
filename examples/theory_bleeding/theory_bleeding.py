@@ -26,8 +26,12 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.ticker
 import numpy as np
+import penalized as pen
 import polars as pl
+from build import TRUE_BLEED, bleed_logit, potential_outcomes, simulate
 from scipy import stats
+from support import ProjectPath, load_data
+
 from statract import (
     accelerated_failure,
     agg_category,
@@ -45,8 +49,6 @@ from statract import (
     match_sample,
     plot_forest,
     plot_love,
-    plot_random_effects,
-    plot_roc,
     plot_survival,
     plot_tree,
     prop_test,
@@ -60,10 +62,6 @@ from statract import (
     write_tableone_artifacts,
 )
 from statract.report.artifacts import write_csv_companion
-from support import ProjectPath, load_data
-
-import penalized as pen
-from build import TRUE_BLEED, bleed_logit, potential_outcomes, simulate
 
 project = ProjectPath(__file__)
 CACHE = project.cache / "build" / "bleeding.parquet"
@@ -91,6 +89,60 @@ LABELS = {
 # Adjustment set read off the DAG for the effect of clip (back-door paths).
 DAG_ADJUST = ["age", "antithrombotic", "size_mm", "proximal"]
 BLUE, GRAY, RED = "#0073C2", "#868686", "#CD534C"
+
+
+def _house_font(fig) -> None:
+    """Give every text in a figure the font the hand-drawn figures use.
+
+    The statract forest and Love plots draw inside their own rc context
+    (DejaVu Sans); this resets their text to the session font.
+    """
+    family = plt.rcParams["font.family"]
+    for t in fig.findobj(matplotlib.text.Text):
+        t.set_fontfamily(family)
+
+
+def _recolor(fig, mapping: dict[str, str]) -> None:
+    """Swap colours on every line, patch, collection and text of a figure."""
+    from matplotlib.colors import same_color, to_hex
+
+    def swap(c):
+        for old, new in mapping.items():
+            if same_color(c, old):
+                return new
+        return None
+
+    pairs = [
+        ("get_color", "set_color"),
+        ("get_facecolor", "set_facecolor"),
+        ("get_edgecolor", "set_edgecolor"),
+        ("get_markerfacecolor", "set_markerfacecolor"),
+        ("get_markeredgecolor", "set_markeredgecolor"),
+    ]
+    for a in fig.findobj():
+        # Read every colour first, so a colour set here is not swapped again.
+        todo = []
+        for get, put in pairs:
+            if not (hasattr(a, get) and hasattr(a, put)):
+                continue
+            try:
+                arr = matplotlib.colors.to_rgba_array(getattr(a, get)())
+            except (TypeError, ValueError):
+                continue
+            if arr.size == 0:
+                continue
+            new = swap(to_hex(arr[0][:3]))
+            if new is not None:
+                todo.append((put, matplotlib.colors.to_rgba(new, arr[0][3])))
+        for put, c in todo:
+            getattr(a, put)(c)
+
+
+def _save_restyled(fig, path: Path) -> None:
+    """Save a statract figure after resetting its font to the house font."""
+    _house_font(fig)
+    fig.savefig(path, dpi=180, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
 
 
 def _clear_out(out: Path) -> Path:
@@ -164,18 +216,22 @@ def conventional(df: pl.DataFrame, out: Path) -> tuple[pl.DataFrame, list[str]]:
     )
     _write_csv(out, "univariable", uni)
     _write_csv(out, "multivariable", multi)
-    plot_forest(
-        _labelled(uni),
-        out / "figures" / "forest_univariable.png",
-        title="Univariable logistic (OR)",
-        xlabel="Odds ratio",
-    )
-    plot_forest(
-        _labelled(multi),
-        out / "figures" / "forest_multivariable.png",
-        title="Multivariable logistic after P < 0.05 screen (OR)",
-        xlabel="Odds ratio",
-    )
+    for frame, stem, title in [
+        (uni, "forest_univariable", "Univariable logistic (OR)"),
+        (
+            multi,
+            "forest_multivariable",
+            "Multivariable logistic after P < 0.05 screen (OR)",
+        ),
+    ]:
+        fig = plot_forest(
+            _labelled(frame).with_columns(
+                pl.col("term").replace({"Prophylactic clip": "Clip"})
+            ),
+            title=title,
+            xlabel="Odds ratio",
+        )
+        _save_restyled(fig, out / "figures" / f"{stem}.png")
     return uni, selected
 
 
@@ -316,7 +372,7 @@ def confounding_by_indication(df: pl.DataFrame, out: Path) -> None:
     ]
     ax.bar(np.arange(len(order)), vals, 0.6, color=RED)
     ax.set_xticks(np.arange(len(order)), [s.replace(", ", "\n") for s in order])
-    ax.set_ylabel("Clipped (%)")
+    ax.set_ylabel("Patients with a clip (%)")
     ax.set_title("Who gets a clip")
     ax.grid(axis="y", alpha=0.3)
     fig.tight_layout()
@@ -350,7 +406,14 @@ def _effect_plot(
     ax.axvline(0, color="black", lw=0.8, ls="--")
     if truth is not None:
         ax.axvline(truth, color=RED, lw=1, ls=":")
-    ax.set_yticks(y, rows["term"].to_list())
+    # Group wording on the figures is "Clip" / "No clip"; the CSV keeps its terms.
+    ax.set_yticks(
+        y,
+        [
+            t.replace("clipped patients", "patients with a clip")
+            for t in rows["term"].to_list()
+        ],
+    )
     ax.set_xlabel("Risk difference, clip minus no clip (percentage points)")
     ax.set_title(title)
     ax.grid(axis="x", alpha=0.3)
@@ -487,12 +550,12 @@ def causal_effects(po: pl.DataFrame, out: Path) -> pl.DataFrame:
     xs = np.arange(2)
     w = 0.36
     for k, (col, color, name) in enumerate(
-        [("y0", GRAY, "If not clipped, Y(0)"), ("y1", BLUE, "If clipped, Y(1)")]
+        [("y0", GRAY, "No clip, Y(0)"), ("y1", BLUE, "Clip, Y(1)")]
     ):
         vals = by_group[col].to_numpy() * 100
         bars = ax.bar(xs + (k - 0.5) * w, vals, w, color=color, label=name)
         ax.bar_label(bars, fmt="%.1f", padding=2, fontsize=9)
-    ax.set_xticks(xs, ["Not clipped\n(actual group)", "Clipped\n(actual group)"])
+    ax.set_xticks(xs, ["No clip\n(actual group)", "Clip\n(actual group)"])
     ax.set_ylabel("Delayed bleeding (%)")
     ax.set_title("Both potential outcomes, by the group patients were in")
     ax.legend(frameon=False, loc="upper left")
@@ -645,10 +708,10 @@ def ps_matching(df: pl.DataFrame, po: pl.DataFrame, matched, out: Path) -> None:
     h1, _ = np.histogram(ps[clip == 1], bins=bins)
     h0, _ = np.histogram(ps[clip == 0], bins=bins)
     mids = (bins[:-1] + bins[1:]) / 2
-    ax.bar(mids, h1, width=bins[1] - bins[0], color=BLUE, label="Clipped")
-    ax.bar(mids, -h0, width=bins[1] - bins[0], color=GRAY, label="Not clipped")
+    ax.bar(mids, h1, width=bins[1] - bins[0], color=BLUE, label="Clip")
+    ax.bar(mids, -h0, width=bins[1] - bins[0], color=GRAY, label="No clip")
     ax.axhline(0, color="black", lw=0.8)
-    ax.set_xlabel("Propensity score (probability of being clipped)")
+    ax.set_xlabel("Propensity score (probability of a clip)")
     ax.set_ylabel("Patients")
     ax.yaxis.set_major_formatter(
         matplotlib.ticker.FuncFormatter(lambda v, _p: f"{abs(int(v))}")
@@ -675,13 +738,13 @@ def ps_matching(df: pl.DataFrame, po: pl.DataFrame, matched, out: Path) -> None:
         )
     )
     _write_csv(out, "ch4_balance", balance)
-    plot_love(
+    fig = plot_love(
         balance.rename({"smd_all": "diff_unadjusted", "smd_matched": "diff_adjusted"}),
-        out / "figures" / "ch4_love_plot.png",
         threshold=0.1,
         title="Balance before and after matching",
         xlabel="Absolute standardized mean difference",
     )
+    _save_restyled(fig, out / "figures" / "ch4_love_plot.png")
 
     ps_fit = fit_glm(df, PS_FORMULA, family="binomial")
     _write_csv(out, "ch4_ps_model", _or_rows(ps_fit, COVARIATES))
@@ -769,13 +832,13 @@ def iptw(df: pl.DataFrame, po: pl.DataFrame, out: Path) -> None:
 
     fig, ax = plt.subplots(figsize=(7, 3.6))
     bins = np.logspace(0, np.log10(w.max() * 1.1), 40)
-    ax.hist(w[clip == 1], bins=bins, color=BLUE, alpha=0.85, label="Clipped: 1 / e")
+    ax.hist(w[clip == 1], bins=bins, color=BLUE, alpha=0.85, label="Clip: 1 / e")
     ax.hist(
         w[clip == 0],
         bins=bins,
         color=GRAY,
         alpha=0.85,
-        label="Not clipped: 1 / (1 - e)",
+        label="No clip: 1 / (1 - e)",
     )
     ax.set_xscale("log")
     ax.set_yscale("log")
@@ -803,13 +866,13 @@ def iptw(df: pl.DataFrame, po: pl.DataFrame, out: Path) -> None:
         )
     )
     _write_csv(out, "ch5_balance", bal)
-    plot_love(
+    fig = plot_love(
         bal,
-        out / "figures" / "ch5_love_plot.png",
         threshold=0.1,
         title="Balance before and after weighting (ATE)",
         xlabel="Absolute standardized mean difference",
     )
+    _save_restyled(fig, out / "figures" / "ch5_love_plot.png")
 
     e = np.asarray(ate.ps)
     rows = []
@@ -1382,6 +1445,10 @@ def _decile_table(y: np.ndarray, p: np.ndarray, model: str) -> pl.DataFrame:
     )
 
 
+# One colour per model in both the ROC and the decision curve.
+MODEL_COLORS = {"Seven predictors": BLUE, "Age + antithrombotic": RED}
+
+
 def discrimination_calibration(df: pl.DataFrame, out: Path) -> None:
     """Chapter 9: ROC, calibration, Brier score and decision curves on new patients."""
     test = _test_set()
@@ -1395,7 +1462,25 @@ def discrimination_calibration(df: pl.DataFrame, out: Path) -> None:
         "Seven predictors": roc_curve(yt, p_full),
         "Age + antithrombotic": roc_curve(yt, p_simple),
     }
-    plot_roc(rocs, out / "figures" / "ch9_roc.png", title="ROC curve in new patients")
+    fig, ax = plt.subplots(figsize=(5.4, 5.0))
+    ax.plot([0, 1], [0, 1], color=GRAY, linestyle="--", lw=1)
+    for (name, r), color in zip(rocs.items(), MODEL_COLORS.values(), strict=True):
+        ax.plot(
+            1 - r.specificities,
+            r.sensitivities,
+            color=color,
+            label=f"{name} (AUC {r.auc:.3f})",
+        )
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_xlabel("1 - Specificity")
+    ax.set_ylabel("Sensitivity")
+    ax.set_title("ROC curve in new patients")
+    ax.legend(frameon=False, loc="lower right")
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch9_roc.png", dpi=180)
+    plt.close(fig)
 
     # Another hospital: same patients and same effects, but a higher baseline risk.
     rng = np.random.default_rng(9)
@@ -1474,10 +1559,7 @@ def discrimination_calibration(df: pl.DataFrame, out: Path) -> None:
     _write_csv(out, "ch9_dca", dca)
     fig, ax = plt.subplots(figsize=(6.4, 4.2))
     first = dca.filter(pl.col("model") == "Seven predictors").sort("threshold")
-    for name, color in [
-        ("Seven predictors", BLUE),
-        ("Age + antithrombotic", "#EFC000"),
-    ]:
+    for name, color in MODEL_COLORS.items():
         part = dca.filter(pl.col("model") == name).sort("threshold")
         ax.plot(part["threshold"], part["net_benefit"], color=color, label=name)
     ax.plot(
@@ -1555,6 +1637,22 @@ def _fit_three(
     return res
 
 
+def _spread(values: list[float], gap: float) -> list[float]:
+    """Move sorted label positions apart by at least ``gap``, keeping their mean."""
+    pos = list(values)
+    for _ in range(50):
+        moved = False
+        for i in range(1, len(pos)):
+            short = gap - (pos[i] - pos[i - 1])
+            if short > 1e-9:
+                pos[i - 1] -= short / 2
+                pos[i] += short / 2
+                moved = True
+        if not moved:
+            break
+    return pos
+
+
 def regularization(out: Path) -> None:
     """Chapter 10: ridge and LASSO paths, lambda by CV, and repeated samples."""
     test = _with_noise(_test_set(), seed=30)
@@ -1574,15 +1672,23 @@ def regularization(out: Path) -> None:
                 alpha=0.6 if noise else 1,
                 lw=0.9 if noise else 1.6,
             )
-            if not noise and abs(r["path"][-1, j]) > 0.15:
-                ax.annotate(
-                    VAR_LABELS[v].split(" (")[0],
-                    (np.log10(lams[-1]), r["path"][-1, j]),
-                    xytext=(3, 0),
-                    textcoords="offset points",
-                    fontsize=7.5,
-                    va="center",
-                )
+        # End labels, pushed apart so that close lines keep readable labels.
+        ends = sorted(
+            (
+                r["path"][-1, j],
+                VAR_LABELS[v].split(" (")[0].replace("Prophylactic clip", "Clip"),
+            )
+            for j, v in enumerate(ALL_VARS)
+            if v not in NOISE_VARS and abs(r["path"][-1, j]) > 0.15
+        )
+        placed = _spread([e[0] for e in ends], gap=0.05)
+        shift = matplotlib.transforms.offset_copy(
+            ax.transData, fig=fig, x=3, units="points"
+        )
+        for (_yv, lab), yl in zip(ends, placed, strict=True):
+            ax.text(
+                np.log10(lams[-1]), yl, lab, transform=shift, fontsize=7.5, va="center"
+            )
         ax.axvline(
             np.log10(lams[r["best"]]), color=RED, linestyle=":", label="Chosen by CV"
         )
@@ -1677,16 +1783,37 @@ def regularization(out: Path) -> None:
     fig, axes = plt.subplots(1, 2, figsize=(9, 3.8))
     names = ["Maximum likelihood", "Ridge", "LASSO"]
     jit = np.random.default_rng(0)
+    slope_top = 3.0
+    clip_slopes = bool((reps["slope_new"] > slope_top).any())
     for ax, col, ref, title in [
         (axes[0], "slope_new", 1.0, "Calibration slope in new patients"),
         (axes[1], "auc_new", None, "C statistic in new patients"),
     ]:
         for i, name in enumerate(names):
             v = reps.filter(pl.col("model") == name)[col].drop_nulls().to_numpy()
-            ax.scatter(
-                i + jit.uniform(-0.15, 0.15, len(v)), v, s=14, color=BLUE, alpha=0.55
-            )
+            xj = i + jit.uniform(-0.15, 0.15, len(v))
+            ax.scatter(xj, v, s=14, color=BLUE, alpha=0.55)
             ax.hlines(np.median(v), i - 0.3, i + 0.3, color="black")
+            above = v > slope_top
+            if col == "slope_new" and clip_slopes and above.any():
+                # Points beyond the axis: a triangle at the top edge and a count.
+                ax.scatter(
+                    xj[above],
+                    np.full(above.sum(), slope_top * 0.985),
+                    marker="^",
+                    s=22,
+                    color=BLUE,
+                    zorder=3,
+                    clip_on=False,
+                )
+                ax.text(
+                    i + 0.2,
+                    slope_top * 0.99,
+                    f"{int(above.sum())} above {slope_top:g}\n(max {v.max():.1f})",
+                    ha="left",
+                    va="top",
+                    fontsize=7.5,
+                )
         if ref is not None:
             ax.axhline(ref, color=RED, linestyle=":", label="Ideal")
             ax.legend(frameon=False, fontsize=8.5)
@@ -1694,8 +1821,8 @@ def regularization(out: Path) -> None:
         ax.set_xticklabels(["Max.\nlikelihood", "Ridge", "LASSO"], fontsize=9)
         ax.set_title(title, fontsize=10)
         ax.grid(alpha=0.3, axis="y")
-    if (reps["slope_new"] > 3).any():
-        axes[0].set_ylim(0, 3)
+    if clip_slopes:
+        axes[0].set_ylim(0, slope_top)
     fig.suptitle(
         "30 development samples of 1000 patients (about 45 bleeds), 17 predictors",
         fontsize=10,
@@ -1703,6 +1830,41 @@ def regularization(out: Path) -> None:
     fig.tight_layout()
     fig.savefig(out / "figures" / "ch10_repeats.png", dpi=180)
     plt.close(fig)
+
+
+TREE_LABELS = {
+    "age": "Age (years)",
+    "male": "Male",
+    "antithrombotic": "Antithrombotic",
+    "hypertension": "Hypertension",
+    "size_mm": "Lesion size (mm)",
+    "proximal": "Proximal colon",
+    "clip": "Clip",
+}
+BINARY_VARS = {"male", "antithrombotic", "hypertension", "proximal", "clip"}
+
+
+def _tree_labels(fig) -> None:
+    """Readable names on a drawn tree; 0/1 splits read No / Yes.
+
+    The tree is fitted on the data's column names. Only the drawn text
+    changes: a split ``<= 0`` / ``> 0`` on a 0/1 column means No / Yes.
+    """
+    ax = fig.axes[0]
+    texts = list(ax.texts)
+    for k, t in enumerate(texts):
+        col, _, rest = t.get_text().partition("\n")
+        if col in TREE_LABELS and rest.startswith("p "):
+            t.set_text(f"{TREE_LABELS[col]}\n{rest}")
+            if col in BINARY_VARS:
+                # The two edge labels of a node are drawn just before its ellipse.
+                for e in texts[max(0, k - 2) : k]:
+                    e.set_text(
+                        {"<= 0": "No", "> 0": "Yes"}.get(e.get_text(), e.get_text())
+                    )
+    for pax in fig.axes[1:]:
+        if pax.get_ylabel() == "bleed":
+            pax.set_ylabel("Bleed")
 
 
 def trees_ensembles(df: pl.DataFrame, out: Path) -> None:
@@ -1715,11 +1877,16 @@ def trees_ensembles(df: pl.DataFrame, out: Path) -> None:
 
     tree = conditional_tree(df, "bleed", PRED_VARS)
     (out / "ch11_tree.txt").write_text(tree.format(), encoding="utf-8")
-    plot_tree(
-        tree,
+    fig = plot_tree(tree, title="Conditional inference tree (3000 patients)")
+    _tree_labels(fig)
+    fig.savefig(
         out / "figures" / "ch11_tree.png",
-        title="Conditional inference tree (3000 patients)",
+        dpi=180,
+        facecolor="white",
+        bbox_inches="tight",
+        pad_inches=0.04,
     )
+    plt.close(fig)
 
     # Boosting: choose the number of trees by 5-fold CV deviance.
     rounds = 400
@@ -2052,15 +2219,17 @@ def probability_model(df: pl.DataFrame, out: Path) -> None:
     )
     test = spline_test(spline, "rcs(size_mm, 4)")
     _write_csv(out, "ch12_spline_test", test)
+    # Curves over the whole range of the data, the same range as the rug.
+    n_grid = 80
     grid = pl.DataFrame(
         {
-            "age": [70] * 60,
-            "male": [1] * 60,
-            "antithrombotic": [0] * 60,
-            "hypertension": [0] * 60,
-            "size_mm": np.linspace(5, 60, 60),
-            "proximal": [0] * 60,
-            "clip": [0] * 60,
+            "age": [70] * n_grid,
+            "male": [1] * n_grid,
+            "antithrombotic": [0] * n_grid,
+            "hypertension": [0] * n_grid,
+            "size_mm": np.linspace(df["size_mm"].min(), df["size_mm"].max(), n_grid),
+            "proximal": [0] * n_grid,
+            "clip": [0] * n_grid,
         }
     )
     linear = fits["Size in mm"]
@@ -2147,12 +2316,14 @@ def likelihood(df: pl.DataFrame, out: Path) -> None:
             )
     _write_csv(out, "ch13_rate", pl.DataFrame(rows))
     axes[0].set_ylabel("Likelihood (relative to its maximum)")
-    axes[0].legend(frameon=False, fontsize=8)
+    axes[0].legend(frameon=False, fontsize=8, loc="upper right")
     axes[1].axhline(-1.92, color=RED, lw=1, ls=":")
-    axes[1].text(0.13, -1.75, "95% interval", color=RED, ha="right", fontsize=8)
+    axes[1].text(
+        0.098, -2.05, "95% interval", color=RED, ha="right", va="top", fontsize=8
+    )
     axes[1].set_ylim(-8, 0.5)
     axes[1].set_ylabel("log likelihood (minus its maximum)")
-    axes[1].legend(frameon=False, fontsize=8, loc="lower right")
+    axes[1].legend(frameon=False, fontsize=8, loc="upper right")
     for ax in axes:
         ax.set_xlabel("Bleeding rate p")
         ax.set_xlim(0, 0.10)
@@ -2307,7 +2478,7 @@ def _bayes_rate(sets: dict[str, pl.DataFrame], out: Path) -> None:
                 grid,
                 post.pdf(grid),
                 color=color,
-                label=f"Posterior, prior: {prior.lower()}",
+                label=prior,
             )
         ax.set_title(f"{name} ({events} bleeds)")
         ax.set_xlabel("Bleeding rate p")
@@ -2315,8 +2486,15 @@ def _bayes_rate(sets: dict[str, pl.DataFrame], out: Path) -> None:
         ax.xaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
         ax.grid(alpha=0.3)
     axes[0].set_ylabel("Density")
-    axes[0].plot([], [], color=GRAY, ls=":", lw=1, label="Prior (dotted)")
-    axes[0].legend(frameon=False, fontsize=7)
+    # The legend sits in the empty upper right of the 3000-patient panel.
+    axes[1].plot([], [], color=GRAY, ls=":", lw=1, label="Prior (dotted)")
+    axes[1].legend(
+        frameon=False,
+        fontsize=7.5,
+        title="Posterior, by prior",
+        title_fontsize=7.5,
+        loc="upper right",
+    )
     fig.tight_layout()
     fig.savefig(out / "figures" / "ch13_bayes_rate.png", dpi=180)
     plt.close(fig)
@@ -2366,37 +2544,54 @@ def _bayes_clip(full, y: np.ndarray, out: Path) -> None:
     fig, axes = plt.subplots(
         1, 2, figsize=(9, 3.6), gridspec_kw={"width_ratios": [1.2, 1]}
     )
+    # Both panels on the odds-ratio scale (log axis); densities are per unit log OR.
+    or_ticks = [0.2, 0.3, 0.5, 0.7, 1.0, 1.5]
     ax = axes[0]
     ax.plot(np.exp(draws["Flat prior"][:3000, clip]), color=BLUE, lw=0.5)
+    ax.set_yscale("log")
+    ax.set_yticks(or_ticks, [f"{t:g}" for t in or_ticks])
+    ax.yaxis.set_minor_locator(matplotlib.ticker.NullLocator())
+    ax.set_ylim(np.exp(-1.8), np.exp(0.4))
     ax.set_xlabel("Step of the chain")
-    ax.set_ylabel("Clip odds ratio")
-    ax.set_title("Metropolis chain (first 3000 steps)")
+    ax.set_ylabel("Clip odds ratio (log scale)")
+    ax.set_title("Metropolis chain, flat prior (first 3000 steps)")
     ax.grid(alpha=0.3)
     ax = axes[1]
     edges = np.linspace(-1.8, 0.4, 70)
     for (k, dr), color in zip(draws.items(), [BLUE, RED], strict=True):
-        ax.hist(
-            dr[:, clip],
-            bins=edges,
-            density=True,
+        h, _ = np.histogram(dr[:, clip], bins=edges, density=True)
+        ax.stairs(
+            h,
+            np.exp(edges),
+            fill=True,
             color=color,
             alpha=0.4,
             label=f"Posterior, {k.lower()}",
         )
     b = np.linspace(-1.8, 0.4, 300)
     ax.plot(
-        b,
+        np.exp(b),
         stats.norm(b_hat, se).pdf(b),
         color=GRAY,
         ls="--",
         label="Maximum likelihood (normal)",
     )
     ax.plot(
-        b, stats.norm(0, 0.35).pdf(b), color=RED, ls=":", lw=1, label="Sceptical prior"
+        np.exp(b),
+        stats.norm(0, 0.35).pdf(b),
+        color=RED,
+        ls=":",
+        lw=1,
+        label="Sceptical prior",
     )
-    ax.axvline(0, color="black", lw=0.8)
-    ax.set_xlabel("Clip coefficient (log odds ratio)")
-    ax.set_ylabel("Density")
+    ax.axvline(1, color="black", lw=0.8)
+    ax.set_xscale("log")
+    ax.set_xticks(or_ticks, [f"{t:g}" for t in or_ticks])
+    ax.xaxis.set_minor_locator(matplotlib.ticker.NullLocator())
+    ax.set_xlim(np.exp(-1.8), np.exp(0.4))
+    ax.set_xlabel("Clip odds ratio (log scale)")
+    ax.set_ylabel("Density (per unit log OR)")
+    ax.set_ylim(0, ax.get_ylim()[1] * 1.3)  # room for the legend
     ax.set_title("Posterior")
     ax.legend(frameon=False, fontsize=7, loc="upper left")
     ax.grid(alpha=0.3)
@@ -2496,7 +2691,9 @@ def hierarchical(out: Path) -> None:
     ax.scatter(np.zeros(rates.height), rates["own"], s=size, color=RED, zorder=3)
     ax.scatter(np.ones(rates.height), rates["pooled"], s=size, color=BLUE, zorder=3)
     ax.axhline(overall, color=GRAY, ls=":", lw=1)
-    ax.text(1.05, overall, "all hospitals", va="center", fontsize=8, color=GRAY)
+    ax.text(
+        1.43, overall, "all hospitals", ha="right", va="bottom", fontsize=8, color=GRAY
+    )
     ax.set_xticks([0, 1], ["Own data only", "Partial pooling"])
     ax.set_xlim(-0.3, 1.45)
     ax.set_ylabel("Bleeding rate")
@@ -2506,13 +2703,16 @@ def hierarchical(out: Path) -> None:
     ax = axes[1]
     n = rates["n"].to_numpy()
     ax.scatter(
-        n, np.abs(rates["own"] - rates["true_rate"]), color=RED, label="Own data only"
+        n,
+        np.abs(rates["own"] - rates["true_rate"]),
+        color=RED,
+        label=f"Own data only (RMSE {err['rmse_own'][0]:.1%})",
     )
     ax.scatter(
         n,
         np.abs(rates["pooled"] - rates["true_rate"]),
         color=BLUE,
-        label="Partial pooling",
+        label=f"Partial pooling (RMSE {err['rmse_pooled'][0]:.1%})",
     )
     ax.set_xscale("log")
     ax.set_xticks([20, 50, 100, 200, 500], ["20", "50", "100", "200", "500"])
@@ -2520,7 +2720,7 @@ def hierarchical(out: Path) -> None:
     ax.set_xlabel("Patients in the hospital")
     ax.set_ylabel("Error from the true rate")
     ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
-    ax.set_title("Small hospitals gain the most")
+    ax.set_title("Error from the true rate, by hospital size")
     ax.legend(frameon=False, fontsize=8)
     ax.grid(alpha=0.3)
     fig.tight_layout()
@@ -2566,12 +2766,29 @@ def hierarchical(out: Path) -> None:
         (pl.col("blup") + 1.96 * pl.col("group").replace_strict(se)).alias("conf_high"),
     )
     _write_csv(out, "ch14_effects", effects)
-    plot_random_effects(
-        effects,
-        out / "figures" / "ch14_caterpillar.png",
-        xlabel="Hospital effect (log odds, adjusted)",
-        figsize=(6, 5),
+    cat = effects.sort("blup")
+    fig, ax = plt.subplots(figsize=(6, 5))
+    yy = np.arange(cat.height)
+    est = cat["blup"].to_numpy()
+    ax.errorbar(
+        est,
+        yy,
+        xerr=[est - cat["conf_low"].to_numpy(), cat["conf_high"].to_numpy() - est],
+        fmt="o",
+        color=BLUE,
+        ms=5,
+        capsize=2.5,
+        lw=1.4,
     )
+    ax.axvline(0, color="black", lw=0.8, ls="--")
+    ax.set_yticks(yy, cat["group"].to_list())
+    ax.set_ylim(-0.6, cat.height - 0.4)
+    ax.set_xlabel("Hospital effect (log odds, adjusted)")
+    ax.set_title("Hospital effects with approximate 95% intervals")
+    ax.grid(axis="x", alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch14_caterpillar.png", dpi=180)
+    plt.close(fig)
     ranks = (
         effects.rename({"group": "hospital"})
         .select("hospital", "blup")
@@ -2593,7 +2810,7 @@ def hierarchical(out: Path) -> None:
     like = grid ** small["events"] * (1 - grid) ** (small["n"] - small["events"])
     post = prior * like
     curves = {
-        "Prior (other hospitals)": prior,
+        f"Prior (all {rates.height} hospitals)": prior,
         "Likelihood (own data)": like,
         "Posterior": post,
     }
@@ -2738,10 +2955,11 @@ def survival(df: pl.DataFrame, out: Path) -> None:
     )
 
     # Kaplan-Meier: cumulative incidence by clip.
+    km_data = d.with_columns(
+        pl.col("clip").replace_strict({0: "No clip", 1: "Clip"}).alias("group")
+    )
     ax = plot_survival(
-        d.with_columns(
-            pl.col("clip").replace_strict({0: "No clip", 1: "Clip"}).alias("group")
-        ),
+        km_data,
         time="time",
         status="event",
         hue="group",
@@ -2753,6 +2971,15 @@ def survival(df: pl.DataFrame, out: Path) -> None:
     ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
     ax.set_xlabel("Days after resection")
     ax.set_ylabel("Cumulative incidence of bleeding")
+    # plot_survival colours groups in order of appearance (blue, then yellow);
+    # use the house colours instead: clip blue, no clip gray.
+    km_palette = ["#0073C2", "#EFC000"]
+    first = km_data["group"].unique(maintain_order=True).to_list()
+    house = {"Clip": BLUE, "No clip": GRAY}
+    _recolor(
+        ax.figure,
+        {km_palette[i]: house[g] for i, g in enumerate(first)},
+    )
     ax.figure.savefig(out / "figures" / "ch15_km.png", dpi=180)
     plt.close(ax.figure)
 
