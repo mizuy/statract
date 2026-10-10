@@ -263,6 +263,7 @@ CURATED: dict[str, list[str]] = {
         "figures/ch8_learning.png",
         "ch8_cv_summary.csv",
         "ch8_cv_estimates.csv",
+        "ch8_information.csv",
         "figures/ch8_cv_scheme.png",
         "figures/ch8_cv.png",
         "ch9_metrics.csv",

@@ -1209,6 +1209,40 @@ def _cv_schematic(path: Path) -> None:
     plt.close(fig)
 
 
+INFO_ROWS: list[dict] = []
+
+
+def _loglik(y: np.ndarray, p: np.ndarray) -> np.ndarray:
+    return y * np.log(p) + (1 - y) * np.log(1 - p)
+
+
+def _info_criteria(fit, y: np.ndarray, loo: np.ndarray, label: str) -> None:
+    """AIC, LOOCV deviance and WAIC on the -2 log-likelihood scale.
+
+    WAIC uses a normal approximation of the posterior with a flat prior
+    (mean = estimates, covariance = their covariance matrix).
+    """
+    x = np.asarray(fit.x, dtype=float)
+    beta = np.asarray(fit.coefficients, dtype=float)
+    draws = np.random.default_rng(12).multivariate_normal(
+        beta, np.asarray(fit.covariance), size=4000
+    )
+    ll = _loglik(y[:, None], _expit(x @ draws.T))
+    lppd = np.log(np.mean(np.exp(ll), axis=1))
+    p_waic = np.var(ll, axis=1, ddof=1)
+    INFO_ROWS.append(
+        {
+            "sample": label,
+            "parameters": len(beta),
+            "deviance_apparent": float(fit.deviance),
+            "aic": float(fit.aic),
+            "loocv": float(-2 * _loglik(y, loo).sum()),
+            "waic": float(-2 * (lppd.sum() - p_waic.sum())),
+            "p_waic": float(p_waic.sum()),
+        }
+    )
+
+
 def _cv_estimates(
     dev: pl.DataFrame, test: pl.DataFrame, formula: str, label: str
 ) -> tuple[pl.DataFrame, pl.DataFrame]:
@@ -1239,6 +1273,7 @@ def _cv_estimates(
             rows.append({"method": f"{k}-fold CV", "repeat": r, "auc": _auc(yd, p_cv)})
     loo = _cv_predictions(dev, formula, np.arange(n))
     rows.append({"method": "Leave-one-out", "repeat": 0, "auc": _auc(yd, loo)})
+    _info_criteria(fit, yd, loo, label)
     val = validate_logistic(dev, formula, B=200, seed=8)
     dxy = val.filter(pl.col("index") == "Dxy")
     boot_c = float(dxy["index_corrected"][0]) / 2 + 0.5
@@ -1263,6 +1298,7 @@ def _cv_estimates(
 def cross_validation(test: pl.DataFrame, formula: str, out: Path) -> None:
     """Chapter 8: internal validation with few events and with enough events."""
     _cv_schematic(out / "figures" / "ch8_cv_scheme.png")
+    INFO_ROWS.clear()
     ests, sums = [], []
     for n, seed in [(400, 4), (2000, 6)]:
         dev = _with_noise(simulate(n=n, seed=seed), seed=10 * seed)
@@ -1274,6 +1310,7 @@ def cross_validation(test: pl.DataFrame, formula: str, out: Path) -> None:
     summary = pl.concat(sums)
     _write_csv(out, "ch8_cv_estimates", est)
     _write_csv(out, "ch8_cv_summary", summary)
+    _write_csv(out, "ch8_information", pl.DataFrame(INFO_ROWS))
 
     order = ["Split 70/30", "5-fold CV", "10-fold CV", "Leave-one-out", "Bootstrap"]
     labels = [

@@ -113,7 +113,51 @@ LOOCV の特徴は次のとおりです。
 - **ばらつきが大きい。** $n$ 個のモデルはほとんど同じなので、結果はその一つのデータに強く依存します。データが変わると LOOCV の値も大きく変わります。
 - **C 統計量は低めに出やすい。** 出血した一人を抜くと、残りのデータでは出血の割合が少し下がり、その人の予測確率が少し下がります。出血しなかった人ではこの逆が起きます。この小さなずれが毎回「不利な向き」に入るため、まとめた C 統計量が低めになります。
 
-LOOCV は、モデルの比べ方の理論ともつながっています。AIC（Akaike information criterion、赤池情報量規準、第 14 章）でモデルを選ぶことは、例数が多いとき、LOOCV でモデルを選ぶことと同じになることが知られています（Stone 1977）。
+### LOOCV と情報量規準（AIC、WAIC） {#waic}
+
+ここまでは C 統計量（順位が当たるか）で成績を測りました。LOOCV では、**確率そのものが当たるか**も測れます。抜いた一人 $i$ に、残りで作ったモデルがつけた確率を $p_{(-i)}$ と書きます。実際に起きた結果の確率の対数を、全員で足します。
+
+$$
+\text{LOOCV の得点} = -2 \sum_i \log P_{(-i)}(y_i)
+$$
+
+$P_{(-i)}(y_i)$ は、出血した人なら $p_{(-i)}$、出血しなかった人なら $1 - p_{(-i)}$ です。起きたことに高い確率をつけていれば小さくなります。$-2$ を掛けるのは、逸脱度（deviance）と同じ物差しにそろえるためです。小さいほど、新しい患者でよく当たるモデルです。
+
+この量を、モデルを $n$ 回作らずに近似するのが**情報量規準**です。
+
+- **AIC**（Akaike information criterion、赤池情報量規準）：$\text{AIC} = -2 \log L + 2k$。$\log L$ は全員で作ったモデルの対数尤度、$k$ はパラメータの数です。作ったデータでの当たり（$-2 \log L$）は楽観的なので、パラメータ 1 個あたり 2 だけ罰を足します。例数が多いとき、AIC は LOOCV の得点と同じになります（Stone 1977）。尤度は第 14 章で扱います。
+- **WAIC**（widely applicable information criterion、広く使える情報量規準）：渡辺澄夫（2010）が示した、ベイズ推論（第 15 章）のための情報量規準です。
+
+WAIC は、パラメータの**事後分布**（データを見たあとの、パラメータのありそうな値の分布）から計算します。事後分布から引いたパラメータを $\theta_1, \dots, \theta_S$ とすると、
+
+$$
+\text{WAIC} = -2 \left( \sum_i \log \frac{1}{S}\sum_s P(y_i \mid \theta_s) \;-\; \sum_i \mathrm{Var}_s\!\left[\log P(y_i \mid \theta_s)\right] \right)
+$$
+
+一つめの和は、パラメータの不確かさをならした予測の当たり（作ったデータでの当たり）です。二つめの和 $p_{\text{WAIC}}$ が罰で、患者ごとの対数尤度が事後分布の中でどのくらいぶれるかを足したものです。AIC の $k$ にあたり、**実効的なパラメータの数**と呼ばれます。
+
+WAIC には三つの良い性質があります。
+
+- ベイズ流の LOOCV と、例数が多いとき同じになります。モデルを $n$ 回作り直す必要はなく、事後分布から一回で計算できます。
+- AIC は、モデルが「正則」（パラメータと分布が一対一に対応し、最尤推定量が正規分布に近づく）であることを前提にしています。混合分布、階層モデル、ニューラルネットワークなどの**特異なモデル**ではこの前提がくずれ、AIC は使えません。WAIC はそうしたモデルでも成り立ちます。名前の「広く使える」はこのことです。
+- 事前分布の影響も含めて評価できます。
+
+同じデータで、三つを計算しました。WAIC は、平らな事前分布のもとで、事後分布を正規分布で近似して計算しています（本格的なベイズの計算は第 15 章で行います）。
+
+| データ | パラメータ数 $k$ | 見かけの逸脱度 | AIC | WAIC | $p_{\text{WAIC}}$ | LOOCV の得点 |
+|--------|---------------|-------------|-----|------|-----------------|-------------|
+| 400 人、出血 21 | 18 | 141.7 | 177.7 | 181.9 | 18.3 | 183.7 |
+| 2000 人、出血 95 | 18 | 707.7 | 743.7 | 745.1 | 18.5 | 745.7 |
+
+[CSV](../examples/assets/theory_bleeding/ch8_information.csv)
+
+- 三つはどれも、見かけの逸脱度に「楽観度」を足した値になっています。2000 人では、AIC、WAIC、LOOCV がほぼ一致しました。
+- 400 人では少し開き、AIC が最も小さく（楽観的に）出ました。例数が少ないと、「例数が多いとき」の近似が粗くなります。
+- $p_{\text{WAIC}}$ は約 18 で、パラメータの数 18 とほぼ同じです。このモデルは正則で、事前分布も平らなので、こうなります。正則化（第 10 章）や階層モデル（第 17 章）では、$p_{\text{WAIC}}$ はパラメータの数より小さくなります。
+
+情報量規準の値そのものには意味がありません。**同じデータで、モデルどうしを比べる**ときに使います。小さいほうが、新しい患者でよく当たると見込まれるモデルです。
+
+WAIC のほかに、事後分布から LOOCV を直接近似する PSIS-LOO（Vehtari ら 2017）もよく使われます。
 
 ## 8.8 ブートストラップ {#bootstrap}
 
@@ -183,6 +227,9 @@ LOOCV は、モデルの比べ方の理論ともつながっています。AIC�
 - Harrell FE Jr. *Regression Modeling Strategies.* 2nd ed. Springer; 2015.
 - Riley RD, Ensor J, Snell KIE, et al. Calculating the sample size required for developing a clinical prediction model. *BMJ.* 2020;368:m441.
 - Stone M. An asymptotic equivalence of choice of model by cross-validation and Akaike's criterion. *J R Stat Soc B.* 1977;39:44–47.
+- Watanabe S. Asymptotic equivalence of Bayes cross validation and widely applicable information criterion in singular learning theory. *J Mach Learn Res.* 2010;11:3571–3594.
+- 渡辺澄夫. 『ベイズ統計の理論と方法』. コロナ社; 2012.
+- Vehtari A, Gelman A, Gabry J. Practical Bayesian model evaluation using leave-one-out cross-validation and WAIC. *Stat Comput.* 2017;27:1413–1432.
 - Hastie T, Tibshirani R, Friedman J. *The Elements of Statistical Learning.* 2nd ed. Springer; 2009. 第 7 章.
 - Collins GS, Moons KGM, Dhiman P, et al. TRIPOD+AI statement: updated guidance for reporting clinical prediction models that use regression or machine learning methods. *BMJ.* 2024;385:e078378.
 
@@ -195,5 +242,6 @@ statract での予測モデルの通しの例は、[予測モデルの較正と 
 - 過学習の強さは、イベントの数と、候補にした変数の数で決まります。
 - 汎化の成績は、交差検証、LOOCV、ブートストラップで見積もります。報告するのは全員で作ったモデルで、内部検証はその手順を評価します。
 - 交差検証では、変数選択を含む手順全部を各回でやり直します。
+- AIC と WAIC は、確率の当たりで測った LOOCV を、モデルを作り直さずに近似します。WAIC はベイズのモデルや特異なモデルでも使えます。
 - 分割は一回ごとのぶれが大きく、少ない例数では勧められません。例数が十分なら、交差検証、LOOCV、ブートストラップはほぼ一致します。
 - 較正の傾きが 1 より小さいのは、予測が極端すぎるしるしです。

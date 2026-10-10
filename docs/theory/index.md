@@ -60,7 +60,7 @@
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
 | 7. [予測モデルとしてのロジスティック回帰](prediction-model.md) | 同じ式を予測に使う、係数より予測確率、因果でない変数も予測に役立つ | 予測確率の分布 | `fit_glm` |
-| 8. [過学習と汎化](overfitting.md) | 見かけの成績、学習曲線、例数の目安、分割、交差検証、LOOCV、ブートストラップ | 学習曲線、楽観度 | `validate_logistic` |
+| 8. [過学習と汎化](overfitting.md) | 見かけの成績、学習曲線、例数の目安、分割、交差検証、LOOCV、AIC と WAIC、ブートストラップ | 学習曲線、楽観度 | `validate_logistic` |
 | 9. [識別と較正](discrimination-calibration.md) | ROC と C 統計量、較正の図と切片・傾き、Brier、決定曲線 | ROC、較正の図、DCA | `roc_curve`、`plot_roc`、`threshold_tradeoff`、`decision_curve_table` |
 | 10. 正則化 | ridge、LASSO、変数選択の代わりに | 係数の縮み（パス図） | statract に未実装（numpy で図示） |
 | 11. 木とアンサンブル | 決定木、ランダムフォレスト、勾配ブースティング | 木の図 | `conditional_tree`、`plot_tree` |
@@ -110,6 +110,7 @@
 | RR | risk ratio | リスク比 |
 | SMD | standardized mean difference | 標準化差 |
 | TRIPOD | Transparent Reporting of a multivariable prediction model for Individual Prognosis Or Diagnosis | 予測モデル研究の報告指針 |
+| WAIC | widely applicable information criterion | 広く使える情報量規準（渡辺–赤池情報量規準とも） |
 
 ## これから作るもの
 
