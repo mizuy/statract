@@ -22,12 +22,17 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.ticker
 import numpy as np
 import polars as pl
 
 from support import ProjectPath, load_data
 from statract.report.artifacts import write_csv_companion
 from statract import (
+    hc_covariance,
+    match_sample,
+    plot_love,
+    propensity_weights,
     prop_test,
     standardize_glm,
     agg_category,
@@ -336,20 +341,6 @@ def _effect_plot(
 # ---- Chapter 2: potential outcomes ----------------------------------------
 
 
-def _risk_rows(frame: pl.DataFrame, label: str) -> dict:
-    r0, r1 = float(frame["y0"].mean()), float(frame["y1"].mean())
-    o0, o1 = r0 / (1 - r0), r1 / (1 - r1)
-    return {
-        "group": label,
-        "n": frame.height,
-        "risk_no_clip": r0,
-        "risk_clip": r1,
-        "risk_difference": r1 - r0,
-        "risk_ratio": r1 / r0,
-        "odds_ratio": o1 / o0,
-    }
-
-
 def _signed(v: int) -> str:
     return "0" if v == 0 else f"{v:+d}"
 
@@ -490,132 +481,255 @@ def causal_effects(po: pl.DataFrame, out: Path) -> pl.DataFrame:
     fig.savefig(out / "figures" / "ch2_exchangeability.png", dpi=180)
     plt.close(fig)
 
-    # Effect measures overall and by lesion size.
-    large = po.with_columns((pl.col("size_mm") >= 20).alias("large"))
-    measures = pl.DataFrame(
-        [
-            _risk_rows(po, "All"),
-            _risk_rows(large.filter(~pl.col("large")), "<20 mm"),
-            _risk_rows(large.filter(pl.col("large")), ">=20 mm"),
-        ]
-    )
-    _write_csv(out, "ch2_measures", measures)
-
     return rows
 
 
-# ---- Chapter 3: confounding and DAGs --------------------------------------
+# ---- Chapter 3: adjustment methods; Chapter 4: propensity score matching ----
 
-ADJUSTMENT_SETS = {
-    "None": [],
-    "Lesion size": ["size_mm"],
-    "Antithrombotic": ["antithrombotic"],
-    "Antithrombotic + size": ["antithrombotic", "size_mm"],
-    "Antithrombotic + size + proximal": ["antithrombotic", "size_mm", "proximal"],
-    "... + age": ["antithrombotic", "size_mm", "proximal", "age"],
-    "... + age + hypertension": [
-        "antithrombotic",
-        "size_mm",
-        "proximal",
-        "age",
-        "hypertension",
-    ],
-}
+COVARIATES = ["age", "antithrombotic", "size_mm", "proximal"]
+PS_FORMULA = "clip ~ " + " + ".join(COVARIATES)
 
 
-def adjustment_sets(out: Path) -> None:
-    """Standardized risk difference of clip under each adjustment set.
+def _rd_row(name: str, estimand: str, est: float, se: float) -> dict:
+    return {
+        "term": name,
+        "estimand": estimand,
+        "estimate": est * 100,
+        "conf_low": (est - 1.96 * se) * 100,
+        "conf_high": (est + 1.96 * se) * 100,
+    }
 
-    Uses 30,000 patients from the same mechanism, so that bias, not chance, drives the differences.
-    """
-    po = potential_outcomes(simulate(n=30_000, seed=2))
-    # Lesion size enters as a line plus a step at 20 mm, the form the clip effect really has.
-    df = po.with_columns((pl.col("size_mm") >= 20).cast(pl.Int64).alias("large"))
-    rows = []
-    for name, covs in ADJUSTMENT_SETS.items():
-        terms = [
-            t for c in covs for t in (["size_mm", "large"] if c == "size_mm" else [c])
-        ]
-        formula = "bleed ~ clip" + (" * (" + " + ".join(terms) + ")" if terms else "")
-        std = standardize_glm(df, formula, values={"clip": [0, 1]})
-        t = std.tidy(contrast="difference", reference=0).filter(pl.col("clip") == 1)
-        rows.append(
-            {
-                "term": name,
-                "estimate": float(t["estimate"][0]) * 100,
-                "conf_low": float(t["conf_low"][0]) * 100,
-                "conf_high": float(t["conf_high"][0]) * 100,
-            }
+
+def _weighted_rd(df: pl.DataFrame, weights: np.ndarray) -> tuple[float, float]:
+    """Weighted risk difference with a sandwich (HC0) standard error."""
+    fit = fit_glm(
+        df.with_columns(pl.Series("w", weights)),
+        "bleed ~ clip",
+        family="gaussian",
+        weights="w",
+    )
+    fit.covariance = hc_covariance(fit, kind="HC0")
+    t = fit.tidy().filter(pl.col("term") == "clip")
+    return float(t["estimate"][0]), float(t["std_error"][0])
+
+
+def stratification(df: pl.DataFrame, out: Path) -> tuple[float, float]:
+    """Risk difference within strata of size group x antithrombotic x location, averaged over the sample."""
+    d = df.with_columns((pl.col("size_mm") >= 20).cast(pl.Int64).alias("large"))
+    keys = ["large", "antithrombotic", "proximal"]
+    strata = (
+        d.group_by(keys)
+        .agg(
+            pl.len().alias("n"),
+            pl.col("clip").sum().alias("n_clip"),
+            pl.col("bleed").filter(pl.col("clip") == 1).mean().alias("risk_clip"),
+            pl.col("bleed").filter(pl.col("clip") == 0).mean().alias("risk_no_clip"),
         )
-    ate = float(po["y1"].mean() - po["y0"].mean()) * 100
+        .with_columns(
+            (pl.col("n") - pl.col("n_clip")).alias("n_no_clip"),
+            (pl.col("risk_clip") - pl.col("risk_no_clip")).alias("risk_difference"),
+        )
+        .sort(keys)
+    )
+    _write_csv(
+        out,
+        "ch3_strata",
+        strata.select(
+            *keys,
+            "n",
+            "n_clip",
+            "n_no_clip",
+            "risk_no_clip",
+            "risk_clip",
+            "risk_difference",
+        ),
+    )
+    w = strata["n"].to_numpy() / d.height
+    rd = float(np.sum(w * strata["risk_difference"].to_numpy()))
+    var = np.sum(
+        w**2
+        * (
+            strata["risk_clip"].to_numpy()
+            * (1 - strata["risk_clip"].to_numpy())
+            / strata["n_clip"].to_numpy()
+            + strata["risk_no_clip"].to_numpy()
+            * (1 - strata["risk_no_clip"].to_numpy())
+            / strata["n_no_clip"].to_numpy()
+        )
+    )
+    return rd, float(np.sqrt(var))
+
+
+def adjustment_methods(df: pl.DataFrame, po: pl.DataFrame, out: Path):
+    """Crude, restriction, stratification, regression standardization, PS matching and IPTW side by side."""
+    rows = []
+    crude = _weighted_rd(df, np.ones(df.height))
+    rows.append(_rd_row("Crude (no adjustment)", "-", *crude))
+
+    small = df.filter((pl.col("size_mm") < 20) & (pl.col("antithrombotic") == 0))
+    r = _weighted_rd(small, np.ones(small.height))
+    rows.append(_rd_row("Restriction (<20 mm, no antithrombotic)", "restricted", *r))
+
+    rows.append(_rd_row("Stratification (8 strata)", "ATE", *stratification(df, out)))
+
+    std = standardize_glm(
+        df, "bleed ~ clip + " + " + ".join(COVARIATES), values={"clip": [0, 1]}
+    )
+    t = std.tidy(contrast="difference", reference=0).filter(pl.col("clip") == 1)
     rows.append(
-        {"term": "Truth (ATE)", "estimate": ate, "conf_low": ate, "conf_high": ate}
-    )
-    table = pl.DataFrame(rows)
-    _write_csv(out, "ch3_adjustment_sets", table)
-    _effect_plot(
-        table,
-        out / "figures" / "ch3_adjustment_sets.png",
-        truth=ate,
-        title="Standardized effect of clip by adjustment set (30,000 patients)",
-    )
-
-
-def berkson(df: pl.DataFrame, out: Path) -> None:
-    """Selection on a collider: only referred patients, where referral depends on size and antithrombotics."""
-    rng = np.random.default_rng(11)
-    large = (df["size_mm"] >= 20).to_numpy().astype(int)
-    at = df["antithrombotic"].to_numpy()
-    referred = rng.binomial(1, _expit(-3.0 + 3.0 * large + 3.0 * at))
-    d = df.with_columns(pl.Series("large", large), pl.Series("referred", referred))
-    rows = []
-    for name, sub in [
-        ("All patients", d),
-        ("Referred only", d.filter(pl.col("referred") == 1)),
-    ]:
-        for lg in [0, 1]:
-            g = sub.filter(pl.col("large") == lg)
-            rows.append(
-                {
-                    "sample": name,
-                    "large": lg,
-                    "n": g.height,
-                    "on_antithrombotic": float(g["antithrombotic"].mean()),
-                }
-            )
-        f = _or_rows(
-            fit_glm(sub, "antithrombotic ~ large", family="binomial"), ["large"]
+        _rd_row(
+            "Regression + standardization",
+            "ATE",
+            float(t["estimate"][0]),
+            float(t["std_error"][0]),
         )
-        rows[-1]["or_large_vs_small"] = float(f["exp_estimate"][0])
-        rows[-2]["or_large_vs_small"] = float(f["exp_estimate"][0])
+    )
+
+    matched = match_sample(df, "clip", COVARIATES, caliper=0.2)
+    frame = matched.frame()
+    kept = frame.filter(pl.col("weights") > 0)
+    r = _weighted_rd(kept, kept["weights"].to_numpy())
+    rows.append(_rd_row("Propensity score matching", "ATT", *r))
+
+    ipw = propensity_weights(df, PS_FORMULA, estimand="ATE")
+    r = _weighted_rd(df, np.asarray(ipw.weights))
+    rows.append(_rd_row("Propensity score weighting (IPTW)", "ATE", *r))
+
+    ate = float(po["y1"].mean() - po["y0"].mean())
+    treated = po.filter(pl.col("clip") == 1)
+    att = float(treated["y1"].mean() - treated["y0"].mean())
+    restricted = po.filter((pl.col("size_mm") < 20) & (pl.col("antithrombotic") == 0))
+    rest = float(restricted["y1"].mean() - restricted["y0"].mean())
+    rows.append(_rd_row("Truth: ATE (all patients)", "ATE", ate, 0.0))
+    rows.append(_rd_row("Truth: ATT (clipped patients)", "ATT", att, 0.0))
+    rows.append(_rd_row("Truth: restricted group", "restricted", rest, 0.0))
     table = pl.DataFrame(rows)
-    _write_csv(out, "ch3_berkson", table)
-    fig, ax = plt.subplots(figsize=(6.2, 3.6))
-    xs = np.arange(2)
-    w = 0.36
-    for k, (lg, color, name) in enumerate(
-        [(0, GRAY, "Lesion <20 mm"), (1, BLUE, "Lesion >=20 mm")]
-    ):
-        vals = [
-            float(
-                table.filter((pl.col("sample") == s) & (pl.col("large") == lg))[
-                    "on_antithrombotic"
-                ][0]
-            )
-            * 100
-            for s in ["All patients", "Referred only"]
-        ]
-        bars = ax.bar(xs + (k - 0.5) * w, vals, w, color=color, label=name)
-        ax.bar_label(bars, fmt="%.0f", padding=2, fontsize=9)
-    ax.set_xticks(xs, ["All patients", "Referred only"])
-    ax.set_ylabel("On antithrombotics (%)")
-    ax.set_title("Selecting on a collider creates an association")
-    ax.legend(frameon=False, loc="upper left")
-    ax.set_ylim(0, 100)
+    _write_csv(out, "ch3_methods", table)
+    _effect_plot(
+        table.drop("estimand"),
+        out / "figures" / "ch3_methods.png",
+        truth=ate * 100,
+        title="Effect of clip by adjustment method",
+    )
+    return matched, ipw
+
+
+def ps_matching(df: pl.DataFrame, po: pl.DataFrame, matched, out: Path) -> None:
+    """Propensity score overlap, balance before and after matching, and the matched estimate."""
+    frame = matched.frame()
+    ps = frame["distance"].to_numpy()
+    clip = frame["clip"].to_numpy()
+    bins = np.linspace(0, 1, 41)
+    fig, ax = plt.subplots(figsize=(7, 3.8))
+    h1, _ = np.histogram(ps[clip == 1], bins=bins)
+    h0, _ = np.histogram(ps[clip == 0], bins=bins)
+    mids = (bins[:-1] + bins[1:]) / 2
+    ax.bar(mids, h1, width=bins[1] - bins[0], color=BLUE, label="Clipped")
+    ax.bar(mids, -h0, width=bins[1] - bins[0], color=GRAY, label="Not clipped")
+    ax.axhline(0, color="black", lw=0.8)
+    ax.set_xlabel("Propensity score (probability of being clipped)")
+    ax.set_ylabel("Patients")
+    ax.yaxis.set_major_formatter(
+        matplotlib.ticker.FuncFormatter(lambda v, _p: f"{abs(int(v))}")
+    )
+    ax.set_title("Propensity score by actual group")
+    ax.legend(frameon=False)
     ax.grid(axis="y", alpha=0.3)
     fig.tight_layout()
-    fig.savefig(out / "figures" / "ch3_berkson.png", dpi=180)
+    fig.savefig(out / "figures" / "ch4_ps_overlap.png", dpi=180)
     plt.close(fig)
+
+    balance = (
+        matched.balance()
+        .filter(pl.col("term") != "distance")
+        .with_columns(
+            pl.col("term").replace(
+                {
+                    "age": "Age",
+                    "antithrombotic": "Antithrombotic",
+                    "size_mm": "Lesion size",
+                    "proximal": "Proximal colon",
+                }
+            )
+        )
+    )
+    _write_csv(out, "ch4_balance", balance)
+    plot_love(
+        balance.rename({"smd_all": "diff_unadjusted", "smd_matched": "diff_adjusted"}),
+        out / "figures" / "ch4_love_plot.png",
+        threshold=0.1,
+        title="Balance before and after matching",
+        xlabel="Absolute standardized mean difference",
+    )
+
+    ps_fit = fit_glm(df, PS_FORMULA, family="binomial")
+    _write_csv(out, "ch4_ps_model", _or_rows(ps_fit, COVARIATES))
+
+    kept = frame.filter(pl.col("weights") > 0)
+    n_treated = int(df["clip"].sum())
+    n_kept_treated = int(kept.filter(pl.col("clip") == 1).height)
+    risks = (
+        kept.group_by("clip")
+        .agg(pl.col("bleed").mean().alias("risk"), pl.len().alias("n"))
+        .sort("clip")
+    )
+    rd, se = _weighted_rd(kept, kept["weights"].to_numpy())
+    kept_ids = kept.filter(pl.col("clip") == 1)["id"]
+    truth = po.filter(pl.col("id").is_in(kept_ids.implode()))
+    summary = pl.DataFrame(
+        {
+            "n_treated": [n_treated],
+            "n_treated_matched": [n_kept_treated],
+            "n_controls_matched": [int(kept.height - n_kept_treated)],
+            "risk_no_clip_matched": [
+                float(risks.filter(pl.col("clip") == 0)["risk"][0])
+            ],
+            "risk_clip_matched": [float(risks.filter(pl.col("clip") == 1)["risk"][0])],
+            "risk_difference": [rd],
+            "conf_low": [rd - 1.96 * se],
+            "conf_high": [rd + 1.96 * se],
+            "truth_att_matched_treated": [
+                float(truth["y1"].mean() - truth["y0"].mean())
+            ],
+        }
+    )
+    _write_csv(out, "ch4_matched_summary", summary)
+
+    params = {
+        "Age": ("age", agg_mean_sd),
+        "Antithrombotic": ("antithrombotic_label", agg_category),
+        "Lesion size (mm)": ("size_mm", agg_median_iqr),
+        "Proximal colon": ("proximal_label", agg_category),
+    }
+    yes_no = {0: "No", 1: "Yes"}
+
+    def shown(d: pl.DataFrame) -> pl.DataFrame:
+        return d.with_columns(
+            *[
+                pl.col(c).replace_strict(yes_no).alias(f"{c}_label")
+                for c in ["antithrombotic", "proximal"]
+            ],
+            pl.col("clip").replace_strict({0: "No clip", 1: "Clip"}).alias("group"),
+        )
+
+    write_tableone_artifacts(
+        out,
+        "ch4_table1_before",
+        df=shown(df),
+        params=params,
+        hue="group",
+        add_smd=True,
+        column_order=["No clip", "Clip"],
+    )
+    write_tableone_artifacts(
+        out,
+        "ch4_table1_after",
+        df=shown(kept),
+        params=params,
+        hue="group",
+        add_smd=True,
+        column_order=["No clip", "Clip"],
+    )
 
 
 def _expit(x: np.ndarray) -> np.ndarray:
@@ -636,8 +750,8 @@ def main() -> None:
     po = load_data(POTENTIAL)
     potential_table(po, out)
     causal_effects(po, out)
-    adjustment_sets(out)
-    berkson(df, out)
+    matched, _ = adjustment_methods(df, po, out)
+    ps_matching(df, po, matched, out)
     n = df.height
     events = int(df["bleed"].sum())
     (out / "n.md").write_text(

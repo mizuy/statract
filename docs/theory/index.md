@@ -45,36 +45,36 @@
 
 ### 第 II 部 因果推論
 
+理論は短く紹介し、詳しくは文献に譲ります。中心は、背景を調整する方法の使い方です。
+
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
-| 2. [潜在アウトカムと因果効果](potential-outcomes.md) | 反事実、ATE / ATT、リスク差・リスク比・オッズ比、オッズ比の非崩壊性 | 個人ごとの潜在アウトカム表 | `standardize_glm` |
-| 3. [交絡と DAG](confounding-dag.md) | 交絡、バックドア経路、合流点、中間因子、Table 2 の誤り | DAG（Mermaid）、合流点バイアスの散布図 | `fit_glm` |
-| 4. 回帰調整と g-formula | 条件付き効果と周辺効果、標準化、効果修飾（病変径とクリップ） | 標準化リスク、サイズ別の効果 | `standardize_glm`、`plot_spline_effect` |
-| 5. 傾向スコア | 治療選択のモデル、重なり（overlap）、正値性 | PS の分布 | `propensity_weights` |
-| 6. 傾向スコアマッチング | 比較できる集団を作る、バランスの確認、ATT | love plot、マッチ前後の Table 1 | `match_sample`、`plot_love`、`balance_table` |
-| 7. IPTW | 重みで疑似集団を作る、安定化、極端な重み | 重みの分布、重み付きバランス | `propensity_weights`、`fit_glm`（重み） |
-| 8. 仮定と感度分析 | 交換可能性、正値性、一致性、未測定交絡、E-value | 感度分析の図 | — |
+| 2. [因果推論の考え方](causal-basics.md) | Rubin の反事実モデル、交換可能性、DAG とバックドア基準、文献 | 群ごとの潜在アウトカム、DAG | `prop_test` |
+| 3. [背景を調整する方法](adjustment-methods.md) | 限定、層別化、回帰と標準化、マッチング、重み付けの比較 | 方法ごとの推定値と本当の値 | `standardize_glm`、`match_sample`、`propensity_weights` |
+| 4. [傾向スコアマッチング](propensity-score-matching.md) | バランシングスコア、傾向スコア、重なり、キャリパー、バランスの確認 | 傾向スコアの分布、Love plot、マッチ前後の Table 1 | `match_sample`、`plot_love` |
+| 5. IPTW | 重みで仮の集団を作る、安定化、極端な重み | 重みの分布、重み付きバランス | `propensity_weights`、`balance_table` |
+| 6. 仮定と感度分析 | 正値性、未測定交絡、E-value | 感度分析の図 | — |
 
 ### 第 III 部 予測と機械学習
 
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
-| 9. 予測モデルとしてのロジスティック回帰 | 同じ式を予測に使う、係数より予測値 | 予測確率の分布 | `fit_glm` |
-| 10. 過学習と汎化 | 学習・検証・テスト、交差検証、ブートストラップ | 学習曲線、楽観度 | `validate_logistic` |
-| 11. 識別と較正 | ROC と C 統計量、較正曲線、Brier、決定曲線 | ROC、較正曲線、DCA | `roc_curve`、`plot_roc`、`calibrate_logistic`、`plot_calibration`、`plot_dca` |
-| 12. 正則化 | ridge、LASSO、変数選択の代わりに | 係数の縮み（パス図） | statract に未実装（numpy で図示） |
-| 13. 木とアンサンブル | 決定木、ランダムフォレスト、勾配ブースティング | 木の図 | `conditional_tree`、`plot_tree` |
-| 14. ニューラルネットワークへ | ロジスティック回帰を重ねる、PRML の見方 | 決定境界 | — |
+| 7. 予測モデルとしてのロジスティック回帰 | 同じ式を予測に使う、係数より予測値 | 予測確率の分布 | `fit_glm` |
+| 8. 過学習と汎化 | 学習・検証・テスト、交差検証、ブートストラップ | 学習曲線、楽観度 | `validate_logistic` |
+| 9. 識別と較正 | ROC と C 統計量、較正曲線、Brier、決定曲線 | ROC、較正曲線、DCA | `roc_curve`、`plot_roc`、`calibrate_logistic`、`plot_calibration`、`plot_dca` |
+| 10. 正則化 | ridge、LASSO、変数選択の代わりに | 係数の縮み（パス図） | statract に未実装（numpy で図示） |
+| 11. 木とアンサンブル | 決定木、ランダムフォレスト、勾配ブースティング | 木の図 | `conditional_tree`、`plot_tree` |
+| 12. ニューラルネットワークへ | ロジスティック回帰を重ねる、PRML の見方 | 決定境界 | — |
 
 ### 第 IV 部 統計モデリング
 
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
-| 15. 確率モデルとしてのロジスティック回帰 | $Y_i \sim \mathrm{Bernoulli}(p_i)$、データの生成過程 | 生成過程の模式図 | `fit_glm` |
-| 16. 尤度と最尤法 | 尤度、対数尤度、最尤推定、標準誤差 | 尤度曲線 | `fit_glm`、`likelihood_ratio_test` |
-| 17. ベイズ推論 | 事前分布、事後分布、事前の強さ | 事前と事後 | — |
-| 18. 事後予測分布 | 予測の不確かさ、モデルの確認 | 事後予測チェック | — |
-| 19. 階層モデル | 施設差、部分プーリング | 施設ごとの推定の縮み | `fit_mixed`、`plot_random_effects` |
+| 13. 確率モデルとしてのロジスティック回帰 | $Y_i \sim \mathrm{Bernoulli}(p_i)$、データの生成過程 | 生成過程の模式図 | `fit_glm` |
+| 14. 尤度と最尤法 | 尤度、対数尤度、最尤推定、標準誤差 | 尤度曲線 | `fit_glm`、`likelihood_ratio_test` |
+| 15. ベイズ推論 | 事前分布、事後分布、事前の強さ | 事前と事後 | — |
+| 16. 事後予測分布 | 予測の不確かさ、モデルの確認 | 事後予測チェック | — |
+| 17. 階層モデル | 施設差、部分プーリング | 施設ごとの推定の縮み | `fit_mixed`、`plot_random_effects` |
 
 ### 数学補
 
