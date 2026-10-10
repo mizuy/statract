@@ -25,7 +25,7 @@
 | 予防的クリップは出血を減らすか | 因果 | 第 II 部 |
 | この患者は出血するか | 予測 | 第 III 部 |
 
-データは**シミュレーション**です。どの変数がどれに影響するか（DAG: directed acyclic graph、有向非巡回グラフ）をコードに書いて作っているので、各章で「推定した値」と「本当の値」を比べられます。作り方は [第 1 章](independent-risk-factor.md#simulation) と [`examples/theory_bleeding`](https://github.com/mizuy/statract/tree/main/examples/theory_bleeding) にあります。
+データは**シミュレーション**です。どの変数がどれに影響するかを表す有向非巡回グラフ（directed acyclic graph、DAG）をコードに書いて作っているので、各章で「推定した値」と「本当の値」を比べられます。作り方は [第 1 章](independent-risk-factor.md#simulation) と [`examples/theory_bleeding`](https://github.com/mizuy/statract/tree/main/examples/theory_bleeding) にあります。
 
 ## 読み方
 

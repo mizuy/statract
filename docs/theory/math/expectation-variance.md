@@ -31,7 +31,7 @@ $$
 \mathrm{E}[aY + b] = a\,\mathrm{E}[Y] + b, \qquad \mathrm{E}[U - V] = \mathrm{E}[U] - \mathrm{E}[V]
 $$
 
-第 2 章の ATE（平均処置効果）は、二つの潜在アウトカムの差の期待値です。この性質から、「差の平均」は「平均の差」と同じになります。
+第 2 章の ATE（average treatment effect、平均処置効果）は、二つの潜在アウトカムの差の期待値です。この性質から、「差の平均」は「平均の差」と同じになります。
 
 $$
 \text{ATE} = \mathrm{E}[Y(1) - Y(0)] = \mathrm{E}[Y(1)] - \mathrm{E}[Y(0)]
@@ -49,7 +49,7 @@ $$
 \mathrm{E}[Y] = \sum_x \mathrm{E}[Y \mid X = x]\, P(X = x)
 $$
 
-で、これが g-formula の形です（第 3 章）。第 5 章の「期待値で書くと」の囲みは、この法則を使って、IPTW の重み付き平均が g-formula と同じになることを示しています。
+で、これが g-formula の形です（第 3 章）。第 5 章の「期待値で書くと」の囲みは、この法則を使って、IPTW（inverse probability of treatment weighting、治療の逆確率による重み付け）の重み付き平均が g-formula と同じになることを示しています。
 
 ## 分散と標準偏差
 
