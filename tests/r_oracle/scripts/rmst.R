@@ -1,7 +1,7 @@
 # Restricted mean survival time for tests/r_oracle/test_rmst.py.
 # Run from the repository root: Rscript tests/r_oracle/scripts/rmst.R
 #
-# survRM2 is not installable here (CRAN is blocked), so there are two references:
+# There are two references, and survRM2 itself is checked when installed:
 #
 # 1. survival::survfit: summary(survfit(...), rmean = tau)$table gives rmean
 #    and se(rmean) for each arm.
@@ -67,11 +67,37 @@ rmst2_reimpl <- function(time, status, arm, tau, alpha = 0.05) {
   list(arms = arms, contrasts = contrasts)
 }
 
+# rmst2's default tau: the larger last time when every arm that ends earlier
+# ends with events (its curve is then 0), otherwise the smaller last time.
+default_tau <- function(time, status, arm) {
+  last <- c(max(time[arm == 0]), max(time[arm == 1]))
+  ended <- c(all(status[arm == 0 & time == last[1]] == 1), all(status[arm == 1 & time == last[2]] == 1))
+  shorter <- last < max(last)
+  if (all(ended[shorter])) max(last) else min(last)
+}
+
+# When survRM2 is installed, the re-implementation must equal the package.
+check_survrm2 <- function(d, arm, case, tau, re) {
+  r <- survRM2::rmst2(d$time, d$status, arm, tau = case$tau, alpha = 1 - case$level)
+  U <- r$unadjusted.result
+  stopifnot(
+    isTRUE(all.equal(r$tau, tau, tolerance = 1e-12)),
+    isTRUE(all.equal(unname(c(r$RMST.arm0$rmst[1], r$RMST.arm1$rmst[1])), re$arms$rmst, tolerance = 1e-12)),
+    isTRUE(all.equal(unname(c(r$RMST.arm0$rmst[2], r$RMST.arm1$rmst[2])), re$arms$std_error, tolerance = 1e-12)),
+    isTRUE(all.equal(unname(c(r$RMST.arm0$rmtl[3], r$RMST.arm1$rmtl[3])), re$arms$rmtl_conf_low, tolerance = 1e-12)),
+    isTRUE(all.equal(unname(U[, 1]), re$contrasts$estimate, tolerance = 1e-12)),
+    isTRUE(all.equal(unname(U[, 2]), re$contrasts$conf_low, tolerance = 1e-12)),
+    isTRUE(all.equal(unname(U[, 3]), re$contrasts$conf_high, tolerance = 1e-12)),
+    isTRUE(all.equal(unname(U[, 4]), re$contrasts$p_value, tolerance = 1e-12))
+  )
+}
+
 run_case <- function(case) {
   d <- read_sample(case$data)
   arm <- as.integer(d$arm == case$arms[2])
-  tau <- if (is.null(case$tau)) min(max(d$time[arm == 0]), max(d$time[arm == 1])) else case$tau
+  tau <- if (is.null(case$tau)) default_tau(d$time, d$status, arm) else case$tau
   re <- rmst2_reimpl(d$time, d$status, arm, tau, alpha = 1 - case$level)
+  if (requireNamespace("survRM2", quietly = TRUE)) check_survrm2(d, arm, case, tau, re)
   sf <- survfit(Surv(time, status) ~ arm, data = data.frame(time = d$time, status = d$status, arm = arm))
   tab <- summary(sf, rmean = tau)$table
   stopifnot(isTRUE(all.equal(unname(tab[, "rmean"]), re$arms$rmst, tolerance = 1e-12)))
@@ -93,7 +119,8 @@ cases <- list(
 )
 
 result <- list(
-  versions = list(survival = as.character(packageVersion("survival")), R = R.version.string),
+  versions = list(survival = as.character(packageVersion("survival")), R = R.version.string,
+                  survRM2 = if (requireNamespace("survRM2", quietly = TRUE)) as.character(packageVersion("survRM2")) else NULL),
   cases = lapply(cases, run_case)
 )
 writeLines(toJSON(result, auto_unbox = TRUE, digits = NA, null = "null", na = "null"), out_path)

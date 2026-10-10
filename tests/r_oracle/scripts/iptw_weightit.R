@@ -4,11 +4,9 @@
 #   Rscript tests/r_oracle/scripts/iptw_weightit.R
 #
 # It writes tests/r_oracle/fixtures/iptw.json in the same layout as iptw.R,
-# which is hand-coded from the WeightIt 1.x / cobalt 4.x formulas. It has not
-# been run where this fixture was made (CRAN is blocked there). After running
-# it, `uv run pytest tests/r_oracle/test_iptw.py` checks statract against the
-# packages, and `git diff` on the JSON shows any place the hand-coded formulas
-# were wrong.
+# which is the base R version of the same formulas for machines without the
+# packages. The committed fixture comes from this script (WeightIt 2.1.0,
+# cobalt 5.0.0), and iptw.R reproduces it exactly.
 suppressPackageStartupMessages({
   library(WeightIt)
   library(cobalt)

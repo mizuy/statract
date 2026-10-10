@@ -60,15 +60,13 @@ def _rmst_one(time: np.ndarray, event: np.ndarray, tau: float) -> tuple[float, f
     return rmst, var
 
 
-def _max_tau(time: np.ndarray, event: np.ndarray, codes: np.ndarray, k: int) -> tuple[float, float]:
-    """Default tau (the smaller last time) and the largest allowed tau."""
+def _max_tau(time: np.ndarray, event: np.ndarray, codes: np.ndarray, k: int) -> float:
+    """The largest allowed tau, which ``rmst2`` also uses as the default."""
     last = np.array([time[codes == g].max() for g in range(k)])
     # The curve is defined past a group's last time only if every subject at that time failed.
     ended = np.array([bool(np.all(event[(codes == g) & (time == last[g])] > 0)) for g in range(k)])
-    default = float(last.min())
     shorter = last < last.max()
-    allowed = float(last.max()) if np.all(ended[shorter]) else default
-    return default, allowed
+    return float(last.max()) if np.all(ended[shorter]) else float(last.min())
 
 
 def restricted_mean_survival(
@@ -87,10 +85,10 @@ def restricted_mean_survival(
     with one or two values. The contrasts are the other group against
     ``reference`` (``arm = 1`` against ``arm = 0`` in ``rmst2``). The default
     reference is 0 when the values are 0 and 1, otherwise the first value in
-    sorted order. ``tau`` defaults to the smaller of the groups' last observed
-    times. A larger ``tau`` is accepted only up to the largest last time, and
-    only when every group whose follow-up ends earlier ends with events (its
-    curve is then 0), following ``rmst2``.
+    sorted order. ``tau`` may be at most the largest allowed value, which is
+    also the default, following ``rmst2``: the largest of the groups' last
+    observed times when every group whose follow-up ends earlier ends with
+    events (its curve is then 0), otherwise the smallest.
     """
     if not 0 < level < 1:
         raise ValueError("level must be between 0 and 1")
@@ -118,9 +116,9 @@ def restricted_mean_survival(
     elif reference is not None:
         raise ValueError("reference needs two groups")
     k = len(groups)
-    default, allowed = _max_tau(times, events, codes, k)
+    allowed = _max_tau(times, events, codes, k)
     if tau is None:
-        tau = default
+        tau = allowed
     else:
         tau = float(tau)
         if tau <= 0:

@@ -9,12 +9,13 @@
 # uses glm() for the propensity score and base R for the rest:
 #   - weights for ATE / ATT / ATC / ATO from the fitted score (get_w_from_ps)
 #   - stabilize = TRUE (ATE): times the s.weights share of the unit's own arm
-#   - trim(at): quantile (type 7) or count, from the top, lower = TRUE also
+#   - trim(at): quantile (type 3, as WeightIt) or count, from the top, lower = TRUE also
 #     from the bottom; the focal arm of ATT / ATC is left alone
 #   - bal.tab: factor levels split as cobalt does (all levels for 3+ levels,
 #     the second level for 2 levels), binary covariates as raw differences,
-#     continuous as SMD with the unweighted s.d. ("pooled" for ATE / ATO,
-#     "treated" for ATT, "control" for ATC), weighted variances with cobalt's
+#     continuous as SMD with the unweighted s.d. ("pooled" for ATE,
+#     "treated" for ATT, "control" for ATC) or, for ATO, the s.d. of the
+#     whole sample under the balancing weights (cobalt's "weighted"), weighted variances with cobalt's
 #     reliability-weight formula, variance ratios treated / control, and
 #     Kish effective sample sizes.
 suppressPackageStartupMessages(library(jsonlite))
@@ -63,8 +64,8 @@ trim_w <- function(w, t, estimand, at, lower) {
   v <- w[idx]
   if (at < 1) {
     if (at < 0.5) at <- 1 - at
-    top <- unname(quantile(v, at, type = 7))
-    bottom <- if (lower) unname(quantile(v, 1 - at, type = 7)) else -Inf
+    top <- unname(quantile(v, at, type = 3))
+    bottom <- if (lower) unname(quantile(v, 1 - at, type = 3)) else -Inf
   } else {
     top <- sort(v, decreasing = TRUE)[at + 1]
     bottom <- if (lower) sort(v)[at + 1] else -Inf
@@ -110,7 +111,8 @@ bal_row <- function(x, t, w, s, type, sd_denom, binary_std) {
   if (std) {
     v1 <- w_var(x[t == 1], s[t == 1], is_bin)
     v0 <- w_var(x[t == 0], s[t == 0], is_bin)
-    denom <- sqrt(switch(sd_denom, pooled = (v1 + v0) / 2, treated = v1, control = v0))
+    denom <- sqrt(switch(sd_denom, pooled = (v1 + v0) / 2, treated = v1, control = v0,
+                         weighted = w_var(x, w * s, is_bin)))
   }
   stat <- function(ww) {
     m1 <- sum(ww[t == 1] * x[t == 1]) / sum(ww[t == 1])
@@ -144,7 +146,7 @@ add_case <- function(id, sample, covs, estimand, stabilize = FALSE, trim = NULL,
   }
   if (!is.null(trim)) w <- trim_w(w, t, estimand, trim, trim_lower)
 
-  sd_denom <- switch(estimand, ATT = "treated", ATC = "control", "pooled")
+  sd_denom <- switch(estimand, ATT = "treated", ATC = "control", ATO = "weighted", "pooled")
   covlist <- c(list(prop.score = ps), split_covs(d, covs))
   types <- character(0)
   tab <- NULL
