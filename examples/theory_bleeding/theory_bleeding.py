@@ -24,6 +24,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.ticker
 import numpy as np
+import penalized as pen
 import polars as pl
 from build import bleed_logit, potential_outcomes, simulate
 from support import ProjectPath, load_data
@@ -33,6 +34,7 @@ from statract import (
     agg_mean_sd,
     agg_median_iqr,
     brier_score,
+    conditional_tree,
     decision_curve_table,
     fit_glm,
     hc_covariance,
@@ -40,6 +42,7 @@ from statract import (
     plot_forest,
     plot_love,
     plot_roc,
+    plot_tree,
     prop_test,
     propensity_weights,
     roc_curve,
@@ -1491,6 +1494,382 @@ def discrimination_calibration(df: pl.DataFrame, out: Path) -> None:
     plt.close(fig)
 
 
+ALL_VARS = PRED_VARS + NOISE_VARS
+VAR_LABELS = {**LABELS, **{v: f"Lab {v[3:]} (noise)" for v in NOISE_VARS}}
+
+
+def _matrix(df: pl.DataFrame, cols: list[str]) -> np.ndarray:
+    return df.select(cols).to_numpy().astype(float)
+
+
+def _fit_three(
+    dev: pl.DataFrame, test: pl.DataFrame, *, k: int = 10, n_lambda: int = 50
+) -> dict:
+    """Maximum likelihood, ridge and LASSO (lambda by CV deviance) on 17 predictors."""
+    xs, mean, sd = pen.standardize(_matrix(dev, ALL_VARS))
+    y = dev["bleed"].to_numpy().astype(float)
+    xt = (_matrix(test, ALL_VARS) - mean) / sd
+    yt = test["bleed"].to_numpy()
+    lmax = pen.lambda_max(xs, y)
+    grids = {
+        "LASSO": lmax * np.logspace(0, -3, n_lambda),
+        "Ridge": lmax * np.logspace(1.5, -3, n_lambda),
+    }
+    res = {"xs": xs, "y": y, "grids": grids}
+    b0, b = pen.logistic_path(xs, y, np.array([0.0]), penalty="ridge")
+    pt = pen._expit(b0[0] + xt @ b[0])
+    res["Maximum likelihood"] = {
+        "beta": b[0],
+        "auc": _auc(yt, pt),
+        "slope": _slope(yt, pt)[1],
+    }
+    for name, lams in grids.items():
+        kind = "lasso" if name == "LASSO" else "ridge"
+        cvm, cvs = pen.cv_deviance(xs, y, lams, penalty=kind, k=k)
+        i = int(np.argmin(cvm))
+        b0, b = pen.logistic_path(xs, y, lams, penalty=kind)
+        pt = pen._expit(b0[i] + xt @ b[i])
+        res[name] = {
+            "beta": b[i],
+            "path": b,
+            "cv_mean": cvm,
+            "cv_se": cvs,
+            "best": i,
+            "auc": _auc(yt, pt),
+            # A model with every coefficient zero gives everyone the same risk: no slope.
+            "slope": _slope(yt, pt)[1] if np.any(np.abs(b[i]) > 1e-10) else None,
+            "nonzero": int((np.abs(b[i]) > 1e-10).sum()),
+        }
+    return res
+
+
+def regularization(out: Path) -> None:
+    """Chapter 10: ridge and LASSO paths, lambda by CV, and repeated samples."""
+    test = _with_noise(_test_set(), seed=30)
+    dev = _with_noise(simulate(n=1000, seed=4), seed=40)
+    res = _fit_three(dev, test)
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4.2), sharey=True)
+    for ax, name in zip(axes, ["Ridge", "LASSO"], strict=True):
+        r = res[name]
+        lams = res["grids"][name]
+        for j, v in enumerate(ALL_VARS):
+            noise = v in NOISE_VARS
+            ax.plot(
+                np.log10(lams),
+                r["path"][:, j],
+                color=GRAY if noise else BLUE,
+                alpha=0.6 if noise else 1,
+                lw=0.9 if noise else 1.6,
+            )
+            if not noise and abs(r["path"][-1, j]) > 0.15:
+                ax.annotate(
+                    VAR_LABELS[v].split(" (")[0],
+                    (np.log10(lams[-1]), r["path"][-1, j]),
+                    xytext=(3, 0),
+                    textcoords="offset points",
+                    fontsize=7.5,
+                    va="center",
+                )
+        ax.axvline(
+            np.log10(lams[r["best"]]), color=RED, linestyle=":", label="Chosen by CV"
+        )
+        ax.axhline(0, color="black", lw=0.6)
+        ax.invert_xaxis()
+        ax.set_xlabel("log10(lambda)  (strong penalty on the left)")
+        ax.set_title(f"{name}: coefficient path", fontsize=10)
+        ax.grid(alpha=0.3)
+        ax.legend(frameon=False, loc="upper left", fontsize=8.5)
+    axes[0].set_ylabel("Coefficient (per 1 SD of the predictor)")
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch10_path.png", dpi=180)
+    plt.close(fig)
+
+    r = res["LASSO"]
+    lams = res["grids"]["LASSO"]
+    fig, ax = plt.subplots(figsize=(6.2, 3.8))
+    ax.errorbar(
+        np.log10(lams),
+        r["cv_mean"],
+        yerr=r["cv_se"],
+        fmt="o",
+        ms=3,
+        color=BLUE,
+        ecolor="#BFD7EA",
+    )
+    ax.axvline(np.log10(lams[r["best"]]), color=RED, linestyle=":")
+    ax.invert_xaxis()
+    ax.set_xlabel("log10(lambda)")
+    ax.set_ylabel("Held-out deviance per patient")
+    ax.set_title("LASSO: choosing lambda by 10-fold cross-validation", fontsize=10)
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch10_cv.png", dpi=180)
+    plt.close(fig)
+
+    rows = []
+    for name in ["Maximum likelihood", "Ridge", "LASSO"]:
+        b = res[name]["beta"]
+        kept = np.abs(b) > 1e-10
+        rows.append(
+            {
+                "model": name,
+                "auc_new": res[name]["auc"],
+                "slope_new": res[name]["slope"],
+                "nonzero": int(kept.sum()),
+                "noise_kept": int(
+                    sum(kept[j] for j, v in enumerate(ALL_VARS) if v in NOISE_VARS)
+                ),
+            }
+        )
+    _write_csv(out, "ch10_single", pl.DataFrame(rows))
+    coef = pl.DataFrame(
+        {
+            "term": [VAR_LABELS[v] for v in ALL_VARS],
+            **{
+                name: res[name]["beta"]
+                for name in ["Maximum likelihood", "Ridge", "LASSO"]
+            },
+        }
+    )
+    _write_csv(out, "ch10_coefficients", coef)
+
+    # Repeat with new development samples of the same size.
+    reps = []
+    for r_ in range(30):
+        d = _with_noise(simulate(n=1000, seed=7000 + r_), seed=8000 + r_)
+        rr = _fit_three(d, test, k=5, n_lambda=30)
+        for name in ["Maximum likelihood", "Ridge", "LASSO"]:
+            reps.append(
+                {
+                    "repeat": r_,
+                    "model": name,
+                    "auc_new": rr[name]["auc"],
+                    "slope_new": rr[name]["slope"],
+                    "nonzero": rr[name].get("nonzero", len(ALL_VARS)),
+                }
+            )
+    reps = pl.DataFrame(reps)
+    _write_csv(out, "ch10_repeats", reps)
+    _write_csv(
+        out,
+        "ch10_repeats_summary",
+        reps.group_by("model", maintain_order=True).agg(
+            pl.col("auc_new").median().alias("auc_median"),
+            pl.col("slope_new").median().alias("slope_median"),
+            pl.col("slope_new").quantile(0.1).alias("slope_p10"),
+            pl.col("slope_new").quantile(0.9).alias("slope_p90"),
+            (pl.col("nonzero") == 0).sum().alias("empty_model"),
+        ),
+    )
+    fig, axes = plt.subplots(1, 2, figsize=(9, 3.8))
+    names = ["Maximum likelihood", "Ridge", "LASSO"]
+    jit = np.random.default_rng(0)
+    for ax, col, ref, title in [
+        (axes[0], "slope_new", 1.0, "Calibration slope in new patients"),
+        (axes[1], "auc_new", None, "C statistic in new patients"),
+    ]:
+        for i, name in enumerate(names):
+            v = reps.filter(pl.col("model") == name)[col].drop_nulls().to_numpy()
+            ax.scatter(
+                i + jit.uniform(-0.15, 0.15, len(v)), v, s=14, color=BLUE, alpha=0.55
+            )
+            ax.hlines(np.median(v), i - 0.3, i + 0.3, color="black")
+        if ref is not None:
+            ax.axhline(ref, color=RED, linestyle=":", label="Ideal")
+            ax.legend(frameon=False, fontsize=8.5)
+        ax.set_xticks(range(3))
+        ax.set_xticklabels(["Max.\nlikelihood", "Ridge", "LASSO"], fontsize=9)
+        ax.set_title(title, fontsize=10)
+        ax.grid(alpha=0.3, axis="y")
+    if (reps["slope_new"] > 3).any():
+        axes[0].set_ylim(0, 3)
+    fig.suptitle(
+        "30 development samples of 1000 patients (about 45 bleeds), 17 predictors",
+        fontsize=10,
+    )
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch10_repeats.png", dpi=180)
+    plt.close(fig)
+
+
+def trees_ensembles(df: pl.DataFrame, out: Path) -> None:
+    """Chapter 11: one tree, a random forest and boosting against logistic regression."""
+    test = _test_set()
+    yt = test["bleed"].to_numpy()
+    x = _matrix(df, PRED_VARS)
+    y = df["bleed"].to_numpy().astype(float)
+    xt = _matrix(test, PRED_VARS)
+
+    tree = conditional_tree(df, "bleed", PRED_VARS)
+    (out / "ch11_tree.txt").write_text(tree.format(), encoding="utf-8")
+    plot_tree(
+        tree,
+        out / "figures" / "ch11_tree.png",
+        title="Conditional inference tree (3000 patients)",
+    )
+
+    # Boosting: choose the number of trees by 5-fold CV deviance.
+    rounds = 400
+    folds = np.random.default_rng(21).permutation(np.arange(len(y)) % 5)
+    cv = np.zeros((5, rounds))
+    for f in range(5):
+        tr, te = folds != f, folds == f
+        m = pen.boosting(x[tr], y[tr], rounds=rounds, depth=2, rate=0.05)
+        eta = np.full(te.sum(), m[0])
+        for r_, stage in enumerate(m[2]):
+            eta += m[1] * pen.predict_cart(stage, x[te])
+            p_ = np.clip(_expit(eta), 1e-12, 1 - 1e-12)
+            cv[f, r_] = -2 * np.mean(_loglik(y[te], p_))
+    cv_mean = cv.mean(axis=0)
+    best = int(np.argmin(cv_mean)) + 1
+    _write_csv(
+        out,
+        "ch11_boost_cv",
+        pl.DataFrame({"trees": np.arange(1, rounds + 1), "cv_deviance": cv_mean}),
+    )
+    boost = pen.boosting(x, y, rounds=rounds, depth=2, rate=0.05)
+    p_boost_all = {
+        r_: pen.predict_boosting(boost, xt, rounds=r_) for r_ in (best, rounds)
+    }
+    p_boost_train = {
+        r_: pen.predict_boosting(boost, x, rounds=r_) for r_ in (best, rounds)
+    }
+
+    forest = pen.random_forest(
+        x, y, trees=200, max_depth=12, min_leaf=50, features=3, seed=3
+    )
+    logit = fit_glm(df, PRED_FORMULA, family="binomial")
+    logit_int = fit_glm(
+        df.with_columns((pl.col("size_mm") >= 20).cast(pl.Int64).alias("large")),
+        PRED_FORMULA + " + clip:large",
+        family="binomial",
+    )
+    test_l = test.with_columns((pl.col("size_mm") >= 20).cast(pl.Int64).alias("large"))
+    df_l = df.with_columns((pl.col("size_mm") >= 20).cast(pl.Int64).alias("large"))
+    preds = {
+        "Logistic regression": (
+            np.asarray(logit.predict(test, kind="response")),
+            np.asarray(logit.predict(df, kind="response")),
+        ),
+        "Logistic + clip x (size >= 20 mm)": (
+            np.asarray(logit_int.predict(test_l, kind="response")),
+            np.asarray(logit_int.predict(df_l, kind="response")),
+        ),
+        "Single tree": (np.asarray(tree.predict(test)), np.asarray(tree.predict(df))),
+        "Random forest (200 trees)": (
+            pen.predict_forest(forest, xt),
+            pen.predict_forest(forest, x),
+        ),
+        f"Boosting ({best} trees, chosen by CV)": (
+            p_boost_all[best],
+            p_boost_train[best],
+        ),
+        f"Boosting ({rounds} trees)": (p_boost_all[rounds], p_boost_train[rounds]),
+    }
+    rows = []
+    for name, (pt, pa) in preds.items():
+        pt = np.clip(pt, 1e-4, 1 - 1e-4)
+        rows.append(
+            {
+                "model": name,
+                "auc_apparent": _auc(y, pa),
+                "auc_new": _auc(yt, pt),
+                "slope_new": _slope(yt, pt)[1],
+                "brier_new": brier_score(yt, pt),
+            }
+        )
+    _write_csv(out, "ch11_compare", pl.DataFrame(rows))
+
+    fig, ax = plt.subplots(figsize=(6.2, 3.8))
+    ax.plot(np.arange(1, rounds + 1), cv_mean, color=BLUE)
+    ax.axvline(best, color=RED, linestyle=":", label=f"Lowest at {best} trees")
+    ax.set_xlabel("Number of trees")
+    ax.set_ylabel("Held-out deviance per patient")
+    ax.set_title("Boosting: choosing the number of trees by 5-fold CV", fontsize=10)
+    ax.legend(frameon=False)
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch11_boost_cv.png", dpi=180)
+    plt.close(fig)
+
+    # Partial dependence: everyone gets the same size and clip; average the predicted risk.
+    sizes = np.arange(5, 61, 1)
+    base = df
+    curves = []
+    for clip in (0, 1):
+        for sz in sizes:
+            d = base.with_columns(
+                pl.lit(int(sz)).alias("size_mm"), pl.lit(clip).alias("clip")
+            )
+            xd = _matrix(d, PRED_VARS)
+            truth = _expit(
+                bleed_logit(
+                    *[
+                        d[c].to_numpy()
+                        for c in [
+                            "age",
+                            "antithrombotic",
+                            "size_mm",
+                            "proximal",
+                            "clip",
+                        ]
+                    ]
+                )
+            )
+            dl = d.with_columns((pl.col("size_mm") >= 20).cast(pl.Int64).alias("large"))
+            curves.append(
+                {
+                    "clip": clip,
+                    "size_mm": int(sz),
+                    "Truth": float(truth.mean()),
+                    "Logistic regression": float(
+                        np.mean(logit.predict(d, kind="response"))
+                    ),
+                    "Logistic + interaction": float(
+                        np.mean(logit_int.predict(dl, kind="response"))
+                    ),
+                    "Boosting": float(
+                        pen.predict_boosting(boost, xd, rounds=best).mean()
+                    ),
+                    "Random forest": float(pen.predict_forest(forest, xd).mean()),
+                }
+            )
+    curves = pl.DataFrame(curves)
+    _write_csv(out, "ch11_partial", curves)
+    fig, axes = plt.subplots(1, 2, figsize=(9.6, 3.9), sharey=True)
+    styles = {
+        "Truth": ("black", "-", 2.2),
+        "Logistic regression": (GRAY, "--", 1.6),
+        "Logistic + interaction": ("#7AA974", ":", 2.0),
+        "Boosting": (BLUE, "-", 1.6),
+        "Random forest": ("#EFC000", "-", 1.6),
+    }
+    for ax, clip in zip(axes, (0, 1), strict=True):
+        part = curves.filter(pl.col("clip") == clip)
+        for name, (color, ls, lw) in styles.items():
+            ax.plot(
+                part["size_mm"],
+                part[name],
+                color=color,
+                linestyle=ls,
+                lw=lw,
+                label=name,
+            )
+        ax.set_title("No clip" if clip == 0 else "Clip", fontsize=10)
+        ax.set_xlabel("Lesion size (mm)")
+        ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
+        ax.grid(alpha=0.3)
+    axes[0].set_ylabel("Average predicted risk")
+    axes[0].legend(frameon=False, fontsize=8.5)
+    fig.suptitle(
+        "Risk by lesion size, with and without a clip (partial dependence)", fontsize=10
+    )
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch11_partial.png", dpi=180)
+    plt.close(fig)
+
+
 def _expit(x: np.ndarray) -> np.ndarray:
     return 1.0 / (1.0 + np.exp(-x))
 
@@ -1516,6 +1895,8 @@ def main() -> None:
     prediction_model(df, out)
     overfitting(out)
     discrimination_calibration(df, out)
+    regularization(out)
+    trees_ensembles(df, out)
     n = df.height
     events = int(df["bleed"].sum())
     (out / "n.md").write_text(
