@@ -50,7 +50,7 @@ def test_trim_bounds_leave_focal_arm() -> None:
 def test_trim_quantile_caps_top() -> None:
     base = propensity_weights(_frame(), FORMULA)
     res = propensity_weights(_frame(), FORMULA, trim=0.9)
-    cap = np.quantile(base.weights, 0.9)
+    cap = np.quantile(base.weights, 0.9, method="closest_observation")
     np.testing.assert_allclose(res.weights.max(), cap)
     np.testing.assert_allclose(res.weights, np.minimum(base.weights, cap))
     low = propensity_weights(_frame(), FORMULA, trim=0.1)

@@ -26,7 +26,7 @@ from .formula import model_matrix
 
 _ESTIMANDS = {"ATE", "ATT", "ATC", "ATO"}
 _BINARY = {"raw", "std"}
-_SD_DENOMS = {"pooled", "treated", "control", "all"}
+_SD_DENOMS = {"pooled", "treated", "control", "all", "weighted"}
 
 
 @dataclass
@@ -222,7 +222,8 @@ def balance_table(
     ``diff_*`` is the treated mean minus the control mean. For a continuous
     covariate it is divided by the standard deviation of the sample without
     the balancing weights (sampling weights kept). ``sd_denominator`` defaults
-    from the estimand: ``ATT`` treated, ``ATC`` control, otherwise ``pooled``,
+    from the estimand: ``ATT`` treated, ``ATC`` control, ``ATO`` weighted (the
+    whole sample under the balancing weights, as cobalt), otherwise ``pooled``,
     ``sqrt((s1^2 + s0^2) / 2)``. A binary covariate shows the raw difference in
     proportions unless ``binary="std"``; its variance is then ``p(1-p)``.
     ``variance_ratio_*`` is treated over control with cobalt's weighted
@@ -308,9 +309,9 @@ def _trim(w: np.ndarray, treat: np.ndarray, estimand: str, at, *, lower: bool) -
         raise ValueError("trim must be a positive number or a (low, high) pair")
     if at < 1:
         q = at if at >= 0.5 else 1.0 - at
-        # stats::quantile default (type 7), as numpy's "linear".
-        top = float(np.quantile(values, q))
-        bottom = float(np.quantile(values, 1.0 - q)) if lower else -np.inf
+        # WeightIt uses quantile(type = 3), numpy's "closest_observation".
+        top = float(np.quantile(values, q, method="closest_observation"))
+        bottom = float(np.quantile(values, 1.0 - q, method="closest_observation")) if lower else -np.inf
     else:
         if not float(at).is_integer():
             raise ValueError("a trim count must be a whole number")
@@ -415,8 +416,10 @@ def _wvar(x: np.ndarray, w: np.ndarray, binary: bool) -> float:
     return float(np.sum(w * (x - m) ** 2) / den)
 
 
-def _sd_denominator(x, treat, s, binary, how) -> float:
-    if how == "treated":
+def _sd_denominator(x, treat, s, binary, how, w) -> float:
+    if how == "weighted":
+        var = _wvar(x, w * s, binary)
+    elif how == "treated":
         var = _wvar(x[treat], s[treat], binary)
     elif how == "control":
         var = _wvar(x[~treat], s[~treat], binary)
@@ -445,7 +448,7 @@ def _balance_from_design(
     if continuous not in _BINARY:
         raise ValueError("continuous must be 'raw' or 'std'")
     if sd_denominator is None:
-        sd_denominator = {"ATT": "treated", "ATC": "control"}.get(estimand, "pooled")
+        sd_denominator = {"ATT": "treated", "ATC": "control", "ATO": "weighted"}.get(estimand, "pooled")
     if sd_denominator not in _SD_DENOMS:
         raise ValueError(f"sd_denominator must be one of {sorted(_SD_DENOMS)}")
     treat = np.asarray(treat, dtype=bool)
@@ -466,7 +469,7 @@ def _balance_from_design(
     for name, kind, col in entries:
         is_binary = kind == "Binary"
         standardize = kind == "Distance" or (binary == "std" if is_binary else continuous == "std")
-        denom = _sd_denominator(col, treat, s, is_binary, sd_denominator) if standardize else 1.0
+        denom = _sd_denominator(col, treat, s, is_binary, sd_denominator, w) if standardize else 1.0
         row: dict[str, Any] = {"term": name, "type": kind}
         for label, weights in (("unadjusted", s), ("adjusted", adj)):
             mt = _wmean(col[treat], weights[treat])
