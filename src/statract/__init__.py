@@ -68,6 +68,7 @@ from .models.covariance import (
     newey_west_covariance,
 )
 from .models.fit import fit_glm, fit_ols
+from .models.standardize import StandardizedGLM, standardize_glm
 from .models.formula import model_matrix
 from .models.effects import spline_effect, spline_test
 from .viz.effect import plot_spline_effect
@@ -237,6 +238,8 @@ __all__ = [
     "fine_gray",
     "fine_gray_regression",
     "fit_glm",
+    "StandardizedGLM",
+    "standardize_glm",
     "fit_mixed",
     "MixedFit",
     "fit_ols",

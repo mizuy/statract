@@ -104,6 +104,7 @@ nav:
           - Models:
               - formula: api/models/formula.md
               - fit: api/models/fit.md
+              - standardize: api/models/standardize.md
               - covariance: api/models/covariance.md
               - linear_tests: api/models/linear_tests.md
               - effects: api/models/effects.md
