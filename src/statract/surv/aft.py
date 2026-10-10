@@ -142,10 +142,7 @@ def _newton(theta, x, y, event, weights, offset, distribution, free_scale):
     ll, grad, hess = _objective(theta, x, y, event, weights, offset, distribution, free_scale)
     converged = False
     for _ in range(_MAX_ITER):
-        try:
-            step = np.linalg.solve(-hess, grad)
-        except np.linalg.LinAlgError:
-            step = np.linalg.lstsq(-hess, grad, rcond=None)[0]
+        step = _ascent_step(hess, grad)
         lam = 1.0
         accepted = False
         while lam > 1e-10:
@@ -162,6 +159,30 @@ def _newton(theta, x, y, event, weights, offset, distribution, free_scale):
             converged = True
             break
     return theta, ll, hess, converged
+
+
+def _ascent_step(hess: np.ndarray, grad: np.ndarray) -> np.ndarray:
+    """Newton step, damped (Levenberg–Marquardt) where the Hessian is not negative definite.
+
+    Far from the optimum, for example with heavy censoring, the Newton
+    direction can point downhill, and the line search then stops at the start.
+    """
+    neg = -hess
+    try:
+        step = np.linalg.solve(neg, grad)
+        np.linalg.cholesky(neg)
+        return step
+    except np.linalg.LinAlgError:
+        pass
+    mu = max(1e-6, float(np.max(np.abs(np.diag(neg)))) * 1e-3)
+    eye = np.eye(neg.shape[0])
+    for _ in range(60):
+        try:
+            np.linalg.cholesky(neg + mu * eye)
+            return np.linalg.solve(neg + mu * eye, grad)
+        except np.linalg.LinAlgError:
+            mu *= 10.0
+    return grad
 
 
 def _objective(theta, x, y, event, weights, offset, distribution, free_scale):
