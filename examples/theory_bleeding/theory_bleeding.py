@@ -1781,93 +1781,91 @@ def trees_ensembles(df: pl.DataFrame, out: Path) -> None:
         )
     _write_csv(out, "ch11_compare", pl.DataFrame(rows))
 
-    fig, ax = plt.subplots(figsize=(6.2, 3.8))
-    ax.plot(np.arange(1, rounds + 1), cv_mean, color=BLUE)
-    ax.axvline(best, color=RED, linestyle=":", label=f"Lowest at {best} trees")
-    ax.set_xlabel("Number of trees")
-    ax.set_ylabel("Held-out deviance per patient")
-    ax.set_title("Boosting: choosing the number of trees by 5-fold CV", fontsize=10)
-    ax.legend(frameon=False)
-    ax.grid(alpha=0.3)
+
+def _network_schematic(path: Path) -> None:
+    """Logistic regression as one unit, and a network with one hidden layer."""
+    fig, axes = plt.subplots(1, 2, figsize=(9.6, 3.8))
+    inputs = ["Age", "Antithrombotic", "Lesion size", "Proximal", "Clip"]
+    ys = np.linspace(0.85, 0.15, len(inputs))
+    for ax, hidden, title in [
+        (axes[0], 0, "Logistic regression = one unit"),
+        (axes[1], 4, "Neural network: logistic units in layers"),
+    ]:
+        ax.set_xlim(-0.05, 1.05)
+        ax.set_ylim(0, 1)
+        ax.axis("off")
+        ax.set_title(title, fontsize=10)
+        xin, xh, xo = 0.12, 0.5, 0.88
+        out = (xo, 0.5)
+        hs = [(xh, yy) for yy in np.linspace(0.8, 0.2, hidden)] if hidden else []
+        for yy, lab in zip(ys, inputs, strict=True):
+            ax.add_patch(plt.Circle((xin, yy), 0.035, color="#BFD7EA"))
+            ax.text(xin - 0.05, yy, lab, ha="right", va="center", fontsize=8)
+            for tgt in hs or [out]:
+                ax.plot([xin + 0.035, tgt[0] - 0.04], [yy, tgt[1]], color=GRAY, lw=0.6)
+        for hx, hy in hs:
+            ax.add_patch(plt.Circle((hx, hy), 0.045, color=BLUE))
+            ax.plot([hx + 0.045, out[0] - 0.05], [hy, out[1]], color=GRAY, lw=0.8)
+        ax.add_patch(plt.Circle(out, 0.055, color=RED))
+        ax.text(out[0], out[1] - 0.11, "risk p", ha="center", fontsize=8.5)
+        if hidden:
+            ax.text(
+                xh,
+                0.06,
+                "hidden units\n(each a logistic curve)",
+                ha="center",
+                fontsize=8,
+            )
+        else:
+            ax.text(
+                0.5,
+                0.06,
+                "p = 1 / (1 + exp(-(b0 + b1 x1 + ...)))",
+                ha="center",
+                fontsize=8,
+            )
     fig.tight_layout()
-    fig.savefig(out / "figures" / "ch11_boost_cv.png", dpi=180)
+    fig.savefig(path, dpi=180)
     plt.close(fig)
 
-    # Partial dependence: everyone gets the same size and clip; average the predicted risk.
-    sizes = np.arange(5, 61, 1)
-    base = df
-    curves = []
-    for clip in (0, 1):
-        for sz in sizes:
-            d = base.with_columns(
-                pl.lit(int(sz)).alias("size_mm"), pl.lit(clip).alias("clip")
-            )
-            xd = _matrix(d, PRED_VARS)
-            truth = _expit(
-                bleed_logit(
-                    *[
-                        d[c].to_numpy()
-                        for c in [
-                            "age",
-                            "antithrombotic",
-                            "size_mm",
-                            "proximal",
-                            "clip",
-                        ]
-                    ]
-                )
-            )
-            dl = d.with_columns((pl.col("size_mm") >= 20).cast(pl.Int64).alias("large"))
-            curves.append(
-                {
-                    "clip": clip,
-                    "size_mm": int(sz),
-                    "Truth": float(truth.mean()),
-                    "Logistic regression": float(
-                        np.mean(logit.predict(d, kind="response"))
-                    ),
-                    "Logistic + interaction": float(
-                        np.mean(logit_int.predict(dl, kind="response"))
-                    ),
-                    "Boosting": float(
-                        pen.predict_boosting(boost, xd, rounds=best).mean()
-                    ),
-                    "Random forest": float(pen.predict_forest(forest, xd).mean()),
-                }
-            )
-    curves = pl.DataFrame(curves)
-    _write_csv(out, "ch11_partial", curves)
-    fig, axes = plt.subplots(1, 2, figsize=(9.6, 3.9), sharey=True)
-    styles = {
-        "Truth": ("black", "-", 2.2),
-        "Logistic regression": (GRAY, "--", 1.6),
-        "Logistic + interaction": ("#7AA974", ":", 2.0),
-        "Boosting": (BLUE, "-", 1.6),
-        "Random forest": ("#EFC000", "-", 1.6),
-    }
-    for ax, clip in zip(axes, (0, 1), strict=True):
-        part = curves.filter(pl.col("clip") == clip)
-        for name, (color, ls, lw) in styles.items():
-            ax.plot(
-                part["size_mm"],
-                part[name],
-                color=color,
-                linestyle=ls,
-                lw=lw,
-                label=name,
-            )
-        ax.set_title("No clip" if clip == 0 else "Clip", fontsize=10)
-        ax.set_xlabel("Lesion size (mm)")
-        ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
-        ax.grid(alpha=0.3)
-    axes[0].set_ylabel("Average predicted risk")
-    axes[0].legend(frameon=False, fontsize=8.5)
-    fig.suptitle(
-        "Risk by lesion size, with and without a clip (partial dependence)", fontsize=10
-    )
-    fig.tight_layout()
-    fig.savefig(out / "figures" / "ch11_partial.png", dpi=180)
-    plt.close(fig)
+
+def neural_network(df: pl.DataFrame, out: Path) -> None:
+    """Chapter 11: a network as stacked logistic regressions."""
+    _network_schematic(out / "figures" / "ch11_network.png")
+
+    # The bleeding data: same seven predictors as chapter 7.
+    test = _test_set()
+    yt = test["bleed"].to_numpy().astype(float)
+    xs, mean, sd = pen.standardize(_matrix(df, PRED_VARS))
+    xt = (_matrix(test, PRED_VARS) - mean) / sd
+    y = df["bleed"].to_numpy().astype(float)
+    logit = fit_glm(df, PRED_FORMULA, family="binomial")
+    p_log = np.asarray(logit.predict(test, kind="response"))
+    rows = [
+        {
+            "model": "Logistic regression (chapter 7)",
+            "hidden": 0,
+            "decay": 0.0,
+            "auc_apparent": _auc(y, np.asarray(logit.predict(df, kind="response"))),
+            "auc_new": _auc(yt, p_log),
+            "slope_new": _slope(yt, p_log)[1],
+        }
+    ]
+    for hidden, decay in [(1, 0.0), (5, 0.0), (20, 0.0), (20, 0.01)]:
+        net = pen.mlp_fit(xs, y, hidden=hidden, decay=decay, epochs=2000, rate=0.01)
+        pt = np.clip(pen.mlp_predict(net, xt), 1e-6, 1 - 1e-6)
+        rows.append(
+            {
+                "model": f"Network, {hidden} hidden"
+                + (f", weight decay {decay}" if decay else ""),
+                "hidden": hidden,
+                "decay": decay,
+                "auc_apparent": _auc(y, pen.mlp_predict(net, xs)),
+                "auc_new": _auc(yt, pt),
+                "slope_new": _slope(yt, pt)[1],
+            }
+        )
+    _write_csv(out, "ch11_network", pl.DataFrame(rows))
 
 
 def _expit(x: np.ndarray) -> np.ndarray:
@@ -1897,6 +1895,7 @@ def main() -> None:
     discrimination_calibration(df, out)
     regularization(out)
     trees_ensembles(df, out)
+    neural_network(df, out)
     n = df.height
     events = int(df["bleed"].sum())
     (out / "n.md").write_text(

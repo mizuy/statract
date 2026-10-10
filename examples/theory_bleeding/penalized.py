@@ -263,3 +263,72 @@ def predict_boosting(
     for tree in stages[: rounds if rounds is not None else len(stages)]:
         eta += rate * predict_cart(tree, x)
     return _expit(eta)
+
+
+# ---------------------------------------------------------------------------
+# A one-hidden-layer neural network (chapter 12)
+
+
+def mlp_fit(
+    x: np.ndarray,
+    y: np.ndarray,
+    *,
+    hidden: int,
+    decay: float = 0.0,
+    epochs: int = 3000,
+    rate: float = 0.01,
+    seed: int = 1,
+    x_val: np.ndarray | None = None,
+    y_val: np.ndarray | None = None,
+) -> dict:
+    """Logistic units stacked in two layers, trained by full-batch Adam on log loss.
+
+    hidden layer: h = tanh(x W1 + b1); output: p = expit(h w2 + b2).
+    ``decay`` is an L2 penalty on the weights (the ridge penalty of chapter 10).
+    With ``x_val``/``y_val`` the held-out log loss is recorded every epoch.
+    """
+    rng = np.random.default_rng(seed)
+    n, d = x.shape
+    params = {
+        "w1": rng.normal(0, 1 / np.sqrt(d), (d, hidden)),
+        "b1": np.zeros(hidden),
+        "w2": rng.normal(0, 1 / np.sqrt(hidden), hidden),
+        "b2": np.array(float(np.log(y.mean() / (1 - y.mean())))),
+    }
+    m = {k: np.zeros_like(v) for k, v in params.items()}
+    v = {k: np.zeros_like(v) for k, v in params.items()}
+    history = []
+    for t in range(1, epochs + 1):
+        h = np.tanh(x @ params["w1"] + params["b1"])
+        p = _expit(h @ params["w2"] + params["b2"])
+        g_out = (p - y) / n
+        grads = {
+            "w2": h.T @ g_out + decay * params["w2"],
+            "b2": np.array(g_out.sum()),
+        }
+        g_h = np.outer(g_out, params["w2"]) * (1 - h**2)
+        grads["w1"] = x.T @ g_h + decay * params["w1"]
+        grads["b1"] = g_h.sum(axis=0)
+        for k, value in params.items():
+            m[k] = 0.9 * m[k] + 0.1 * grads[k]
+            v[k] = 0.999 * v[k] + 0.001 * grads[k] ** 2
+            mh = m[k] / (1 - 0.9**t)
+            vh = v[k] / (1 - 0.999**t)
+            params[k] = value - rate * mh / (np.sqrt(vh) + 1e-8)
+        if x_val is not None and y_val is not None and (t % 10 == 0 or t == 1):
+            pv = np.clip(mlp_predict(params, x_val), 1e-12, 1 - 1e-12)
+            pt = np.clip(p, 1e-12, 1 - 1e-12)
+            history.append(
+                (
+                    t,
+                    float(-np.mean(y * np.log(pt) + (1 - y) * np.log(1 - pt))),
+                    float(-np.mean(y_val * np.log(pv) + (1 - y_val) * np.log(1 - pv))),
+                )
+            )
+    params["history"] = history
+    return params
+
+
+def mlp_predict(params: dict, x: np.ndarray) -> np.ndarray:
+    h = np.tanh(x @ params["w1"] + params["b1"])
+    return _expit(h @ params["w2"] + params["b2"])

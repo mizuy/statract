@@ -91,7 +91,7 @@ nav:
           - 8. 過学習と汎化: theory/overfitting.md
           - 9. 識別と較正: theory/discrimination-calibration.md
           - 10. 正則化: theory/regularization.md
-          - 11. 木とアンサンブル: theory/trees-ensembles.md
+          - 11. 木、アンサンブル、ニューラルネットワーク: theory/trees-ensembles.md
       - 数学補:
           - A1. 確率、オッズ、対数: theory/math/odds-log.md
   - Examples:

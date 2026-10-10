@@ -63,18 +63,17 @@
 | 8. [過学習と汎化](overfitting.md) | 見かけの成績、学習曲線、例数の目安、分割、交差検証、LOOCV、AIC と WAIC、ブートストラップ | 学習曲線、楽観度 | `validate_logistic` |
 | 9. [識別と較正](discrimination-calibration.md) | ROC と C 統計量、較正の図と切片・傾き、Brier、決定曲線 | ROC、較正の図、DCA | `roc_curve`、`plot_roc`、`threshold_tradeoff`、`decision_curve_table` |
 | 10. [正則化](regularization.md) | ridge、LASSO、λ を交差検証で選ぶ、一回では当てにならないこと、ベイズとのつながり | 係数の経路、繰り返しでの較正の傾き | statract に未実装（numpy で図示） |
-| 11. [木とアンサンブル](trees-ensembles.md) | 決定木、ランダムフォレスト、勾配ブースティング、ロジスティック回帰との比較、部分依存 | 木の図、部分依存の図 | `conditional_tree`、`plot_tree`（森とブースティングは numpy） |
-| 12. ニューラルネットワークへ | ロジスティック回帰を重ねる、PRML の見方 | 決定境界 | — |
+| 11. [木、アンサンブル、ニューラルネットワーク](trees-ensembles.md) | 条件付き推測木（ctree）、ランダムフォレストと勾配ブースティングの紹介、ロジスティック回帰を重ねたニューラルネットワーク | 木の図、ネットワークの模式図 | `conditional_tree`、`plot_tree`（森、ブースティング、ネットワークは numpy） |
 
 ### 第 IV 部 統計モデリング
 
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
-| 13. 確率モデルとしてのロジスティック回帰 | $Y_i \sim \mathrm{Bernoulli}(p_i)$、データの生成過程 | 生成過程の模式図 | `fit_glm` |
-| 14. 尤度と最尤法 | 尤度、対数尤度、最尤推定、標準誤差 | 尤度曲線 | `fit_glm`、`likelihood_ratio_test` |
-| 15. ベイズ推論 | 事前分布、事後分布、事前の強さ | 事前と事後 | — |
-| 16. 事後予測分布 | 予測の不確かさ、モデルの確認 | 事後予測チェック | — |
-| 17. 階層モデル | 施設差、部分プーリング | 施設ごとの推定の縮み | `fit_mixed`、`plot_random_effects` |
+| 12. 確率モデルとしてのロジスティック回帰 | $Y_i \sim \mathrm{Bernoulli}(p_i)$、データの生成過程 | 生成過程の模式図 | `fit_glm` |
+| 13. 尤度と最尤法 | 尤度、対数尤度、最尤推定、標準誤差 | 尤度曲線 | `fit_glm`、`likelihood_ratio_test` |
+| 14. ベイズ推論 | 事前分布、事後分布、事前の強さ | 事前と事後 | — |
+| 15. 事後予測分布 | 予測の不確かさ、モデルの確認 | 事後予測チェック | — |
+| 16. 階層モデル | 施設差、部分プーリング | 施設ごとの推定の縮み | `fit_mixed`、`plot_random_effects` |
 
 ### 数学補
 

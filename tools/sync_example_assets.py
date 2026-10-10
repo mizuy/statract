@@ -280,10 +280,9 @@ CURATED: dict[str, list[str]] = {
         "figures/ch10_cv.png",
         "figures/ch10_repeats.png",
         "ch11_compare.csv",
-        "ch11_partial.csv",
         "figures/ch11_tree.png",
-        "figures/ch11_boost_cv.png",
-        "figures/ch11_partial.png",
+        "ch11_network.csv",
+        "figures/ch11_network.png",
     ],
     "cea_sicksicker": [
         "figures/trace_soc.png",
