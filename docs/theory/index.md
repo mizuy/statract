@@ -25,7 +25,7 @@
 | 予防的クリップは出血を減らすか | 因果 | 第 II 部 |
 | この患者は出血するか | 予測 | 第 III 部 |
 
-データは**シミュレーション**です。どの変数がどれに影響するか（DAG: directed acyclic graph、有向非巡回グラフ）をコードに書いて作っているので、各章で「推定した値」と「本当の値」を比べられます。作り方は [第 1 章](independent-risk-factor.md#data) と [`examples/theory_bleeding`](https://github.com/mizuy/statract/tree/main/examples/theory_bleeding) にあります。
+データは**シミュレーション**です。どの変数がどれに影響するか（DAG: directed acyclic graph、有向非巡回グラフ）をコードに書いて作っているので、各章で「推定した値」と「本当の値」を比べられます。作り方は [第 1 章](independent-risk-factor.md#simulation) と [`examples/theory_bleeding`](https://github.com/mizuy/statract/tree/main/examples/theory_bleeding) にあります。
 
 ## 読み方
 
@@ -35,13 +35,11 @@
 
 ## 目次
 
-章のリンクがないものは、これから書く章です。図と関数は予定です。
-
 ### 第 I 部 導入
 
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
-| 1. [「独立した危険因子」とは何か](independent-risk-factor.md) | 慣習的な解析（単変量 → 多変量）、ロジスティック回帰の基本、因果か予測か | ロジスティック曲線、forest、層別の出血率 | `fit_glm`、`tableone`、`plot_forest` |
+| 1. [「独立した危険因子」とは何か](independent-risk-factor.md) | 慣習的な解析（単変量 → 多変量）、ロジスティック回帰の基本、因果か予測か | ロジスティック曲線、forest、層別の出血割合 | `fit_glm`、`tableone`、`plot_forest` |
 
 ### 第 II 部 因果推論
 
@@ -52,16 +50,16 @@
 | 2. [因果推論の考え方](causal-basics.md) | Rubin の反事実モデル、交換可能性、DAG とバックドア基準、文献 | 群ごとの潜在アウトカム、DAG | `prop_test` |
 | 3. [背景を調整する方法](adjustment-methods.md) | 限定、層別化、回帰と標準化、マッチング、重み付けの比較 | 方法ごとの推定値と本当の値 | `standardize_glm`、`match_sample`、`propensity_weights` |
 | 4. [傾向スコアマッチング](propensity-score-matching.md) | バランシングスコア、傾向スコア、重なり、キャリパー、バランスの確認 | 傾向スコアの分布、Love plot、マッチ前後の Table 1 | `match_sample`、`plot_love` |
-| 5. [IPTW（逆確率重み付け）](iptw.md) | 重みで仮の集団を作る、g-formula と同じ量になる理由、安定化、極端な重み、推定する対象 | 重みの分布、重み付きの Love plot、重みごとの推定値 | `propensity_weights`、`plot_love` |
+| 5. [IPTW](iptw.md) | 重みで仮の集団を作る、g-formula と同じ量になる理由、安定化、極端な重み、推定する対象 | 重みの分布、重み付きの Love plot、重みごとの推定値 | `propensity_weights`、`plot_love` |
 | 6. [仮定と感度分析](assumptions-sensitivity.md) | 正値性、未測定交絡、E-value、一致性、Bradford Hill の視点 | 未測定交絡の影響、E-value の図 | `standardize_glm` |
 
-### 第 III 部 予測と機械学習
+### 第 III 部 予測
 
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
 | 7. [予測モデルとしてのロジスティック回帰](prediction-model.md) | 同じ式を予測に使う、係数より予測確率、因果でない変数も予測に役立つ | 予測確率の分布 | `fit_glm` |
-| 8. [過学習と汎化](overfitting.md) | 見かけの成績、学習曲線、例数の目安、分割、交差検証、LOOCV、AIC と WAIC、ブートストラップ | 学習曲線、楽観度 | `validate_logistic` |
-| 9. [識別と較正](discrimination-calibration.md) | ROC と C 統計量、較正の図と切片・傾き、Brier、決定曲線 | ROC、較正の図、DCA | `roc_curve`、`plot_roc`、`threshold_tradeoff`、`decision_curve_table` |
+| 8. [過学習と汎化](overfitting.md) | 見かけの成績、学習曲線、例数の目安、分割、交差検証、LOOCV、AIC と WAIC、ブートストラップ | 学習曲線、交差検証の模式図と比較 | `validate_logistic` |
+| 9. [識別と較正](discrimination-calibration.md) | ROC と C 統計量、較正の図と切片・傾き、Brier、決定曲線 | ROC、較正の図、DCA | `roc_curve`、`plot_roc`、`decision_curve_table`、`plot_dca` |
 | 10. [正則化](regularization.md) | ridge、LASSO、λ を交差検証で選ぶ、一回では当てにならないこと、ベイズとのつながり | 係数の経路、繰り返しでの較正の傾き | statract に未実装（numpy で図示） |
 | 11. [木、アンサンブル、ニューラルネットワーク](trees-ensembles.md) | 条件付き推測木（ctree）、ランダムフォレストと勾配ブースティングの紹介、ロジスティック回帰を重ねたニューラルネットワーク | 木の図、ネットワークの模式図 | `conditional_tree`、`plot_tree`（森、ブースティング、ネットワークは numpy） |
 
@@ -96,6 +94,7 @@
 | ATO | average treatment effect in the overlap population | 重なり集団での平均処置効果 |
 | ATT | average treatment effect on the treated | 処置群での平均処置効果 |
 | AUC | area under the curve | 曲線下面積（ROC 曲線の下の面積） |
+| CART | classification and regression trees | 分類回帰木 |
 | CI | confidence interval | 信頼区間 |
 | CV | cross-validation | 交差検証 |
 | DAG | directed acyclic graph | 有向非巡回グラフ |
@@ -108,14 +107,16 @@
 | ICC | intraclass correlation coefficient | 級内相関係数 |
 | IPTW | inverse probability of treatment weighting | 治療の逆確率による重み付け |
 | IRLS | iteratively reweighted least squares | 反復重み付き最小 2 乗法 |
-| LASSO | least absolute shrinkage and selection operator | （係数の絶対値に罰をつける正則化） |
+| LASSO | least absolute shrinkage and selection operator | 係数の絶対値の和に罰をつける正則化 |
 | LOOCV | leave-one-out cross-validation | 一つ抜き交差検証 |
 | MCMC | Markov chain Monte Carlo | マルコフ連鎖モンテカルロ法 |
 | MOR | median odds ratio | オッズ比の中央値 |
 | OR | odds ratio | オッズ比 |
+| PSIS-LOO | Pareto-smoothed importance sampling leave-one-out cross-validation | パレート平滑化重点サンプリングによる一つ抜き交差検証 |
 | RCT | randomized controlled trial | ランダム化比較試験 |
-| ROC | receiver operating characteristic | 受信者動作特性 |
+| RHC | right heart catheterization | 右心カテーテル |
 | RMST | restricted mean survival time | 制限付き平均生存時間 |
+| ROC | receiver operating characteristic | 受信者動作特性 |
 | RR | risk ratio | リスク比 |
 | SMD | standardized mean difference | 標準化差 |
 | TRIPOD | Transparent Reporting of a multivariable prediction model for Individual Prognosis Or Diagnosis | 予測モデル研究の報告指針 |
