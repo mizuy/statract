@@ -99,6 +99,10 @@ nav:
           - 15. 生存時間解析: theory/survival.md
       - 数学補:
           - A1. 確率、オッズ、対数: theory/math/odds-log.md
+          - A2. 条件付き確率とベイズの定理: theory/math/conditional-probability.md
+          - A3. 期待値と分散: theory/math/expectation-variance.md
+          - A4. 微分と最大化: theory/math/derivatives-maximization.md
+          - A5. ベクトルと行列: theory/math/vectors-matrices.md
   - Examples:
       - Gallery: examples/index.md
       - Basic tests:

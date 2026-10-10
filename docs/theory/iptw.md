@@ -60,7 +60,7 @@ $$
 !!! note "期待値で書くと"
     $\mathrm{E}\left[\dfrac{A\,Y}{e(X)}\right] = \mathrm{E}\left[\dfrac{\mathrm{E}[A\,Y \mid X]}{e(X)}\right] = \mathrm{E}\left[\dfrac{e(X)\,\mathrm{E}[Y \mid A = 1, X]}{e(X)}\right] = \mathrm{E}\big[\mathrm{E}[Y \mid A = 1, X]\big]$
 
-    最後の式が g-formula です。途中で $e(X) > 0$（正値性）を使って割っています。期待値の記号は数学補 A3 で扱う予定です。
+    最後の式が g-formula です。途中で $e(X) > 0$（正値性）を使って割っています。期待値の記号と繰り返し期待値の法則は[数学補 A3](math/expectation-variance.md) で扱います。
 
 ## 5.3 重みを見る {#weights}
 
