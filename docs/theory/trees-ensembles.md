@@ -10,7 +10,7 @@
 
 決定木にはいくつかの作り方があります。古典的な CART は、分けたあとのグループができるだけ純粋になる分け方を探し、大きく育ててから刈り込みます。この方法には、**分け方の候補が多い変数**（連続変数や、カテゴリの多い変数）が選ばれやすいという偏りがあります。候補が多いほど、偶然よく分かれる点が見つかりやすいからです。
 
-**条件付き推測木**（conditional inference tree、ctree）は、この偏りを検定で防ぎます（Hothorn ら 2006）。各ノードで次のことを行います。
+**条件付き推測木**（conditional inference tree、ctree）は、この偏りを検定で防ぎます [@Hothorn2006-ia]。各ノードで次のことを行います。
 
 1. **変数を選ぶ。** それぞれの変数とアウトカムが無関係かを、並べ替え検定（permutation test）で調べる。変数の数で多重性を補正（Bonferroni）した $P$ 値が最も小さい変数を選ぶ。
 2. **止めるか決める。** 最も小さい $P$ 値でも有意水準（普通は 0.05）を超えたら、そこで分けるのをやめる。
@@ -57,7 +57,7 @@
 
 ## 11.2 ランダムフォレスト {#random-forest}
 
-**ランダムフォレスト**（random forest）は、たくさんの木の平均で予測する方法です（Breiman 2001）。
+**ランダムフォレスト**（random forest）は、たくさんの木の平均で予測する方法です [@Breiman2001-qi]。
 
 - データからブートストラップ標本（第 8 章）を作り、木を一本育てます。分けるたびに、使う変数の候補をランダムに数個に絞ります。
 - これを数百回繰り返して「森」を作り、新しい患者の予測は全部の木の平均にします。
@@ -66,7 +66,7 @@
 
 ## 11.3 勾配ブースティング {#boosting}
 
-**勾配ブースティング**（gradient boosting）は、小さい木を**順番に**足していく方法です（Friedman 2001）。今の予測で外れている分（残差）を小さい木で予測し、その結果を少しだけ今の予測に足す、を繰り返します。XGBoost や LightGBM はこの方法の実装です。
+**勾配ブースティング**（gradient boosting）は、小さい木を**順番に**足していく方法です [@Friedman2001-bs]。今の予測で外れている分（残差）を小さい木で予測し、その結果を少しだけ今の予測に足す、を繰り返します。XGBoost や LightGBM はこの方法の実装です。
 
 木を足しすぎると過学習します。木の数（と学習率、木の深さ）は交差検証で選びます。このデータでは、5 分割交差検証で 40 本が選ばれました。
 
@@ -78,7 +78,7 @@
 
 - 真ん中の層（**隠れ層**）の一つ一つは、入力の重み付きの和を曲線に通したもの、つまりロジスティック回帰のような単位です。
 - 出力の単位は、隠れ層の出力を使ったロジスティック回帰です。
-- 隠れ層は、予測に役立つ「新しい変数」をデータから自動で作っている、と見ることができます（Bishop 2006）。隠れ層を増やすと、どんな形の関係も表せるようになります。
+- 隠れ層は、予測に役立つ「新しい変数」をデータから自動で作っている、と見ることができます [@Bishop2006-book]。隠れ層を増やすと、どんな形の関係も表せるようになります。
 
 その分、パラメータの数は急に増えます。7 つの入力と 20 個の隠れ単位なら、パラメータは 181 個です。そこで、重みの 2 乗の和に罰をつける**重み減衰**（weight decay）がよく使われます。第 10 章の ridge と同じものです。
 
@@ -108,7 +108,7 @@
 - ランダムフォレストやブースティングも、見かけの成績はロジスティック回帰より良く見えますが、新しい患者では下回ります。
 - 臨床の知識（20 mm 以上でクリップがよく効く）を交互作用としてロジスティック回帰に入れると、わずかに良くなりました。
 
-多くの臨床予測の研究を集めた系統的レビューでも、機械学習がロジスティック回帰より良いという一貫した証拠はありませんでした（Christodoulou ら 2019）。機械学習の方法は「データに飢えている」（van der Ploeg ら 2014）ので、イベントが数百程度の臨床データでは、力を発揮しにくいのです。
+多くの臨床予測の研究を集めた系統的レビューでも、機械学習がロジスティック回帰より良いという一貫した証拠はありませんでした [@Christodoulou2019-bs]。機械学習の方法は「データに飢えている」 [@van-der-Ploeg2014-fe]ので、イベントが数百程度の臨床データでは、力を発揮しにくいのです。
 
 ## 11.6 どう使い分けるか {#choose}
 
@@ -120,12 +120,8 @@
 
 ## 文献 {#references}
 
-- Hothorn T, Hornik K, Zeileis A. Unbiased recursive partitioning: a conditional inference framework. *J Comput Graph Stat.* 2006;15:651–674.
-- Breiman L. Random forests. *Mach Learn.* 2001;45:5–32.
-- Friedman JH. Greedy function approximation: a gradient boosting machine. *Ann Stat.* 2001;29:1189–1232.
-- Bishop CM. *Pattern Recognition and Machine Learning.* Springer; 2006. 第 5 章.
-- Christodoulou E, Ma J, Collins GS, Steyerberg EW, Verbakel JY, Van Calster B. A systematic review shows no performance benefit of machine learning over logistic regression for clinical prediction models. *J Clin Epidemiol.* 2019;110:12–22.
-- van der Ploeg T, Austin PC, Steyerberg EW. Modern modelling techniques are data hungry: a simulation study for predicting dichotomous endpoints. *BMC Med Res Methodol.* 2014;14:137.
+::: {#refs}
+:::
 
 ## まとめ
 

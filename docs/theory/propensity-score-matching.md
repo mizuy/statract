@@ -1,3 +1,7 @@
+---
+nocite: "[@Austin2011-sk; @Stuart2010-ke]"
+---
+
 # 4. 傾向スコアマッチング
 
 傾向スコアマッチングは「高度な統計手法」ではありません。治療の選ばれ方の偏り（交絡）を調整して、**比べられる二つの集団を作る**方法です。この章では、バランシングスコアという考え方から傾向スコアを導き、通しの例でマッチングを行います。
@@ -27,7 +31,7 @@ $$
 e(X) = P(A = 1 \mid X)
 $$
 
-その患者の背景 $X$ のもとで、クリップをされる確率です。Rosenbaum と Rubin（1983）は次のことを示しました。
+その患者の背景 $X$ のもとで、クリップをされる確率です。Rosenbaum と Rubin [@Rosenbaum1983-sk] は次のことを示しました。
 
 !!! note "傾向スコアの性質"
     $X$ で調整すれば交換可能になるなら、傾向スコア $e(X)$ だけで調整しても交換可能になる。
@@ -85,7 +89,7 @@ $$
 !!! warning "誰についての答えか"
     マッチングで推定するのは ATT（average treatment effect on the treated、処置群での平均処置効果。ここではクリップをされた患者での効果）です。ただしキャリパーで外れた患者がいると、答えは「**組ができたクリップ群**での効果」になります。このデータでは、クリップがいちばん効くはずの大きな病変が、多く外れました。
 
-Austin（2011）は、傾向スコアのロジットの標準偏差の 0.2 倍をキャリパーにすることを勧めています。ここでは簡単のため、傾向スコアそのものの標準偏差を使っています。
+Austin [@Austin2011-dk] は、傾向スコアのロジットの標準偏差の 0.2 倍をキャリパーにすることを勧めています。ここでは簡単のため、傾向スコアそのものの標準偏差を使っています。
 
 ## 4.6 バランスを確かめる {#balance}
 
@@ -146,10 +150,8 @@ Austin（2011）は、傾向スコアのロジットの標準偏差の 0.2 倍�
 
 ## 文献 {#references}
 
-- Rosenbaum PR, Rubin DB. The central role of the propensity score in observational studies for causal effects. *Biometrika.* 1983;70:41–55.
-- Austin PC. An introduction to propensity score methods for reducing the effects of confounding in observational studies. *Multivariate Behav Res.* 2011;46:399–424.
-- Austin PC. Optimal caliper widths for propensity-score matching when estimating differences in means and differences in proportions in observational studies. *Pharm Stat.* 2011;10:150–161.
-- Stuart EA. Matching methods for causal inference: a review and a look forward. *Stat Sci.* 2010;25:1–21.
+::: {#refs}
+:::
 
 statract でのマッチングの通しの例は、[傾向スコアマッチング（RHC）](../examples/psm_rhc.md) にあります。
 

@@ -1,3 +1,7 @@
+---
+nocite: "[@Petersen2012-na; @Hernan2016-fk; @Rothman2005-ji; @Fedak2015-di]"
+---
+
 # 6. 仮定と感度分析
 
 第 3 章から第 5 章の方法は、どれも同じ三つの仮定に立っていました（第 2 章）。この章では、それぞれの仮定がくずれたときに何が起きるかを、通しの例で見ます。そして、確かめられない仮定について「どのくらい強い違反なら結論が変わるか」を調べる**感度分析**を紹介します。
@@ -78,7 +82,7 @@ $$
 
 ## 6.3 E-value {#e-value}
 
-未測定交絡は確かめられません。そこで、「どのくらい強い未測定交絡があれば、結論がくつがえるか」を計算します。その代表が **E-value**（VanderWeele と Ding、2017）です。
+未測定交絡は確かめられません。そこで、「どのくらい強い未測定交絡があれば、結論がくつがえるか」を計算します。その代表が **E-value** [@VanderWeele2017-qz]です。
 
 3000 人のデータで、四つの交絡因子による回帰の標準化から、リスク比（risk ratio、RR）を求めました。
 
@@ -143,20 +147,20 @@ E-value の注意点です。
 
 ## 6.5 一つの研究を超えて：Bradford Hill の視点 {#bradford-hill}
 
-ここまでは、**一つの研究**の解析で、仮定がくずれていないかを調べてきました。しかし、因果を判断するときは、一つの研究だけで決めることはまずありません。複数の研究や、生物学的な知識をあわせて考えます。そのときの手がかりとして古くから使われているのが、Austin Bradford Hill（1965）の 9 つの視点です。喫煙と肺癌の議論の中で示されました。
+ここまでは、**一つの研究**の解析で、仮定がくずれていないかを調べてきました。しかし、因果を判断するときは、一つの研究だけで決めることはまずありません。複数の研究や、生物学的な知識をあわせて考えます。そのときの手がかりとして古くから使われているのが、Austin Bradford Hill [@Hill1965-mg] の 9 つの視点です。喫煙と肺癌の議論の中で示されました。
 
 Hill 自身は、これを「基準」（criteria）ではなく「視点」（viewpoints）と呼びました。全部を満たせば因果、というチェックリストではありません。Hill は、必ず満たすべきものは「時間の順序」だけだとしています。
 
 | 視点 | 意味 | 今の因果推論での見方 | クリップの例 |
 |------|------|------------------|------------|
 | 強さ（strength） | 関連が強い | 強い関連ほど、未測定交絡だけでは説明しにくい。E-value（6.3）がこれを数にしたもの | リスク比 0.50、E-value 3.43 |
-| 一貫性（consistency） | 別の集団、別の方法でも同じ結果 | 偏りの向きが違う複数の方法で同じ答えになるか（トライアンギュレーション、triangulation） | 観察研究とランダム化比較試験（randomized controlled trial、RCT）、施設や時代の違う研究で同じ向きか |
+| 一貫性（consistency） | 別の集団、別の方法でも同じ結果 | 偏りの向きが違う複数の方法で同じ答えになるか（トライアンギュレーション、triangulation [@Lawlor2016-lq]） | 観察研究とランダム化比較試験（randomized controlled trial、RCT）、施設や時代の違う研究で同じ向きか |
 | 特異性（specificity） | その原因はその結果だけを起こす | 多くの病気は原因が多く、結果も多いので、弱い視点 | クリップは出血以外（穿孔など）にも影響しうる |
 | 時間の順序（temporality） | 原因が結果より先 | 必ず必要。DAG の矢印の向き。標的試験の模倣（6.4）では、治療を決める時点と追跡の開始をそろえる | クリップは切除の直後、出血はそのあと |
 | 量反応関係（biological gradient） | 量が多いほど効果が大きい | あれば支えになるが、なくても因果は否定できない | 完全に閉じた場合ほど効果が大きいか |
 | もっともらしさ（plausibility） | 仕組みが説明できる | DAG を描く根拠になる臨床・生物学の知識 | 傷を閉じると血管の露出が減る |
 | 整合性（coherence） | 既知の事実と矛盾しない | 他の知識と合っているか | 大きく近位の病変ほど出血しやすい、という知識と合う |
-| 実験（experiment） | 介入すると結果が変わる | RCT、自然実験。交換可能性を設計で作る（第 2 章） | 大きな病変での RCT（Pohl ら 2019） |
+| 実験（experiment） | 介入すると結果が変わる | RCT、自然実験。交換可能性を設計で作る（第 2 章） | 大きな病変での RCT [@Pohl2019-uv] |
 | 類推（analogy） | 似た原因で似た結果がある | 弱い視点 | 他の内視鏡治療での閉鎖の効果 |
 
 この表のように、Hill の視点の多くは、この本で扱ってきた考え方と重なります。
@@ -179,15 +183,10 @@ Hill 自身は、これを「基準」（criteria）ではなく「視点」（v
 
 ## 文献 {#references}
 
-- VanderWeele TJ, Ding P. Sensitivity analysis in observational research: introducing the E-value. *Ann Intern Med.* 2017;167:268–274.
-- Petersen ML, Porter KE, Gruber S, Wang Y, van der Laan MJ. Diagnosing and responding to violations in the positivity assumption. *Stat Methods Med Res.* 2012;21:31–54.
-- Hernán MA, Robins JM. Using big data to emulate a target trial when a randomized trial is not available. *Am J Epidemiol.* 2016;183:758–764.
-- Hernán MA, Robins JM. *Causal Inference: What If.* Chapman & Hall/CRC; 2020. 第 3 章.
-- Hill AB. The environment and disease: association or causation? *Proc R Soc Med.* 1965;58:295–300.
-- Rothman KJ, Greenland S. Causation and causal inference in epidemiology. *Am J Public Health.* 2005;95(Suppl 1):S144–S150.
-- Fedak KM, Bernal A, Capshaw ZA, Gross S. Applying the Bradford Hill criteria in the 21st century: how data integration has changed causal inference in molecular epidemiology. *Emerg Themes Epidemiol.* 2015;12:14.
-- Lawlor DA, Tilling K, Davey Smith G. Triangulation in aetiological epidemiology. *Int J Epidemiol.* 2016;45:1866–1886.
-- Pohl H, Grimm IS, Moyer MT, et al. Clip closure prevents bleeding after endoscopic resection of large colon polyps in a randomized trial. *Gastroenterology.* 2019;157:977–984.
+教科書では、Hernán と Robins [@Hernan2020-book] の第 3 章が三つの仮定を扱っています。
+
+::: {#refs}
+:::
 
 ## まとめ
 

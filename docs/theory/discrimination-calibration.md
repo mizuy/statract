@@ -1,3 +1,7 @@
+---
+nocite: "[@Steyerberg2010-pe; @Vickers2019-rs]"
+---
+
 # 9. 識別と較正
 
 予測モデルの良さには、二つの別の面があります。出血する人としない人を**見分けられるか**（識別）と、予測確率が**実際の割合と合っているか**（較正）です。この章では二つを分けて測り、最後に「臨床で使って得をするか」を決定曲線で見ます。
@@ -48,7 +52,7 @@ C 統計量は順位しか見ていません。予測確率を全部 2 倍にし
 
 ## 9.2 較正：予測確率は当たっているか {#calibration}
 
-予測確率の順に患者を 10 等分し、各グループの「予測確率の平均」と「実際の出血割合」を比べます。点が対角線に乗れば、較正が良いと言えます。
+予測確率の順に患者を 10 等分し、各グループの「予測確率の平均」と「実際の出血割合」を比べます。点が対角線に乗れば、較正が良いと言えます [@Van-Calster2019-pc]。
 
 ここで、もう一つの場面を考えます。**別の病院**で同じモデルを使う場合です。患者の背景も、各因子の効果も同じですが、もともとの出血リスクが高い（ベースラインのオッズが約 2.2 倍）とします。
 
@@ -74,7 +78,7 @@ C 統計量は順位しか見ていません。予測確率を全部 2 倍にし
 このように、較正の切片がずれるだけなら、**切片だけ直す**（再較正）ことで、その病院用のモデルにできます。係数を作り直す必要はありません。
 
 !!! warning "C 統計量だけでは足りない"
-    論文の予測モデルは C 統計量だけを報告していることが多いですが、それだけでは「確率が当たるか」はわかりません。リスクを患者に説明する、治療の閾値と比べる、という使い方では、較正のほうが大切です。TRIPOD（予測モデル研究の報告指針、Collins ら 2024）では、識別と較正の両方を報告することを求めています。
+    論文の予測モデルは C 統計量だけを報告していることが多いですが、それだけでは「確率が当たるか」はわかりません。リスクを患者に説明する、治療の閾値と比べる、という使い方では、較正のほうが大切です。TRIPOD（予測モデル研究の報告指針）[@Collins2024-qy]では、識別と較正の両方を報告することを求めています。
 
 ## 9.3 Brier スコア {#brier}
 
@@ -93,7 +97,7 @@ $$
 
 ## 9.4 決定曲線：使って得をするか {#dca}
 
-識別も較正も、「臨床で使って得をするか」には直接答えません。それに答えるのが**決定曲線分析**（decision curve analysis、DCA）です。
+識別も較正も、「臨床で使って得をするか」には直接答えません。それに答えるのが**決定曲線分析**（decision curve analysis、DCA）です [@Vickers2006-mk]。
 
 例として、「予測確率が閾値 $p_t$ 以上なら入院で経過を見る」という使い方を考えます。閾値には臨床の判断が入ります。例えば $p_t = 5\%$ は、「出血する 1 人を入院で見るためなら、出血しない 19 人を入院させてもよい」という考えにあたります（$5 : 95 = 1 : 19$）。
 
@@ -139,10 +143,8 @@ DCA の読み方の要点は、**自分の閾値の範囲で**、モデルの曲
 
 ## 文献 {#references}
 
-- Steyerberg EW, Vickers AJ, Cook NR, et al. Assessing the performance of prediction models: a framework for traditional and novel measures. *Epidemiology.* 2010;21:128–138.
-- Van Calster B, McLernon DJ, van Smeden M, et al. Calibration: the Achilles heel of predictive analytics. *BMC Med.* 2019;17:230.
-- Vickers AJ, Elkin EB. Decision curve analysis: a novel method for evaluating prediction models. *Med Decis Making.* 2006;26:565–574.
-- Vickers AJ, van Calster B, Steyerberg EW. A simple, step-by-step guide to interpreting decision curve analysis. *Diagn Progn Res.* 2019;3:18.
+::: {#refs}
+:::
 
 ## まとめ
 

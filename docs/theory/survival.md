@@ -96,7 +96,7 @@ Poisson 回帰は、登録データのように「区間ごとの出血数と人
 
 ## 15.5 Cox 比例ハザードモデル {#cox}
 
-臨床研究で最もよく使われるのが、**Cox 比例ハザードモデル**です（Cox 1972）。
+臨床研究で最もよく使われるのが、**Cox 比例ハザードモデル**です [@Cox1972-qx]。
 
 $$
 h(t \mid x) = h_0(t) \times \exp(\beta_1 x_1 + \beta_2 x_2 + \cdots)
@@ -151,7 +151,7 @@ $d_i$ は出血なら 1、打ち切りなら 0、$S$ は生存関数です。こ
 - 第 13 章の最尤法の理論（標準誤差は曲がり具合から、例数が多いと正規分布に近づく）は、パラメータの数が**有限で決まっている**ことを前提にしています。パラメータがデータとともにいくらでも増える場合には、そのまま使えません。
 - 実際、$h_0(t)$ を自由にすると、出血が起きた瞬間にだけ無限に高いハザードを置けば、尤度はいくらでも大きくできてしまいます。
 
-Cox（1972、1975）は、$h_0(t)$ を**消してしまう**尤度を考えました。出血が起きた日ごとに、「その日まだ見られていた人（**リスク集合**）のうち、出血したのがまさにその人だった確率」を考えます。
+Cox [@Cox1972-qx; @Cox1975-wg] は、$h_0(t)$ を**消してしまう**尤度を考えました。出血が起きた日ごとに、「その日まだ見られていた人（**リスク集合**）のうち、出血したのがまさにその人だった確率」を考えます。
 
 ![部分尤度：9 日目の出血のとき、まだリスクがあった人](../examples/assets/theory_bleeding/ch15_risk_set.png)
 
@@ -167,7 +167,7 @@ $$
 L_{\text{partial}}(\beta) = \prod_{\text{出血した人 } j} \frac{e^{\eta_j}}{\sum_{k \in R(t_j)} e^{\eta_k}}
 $$
 
-$R(t_j)$ は $t_j$ のリスク集合です。部分尤度は係数 $\beta$ だけの関数なので、普通の尤度と同じようにニュートン法で最大にし、曲がり具合から標準誤差を出せます。Cox は、これが普通の尤度と同じ性質を持つことを示しました（Cox 1975）。$h_0(t)$ は、$\beta$ を推定したあとで別に推定します（Breslow 推定量）。
+$R(t_j)$ は $t_j$ のリスク集合です。部分尤度は係数 $\beta$ だけの関数なので、普通の尤度と同じようにニュートン法で最大にし、曲がり具合から標準誤差を出せます。Cox は、これが普通の尤度と同じ性質を持つことを示しました [@Cox1975-wg]。$h_0(t)$ は、$\beta$ を推定したあとで別に推定します（Breslow 推定量）。
 
 ### 時間の順番しか使わない {#ranks}
 
@@ -183,11 +183,11 @@ $R(t_j)$ は $t_j$ のリスク集合です。部分尤度は係数 $\beta$ だ�
 
 ### Poisson 回帰とのつながり {#cox-poisson}
 
-15.4 の区分指数モデルで、区間を細かくしていき、**出血が起きた日ごとに**区切ると、Poisson 回帰の係数は Cox モデルの係数と一致します（Whitehead 1980、Laird と Olivier 1981）。区間ごとのベースラインの率が、Cox の $h_0(t)$ にあたります。Cox モデルは「無数の区間を持つ Poisson 回帰」と見ることもできます。
+15.4 の区分指数モデルで、区間を細かくしていき、**出血が起きた日ごとに**区切ると、Poisson 回帰の係数は Cox モデルの係数と一致します [@Whitehead1980-xr; @Laird1981-wm]。区間ごとのベースラインの率が、Cox の $h_0(t)$ にあたります。Cox モデルは「無数の区間を持つ Poisson 回帰」と見ることもできます。
 
 ## 15.7 加速故障時間モデル {#aft}
 
-もう一つの考え方は、ハザードではなく**時間そのもの**をモデルにすることです。**加速故障時間モデル**（accelerated failure time model、AFT モデル）は、時間の対数を線形予測子と誤差で表します。
+もう一つの考え方は、ハザードではなく**時間そのもの**をモデルにすることです。**加速故障時間モデル**（accelerated failure time model、AFT モデル）は、時間の対数を線形予測子と誤差で表します [@Wei1992-hb]。
 
 $$
 \log T_i = \beta_0 + \beta_1 x_{i1} + \cdots + \sigma \varepsilon_i
@@ -254,13 +254,10 @@ Weibull モデルは、AFT モデルでもあり比例ハザードモデルで�
 
 ## 文献 {#references}
 
-- Cox DR. Regression models and life-tables. *J R Stat Soc B.* 1972;34:187–220.
-- Cox DR. Partial likelihood. *Biometrika.* 1975;62:269–276.
-- Whitehead J. Fitting Cox's regression model to survival data using GLIM. *J R Stat Soc C (Appl Stat).* 1980;29:268–275.
-- Laird N, Olivier D. Covariance analysis of censored survival data using log-linear analysis techniques. *J Am Stat Assoc.* 1981;76:231–240.
-- Wei LJ. The accelerated failure time model: a useful alternative to the Cox regression model in survival analysis. *Stat Med.* 1992;11:1871–1879.
-- Therneau TM, Grambsch PM. *Modeling Survival Data: Extending the Cox Model.* Springer; 2000.
-- Collett D. *Modelling Survival Data in Medical Research.* 4th ed. CRC Press; 2023.
+教科書では、Collett [@Collett2023-book] が入門に、Therneau と Grambsch [@Therneau2000-book] が Cox モデルの拡張と診断に向いています。
+
+::: {#refs}
+:::
 
 ## まとめ
 

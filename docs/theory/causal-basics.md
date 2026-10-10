@@ -111,20 +111,12 @@ DAG の道の形は三つしかありません。
 
 ## 2.3 文献 {#references}
 
-### 入門
+入門には、Hernán と Robins [@Hernan2020-book] が最も向いています。著者のウェブサイトで無料公開されていて、反事実モデル、DAG、各手法を臨床疫学の例で説明しています。短い論文では Hernán [@Hernan2004-fx]、日本語では岩崎 [@Iwasaki2015-book] と星野 [@Hoshino2009-book] があります。
 
-- Hernán MA, Robins JM. *Causal Inference: What If.* Chapman & Hall/CRC; 2020. 著者のウェブサイトで無料公開されている。反事実モデル、DAG、各手法を臨床疫学の例で説明する。
-- Hernán MA. A definition of causal effect for epidemiological research. *J Epidemiol Community Health.* 2004;58:265–271.
-- 岩崎学. 『統計的因果推論』. 朝倉書店; 2015.
-- 星野崇宏. 『調査観察データの統計科学』. 岩波書店; 2009.
+原著と発展的な文献は、反事実モデルが Rubin [@Rubin1974-nh] と Imbens と Rubin [@Imbens2015-book]、DAG が Greenland ら [@Greenland1999-rp] と Pearl [@Pearl2009-book] です。第 1 章の Table 2 の誤りは Westreich と Greenland [@Westreich2013-ax] が論じています。
 
-### 原著・発展
-
-- Rubin DB. Estimating causal effects of treatments in randomized and nonrandomized studies. *J Educ Psychol.* 1974;66:688–701.
-- Greenland S, Pearl J, Robins JM. Causal diagrams for epidemiologic research. *Epidemiology.* 1999;10:37–48.
-- Pearl J. *Causality.* 2nd ed. Cambridge University Press; 2009.
-- Imbens GW, Rubin DB. *Causal Inference for Statistics, Social, and Biomedical Sciences.* Cambridge University Press; 2015.
-- Westreich D, Greenland S. The Table 2 fallacy. *Am J Epidemiol.* 2013;177:292–298.
+::: {#refs}
+:::
 
 DAG から調整する変数を求めるには [DAGitty](https://www.dagitty.net/) が便利です。
 

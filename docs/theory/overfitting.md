@@ -1,3 +1,7 @@
+---
+nocite: "[@Steyerberg2019-book; @Harrell2015-book; @Watanabe2012-book; @Collins2024-qy]"
+---
+
 # 8. 過学習と汎化
 
 予測モデルは、作ったデータでは実際より良く見えます。この章では、その「見かけの良さ」がどこから来るか、どう見積もるかを見ます。
@@ -38,7 +42,7 @@ C 統計量は、出血した人の予測確率が出血しなかった人より
 
 過学習の強さは、例数そのものより**イベントの数**（ここでは出血の数）と、推定する係数の数の比で決まります。昔から「1 変数あたりイベント 10 以上」（events per variable、EPV）という目安が使われてきました。
 
-しかしこれは目安にすぎません。必要な例数は、イベントの割合、期待する当たりのよさ、許せる過学習の大きさで変わります。Riley ら（2020）は、これらから必要な例数を計算する方法を示しています。このデータでは、係数 7 個に出血 21 人（EPV 3）では明らかに足りません。
+しかしこれは目安にすぎません。必要な例数は、イベントの割合、期待する当たりのよさ、許せる過学習の大きさで変わります。Riley ら [@Riley2020-vc] は、これらから必要な例数を計算する方法を示しています。このデータでは、係数 7 個に出血 21 人（EPV 3）では明らかに足りません。
 
 もう一つ大事なのは、**候補にした変数の数**です。$P$ 値で 20 個から 7 個を選んだなら、係数は 7 個でも、過学習は 20 個ぶん起きています。選ぶ過程そのものがデータに合わせているからです。
 
@@ -125,8 +129,8 @@ $P_{(-i)}(y_i)$ は、出血した人なら $p_{(-i)}$、出血しなかった�
 
 この量を、モデルを $n$ 回作らずに近似するのが**情報量規準**です。
 
-- **AIC**（Akaike information criterion、赤池情報量規準）：$\text{AIC} = -2 \log L + 2k$。$\log L$ は全員で作ったモデルの対数尤度、$k$ はパラメータの数です。作ったデータでの当たり（$-2 \log L$）は楽観的なので、パラメータ 1 個あたり 2 だけ罰を足します。例数が多いとき、AIC は LOOCV の得点と同じになります（Stone 1977）。尤度は第 13 章で扱います。
-- **WAIC**（widely applicable information criterion、広く使える情報量規準）：渡辺澄夫（2010）が示した、ベイズ推論（第 13 章）のための情報量規準です。
+- **AIC**（Akaike information criterion、赤池情報量規準）：$\text{AIC} = -2 \log L + 2k$。$\log L$ は全員で作ったモデルの対数尤度、$k$ はパラメータの数です。作ったデータでの当たり（$-2 \log L$）は楽観的なので、パラメータ 1 個あたり 2 だけ罰を足します。例数が多いとき、AIC は LOOCV の得点と同じになります [@Stone1977-lz]。尤度は第 13 章で扱います。
+- **WAIC**（widely applicable information criterion、広く使える情報量規準）：渡辺澄夫 [@Watanabe2010-qk] が示した、ベイズ推論（第 13 章）のための情報量規準です。
 
 WAIC は、パラメータの**事後分布**（データを見たあとの、パラメータのありそうな値の分布）から計算します。事後分布から引いたパラメータを $\theta_1, \dots, \theta_S$ とすると、
 
@@ -157,7 +161,7 @@ WAIC には三つの良い性質があります。
 
 情報量規準の値そのものには意味がありません。**同じデータで、モデルどうしを比べる**ときに使います。小さいほうが、新しい患者でよく当たると見込まれるモデルです。
 
-WAIC のほかに、事後分布から LOOCV を直接近似する PSIS-LOO（Vehtari ら 2017）もよく使われます。
+WAIC のほかに、事後分布から LOOCV を直接近似する PSIS-LOO [@Vehtari2017-uy]もよく使われます。
 
 ## 8.8 ブートストラップ {#bootstrap}
 
@@ -223,15 +227,10 @@ WAIC のほかに、事後分布から LOOCV を直接近似する PSIS-LOO（Ve
 
 ## 文献 {#references}
 
-- Steyerberg EW. *Clinical Prediction Models.* 2nd ed. Springer; 2019.
-- Harrell FE Jr. *Regression Modeling Strategies.* 2nd ed. Springer; 2015.
-- Riley RD, Ensor J, Snell KIE, et al. Calculating the sample size required for developing a clinical prediction model. *BMJ.* 2020;368:m441.
-- Stone M. An asymptotic equivalence of choice of model by cross-validation and Akaike's criterion. *J R Stat Soc B.* 1977;39:44–47.
-- Watanabe S. Asymptotic equivalence of Bayes cross validation and widely applicable information criterion in singular learning theory. *J Mach Learn Res.* 2010;11:3571–3594.
-- 渡辺澄夫. 『ベイズ統計の理論と方法』. コロナ社; 2012.
-- Vehtari A, Gelman A, Gabry J. Practical Bayesian model evaluation using leave-one-out cross-validation and WAIC. *Stat Comput.* 2017;27:1413–1432.
-- Hastie T, Tibshirani R, Friedman J. *The Elements of Statistical Learning.* 2nd ed. Springer; 2009. 第 7 章.
-- Collins GS, Moons KGM, Dhiman P, et al. TRIPOD+AI statement: updated guidance for reporting clinical prediction models that use regression or machine learning methods. *BMJ.* 2024;385:e078378.
+教科書では、Hastie ら [@Hastie2009-book] の第 7 章が交差検証と情報量規準を扱っています。
+
+::: {#refs}
+:::
 
 statract での予測モデルの通しの例は、[予測モデルの較正と DCA](../examples/pred_support.md) にあります。
 

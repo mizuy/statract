@@ -1,3 +1,7 @@
+---
+nocite: "[@Friedman2010-db]"
+---
+
 # 10. 正則化
 
 第 8 章で、例数が少ないと予測が極端になる（較正の傾きが 1 より小さい）ことを見ました。係数が大きすぎるのです。それなら、係数を**わざと小さく**推定すればよいのではないか。これが**正則化**（regularization）、または**縮小推定**（shrinkage）の考え方です。
@@ -17,7 +21,7 @@ $$
 | 方法 | 罰 | 係数への効き方 |
 |------|----|-------------|
 | **ridge**（リッジ） | $\frac{1}{2}\sum_j \beta_j^2$（2 乗の和） | すべての係数を 0 に向けて少しずつ縮める。0 にはならない |
-| **LASSO**（least absolute shrinkage and selection operator） | $\sum_j \lvert\beta_j\rvert$（絶対値の和） | 縮めるうえに、小さい係数をちょうど 0 にする。変数選択も同時に行う |
+| **LASSO**（least absolute shrinkage and selection operator）[@Tibshirani1996-yi] | $\sum_j \lvert\beta_j\rvert$（絶対値の和） | 縮めるうえに、小さい係数をちょうど 0 にする。変数選択も同時に行う |
 | elastic net | 二つの混合 | 中間 |
 
 $\lambda$（ラムダ）は罰の強さです。$\lambda = 0$ なら普通の最尤法、$\lambda$ を大きくするほど係数は 0 に近づき、最後は全員に同じ確率（平均）を言うだけのモデルになります。
@@ -99,7 +103,7 @@ statract には正則化の関数がまだないので、この章では numpy �
 - ridge と LASSO は、**平均すると**傾きが 1 に近づきます。しかし一回ごとのばらつきがとても大きく、縮めすぎて傾きが 2 を超える（予測が平らすぎる）回もあれば、縮めたりない回もあります。
 - LASSO は 7 回、「何も予測しない」モデルを選びました。出血 45 人ほどでは、交差検証で $\lambda$ を安定して選べないのです。
 
-つまり正則化は、**例数の不足を解決してくれるわけではありません**。罰の強さ $\lambda$ も同じ少ないデータから推定するので、その推定がぶれます。Riley ら（2021）、Van Calster ら（2020）も同じことを示しています。例数が少ないなら、まず候補の変数を臨床の知識で絞ることが大切です。
+つまり正則化は、**例数の不足を解決してくれるわけではありません**。罰の強さ $\lambda$ も同じ少ないデータから推定するので、その推定がぶれます。Riley ら [@Riley2021-eq]、Van Calster ら [@Van-Calster2020-dl] も同じことを示しています。例数が少ないなら、まず候補の変数を臨床の知識で絞ることが大切です。
 
 ## 10.5 正則化の注意点 {#cautions}
 
@@ -119,11 +123,10 @@ statract には正則化の関数がまだないので、この章では numpy �
 
 ## 文献 {#references}
 
-- Tibshirani R. Regression shrinkage and selection via the lasso. *J R Stat Soc B.* 1996;58:267–288.
-- Friedman J, Hastie T, Tibshirani R. Regularization paths for generalized linear models via coordinate descent. *J Stat Softw.* 2010;33:1–22.
-- Van Calster B, van Smeden M, De Cock B, Steyerberg EW. Regression shrinkage methods for clinical prediction models do not guarantee improved performance: simulation study. *Stat Methods Med Res.* 2020;29:3166–3178.
-- Riley RD, Snell KIE, Martin GP, et al. Penalization and shrinkage methods produced unreliable clinical prediction models especially when sample size was small. *J Clin Epidemiol.* 2021;132:88–96.
-- Hastie T, Tibshirani R, Friedman J. *The Elements of Statistical Learning.* 2nd ed. Springer; 2009. 第 3、4 章.
+教科書では、Hastie ら [@Hastie2009-book] の第 3、4 章が ridge と LASSO を扱っています。
+
+::: {#refs}
+:::
 
 ## まとめ
 

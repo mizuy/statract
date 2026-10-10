@@ -151,7 +151,7 @@ $$
     ```
 
 - `fit_glm` の係数表の $P$ 値は Wald 検定です。
-- 例数が多いと、三つはほぼ同じになります。少ないときは食い違い、一般には尤度比検定が最も信頼できます（Agresti 2013）。
+- 例数が多いと、三つはほぼ同じになります。少ないときは食い違い、一般には尤度比検定が最も信頼できます [@Agresti2013-book]。
 - 尤度比検定は、変数のグループ（スプラインの項全体、カテゴリ変数の全水準など）をまとめて検定するのにも使えます。
 
 ## 13.5 もう一つの推定法：ベイズ推論 {#bayes}
@@ -276,7 +276,7 @@ $\theta$（シータ）は知りたい値、$\propto$ は「比例する」で�
 - 「効果がある確率」のように、確率で答えを伝えたいとき
 - 階層モデルのように、パラメータが多く、最尤法の計算が難しいとき
 
-事前分布の選び方で結論が変わりうるので、ベイズ推論では、平らな事前分布、懐疑的な事前分布、楽観的な事前分布など、いくつかの事前分布で結果を示すのが普通です（Spiegelhalter ら 2004）。
+事前分布の選び方で結論が変わりうるので、ベイズ推論では、平らな事前分布、懐疑的な事前分布、楽観的な事前分布など、いくつかの事前分布で結果を示すのが普通です [@Spiegelhalter2004-book]。
 
 ## 13.8 最尤推定が無限大になるとき：分離 {#separation}
 
@@ -293,7 +293,7 @@ $\theta$（シータ）は知りたい値、$\propto$ は「比例する」で�
 
 クリップをした人が誰も出血していないので、「クリップの効果が強いほど」データは出やすくなります。係数を −10、−100、−1000 と小さくするほど尤度は大きくなり、頂上がありません。これを**分離**（separation）と呼びます。−18.3 は、コンピュータが途中で計算をやめた場所にすぎません。標準誤差 2867 という異常な値が、その印です。
 
-**Firth の方法**は、尤度に小さな罰を足して、係数が無限大に逃げないようにします（Firth 1993、Heinze と Schemper 2002）。罰は、ベイズ推論で言えば「Jeffreys の事前分布」を置くことにあたります（13.5）。この例ではオッズ比 0.13（$e^{-2.01}$）と有限の推定が得られますが、信頼区間はとても広く、5 人の出血からわかることは多くありません。R の `logistf` が標準的な実装です。statract にはまだないので、この章では numpy の短い実装（[`penalized.py`](https://github.com/mizuy/statract/blob/main/examples/theory_bleeding/penalized.py) の `firth_logistic`）を使いました。
+**Firth の方法**は、尤度に小さな罰を足して、係数が無限大に逃げないようにします [@Firth1993-sf; @Heinze2002-lo]。罰は、ベイズ推論で言えば「Jeffreys の事前分布」を置くことにあたります（13.5）。この例ではオッズ比 0.13（$e^{-2.01}$）と有限の推定が得られますが、信頼区間はとても広く、5 人の出血からわかることは多くありません。R の `logistf` が標準的な実装です。statract にはまだないので、この章では numpy の短い実装（[`penalized.py`](https://github.com/mizuy/statract/blob/main/examples/theory_bleeding/penalized.py) の `firth_logistic`）を使いました。
 
 !!! warning "標準誤差が異常に大きいときは分離を疑う"
     係数の絶対値が 10 を超える、標準誤差が係数より何桁も大きい、オッズ比の信頼区間が 0 から無限大のよう、といった結果は、分離の印です。イベントが少ない、カテゴリの一つにイベントがない、変数が多すぎる、といったときに起きます。
@@ -308,13 +308,10 @@ $\theta$（シータ）は知りたい値、$\propto$ は「比例する」で�
 
 ## 文献 {#references}
 
-- Pawitan Y. *In All Likelihood: Statistical Modelling and Inference Using Likelihood.* Oxford University Press; 2001.
-- Agresti A. *Categorical Data Analysis.* 3rd ed. Wiley; 2013. 第 1、4、5 章.
-- Firth D. Bias reduction of maximum likelihood estimates. *Biometrika.* 1993;80:27–38.
-- Heinze G, Schemper M. A solution to the problem of separation in logistic regression. *Stat Med.* 2002;21:2409–2419.
-- Gelman A, Carlin JB, Stern HS, Dunson DB, Vehtari A, Rubin DB. *Bayesian Data Analysis.* 3rd ed. CRC Press; 2013.
-- McElreath R. *Statistical Rethinking.* 2nd ed. CRC Press; 2020.
-- Spiegelhalter DJ, Abrams KR, Myles JP. *Bayesian Approaches to Clinical Trials and Health-Care Evaluation.* Wiley; 2004.
+教科書では、尤度は Pawitan [@Pawitan2001-book] と Agresti [@Agresti2013-book] の第 1、4、5 章、ベイズ推論は Gelman ら [@Gelman2013-book] と McElreath [@McElreath2020-book] が詳しいです。
+
+::: {#refs}
+:::
 
 ## まとめ
 

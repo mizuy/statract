@@ -1,3 +1,7 @@
+---
+nocite: "[@Austin2015-bw]"
+---
+
 # 5. IPTW
 
 IPTW（inverse probability of treatment weighting、治療の逆確率による重み付け）は、傾向スコアを使って**重み**をかけ、背景のそろった仮の集団を作る方法です。この章では、重みの意味、第 3 章の g-formula と同じ量になる理由、極端な重みの問題を見ます。
@@ -152,7 +156,7 @@ $$
 
 ### 安定化 {#stabilize}
 
-**安定化した重み**は、重みに群の割合（クリップありなら $P(A = 1)$）を掛けたものです。重みの合計が実際の人数に近くなり、扱いやすくなります。ただし群ごとに定数を掛けるだけなので、出血割合の比較（点推定値）は変わりません。上の表でも −5.6 のままです。極端な重みの問題は、安定化では解けません。
+**安定化した重み**は、重みに群の割合（クリップありなら $P(A = 1)$）を掛けたものです。重みの合計が実際の人数に近くなり、扱いやすくなります。ただし群ごとに定数を掛けるだけなので、出血割合の比較（点推定値）は変わりません。上の表でも −5.6 のままです。極端な重みの問題は、安定化では解けません [@Cole2008-pa]。
 
 ### 極端な重みと切り詰め {#trimming}
 
@@ -172,7 +176,7 @@ $$
 
 ATT の重みは、クリップなしの患者をクリップ群の背景に合わせます。このデータでは、クリップ群に多い大きな病変で、比べる相手がほとんどいません。そのため一人に 100 倍を超える重みがかかり、区間は −24.2 〜 1.9 と使えないほど広くなりました。
 
-**重なりの重み**（overlap weights）は、傾向スコアが 0.5 に近い患者、つまりどちらの治療を受けてもおかしくない患者を重く見ます。重みは 1 を超えないので、極端な重みは起きません。Li ら（2018）が提案しました。答えは「全員」ではなく「どちらもありうる患者」での効果になります。このデータでは推定値 −3.2、本当の値 −2.0 でした。臨床では「どちらにするか迷う患者」での効果が知りたいことも多く、その場合は自然な選択です。
+**重なりの重み**（overlap weights）は、傾向スコアが 0.5 に近い患者、つまりどちらの治療を受けてもおかしくない患者を重く見ます。重みは 1 を超えないので、極端な重みは起きません。Li ら [@Li2018-cj] が提案しました。答えは「全員」ではなく「どちらもありうる患者」での効果になります。このデータでは推定値 −3.2、本当の値 −2.0 でした。臨床では「どちらにするか迷う患者」での効果が知りたいことも多く、その場合は自然な選択です。
 
 !!! warning "重みの選び方は答えの選び方"
     切り詰めや重なりの重みで区間が狭くなるのは、問いを答えやすいものに変えたからです。どの集団での効果を知りたいのかを先に決め、それに合う重みを選びます。結果を見て選んではいけません。
@@ -190,10 +194,10 @@ ATT の重みは、クリップなしの患者をクリップ群の背景に合�
 
 ## 文献 {#references}
 
-- Austin PC, Stuart EA. Moving towards best practice when using inverse probability of treatment weighting (IPTW) using the propensity score to estimate causal treatment effects in observational studies. *Stat Med.* 2015;34:3661–3679.
-- Cole SR, Hernán MA. Constructing inverse probability weights for marginal structural models. *Am J Epidemiol.* 2008;168:656–664.
-- Li F, Morgan KL, Zaslavsky AM. Balancing covariates via propensity score weighting. *J Am Stat Assoc.* 2018;113:390–400.
-- Hernán MA, Robins JM. *Causal Inference: What If.* Chapman & Hall/CRC; 2020. 第 12 章.
+教科書では、Hernán と Robins [@Hernan2020-book] の第 12 章が IPTW を扱っています。
+
+::: {#refs}
+:::
 
 ## まとめ
 
