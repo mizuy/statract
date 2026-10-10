@@ -1,0 +1,3 @@
+term,part,statistic,df,p_value
+"rcs(size_mm, 4)",overall,34.37386456059767,3,1.651918517215836e-7
+"rcs(size_mm, 4)",nonlinear,0.6032808841204343,2,0.7396039475581944

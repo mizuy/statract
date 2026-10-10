@@ -69,11 +69,10 @@
 
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
-| 12. 確率モデルとしてのロジスティック回帰 | $Y_i \sim \mathrm{Bernoulli}(p_i)$、データの生成過程 | 生成過程の模式図 | `fit_glm` |
-| 13. 尤度と最尤法 | 尤度、対数尤度、最尤推定、標準誤差 | 尤度曲線 | `fit_glm`、`likelihood_ratio_test` |
-| 14. ベイズ推論 | 事前分布、事後分布、事前の強さ | 事前と事後 | — |
-| 15. 事後予測分布 | 予測の不確かさ、モデルの確認 | 事後予測チェック | — |
-| 16. 階層モデル | 施設差、部分プーリング | 施設ごとの推定の縮み | `fit_mixed`、`plot_random_effects` |
+| 12. [確率モデルとしてのロジスティック回帰](probability-model.md) | データが生まれる仕組み、データの作り方の種明かし、モデルから作ったデータでの確認、スプライン、GLM | 生成過程の模式図、模擬データと実データ | `fit_glm`、`spline_test` |
+| 13. [尤度と最尤法](likelihood.md) | 尤度、対数尤度と曲がり具合、標準誤差、Wald と尤度比の区間、ニュートン法、プロファイル尤度、三つの検定、分離と Firth の方法 | 尤度曲線、プロファイル尤度 | `fit_glm`、`likelihood_ratio_test` |
+| 14. [階層モデル](hierarchical.md) | 施設差、完全・部分・なしのプーリング、縮小、ICC と MOR、施設の順位づけ、コラム：ベイズ推論（事前分布、事後分布、経験ベイズ） | 施設ごとの推定の縮み、施設の効果の区間、事前と事後 | `fit_mixed`、`plot_random_effects` |
+| 15. [生存時間解析](survival.md) | 打ち切り、Kaplan–Meier 法、ハザードと人年法、Poisson 回帰、Cox 比例ハザードモデル、セミパラメトリックの意味と部分尤度、加速故障時間（AFT）モデル、モデルの比較と使い分け | 累積発生割合、区間ごとのハザード、リスク集合の模式図 | `plot_survival`、`cox_ph`、`proportional_hazards_test`、`fit_glm`（poisson）、`accelerated_failure` |
 
 ### 数学補
 
@@ -91,6 +90,7 @@
 
 | 略語 | 英語 | 日本語 |
 |------|------|--------|
+| AFT | accelerated failure time | 加速故障時間 |
 | AIC | Akaike information criterion | 赤池情報量規準 |
 | ATE | average treatment effect | 平均処置効果 |
 | ATO | average treatment effect in the overlap population | 重なり集団での平均処置効果 |
@@ -102,12 +102,20 @@
 | DCA | decision curve analysis | 決定曲線分析 |
 | EPV | events per variable | 1 変数あたりのイベント数 |
 | ESS | effective sample size | 有効サンプルサイズ |
+| GLM | generalized linear model | 一般化線形モデル |
+| GLMM | generalized linear mixed model | 一般化線形混合モデル |
+| HR | hazard ratio | ハザード比 |
+| ICC | intraclass correlation coefficient | 級内相関係数 |
 | IPTW | inverse probability of treatment weighting | 治療の逆確率による重み付け |
+| IRLS | iteratively reweighted least squares | 反復重み付き最小 2 乗法 |
 | LASSO | least absolute shrinkage and selection operator | （係数の絶対値に罰をつける正則化） |
 | LOOCV | leave-one-out cross-validation | 一つ抜き交差検証 |
+| MCMC | Markov chain Monte Carlo | マルコフ連鎖モンテカルロ法 |
+| MOR | median odds ratio | オッズ比の中央値 |
 | OR | odds ratio | オッズ比 |
 | RCT | randomized controlled trial | ランダム化比較試験 |
 | ROC | receiver operating characteristic | 受信者動作特性 |
+| RMST | restricted mean survival time | 制限付き平均生存時間 |
 | RR | risk ratio | リスク比 |
 | SMD | standardized mean difference | 標準化差 |
 | TRIPOD | Transparent Reporting of a multivariable prediction model for Individual Prognosis Or Diagnosis | 予測モデル研究の報告指針 |
@@ -115,6 +123,6 @@
 
 ## これから作るもの
 
-- 残りの章（上の順に書きます）
+- 残りの数学補（A2〜A5）
 - 必要な所の対話型の図
 - 本文と同じ図と記法を使ったスライド

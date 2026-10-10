@@ -332,3 +332,39 @@ def mlp_fit(
 def mlp_predict(params: dict, x: np.ndarray) -> np.ndarray:
     h = np.tanh(x @ params["w1"] + params["b1"])
     return _expit(h @ params["w2"] + params["b2"])
+
+
+def newton_logistic(x: np.ndarray, y: np.ndarray, iters: int = 8) -> list[np.ndarray]:
+    """Plain Newton-Raphson for the logistic log likelihood, from all zeros."""
+    beta = np.zeros(x.shape[1])
+    history = [beta.copy()]
+    for _ in range(iters):
+        p = _expit(x @ beta)
+        info = x.T @ (x * (p * (1 - p))[:, None])
+        beta = beta + np.linalg.solve(info, x.T @ (y - p))
+        history.append(beta.copy())
+    return history
+
+
+def firth_logistic(
+    x: np.ndarray, y: np.ndarray, tol: float = 1e-8, max_iter: int = 200
+) -> tuple[np.ndarray, np.ndarray]:
+    """Firth's penalized likelihood (Jeffreys prior) for logistic regression.
+
+    Returns the estimates and their Wald standard errors. The score gets the
+    extra term ``h_i (1/2 - p_i)``, where ``h`` is the hat diagonal.
+    """
+    beta = np.zeros(x.shape[1])
+    for _ in range(max_iter):
+        p = _expit(x @ beta)
+        w = p * (1 - p)
+        inv = np.linalg.inv(x.T @ (x * w[:, None]))
+        h = w * np.sum((x @ inv) * x, axis=1)
+        step = inv @ (x.T @ (y - p + h * (0.5 - p)))
+        step = np.clip(step, -5, 5)
+        beta = beta + step
+        if np.max(np.abs(step)) < tol:
+            break
+    p = _expit(x @ beta)
+    inv = np.linalg.inv(x.T @ (x * (p * (1 - p))[:, None]))
+    return beta, np.sqrt(np.diag(inv))

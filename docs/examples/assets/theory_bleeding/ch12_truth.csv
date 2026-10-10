@@ -1,0 +1,8 @@
+term,true_log_odds
+intercept,-3.6
+age_per10,0.15
+antithrombotic,0.9
+size_per10,0.55
+proximal,0.6
+clip_small,-0.2
+clip_large,-1.0

@@ -11,10 +11,12 @@ if str(_EXAMPLES) not in sys.path:
 
 Part I (chapter 1): the conventional "independent risk factor" analysis.
 Part II (chapters 2-6): potential outcomes, adjustment, PS matching, IPTW, sensitivity.
-Part III (chapters 7-9): prediction, overfitting, discrimination and calibration.
+Part III (chapters 7-11): prediction, overfitting, discrimination, calibration, regularization, trees.
+Part IV (chapters 12-15): probability models, likelihood, hierarchical models, survival.
 """
 
 
+import itertools
 import shutil
 from pathlib import Path
 
@@ -24,34 +26,44 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.ticker
 import numpy as np
-import penalized as pen
 import polars as pl
-from build import bleed_logit, potential_outcomes, simulate
-from support import ProjectPath, load_data
-
+from scipy import stats
 from statract import (
+    accelerated_failure,
     agg_category,
     agg_mean_sd,
     agg_median_iqr,
     brier_score,
     conditional_tree,
+    cox_ph,
     decision_curve_table,
     fit_glm,
+    fit_mixed,
+    glmm_cluster_variance,
     hc_covariance,
+    likelihood_ratio_test,
     match_sample,
     plot_forest,
     plot_love,
+    plot_random_effects,
     plot_roc,
+    plot_survival,
     plot_tree,
     prop_test,
     propensity_weights,
+    proportional_hazards_test,
     roc_curve,
+    spline_test,
     standardize_glm,
     threshold_tradeoff,
     validate_logistic,
     write_tableone_artifacts,
 )
 from statract.report.artifacts import write_csv_companion
+from support import ProjectPath, load_data
+
+import penalized as pen
+from build import TRUE_BLEED, bleed_logit, potential_outcomes, simulate
 
 project = ProjectPath(__file__)
 CACHE = project.cache / "build" / "bleeding.parquet"
@@ -1868,6 +1880,870 @@ def neural_network(df: pl.DataFrame, out: Path) -> None:
     _write_csv(out, "ch11_network", pl.DataFrame(rows))
 
 
+# --- Part IV: statistical modelling -------------------------------------------------
+
+SIZE_GROUPS = [(5, 10), (10, 15), (15, 20), (20, 30), (30, 81)]
+
+
+def _size_group(size: np.ndarray) -> np.ndarray:
+    return np.digitize(size, [g[1] for g in SIZE_GROUPS[:-1]])
+
+
+def _generative_schematic(path: Path) -> None:
+    """x -> eta -> p -> coin -> y, the story a logistic model tells."""
+    fig, ax = plt.subplots(figsize=(9, 2.2))
+    boxes = [
+        ("Patient\n$x_i$", "age, size, ..."),
+        ("Linear predictor\n$\\eta_i = \\beta_0 + \\beta_1 x_{i1} + \\cdots$", ""),
+        ("Probability\n$p_i = 1/(1+e^{-\\eta_i})$", ""),
+        ("Coin flip\nBernoulli($p_i$)", "chance"),
+        ("Outcome\n$y_i$ = 0 or 1", "observed"),
+    ]
+    xs = np.linspace(0.09, 0.91, len(boxes))
+    for i, (x, (label, note)) in enumerate(zip(xs, boxes, strict=True)):
+        ax.text(
+            x,
+            0.55,
+            label,
+            ha="center",
+            va="center",
+            fontsize=9,
+            bbox={
+                "boxstyle": "round,pad=0.4",
+                "fc": "white",
+                "ec": RED if i == 3 else BLUE,
+            },
+        )
+        if note:
+            ax.text(x, 0.08, note, ha="center", fontsize=8, color=GRAY)
+        if i < len(boxes) - 1:
+            ax.annotate(
+                "",
+                xy=(xs[i + 1] - 0.075, 0.55),
+                xytext=(x + 0.075, 0.55),
+                arrowprops={"arrowstyle": "->", "color": GRAY},
+            )
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.axis("off")
+    fig.tight_layout()
+    fig.savefig(path, dpi=180)
+    plt.close(fig)
+
+
+def _group_check(df: pl.DataFrame, p: np.ndarray, model: str, rng) -> pl.DataFrame:
+    """Observed bleeding rate by size group vs 95% range from data simulated by the model."""
+    group = _size_group(df["size_mm"].to_numpy())
+    y = df["bleed"].to_numpy()
+    sims = rng.binomial(1, p, size=(1000, len(p)))
+    rows = []
+    for g, (lo, hi) in enumerate(SIZE_GROUPS):
+        m = group == g
+        rates = sims[:, m].mean(axis=1)
+        rows.append(
+            {
+                "model": model,
+                "size_group": f"{lo}-{hi - 1} mm" if hi < 81 else f">= {lo} mm",
+                "n": int(m.sum()),
+                "observed": float(y[m].mean()),
+                "predicted": float(p[m].mean()),
+                "sim_low": float(np.quantile(rates, 0.025)),
+                "sim_high": float(np.quantile(rates, 0.975)),
+            }
+        )
+    return pl.DataFrame(rows)
+
+
+def probability_model(df: pl.DataFrame, out: Path) -> None:
+    """Chapter 12: the logistic model as a story of how the data were made."""
+    _generative_schematic(out / "figures" / "ch12_generative.png")
+    truth = pl.DataFrame(
+        {
+            "term": list(TRUE_BLEED),
+            "true_log_odds": [float(v) for v in TRUE_BLEED.values()],
+        }
+    )
+    _write_csv(out, "ch12_truth", truth)
+
+    # Same patients, same true risks, new coin flips.
+    rng = np.random.default_rng(12)
+    args = [
+        df[c].to_numpy()
+        for c in ["age", "antithrombotic", "size_mm", "proximal", "clip"]
+    ]
+    p_true = _expit(bleed_logit(*args))
+    counts = rng.binomial(1, p_true, size=(5000, len(p_true))).sum(axis=1)
+    observed = int(df["bleed"].sum())
+    _write_csv(
+        out,
+        "ch12_replicates",
+        pl.DataFrame(
+            {
+                "observed": [observed],
+                "expected": [float(p_true.sum())],
+                "sd_theory": [float(np.sqrt(np.sum(p_true * (1 - p_true))))],
+                "sim_low": [float(np.quantile(counts, 0.025))],
+                "sim_high": [float(np.quantile(counts, 0.975))],
+            }
+        ),
+    )
+    fig, ax = plt.subplots(figsize=(6, 3.4))
+    ax.hist(counts, bins=30, color=BLUE, alpha=0.6)
+    ax.axvline(observed, color=RED, lw=2, label=f"This data set ({observed})")
+    ax.set_xlabel("Number of bleeds among the same 3000 patients")
+    ax.set_ylabel("Simulated data sets")
+    ax.legend(frameon=False)
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch12_replicates.png", dpi=180)
+    plt.close(fig)
+
+    # Simulate from fitted models and check bleeding by size group.
+    fits = {
+        "Size in mm": fit_glm(df, PRED_FORMULA, family="binomial"),
+        "Size >= 20 mm (yes/no)": fit_glm(
+            df.with_columns((pl.col("size_mm") >= 20).cast(pl.Int64).alias("large")),
+            PRED_FORMULA.replace("size_mm", "large"),
+            family="binomial",
+        ),
+    }
+    data = {
+        "Size in mm": df,
+        "Size >= 20 mm (yes/no)": df.with_columns(
+            (pl.col("size_mm") >= 20).cast(pl.Int64).alias("large")
+        ),
+    }
+    check = pl.concat(
+        [
+            _group_check(df, fit.predict(data[k], kind="response"), k, rng)
+            for k, fit in fits.items()
+        ]
+    )
+    _write_csv(out, "ch12_check", check)
+    fig, axes = plt.subplots(1, 2, figsize=(9, 3.6), sharey=True)
+    for ax, sub in zip(
+        axes, check.partition_by("model", maintain_order=True), strict=True
+    ):
+        x = np.arange(sub.height)
+        ax.vlines(
+            x,
+            sub["sim_low"],
+            sub["sim_high"],
+            color=BLUE,
+            lw=6,
+            alpha=0.4,
+            label="Simulated from the model (95%)",
+        )
+        ax.scatter(x, sub["observed"], color=RED, zorder=3, label="Observed")
+        ax.set_xticks(x, sub["size_group"].to_list(), fontsize=8)
+        ax.set_title(sub["model"][0])
+        ax.set_xlabel("Lesion size")
+        ax.grid(alpha=0.3)
+    axes[0].set_ylabel("Bleeding rate")
+    axes[0].yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
+    axes[0].legend(frameon=False, loc="upper left", fontsize=8)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch12_check.png", dpi=180)
+    plt.close(fig)
+
+    # Is log odds linear in size? Restricted cubic spline.
+    spline = fit_glm(
+        df, PRED_FORMULA.replace("size_mm", "rcs(size_mm, 4)"), family="binomial"
+    )
+    test = spline_test(spline, "rcs(size_mm, 4)")
+    _write_csv(out, "ch12_spline_test", test)
+    grid = pl.DataFrame(
+        {
+            "age": [70] * 60,
+            "male": [1] * 60,
+            "antithrombotic": [0] * 60,
+            "hypertension": [0] * 60,
+            "size_mm": np.linspace(5, 60, 60),
+            "proximal": [0] * 60,
+            "clip": [0] * 60,
+        }
+    )
+    linear = fits["Size in mm"]
+    fig, ax = plt.subplots(figsize=(6, 3.6))
+    ax.plot(
+        grid["size_mm"], linear.predict(grid, kind="link"), color=BLUE, label="Linear"
+    )
+    ax.plot(
+        grid["size_mm"],
+        spline.predict(grid, kind="link"),
+        color=RED,
+        label="Restricted cubic spline (4 knots)",
+    )
+    sizes = df["size_mm"].to_numpy()
+    ax.plot(sizes, np.full_like(sizes, -5.0, dtype=float), "|", color=GRAY, alpha=0.2)
+    ax.set_xlabel("Lesion size (mm)")
+    ax.set_ylabel("log odds of bleeding")
+    ax.legend(frameon=False)
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch12_spline.png", dpi=180)
+    plt.close(fig)
+    _write_csv(
+        out,
+        "ch12_models",
+        pl.DataFrame(
+            {
+                "model": ["Size in mm", "Size >= 20 mm (yes/no)", "rcs(size, 4)"],
+                "aic": [
+                    fits["Size in mm"].aic,
+                    fits["Size >= 20 mm (yes/no)"].aic,
+                    spline.aic,
+                ],
+            }
+        ),
+    )
+
+
+def _binom_loglik(p: np.ndarray, events: int, n: int) -> np.ndarray:
+    return events * np.log(p) + (n - events) * np.log(1 - p)
+
+
+def _lr_interval(grid: np.ndarray, ll: np.ndarray) -> tuple[float, float]:
+    """Where the log likelihood is within 1.92 (chi-square 3.84 / 2) of its top."""
+    inside = grid[ll >= ll.max() - 1.92]
+    return float(inside.min()), float(inside.max())
+
+
+def likelihood(df: pl.DataFrame, out: Path) -> None:
+    """Chapter 13: likelihood, maximum likelihood, standard errors, tests, separation."""
+    # One parameter: the bleeding rate.
+    small = df.sample(300, seed=13)
+    sets = {"300 patients": small, "3000 patients": df}
+    grid = np.linspace(0.005, 0.14, 2701)
+    rows = []
+    fig, axes = plt.subplots(1, 2, figsize=(9, 3.6))
+    for (name, d), color in zip(sets.items(), [GRAY, BLUE], strict=True):
+        n, events = d.height, int(d["bleed"].sum())
+        ll = _binom_loglik(grid, events, n)
+        mle = events / n
+        se = float(np.sqrt(mle * (1 - mle) / n))
+        lo, hi = _lr_interval(grid, ll)
+        rows.append(
+            {
+                "data": name,
+                "n": n,
+                "events": events,
+                "mle": mle,
+                "se": se,
+                "wald_low": mle - 1.96 * se,
+                "wald_high": mle + 1.96 * se,
+                "lr_low": lo,
+                "lr_high": hi,
+            }
+        )
+        axes[0].plot(
+            grid, np.exp(ll - ll.max()), color=color, label=f"{name} ({events} bleeds)"
+        )
+        axes[1].plot(grid, ll - ll.max(), color=color, label=name)
+        if name == "300 patients":
+            quad = -((grid - mle) ** 2) / (2 * se**2)
+            axes[1].plot(
+                grid, quad, color=color, ls="--", label="Quadratic approximation"
+            )
+    _write_csv(out, "ch13_rate", pl.DataFrame(rows))
+    axes[0].set_ylabel("Likelihood (relative to its maximum)")
+    axes[0].legend(frameon=False, fontsize=8)
+    axes[1].axhline(-1.92, color=RED, lw=1, ls=":")
+    axes[1].text(0.13, -1.75, "95% interval", color=RED, ha="right", fontsize=8)
+    axes[1].set_ylim(-8, 0.5)
+    axes[1].set_ylabel("log likelihood (minus its maximum)")
+    axes[1].legend(frameon=False, fontsize=8, loc="lower right")
+    for ax in axes:
+        ax.set_xlabel("Bleeding rate p")
+        ax.set_xlim(0, 0.10)
+        ax.xaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
+        ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch13_rate.png", dpi=180)
+    plt.close(fig)
+
+    # Several parameters: the profile log likelihood of the clip coefficient.
+    full = fit_glm(df, PRED_FORMULA, family="binomial")
+    tidy = full.tidy().filter(pl.col("term") == "clip")
+    b_hat, se_hat = float(tidy["estimate"][0]), float(tidy["std_error"][0])
+    reduced_formula = PRED_FORMULA.replace(" + clip", "")
+    bgrid = np.linspace(-1.8, 0.2, 81)
+    prof = np.array(
+        [
+            fit_glm(
+                df.with_columns((pl.col("clip") * b).alias("off")),
+                reduced_formula,
+                family="binomial",
+                offset="off",
+            ).log_likelihood
+            for b in bgrid
+        ]
+    )
+    fine = np.linspace(bgrid[0], bgrid[-1], 4001)
+    prof_fine = np.interp(fine, bgrid, prof)
+    p_lo, p_hi = _lr_interval(fine, prof_fine)
+    fig, ax = plt.subplots(figsize=(6, 3.6))
+    ax.plot(
+        bgrid, prof - full.log_likelihood, color=BLUE, label="Profile log likelihood"
+    )
+    ax.plot(
+        bgrid,
+        -((bgrid - b_hat) ** 2) / (2 * se_hat**2),
+        color=GRAY,
+        ls="--",
+        label="Quadratic (Wald)",
+    )
+    ax.axhline(-1.92, color=RED, lw=1, ls=":")
+    ax.set_ylim(-8, 0.5)
+    ax.set_xlabel("Clip coefficient (log odds ratio)")
+    ax.set_ylabel("log likelihood (minus its maximum)")
+    ax.legend(frameon=False, fontsize=8, loc="lower center")
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch13_profile.png", dpi=180)
+    plt.close(fig)
+
+    # Three tests of "clip has no effect".
+    reduced = fit_glm(df, reduced_formula, family="binomial")
+    lr = likelihood_ratio_test(full, reduced)
+    y = df["bleed"].to_numpy().astype(float)
+    mu0 = reduced.predict(df, kind="response")
+    x = full.x
+    info = x.T @ (x * (mu0 * (1 - mu0))[:, None])
+    score_vec = x.T @ (y - mu0)
+    score = float(score_vec @ np.linalg.solve(info, score_vec))
+    wald = (b_hat / se_hat) ** 2
+    _write_csv(
+        out,
+        "ch13_tests",
+        pl.DataFrame(
+            {
+                "test": ["Wald", "Likelihood ratio", "Score"],
+                "chi2": [wald, lr.statistic, score],
+                "p_value": [
+                    float(stats.chi2.sf(v, 1)) for v in [wald, lr.statistic, score]
+                ],
+                "ci_low": [np.exp(b_hat - 1.96 * se_hat), np.exp(p_lo), None],
+                "ci_high": [np.exp(b_hat + 1.96 * se_hat), np.exp(p_hi), None],
+            }
+        ),
+    )
+
+    # Newton-Raphson from zero.
+    history = pen.newton_logistic(x, y, iters=7)
+    names = list(full.tidy()["term"])
+    clip_col = names.index("clip")
+    _write_csv(
+        out,
+        "ch13_newton",
+        pl.DataFrame(
+            {
+                "iteration": list(range(len(history))),
+                "log_likelihood": [
+                    float(np.sum(_loglik(y, _expit(x @ b)))) for b in history
+                ],
+                "clip": [float(b[clip_col]) for b in history],
+            }
+        ),
+    )
+
+    # Separation: a small study where no clipped patient bled.
+    sep = _separated_sample(df)
+    sx = fit_glm(sep, "bleed ~ antithrombotic + size_mm + clip", family="binomial")
+    st = sx.tidy().filter(pl.col("term") == "clip")
+    fb, fse = pen.firth_logistic(sx.x, sep["bleed"].to_numpy().astype(float))
+    ci = list(sx.tidy()["term"]).index("clip")
+    _write_csv(
+        out,
+        "ch13_separation",
+        pl.DataFrame(
+            {
+                "method": ["Maximum likelihood", "Firth"],
+                "n": [sep.height] * 2,
+                "events": [int(sep["bleed"].sum())] * 2,
+                "clipped": [int(sep["clip"].sum())] * 2,
+                "clipped_events": [int(sep.filter(pl.col("clip") == 1)["bleed"].sum())]
+                * 2,
+                "estimate": [float(st["estimate"][0]), float(fb[ci])],
+                "std_error": [float(st["std_error"][0]), float(fse[ci])],
+            }
+        ),
+    )
+
+
+def _separated_sample(df: pl.DataFrame, n: int = 120) -> pl.DataFrame:
+    """The first seed whose sample has bleeds, clipped patients, and no clipped bleed."""
+    for seed in range(1000):
+        d = df.sample(n, seed=seed)
+        clipped = d.filter(pl.col("clip") == 1)
+        if (
+            d["bleed"].sum() >= 5
+            and clipped.height >= 20
+            and clipped["bleed"].sum() == 0
+        ):
+            return d
+    raise RuntimeError("no separated sample found")
+
+
+HOSPITAL_SD = 0.5  # true SD of the hospital effect on the log odds
+
+
+def _multicenter(seed: int = 14) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """20 hospitals of very different sizes; each adds its own shift to the log odds."""
+    rng = np.random.default_rng(seed)
+    sizes = (
+        np.clip(np.exp(rng.normal(np.log(110), 0.9, 20)), 15, 700).round().astype(int)
+    )
+    df = simulate(int(sizes.sum()), seed=seed).drop("bleed")
+    hospital = np.repeat(np.arange(20), sizes)
+    u = rng.normal(0, HOSPITAL_SD, 20)
+    args = [
+        df[c].to_numpy()
+        for c in ["age", "antithrombotic", "size_mm", "proximal", "clip"]
+    ]
+    p = _expit(bleed_logit(*args) + u[hospital])
+    labels = np.array([f"H{i + 1:02d}" for i in range(20)])
+    df = df.with_columns(
+        pl.Series("hospital", labels[hospital]),
+        pl.Series("bleed", rng.binomial(1, p)),
+        pl.Series("p_true", p),
+    )
+    truth = (
+        df.group_by("hospital")
+        .agg(
+            pl.len().alias("n"),
+            pl.col("bleed").sum().alias("events"),
+            pl.col("p_true").mean().alias("true_rate"),
+        )
+        .join(pl.DataFrame({"hospital": labels, "true_effect": u}), on="hospital")
+        .sort("hospital")
+    )
+    return df, truth
+
+
+def hierarchical(out: Path) -> None:
+    """Chapter 14: hospitals, partial pooling, ranking, and the Bayes view."""
+    df, truth = _multicenter()
+    overall = float(df["bleed"].mean())
+
+    # Bleeding rate by hospital: own data only vs partial pooling.
+    empty = fit_mixed(df, "bleed ~ 1 + (1 | hospital)", family="binomial")
+    b0 = float(empty.tidy()["estimate"][0])
+    sigma0 = float(np.sqrt(glmm_cluster_variance(empty)[0]))
+    re = empty.random_effects().rename({"group": "hospital"}).select("hospital", "blup")
+    rates = (
+        truth.join(re, on="hospital")
+        .with_columns(
+            (pl.col("events") / pl.col("n")).alias("own"),
+            pl.col("blup")
+            .map_batches(lambda b: _expit(b0 + b.to_numpy()))
+            .alias("pooled"),
+        )
+        .sort("n")
+    )
+    _write_csv(out, "ch14_rates", rates)
+    err = rates.select(
+        ((pl.col("own") - pl.col("true_rate")) ** 2).mean().sqrt().alias("rmse_own"),
+        ((pl.col("pooled") - pl.col("true_rate")) ** 2)
+        .mean()
+        .sqrt()
+        .alias("rmse_pooled"),
+        ((overall - pl.col("true_rate")) ** 2).mean().sqrt().alias("rmse_complete"),
+    )
+    _write_csv(out, "ch14_error", err)
+
+    fig, axes = plt.subplots(
+        1, 2, figsize=(9.5, 4), gridspec_kw={"width_ratios": [1, 1.3]}
+    )
+    ax = axes[0]
+    for row in rates.iter_rows(named=True):
+        ax.plot([0, 1], [row["own"], row["pooled"]], color=GRAY, lw=0.8, alpha=0.7)
+    size = np.sqrt(rates["n"].to_numpy()) * 2.5
+    ax.scatter(np.zeros(rates.height), rates["own"], s=size, color=RED, zorder=3)
+    ax.scatter(np.ones(rates.height), rates["pooled"], s=size, color=BLUE, zorder=3)
+    ax.axhline(overall, color=GRAY, ls=":", lw=1)
+    ax.text(1.05, overall, "all hospitals", va="center", fontsize=8, color=GRAY)
+    ax.set_xticks([0, 1], ["Own data only", "Partial pooling"])
+    ax.set_xlim(-0.3, 1.45)
+    ax.set_ylabel("Bleeding rate")
+    ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
+    ax.set_title("Estimates move toward the mean")
+    ax.grid(alpha=0.3, axis="y")
+    ax = axes[1]
+    n = rates["n"].to_numpy()
+    ax.scatter(
+        n, np.abs(rates["own"] - rates["true_rate"]), color=RED, label="Own data only"
+    )
+    ax.scatter(
+        n,
+        np.abs(rates["pooled"] - rates["true_rate"]),
+        color=BLUE,
+        label="Partial pooling",
+    )
+    ax.set_xscale("log")
+    ax.set_xticks([20, 50, 100, 200, 500], ["20", "50", "100", "200", "500"])
+    ax.minorticks_off()
+    ax.set_xlabel("Patients in the hospital")
+    ax.set_ylabel("Error from the true rate")
+    ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
+    ax.set_title("Small hospitals gain the most")
+    ax.legend(frameon=False, fontsize=8)
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch14_shrinkage.png", dpi=180)
+    plt.close(fig)
+
+    # Adjusted models: ignore hospital vs random intercept.
+    glm = fit_glm(df, PRED_FORMULA, family="binomial")
+    mixed = fit_mixed(df, PRED_FORMULA + " + (1 | hospital)", family="binomial")
+    sigma2 = glmm_cluster_variance(mixed)[0]
+    rows = []
+    for name, fit in [
+        ("Ignore hospital (GLM)", glm),
+        ("Random intercept (GLMM)", mixed),
+    ]:
+        t = fit.tidy().filter(pl.col("term") == "clip")
+        rows.append(
+            {
+                "model": name,
+                "clip_or": float(np.exp(t["estimate"][0])),
+                "clip_se": float(t["std_error"][0]),
+                "hospital_sd": None if fit is glm else float(np.sqrt(sigma2)),
+                "icc": None if fit is glm else float(sigma2 / (sigma2 + np.pi**2 / 3)),
+                "mor": None
+                if fit is glm
+                else float(np.exp(np.sqrt(2 * sigma2) * 0.6745)),
+                "log_likelihood": float(fit.log_likelihood),
+            }
+        )
+    _write_csv(out, "ch14_models", pl.DataFrame(rows))
+
+    # Ranking hospitals: caterpillar plot of the adjusted hospital effects.
+    effects = mixed.random_effects()
+    # Approximate intervals: the curvature of the conditional log likelihood
+    # of each hospital effect plus the normal prior (a Laplace approximation).
+    blup = dict(zip(effects["group"], effects["blup"], strict=True))
+    hosp = df["hospital"].to_numpy()
+    eta = mixed.predict(df, kind="link") + np.array([blup[h] for h in hosp])
+    w = _expit(eta) * (1 - _expit(eta))
+    se = {h: float(1 / np.sqrt(w[hosp == h].sum() + 1 / sigma2)) for h in blup}
+    effects = effects.with_columns(
+        (pl.col("blup") - 1.96 * pl.col("group").replace_strict(se)).alias("conf_low"),
+        (pl.col("blup") + 1.96 * pl.col("group").replace_strict(se)).alias("conf_high"),
+    )
+    _write_csv(out, "ch14_effects", effects)
+    plot_random_effects(
+        effects,
+        out / "figures" / "ch14_caterpillar.png",
+        xlabel="Hospital effect (log odds, adjusted)",
+        figsize=(6, 5),
+    )
+    ranks = (
+        effects.rename({"group": "hospital"})
+        .select("hospital", "blup")
+        .join(truth.select("hospital", "true_effect", "n"), on="hospital")
+        .with_columns(
+            pl.col("blup").rank(descending=True).alias("rank_estimated"),
+            pl.col("true_effect").rank(descending=True).alias("rank_true"),
+        )
+        .sort("rank_estimated")
+    )
+    _write_csv(out, "ch14_ranks", ranks)
+
+    # Bayes: the hospital distribution as a prior for the smallest hospital.
+    zero = rates.filter(pl.col("events") == 0)
+    small = (zero if zero.height else rates).row(0, named=True)
+    grid = np.linspace(0.0005, 0.30, 3000)
+    logit = np.log(grid / (1 - grid))
+    prior = np.exp(-((logit - b0) ** 2) / (2 * sigma0**2)) / (grid * (1 - grid))
+    like = grid ** small["events"] * (1 - grid) ** (small["n"] - small["events"])
+    post = prior * like
+    curves = {
+        "Prior (other hospitals)": prior,
+        "Likelihood (own data)": like,
+        "Posterior": post,
+    }
+    fig, ax = plt.subplots(figsize=(6, 3.6))
+    for (name, c), color, ls in zip(
+        curves.items(), [GRAY, RED, BLUE], ["--", ":", "-"], strict=True
+    ):
+        ax.plot(grid, c / np.trapezoid(c, grid), color=color, ls=ls, label=name)
+    ax.set_xlim(0, 0.25)
+    ax.set_xlabel(
+        f"Bleeding rate of hospital {small['hospital']} "
+        f"({small['events']} of {small['n']})"
+    )
+    ax.set_ylabel("Density")
+    ax.xaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
+    ax.legend(frameon=False, fontsize=8)
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch14_bayes.png", dpi=180)
+    plt.close(fig)
+    post = post / np.trapezoid(post, grid)
+    cdf = np.cumsum(post) * (grid[1] - grid[0])
+    _write_csv(
+        out,
+        "ch14_bayes",
+        pl.DataFrame(
+            {
+                "hospital": [small["hospital"]],
+                "n": [small["n"]],
+                "events": [small["events"]],
+                "own_rate": [small["own"]],
+                "pooled": [small["pooled"]],
+                "posterior_mean": [float(np.trapezoid(grid * post, grid))],
+                "posterior_low": [float(grid[np.searchsorted(cdf, 0.025)])],
+                "posterior_high": [float(grid[np.searchsorted(cdf, 0.975)])],
+                "prior_center": [float(_expit(np.array(b0)))],
+                "prior_sd_logit": [sigma0],
+                "true_rate": [small["true_rate"]],
+            }
+        ),
+    )
+
+
+SHAPE = 0.5  # Weibull shape of the true baseline hazard: high at first, then falling
+FOLLOW_UP = 30.0
+CUTS = [0.0, 1.0, 3.0, 7.0, 14.0, 30.0]
+SURV_FORMULA = "Surv(time, event) ~ " + " + ".join(PRED_VARS)
+
+
+def _survival_data(
+    df: pl.DataFrame, seed: int = 15
+) -> tuple[pl.DataFrame, float, float]:
+    """Days to delayed bleeding, with loss to follow-up and the end of follow-up at day 30."""
+    rng = np.random.default_rng(seed)
+    args = [
+        df[c].to_numpy()
+        for c in ["age", "antithrombotic", "size_mm", "proximal", "clip"]
+    ]
+    lp = bleed_logit(*args) - TRUE_BLEED["intercept"]
+    mean_risk = float(np.mean(np.exp(lp)))
+    lam = 0.05 / (FOLLOW_UP**SHAPE * mean_risk)
+    t_bleed = (rng.exponential(1.0, df.height) / (lam * np.exp(lp))) ** (1 / SHAPE)
+    t_loss = rng.exponential(1 / 0.004, df.height)
+    time = np.minimum.reduce([t_bleed, t_loss, np.full(df.height, FOLLOW_UP)])
+    d = df.drop("bleed").with_columns(
+        pl.Series("time", np.maximum(time, 0.01)),
+        pl.Series("event", (t_bleed <= np.minimum(t_loss, FOLLOW_UP)).astype(int)),
+    )
+    return d, lam, mean_risk
+
+
+def _split(d: pl.DataFrame) -> pl.DataFrame:
+    """One row per patient and interval: person-days and whether bleeding happened in it."""
+    parts = []
+    for a, b in itertools.pairwise(CUTS):
+        part = d.filter(pl.col("time") > a).with_columns(
+            (pl.min_horizontal(pl.col("time"), pl.lit(b)) - a).alias("days"),
+            ((pl.col("event") == 1) & (pl.col("time") <= b))
+            .cast(pl.Int64)
+            .alias("event"),
+            pl.lit(f"{a:g}-{b:g} d").alias("interval"),
+        )
+        parts.append(part)
+    return pl.concat(parts).with_columns(pl.col("days").log().alias("log_days"))
+
+
+def _risk_set_schematic(path: Path) -> None:
+    """Partial likelihood: at each bleed, who was still at risk?"""
+    times = [3, 6, 9, 11, 14, 17, 21, 25]
+    status = [1, 0, 1, 0, 0, 1, 0, 0]
+    fig, ax = plt.subplots(figsize=(7, 3))
+    t_event = 9
+    for i, (t, e) in enumerate(zip(times, status, strict=True)):
+        at_risk = t >= t_event
+        ax.plot(
+            [0, t], [i, i], color=BLUE if at_risk else GRAY, lw=2.5 if at_risk else 1.5
+        )
+        ax.plot(
+            t,
+            i,
+            "x" if e else "o",
+            color=RED if e else GRAY,
+            ms=8,
+            mfc="none" if not e else None,
+        )
+    ax.axvline(t_event, color=RED, ls=":", lw=1)
+    ax.text(t_event + 0.3, len(times) - 1.5, "a bleed on day 9", color=RED, fontsize=8)
+    ax.set_yticks(
+        range(len(times)), [f"Patient {i + 1}" for i in range(len(times))], fontsize=8
+    )
+    ax.set_xlabel("Days after resection")
+    ax.set_xlim(0, 27)
+    ax.set_title(
+        "blue: still at risk on day 9    x: bleed    o: censored",
+        fontsize=8,
+        color=GRAY,
+        loc="left",
+    )
+    ax.grid(alpha=0.3, axis="x")
+    fig.tight_layout()
+    fig.savefig(path, dpi=180)
+    plt.close(fig)
+
+
+def survival(df: pl.DataFrame, out: Path) -> None:
+    """Chapter 15: censoring, hazards, Cox, Poisson person-time, and AFT models."""
+    d, lam, mean_risk = _survival_data(df)
+    _write_csv(
+        out,
+        "ch15_summary",
+        pl.DataFrame(
+            {
+                "n": [d.height],
+                "bleeds": [int(d["event"].sum())],
+                "lost": [int(((d["event"] == 0) & (d["time"] < FOLLOW_UP)).sum())],
+                "median_day_of_bleed": [
+                    float(d.filter(pl.col("event") == 1)["time"].median())
+                ],
+                "bleeds_by_day3": [int(((d["event"] == 1) & (d["time"] <= 3)).sum())],
+            }
+        ),
+    )
+
+    # Kaplan-Meier: cumulative incidence by clip.
+    ax = plot_survival(
+        d.with_columns(
+            pl.col("clip").replace_strict({0: "No clip", 1: "Clip"}).alias("group")
+        ),
+        time="time",
+        status="event",
+        hue="group",
+        cdf=True,
+        show_censors=False,
+    )
+    ax.set_ylim(0, 0.08)
+    ax.set_yticks(np.arange(0, 0.081, 0.02))
+    ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
+    ax.set_xlabel("Days after resection")
+    ax.set_ylabel("Cumulative incidence of bleeding")
+    ax.figure.savefig(out / "figures" / "ch15_km.png", dpi=180)
+    plt.close(ax.figure)
+
+    # Person-time: the classic rate.
+    rates = (
+        d.group_by("clip")
+        .agg(
+            pl.col("event").sum().alias("events"),
+            pl.col("time").sum().alias("person_days"),
+        )
+        .with_columns(
+            (1000 * pl.col("events") / pl.col("person_days")).alias("per_1000_days")
+        )
+        .sort("clip")
+    )
+    _write_csv(out, "ch15_rates", rates)
+
+    # The hazard over time: piecewise rates, Weibull, constant.
+    split = _split(d)
+    piece = (
+        split.group_by("interval", maintain_order=True)
+        .agg(
+            pl.col("event").sum().alias("events"),
+            pl.col("days").sum().alias("person_days"),
+        )
+        .with_columns(
+            (1000 * pl.col("events") / pl.col("person_days")).alias("per_1000_days")
+        )
+    )
+    _write_csv(out, "ch15_piecewise", piece)
+    weibull = accelerated_failure(d, SURV_FORMULA, distribution="weibull")
+    expo = accelerated_failure(d, SURV_FORMULA, distribution="exponential")
+    fig, ax = plt.subplots(figsize=(6, 3.6))
+    for (a, b), r in zip(itertools.pairwise(CUTS), piece["per_1000_days"], strict=True):
+        ax.plot([a, b], [r, r], color=RED, lw=2.5)
+    ax.plot([], [], color=RED, lw=2.5, label="Observed rate in each interval (Poisson)")
+    t = np.linspace(0.2, FOLLOW_UP, 300)
+    # Hazard of the average patient: h(t) = shape * lam * t^(shape - 1) * mean(exp(lp)).
+    true_h = 1000 * SHAPE * lam * t ** (SHAPE - 1) * mean_risk
+    ax.plot(t, true_h, color=BLUE, label="True hazard (Weibull, shape 0.5)")
+    overall = 1000 * d["event"].sum() / d["time"].sum()
+    ax.axhline(overall, color=GRAY, ls="--", label="Constant hazard (exponential)")
+    ax.set_ylim(0, max(true_h[5], float(piece["per_1000_days"].max())) * 1.1)
+    ax.set_xlabel("Days after resection")
+    ax.set_ylabel("Bleeds per 1000 patient-days")
+    ax.legend(frameon=False, fontsize=8)
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch15_hazard.png", dpi=180)
+    plt.close(fig)
+
+    _risk_set_schematic(out / "figures" / "ch15_risk_set.png")
+
+    # Cox, and Cox on the ranks of time.
+    cox = cox_ph(d, SURV_FORMULA)
+    ranked = d.with_columns(
+        pl.col("time").rank("ordinal").cast(pl.Float64).alias("time")
+    )
+    cox_rank = cox_ph(ranked, SURV_FORMULA)
+    squared = d.with_columns((pl.col("time") ** 2).alias("time"))
+    cox_sq = cox_ph(squared, SURV_FORMULA)
+
+    pois_const = fit_glm(
+        d.with_columns(pl.col("time").log().alias("log_days")),
+        "event ~ " + " + ".join(PRED_VARS),
+        family="poisson",
+        offset="log_days",
+    )
+    pois_piece = fit_glm(
+        split,
+        "event ~ interval + " + " + ".join(PRED_VARS),
+        family="poisson",
+        offset="log_days",
+    )
+    lognormal = accelerated_failure(d, SURV_FORMULA, distribution="lognormal")
+
+    def clip_row(model: str, fit, scale: str, transform=None) -> dict:
+        t = fit.tidy().filter(pl.col("term") == "clip")
+        b, se = float(t["estimate"][0]), float(t["std_error"][0])
+        f = transform or (lambda v: v)
+        lo, hi = sorted([f(b - 1.96 * se), f(b + 1.96 * se)])
+        return {
+            "model": model,
+            "scale": scale,
+            "estimate": float(np.exp(f(b))),
+            "conf_low": float(np.exp(lo)),
+            "conf_high": float(np.exp(hi)),
+        }
+
+    rows = [
+        clip_row("Cox", cox, "hazard ratio"),
+        clip_row("Cox, time replaced by its rank", cox_rank, "hazard ratio"),
+        clip_row("Cox, time squared", cox_sq, "hazard ratio"),
+        clip_row("Poisson, constant hazard", pois_const, "hazard ratio"),
+        clip_row("Poisson, 5 intervals", pois_piece, "hazard ratio"),
+        clip_row(
+            "Weibull, as hazard ratio",
+            weibull,
+            "hazard ratio",
+            lambda v: -v / weibull.scale,
+        ),
+        clip_row("Weibull AFT", weibull, "time ratio"),
+        clip_row("Log-normal AFT", lognormal, "time ratio"),
+        clip_row("Exponential AFT", expo, "time ratio"),
+    ]
+    _write_csv(out, "ch15_models", pl.DataFrame(rows))
+    _write_csv(
+        out,
+        "ch15_fit",
+        pl.DataFrame(
+            {
+                "model": ["Exponential", "Weibull", "Log-normal"],
+                "log_likelihood": [
+                    expo.log_likelihood,
+                    weibull.log_likelihood,
+                    lognormal.log_likelihood,
+                ],
+                "scale": [expo.scale, weibull.scale, lognormal.scale],
+            }
+        ),
+    )
+    _write_csv(out, "ch15_cox", cox.tidy(exponentiate=True))
+    _write_csv(out, "ch15_ph_test", proportional_hazards_test(cox))
+
+
 def _expit(x: np.ndarray) -> np.ndarray:
     return 1.0 / (1.0 + np.exp(-x))
 
@@ -1896,6 +2772,10 @@ def main() -> None:
     regularization(out)
     trees_ensembles(df, out)
     neural_network(df, out)
+    probability_model(df, out)
+    likelihood(df, out)
+    hierarchical(out)
+    survival(df, out)
     n = df.height
     events = int(df["bleed"].sum())
     (out / "n.md").write_text(
