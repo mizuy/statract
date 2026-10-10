@@ -69,6 +69,8 @@ from .models.covariance import (
 )
 from .models.fit import fit_glm, fit_ols
 from .models.formula import model_matrix
+from .models.effects import spline_effect, spline_test
+from .viz.effect import plot_spline_effect
 from .models.mixed import MixedFit, fit_mixed
 from .models.impute import MultipleImputation, impute_chained, pool
 from .models.gamm import GammFit, gamm
@@ -268,6 +270,9 @@ __all__ = [
     "tensor_interaction",
     "tensor_smooth",
     "wald_test",
+    "spline_effect",
+    "spline_test",
+    "plot_spline_effect",
     "glmm_gpboost",
     "proportion_ci",
     "threshold_tradeoff",

@@ -106,6 +106,7 @@ nav:
               - fit: api/models/fit.md
               - covariance: api/models/covariance.md
               - linear_tests: api/models/linear_tests.md
+              - effects: api/models/effects.md
               - htest: api/models/htest.md
               - matching: api/models/matching.md
               - roc: api/models/roc.md
@@ -121,6 +122,7 @@ nav:
           - Figures:
               - forest: api/viz/forest.md
               - km: api/viz/km.md
+              - effect: api/viz/effect.md
               - tree: api/viz/tree.md
               - misc: api/viz/misc.md
           - Cost-effectiveness:

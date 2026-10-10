@@ -8,6 +8,8 @@
 
 | 役割 | R | `statract` | テストが比べる量 |
 |------|---|----------------|------------------|
+| スプライン | `splines::ns`、`splines::bs`、`rms::rcs`。新しい行は `makepredictcall` の節点 | 式の `ns()`、`bs()`、`rcs()` | fixture `splines.json`。13 の式で列名と行列（欠損、同順位、100 行未満、端に 15% の同値）と範囲外を含む新しい行、`lm` の係数 |
+| スプラインの検定と効果曲線 | `anova(lrm)`、`anova(cph)` の項と `Nonlinear` の行、`contrast(fit, list(x = at), list(x = ref))` | `spline_test`、`spline_effect` | 同じ fixture。カイ二乗、自由度、p 値、対比の推定値、SE、区間。glm と coxph のスプラインつき係数と SE |
 | 最小二乗 | `lm` | `fit_ols` | 係数、SE、対数尤度、`tidy` の t 統計量と p 値。3 標本 |
 | HC0–HC5 | `sandwich::vcovHC` | `hc_covariance` | OLS の HC0–HC5。GLM の HC0 |
 | クラスタ頑健分散 | `sandwich::vcovCL` | `cluster_covariance` | OLS の 1-way と 2-way。既定は OLS が HC1、GLM が HC0 |
