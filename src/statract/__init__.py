@@ -68,6 +68,7 @@ from .models.covariance import (
     newey_west_covariance,
 )
 from .models.fit import fit_glm, fit_ols
+from .models.standardize import StandardizedGLM, standardize_glm
 from .models.formula import model_matrix
 from .models.mixed import MixedFit, fit_mixed
 from .models.impute import MultipleImputation, impute_chained, pool
@@ -235,6 +236,8 @@ __all__ = [
     "fine_gray",
     "fine_gray_regression",
     "fit_glm",
+    "StandardizedGLM",
+    "standardize_glm",
     "fit_mixed",
     "MixedFit",
     "fit_ols",

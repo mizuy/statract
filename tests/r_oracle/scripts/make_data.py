@@ -295,6 +295,38 @@ def _stdreg_sample(seed: int, n: int, *, exposure: str, whole_tenths: bool, max_
     )
 
 
+def _std_glm_sample(seed: int, n: int) -> pl.DataFrame:
+    """Binary and count outcomes for GLM standardization.
+
+    ``trt`` is a 0/1 exposure that depends on age, ``arm`` a three-level
+    factor, and ``w`` a positive weight. ``site`` is an integer cluster.
+    """
+    rng = np.random.default_rng(seed)
+    age = rng.normal(60.0, 10.0, n)
+    sex = rng.choice(["F", "M"], size=n)
+    site = rng.integers(1, 26, n)
+    trt = (rng.uniform(size=n) < 1.0 / (1.0 + np.exp(-(age - 60.0) / 12.0))).astype(int)
+    arm = rng.choice(["a", "b", "c"], size=n, p=[0.4, 0.35, 0.25])
+    years = rng.uniform(0.5, 3.0, n)
+    arm_effect = np.select([arm == "b", arm == "c"], [0.4, -0.5], 0.0)
+    eta = -0.4 + 0.6 * trt + 0.03 * (age - 60.0) + 0.02 * trt * (age - 60.0) + 0.3 * (sex == "M") + arm_effect
+    y = (rng.uniform(size=n) < 1.0 / (1.0 + np.exp(-eta))).astype(int)
+    count = rng.poisson(years * np.exp(-0.5 + 0.4 * trt + 0.02 * (age - 60.0) + 0.5 * arm_effect))
+    return pl.DataFrame(
+        {
+            "y": y,
+            "count": count.astype(np.int64),
+            "trt": trt,
+            "arm": arm,
+            "age": np.round(age, 6),
+            "sex": sex,
+            "years": np.round(years, 6),
+            "site": site,
+            "w": np.round(rng.uniform(0.5, 2.0, n), 6),
+        }
+    )
+
+
 def main() -> None:
     DATA.mkdir(parents=True, exist_ok=True)
     # (1) Poisson counts, random intercept, 30 sites.
@@ -331,6 +363,9 @@ def main() -> None:
     _stdreg_sample(20261024, 300, exposure="ope", whole_tenths=True, max_follow_up=8.0).write_csv(DATA / "stdreg_a.csv")
     _stdreg_sample(20261025, 250, exposure="dose", whole_tenths=False, max_follow_up=8.0).write_csv(DATA / "stdreg_b.csv")
     _stdreg_sample(20261026, 300, exposure="ope", whole_tenths=False, max_follow_up=6.0).write_csv(DATA / "stdreg_c.csv")
+    # GLM standardization: binary and count outcomes, a factor, weights, sites.
+    _std_glm_sample(20261027, 400).write_csv(DATA / "stdglm_a.csv")
+    _std_glm_sample(20261028, 250).write_csv(DATA / "stdglm_b.csv")
 
 
 if __name__ == "__main__":

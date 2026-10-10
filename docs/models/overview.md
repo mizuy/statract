@@ -9,6 +9,7 @@
 | 設計行列 | `statract.models.design`、`model_matrix` | `model.matrix` の treatment contrast |
 | 線形モデル | `statract.models.fit` | `lm` / `glm` |
 | 共分散 | `statract.models.covariance` | sandwich |
+| GLM の回帰標準化 | `statract.models.standardize` | `marginaleffects::avg_comparisons`、`stdReg2::standardize_glm` |
 | 線形の検定 | `statract.models.linear_tests` | lmtest |
 | 基本の検定と区間 | `statract.models.htest` | `t.test`、`wilcox.test`、`mcnemar.test`、`binom.test`、`prop.test`、`p.adjust` |
 | 生存時間 | `statract.surv` | survival |
@@ -69,6 +70,8 @@ print(same.tidy())
 `stage` は文字列なので水準は I, II, III の順になり、参照は I です。係数名は `stageII` と `stageIII` です。式の展開は R の `model.matrix` に合わせています。演算子、切片、対比、`offset()`、変量効果の列名は [Wilkinson 式](formula.md) です。`model_matrix` が設計行列そのものを返します。
 
 二値の結果は `fit_glm(..., family="binomial")` です。`predict(kind="response")` は成功確率、`kind="link"` はロジットです。ポアソンは `family="poisson"`、ガンマは `family="gamma"`（リンクは逆数）です。
+
+GLM での回帰標準化は `standardize_glm(frame, "y ~ trt * age + sex", values={"trt": [0, 1]})` です。曝露を各値に置き換えて全員の予測確率を平均します。`.tidy()` が調整リスク、`.tidy(contrast="difference", reference=0)` がリスク差です。`contrast="ratio"` はリスク比、`"odds_ratio"` はオッズ比で、`ci="log"` で対数スケールの区間になります。既定の分散は共変量を固定した delta 法で、`marginaleffects::avg_comparisons` と同じ値です。`vcov="HC3"` や `cluster="site"` で係数の分散をサンドイッチにします。`covariates="sampled"` は共変量のばらつきも含む `stdReg2::standardize_glm` 型のサンドイッチです。`weights=` は GLM の重みで、平均にも使います。ポアソンは `family="poisson"` で、`offset(log(years))` を含められます。
 
 ### 生存時間
 
