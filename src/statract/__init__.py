@@ -4,9 +4,9 @@ The names below are re-exported from these subpackages:
 
 - ``statract.tableone``: Table One, aggregation columns, and group tests
 - ``statract.models``: OLS / GLM, sandwich covariance, tests, mixed and additive
-  models, trees, imputation, matching, ROC, calibration, and validation
+  models, trees, imputation, matching, weighting, ROC, calibration, and validation
 - ``statract.surv``: survival curves, log-rank, Cox, AFT, Fine–Gray
-- ``statract.viz``: forest, Kaplan–Meier, and tree plots
+- ``statract.viz``: forest, Kaplan–Meier, tree, and Love plots
 - ``statract.report``: CSV companions and task output folders
 - ``statract.cea``: cost-effectiveness analysis (import it directly)
 
@@ -88,6 +88,8 @@ from .models.linear_tests import (
     wald_test,
 )
 from .models.matching import match_sample
+from .models.weighting import PropensityWeights, balance_table, propensity_weights
+from .viz.balance import plot_love
 from .models.roc import RocCurve, RocTest, plot_roc, roc_curve, roc_test
 from .viz.forest import plot_forest
 from .models.glmm_extras import (
@@ -249,6 +251,10 @@ __all__ = [
     "likelihood_ratio_test",
     "log_rank",
     "match_sample",
+    "PropensityWeights",
+    "balance_table",
+    "propensity_weights",
+    "plot_love",
     "RocCurve",
     "RocTest",
     "plot_roc",
