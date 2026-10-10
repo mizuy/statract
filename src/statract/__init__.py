@@ -69,6 +69,9 @@ from .models.covariance import (
 )
 from .models.fit import fit_glm, fit_ols
 from .models.standardize import StandardizedGLM, standardize_glm
+from .models.multinom import MultinomialFit, multinomial_regression
+from .models.ordinal import BrantTest, OrdinalFit, brant_test, ordinal_regression
+from .models.risk import RiskRatioFit, fit_risk_ratio
 from .models.formula import model_matrix
 from .models.effects import spline_effect, spline_test
 from .viz.effect import plot_spline_effect
@@ -132,11 +135,13 @@ from .surv import (
     plot_cox_residuals,
     plot_loglog,
     proportional_hazards_test,
+    restricted_mean_survival,
     split_follow_up,
     standardize_cox,
     survival_curve,
     write_cox_diagnostic_suite,
 )
+from .surv.rmst import RmstResult
 from .viz.km import (
     add_at_risk_counts,
     cumulative_survival_ci,
@@ -245,6 +250,16 @@ __all__ = [
     "fit_mixed",
     "MixedFit",
     "fit_ols",
+    "fit_risk_ratio",
+    "RiskRatioFit",
+    "ordinal_regression",
+    "OrdinalFit",
+    "brant_test",
+    "BrantTest",
+    "multinomial_regression",
+    "MultinomialFit",
+    "restricted_mean_survival",
+    "RmstResult",
     "gamm",
     "GammFit",
     "impute_chained",

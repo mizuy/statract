@@ -8,11 +8,14 @@
 |----|------------|----------------|
 | 設計行列 | `statract.models.design`、`model_matrix` | `model.matrix` の treatment contrast |
 | 線形モデル | `statract.models.fit` | `lm` / `glm` |
+| リスク比 | `statract.models.risk` | 修正ポアソン（`glm` + `sandwich`）、log-binomial |
+| 順序ロジスティック | `statract.models.ordinal` | `MASS::polr`、`ordinal::clm`、Brant 検定 |
+| 多項ロジスティック | `statract.models.multinom` | `nnet::multinom` |
 | 共分散 | `statract.models.covariance` | sandwich |
 | GLM の回帰標準化 | `statract.models.standardize` | `marginaleffects::avg_comparisons`、`stdReg2::standardize_glm` |
 | 線形の検定 | `statract.models.linear_tests` | lmtest |
 | 基本の検定と区間 | `statract.models.htest` | `t.test`、`wilcox.test`、`mcnemar.test`、`binom.test`、`prop.test`、`p.adjust` |
-| 生存時間 | `statract.surv` | survival |
+| 生存時間 | `statract.surv` | survival。RMST の 2 群比較は `survRM2::rmst2` |
 | マッチング | `statract.models.matching` | MatchIt |
 | 逆確率重み付け | `statract.models.weighting` | WeightIt（`method="glm"`）、cobalt の `bal.tab` と `love.plot` |
 | 加法モデル | `statract.models.gam` | mgcv。gaussian / binomial / poisson / gamma、`cr` / `tp` / `cc` / `ps` / `re`、テンソル、`ti`、`by`、重み、offset |
@@ -74,6 +77,10 @@ print(same.tidy())
 
 GLM での回帰標準化は `standardize_glm(frame, "y ~ trt * age + sex", values={"trt": [0, 1]})` です。曝露を各値に置き換えて全員の予測確率を平均します。`.tidy()` が調整リスク、`.tidy(contrast="difference", reference=0)` がリスク差です。`contrast="ratio"` はリスク比、`"odds_ratio"` はオッズ比で、`ci="log"` で対数スケールの区間になります。既定の分散は共変量を固定した delta 法で、`marginaleffects::avg_comparisons` と同じ値です。`vcov="HC3"` や `cluster="site"` で係数の分散をサンドイッチにします。`covariates="sampled"` は共変量のばらつきも含む `stdReg2::standardize_glm` 型のサンドイッチです。`weights=` は GLM の重みで、平均にも使います。ポアソンは `family="poisson"` で、`offset(log(years))` を含められます。
 
+リスク比は `fit_risk_ratio(frame, "event ~ arm + age")` です。既定は修正ポアソン（Zou 2004）で、SE は HC0 のサンドイッチです。施設などのクラスタは `cluster="site"` です。log-binomial は `method="log-binomial"` で、収束しないときは `start=` を渡します。`tidy()` の推定値と区間はリスク比です。
+
+順序のある結果（重症度など）は `ordinal_regression(frame, "grade ~ age + stage", levels=["none", "mild", "severe"])` です。`polr` と `clm` の比例オッズモデルで、`tidy(exponentiate=True)` が累積オッズ比です。比例オッズの仮定は `brant_test(fit)` で調べます。順序のない 3 水準以上の結果は `multinomial_regression(frame, "subtype ~ age + sex")` です（`nnet::multinom`）。最初の水準が基準で、`tidy(exponentiate=True)` が相対リスク比です。両方とも `probabilities()` が水準ごとの予測確率を返します。
+
 ### 生存時間
 
 ```python
@@ -100,6 +107,8 @@ print(model.tidy())
 競合リスクの累積発生と Gray 検定は `cumulative_incidence(frame, "time", "status", by="arm")` です（`cmprsk::cuminc`）。`.tests` が原因ごとの検定、`.at([1, 3])` が時点の値です。`crr` と同じ Fine–Gray 回帰は `fine_gray_regression(frame, "Surv(time, status) ~ x + arm", cause=1)` で、SE は打ち切り分布の推定を含むサンドイッチです。`.predict(new)` が共変量ごとの CIF を返します。
 
 連続変数の非線形は、式に `rcs(age, 4)`（`rms::rcs`）、`ns(age, df = 3)`、`bs(age, df = 5)` と書きます。`spline_test(fit, "rcs(age, 4)")` が非線形の検定、`spline_effect(fit, data, "age", at=..., reference=60, exponentiate=True)` が基準値に対する OR や HR の曲線、`plot_spline_effect` がその図です。詳しくは [Wilkinson 式](formula.md#スプライン) です。
+
+制限付き平均生存時間（RMST）の 2 群比較は `restricted_mean_survival(frame, "time", "event", by="arm", tau=5)` です（`survRM2::rmst2`）。`.arms` が群ごとの RMST と RMTL、`.contrasts` が差、RMST 比、RMTL 比です。
 
 Cox モデルでの回帰標準化は `standardize_cox(frame, "Surv(time, status) ~ ope * age + sex", values={"ope": [0, 1]}, times=[1, 3, 5])` です（`stdReg2::standardize_coxph`）。曝露を各値に置き換えた生存の標本平均で、分散は共変量のばらつきを含むサンドイッチです。`.tidy()` が曲線、`.tidy(contrast="difference", reference=0)` が差です。`measure="rmean"` は 0/1 の曝露での制限付き平均生存時間です。R との違いは [vs R](vs-r.md) の「stdReg2 と違うところ」 にあります。
 

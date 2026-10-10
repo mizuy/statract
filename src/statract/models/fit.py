@@ -36,6 +36,9 @@ def _link_from_eta(family: str, eta: np.ndarray) -> np.ndarray:
         return np.exp(eta)
     if family == "gamma":
         return 1.0 / eta
+    if family == "binomial_log":
+        # The log-binomial model of ``fit_risk_ratio(method="log-binomial")``.
+        return np.exp(eta)
     raise ValueError(family)
 
 

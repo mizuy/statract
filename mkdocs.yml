@@ -105,6 +105,9 @@ nav:
               - formula: api/models/formula.md
               - fit: api/models/fit.md
               - standardize: api/models/standardize.md
+              - risk: api/models/risk.md
+              - ordinal: api/models/ordinal.md
+              - multinom: api/models/multinom.md
               - covariance: api/models/covariance.md
               - linear_tests: api/models/linear_tests.md
               - effects: api/models/effects.md
@@ -121,6 +124,7 @@ nav:
               - validation: api/models/validation.md
           - Survival:
               - surv: api/surv/surv.md
+              - rmst: api/surv/rmst.md
           - Figures:
               - forest: api/viz/forest.md
               - km: api/viz/km.md

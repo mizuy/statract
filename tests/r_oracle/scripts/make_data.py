@@ -327,6 +327,79 @@ def _std_glm_sample(seed: int, n: int) -> pl.DataFrame:
     )
 
 
+def _ordinal_sample(seed: int, n: int, *, cuts: tuple[float, ...], labels: tuple[str, ...] | None, weighted: bool, holes: bool, non_po: float) -> pl.DataFrame:
+    """Ordinal outcome from a latent logistic variable. ``non_po`` lets the x slope grow with the cutpoint."""
+    rng = np.random.default_rng(seed)
+    x = rng.normal(size=n)
+    age = rng.uniform(30, 80, n)
+    stage = rng.choice(["I", "II", "III"], size=n, p=[0.4, 0.35, 0.25])
+    latent = 0.8 * x + 0.03 * (age - 55) + np.select([stage == "II", stage == "III"], [0.5, 1.1], 0.0)
+    latent = latent + non_po * x * (latent > 0.5) + rng.logistic(size=n)
+    code = np.digitize(latent, cuts)
+    y: list[object] = [labels[c] for c in code] if labels is not None else (code + 1).tolist()
+    frame = pl.DataFrame({"y": y, "x": np.round(x, 6), "age": np.round(age, 2), "stage": stage})
+    if weighted:
+        frame = frame.with_columns(pl.Series("w", np.round(rng.uniform(0.5, 2.0, n), 4)))
+    if holes:
+        frame = frame.with_columns(
+            pl.when(pl.int_range(pl.len()) % 37 == 5).then(None).otherwise(pl.col("x")).alias("x"),
+            pl.when(pl.int_range(pl.len()) % 41 == 7).then(None).otherwise(pl.col("y")).alias("y"),
+        )
+    return frame
+
+
+def _multinom_sample(seed: int, n: int, *, labels: tuple[str, ...], weighted: bool) -> pl.DataFrame:
+    rng = np.random.default_rng(seed)
+    x = rng.normal(size=n)
+    age = rng.uniform(30, 80, n)
+    sex = rng.choice(["F", "M"], size=n)
+    k = len(labels)
+    coef_x = np.linspace(0.0, 1.2, k)
+    coef_age = np.linspace(0.0, -0.03, k)
+    coef_sex = np.concatenate([[0.0], rng.normal(0, 0.6, k - 1)])
+    base = np.concatenate([[0.0], rng.normal(0, 0.5, k - 1)])
+    eta = base + np.outer(x, coef_x) + np.outer(age - 55, coef_age) + np.outer(sex == "M", coef_sex)
+    prob = np.exp(eta - eta.max(axis=1, keepdims=True))
+    prob /= prob.sum(axis=1, keepdims=True)
+    code = np.array([rng.choice(k, p=row) for row in prob])
+    frame = pl.DataFrame({"y": [labels[c] for c in code], "x": np.round(x, 6), "age": np.round(age, 2), "sex": sex})
+    if weighted:
+        frame = frame.with_columns(pl.Series("w", np.round(rng.uniform(0.5, 2.0, n), 4)))
+    return frame
+
+
+def _risk_sample(seed: int, n: int, *, base: float, n_sites: int, weighted: bool) -> pl.DataFrame:
+    """Binary outcome with a log-linear risk, so log-binomial fits stay inside (0, 1)."""
+    rng = np.random.default_rng(seed)
+    arm = rng.choice(["control", "treat"], size=n)
+    age = rng.uniform(40, 80, n)
+    sex = rng.integers(0, 2, n)
+    site = rng.integers(1, n_sites + 1, n)
+    risk = base * np.exp(-0.4 * (arm == "treat") + 0.01 * (age - 60) + 0.2 * sex)
+    y = (rng.uniform(size=n) < np.clip(risk, 0, 0.95)).astype(np.int64)
+    frame = pl.DataFrame({"y": y, "arm": arm, "age": np.round(age, 2), "sex": sex, "site": site})
+    if weighted:
+        frame = frame.with_columns(pl.Series("w", np.round(rng.uniform(0.5, 2.0, n), 4)))
+    return frame
+
+
+def _rmst_sample(seed: int, n: int, *, arms: tuple[object, object], rate: tuple[float, float], follow_up: float, digits: int, last_event: bool) -> pl.DataFrame:
+    """Two arms with exponential times, uniform censoring, and rounding for ties."""
+    rng = np.random.default_rng(seed)
+    arm_code = rng.integers(0, 2, n)
+    t = rng.exponential(1.0 / np.asarray(rate)[arm_code])
+    c = rng.uniform(0.5, follow_up, n)
+    time = np.round(np.maximum(np.minimum(t, c), 10.0 ** -digits), digits)
+    status = (t <= c).astype(np.int64)
+    if last_event:
+        # The shorter arm ends with an event, so tau may go past its last time.
+        last0 = time[arm_code == 0].max()
+        status[(arm_code == 0) & (time == last0)] = 1
+        time[arm_code == 1] = np.minimum(time[arm_code == 1], last0 + 1.0)
+        status[(arm_code == 1) & (time == time[arm_code == 1].max())] = 0
+    return pl.DataFrame({"time": time, "status": status, "arm": [arms[i] for i in arm_code]})
+
+
 def main() -> None:
     DATA.mkdir(parents=True, exist_ok=True)
     # (1) Poisson counts, random intercept, 30 sites.
@@ -366,6 +439,22 @@ def main() -> None:
     # GLM standardization: binary and count outcomes, a factor, weights, sites.
     _std_glm_sample(20261027, 400).write_csv(DATA / "stdglm_a.csv")
     _std_glm_sample(20261028, 250).write_csv(DATA / "stdglm_b.csv")
+    # Ordinal outcomes: labelled levels, integer levels with weights, missing values with non-proportional odds.
+    _ordinal_sample(20261027, 300, cuts=(-0.5, 0.8, 2.0), labels=("none", "mild", "moderate", "severe"), weighted=False, holes=False, non_po=0.0).write_csv(DATA / "ordinal_a.csv")
+    _ordinal_sample(20261028, 250, cuts=(-1.0, 0.0, 1.0, 2.0), labels=None, weighted=True, holes=False, non_po=0.0).write_csv(DATA / "ordinal_b.csv")
+    _ordinal_sample(20261029, 400, cuts=(-0.3, 1.0, 2.2), labels=("low", "mid", "high", "top"), weighted=False, holes=True, non_po=0.9).write_csv(DATA / "ordinal_c.csv")
+    # Multinomial outcomes: three labels, four labels with weights, and two labels.
+    _multinom_sample(20261030, 300, labels=("A", "B", "C"), weighted=False).write_csv(DATA / "multinom_a.csv")
+    _multinom_sample(20261031, 400, labels=("ctrl", "low", "mid", "high"), weighted=True).write_csv(DATA / "multinom_b.csv")
+    _multinom_sample(20261032, 200, labels=("no", "yes"), weighted=False).write_csv(DATA / "multinom_c.csv")
+    # Binary outcomes for risk ratios: common and rare outcomes, clusters, weights.
+    _risk_sample(20261033, 500, base=0.35, n_sites=20, weighted=False).write_csv(DATA / "risk_a.csv")
+    _risk_sample(20261034, 600, base=0.15, n_sites=12, weighted=True).write_csv(DATA / "risk_b.csv")
+    _risk_sample(20261035, 300, base=0.45, n_sites=8, weighted=False).write_csv(DATA / "risk_c.csv")
+    # RMST: tied times, string arms, and a shorter arm that ends with an event.
+    _rmst_sample(20261036, 200, arms=(0, 1), rate=(0.25, 0.15), follow_up=8.0, digits=1, last_event=False).write_csv(DATA / "rmst_a.csv")
+    _rmst_sample(20261037, 160, arms=("control", "treat"), rate=(0.4, 0.3), follow_up=6.0, digits=0, last_event=False).write_csv(DATA / "rmst_b.csv")
+    _rmst_sample(20261038, 120, arms=(0, 1), rate=(0.5, 0.3), follow_up=5.0, digits=2, last_event=True).write_csv(DATA / "rmst_c.csv")
 
 
 if __name__ == "__main__":
