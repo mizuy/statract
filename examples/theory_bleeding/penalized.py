@@ -368,3 +368,39 @@ def firth_logistic(
     p = _expit(x @ beta)
     inv = np.linalg.inv(x.T @ (x * (p * (1 - p))[:, None]))
     return beta, np.sqrt(np.diag(inv))
+
+
+def metropolis_logistic(
+    x: np.ndarray,
+    y: np.ndarray,
+    prior_sd: np.ndarray,
+    start: np.ndarray,
+    proposal_cov: np.ndarray,
+    n_iter: int = 20_000,
+    burn_in: int = 2_000,
+    seed: int = 0,
+) -> np.ndarray:
+    """Random-walk Metropolis for logistic regression with normal priors centred at 0.
+
+    ``prior_sd`` holds one standard deviation per coefficient; ``np.inf`` is a
+    flat prior. Returns the draws after the burn-in.
+    """
+    rng = np.random.default_rng(seed)
+    chol = np.linalg.cholesky(proposal_cov)
+    precision = np.where(np.isfinite(prior_sd), 1 / prior_sd**2, 0.0)
+
+    def log_post(beta: np.ndarray) -> float:
+        eta = x @ beta
+        ll = np.sum(y * eta - np.logaddexp(0, eta))
+        return float(ll - 0.5 * np.sum(precision * beta**2))
+
+    beta = start.copy()
+    current = log_post(beta)
+    draws = np.empty((n_iter, len(beta)))
+    for i in range(n_iter):
+        proposal = beta + chol @ rng.standard_normal(len(beta))
+        lp = log_post(proposal)
+        if np.log(rng.uniform()) < lp - current:
+            beta, current = proposal, lp
+        draws[i] = beta
+    return draws[burn_in:]

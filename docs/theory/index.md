@@ -70,8 +70,8 @@
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
 | 12. [確率モデルとしてのロジスティック回帰](probability-model.md) | データが生まれる仕組み、データの作り方の種明かし、モデルから作ったデータでの確認、スプライン、GLM | 生成過程の模式図、模擬データと実データ | `fit_glm`、`spline_test` |
-| 13. [尤度と最尤法](likelihood.md) | 尤度、対数尤度と曲がり具合、標準誤差、Wald と尤度比の区間、ニュートン法、プロファイル尤度、三つの検定、分離と Firth の方法 | 尤度曲線、プロファイル尤度 | `fit_glm`、`likelihood_ratio_test` |
-| 14. [階層モデル](hierarchical.md) | 施設差、完全・部分・なしのプーリング、縮小、ICC と MOR、施設の順位づけ、コラム：ベイズ推論（事前分布、事後分布、経験ベイズ） | 施設ごとの推定の縮み、施設の効果の区間、事前と事後 | `fit_mixed`、`plot_random_effects` |
+| 13. [尤度と二つの推定法：最尤法とベイズ](likelihood.md) | 尤度、対数尤度と曲がり具合、標準誤差、ニュートン法、プロファイル尤度、三つの検定、ベイズ推論（事前分布、事後分布、信用区間）、MCMC、最尤法とベイズの比較、分離と Firth の方法 | 尤度曲線、事前と事後、MCMC の連鎖 | `fit_glm`、`likelihood_ratio_test`（MCMC は numpy） |
+| 14. [階層モデル](hierarchical.md) | 施設差、完全・部分・なしのプーリング、縮小、ICC と MOR、施設の順位づけ、ベイズで読む部分プーリング（経験ベイズ） | 施設ごとの推定の縮み、施設の効果の区間、事前と事後 | `fit_mixed`、`plot_random_effects` |
 | 15. [生存時間解析](survival.md) | 打ち切り、Kaplan–Meier 法、ハザードと人年法、Poisson 回帰、Cox 比例ハザードモデル、セミパラメトリックの意味と部分尤度、加速故障時間（AFT）モデル、モデルの比較と使い分け | 累積発生割合、区間ごとのハザード、リスク集合の模式図 | `plot_survival`、`cox_ph`、`proportional_hazards_test`、`fit_glm`（poisson）、`accelerated_failure` |
 
 ### 数学補

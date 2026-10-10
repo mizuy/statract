@@ -94,7 +94,7 @@ nav:
           - 11. 木、アンサンブル、ニューラルネットワーク: theory/trees-ensembles.md
       - 第 IV 部 統計モデリング:
           - 12. 確率モデルとしてのロジスティック回帰: theory/probability-model.md
-          - 13. 尤度と最尤法: theory/likelihood.md
+          - 13. 尤度と二つの推定法：最尤法とベイズ: theory/likelihood.md
           - 14. 階層モデル: theory/hierarchical.md
           - 15. 生存時間解析: theory/survival.md
       - 数学補:

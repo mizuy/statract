@@ -2247,6 +2247,9 @@ def likelihood(df: pl.DataFrame, out: Path) -> None:
         ),
     )
 
+    _bayes_rate(sets, out)
+    _bayes_clip(full, y, out)
+
     # Separation: a small study where no clipped patient bled.
     sep = _separated_sample(df)
     sx = fit_glm(sep, "bleed ~ antithrombotic + size_mm + clip", family="binomial")
@@ -2269,6 +2272,137 @@ def likelihood(df: pl.DataFrame, out: Path) -> None:
             }
         ),
     )
+
+
+BETA_PRIORS = {
+    "Flat": (1.0, 1.0),
+    "Past studies (about 5%)": (5.0, 95.0),
+    "Off target (about 10%)": (20.0, 180.0),
+}
+
+
+def _bayes_rate(sets: dict[str, pl.DataFrame], out: Path) -> None:
+    """Bleeding rate with a beta prior: the posterior is beta again."""
+    grid = np.linspace(0.0005, 0.16, 2000)
+    rows = []
+    fig, axes = plt.subplots(1, 2, figsize=(9, 3.6), sharex=True)
+    colors = [GRAY, BLUE, RED]
+    for ax, (name, d) in zip(axes, sets.items(), strict=True):
+        n, events = d.height, int(d["bleed"].sum())
+        for (prior, (a, b)), color in zip(BETA_PRIORS.items(), colors, strict=True):
+            post = stats.beta(a + events, b + n - events)
+            rows.append(
+                {
+                    "data": name,
+                    "prior": prior,
+                    "prior_mean": a / (a + b),
+                    "posterior_mean": float(post.mean()),
+                    "cri_low": float(post.ppf(0.025)),
+                    "cri_high": float(post.ppf(0.975)),
+                }
+            )
+            if prior != "Flat":
+                ax.plot(grid, stats.beta(a, b).pdf(grid), color=color, ls=":", lw=1)
+            ax.plot(
+                grid,
+                post.pdf(grid),
+                color=color,
+                label=f"Posterior, prior: {prior.lower()}",
+            )
+        ax.set_title(f"{name} ({events} bleeds)")
+        ax.set_xlabel("Bleeding rate p")
+        ax.set_xlim(0, 0.12)
+        ax.xaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
+        ax.grid(alpha=0.3)
+    axes[0].set_ylabel("Density")
+    axes[0].plot([], [], color=GRAY, ls=":", lw=1, label="Prior (dotted)")
+    axes[0].legend(frameon=False, fontsize=7)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch13_bayes_rate.png", dpi=180)
+    plt.close(fig)
+    _write_csv(out, "ch13_bayes_rate", pl.DataFrame(rows))
+
+
+def _bayes_clip(full, y: np.ndarray, out: Path) -> None:
+    """Posterior of the clip coefficient by Metropolis sampling."""
+    names = list(full.tidy()["term"])
+    clip = names.index("clip")
+    start = np.asarray(full.coefficients, dtype=float)
+    cov = np.asarray(full.covariance, dtype=float) * 2.38**2 / len(start)
+    flat = np.full(len(start), np.inf)
+    sceptical = flat.copy()
+    sceptical[clip] = 0.35  # 95% of the prior between OR 0.5 and 2
+    runs = {"Flat prior": flat, "Sceptical prior": sceptical}
+    draws = {
+        k: pen.metropolis_logistic(full.x, y, sd, start, cov, n_iter=30_000, seed=13)
+        for k, sd in runs.items()
+    }
+    b_hat = float(start[clip])
+    se = float(np.sqrt(full.covariance[clip, clip]))
+    rows = [
+        {
+            "method": "Maximum likelihood",
+            "or": float(np.exp(b_hat)),
+            "low": float(np.exp(b_hat - 1.96 * se)),
+            "high": float(np.exp(b_hat + 1.96 * se)),
+            "prob_or_below_1": None,
+            "acceptance": None,
+        }
+    ]
+    for k, dr in draws.items():
+        c = dr[:, clip]
+        rows.append(
+            {
+                "method": k,
+                "or": float(np.exp(np.median(c))),
+                "low": float(np.exp(np.quantile(c, 0.025))),
+                "high": float(np.exp(np.quantile(c, 0.975))),
+                "prob_or_below_1": float(np.mean(c < 0)),
+                "acceptance": float(np.mean(np.any(np.diff(dr, axis=0) != 0, axis=1))),
+            }
+        )
+    _write_csv(out, "ch13_bayes_clip", pl.DataFrame(rows))
+
+    fig, axes = plt.subplots(
+        1, 2, figsize=(9, 3.6), gridspec_kw={"width_ratios": [1.2, 1]}
+    )
+    ax = axes[0]
+    ax.plot(np.exp(draws["Flat prior"][:3000, clip]), color=BLUE, lw=0.5)
+    ax.set_xlabel("Step of the chain")
+    ax.set_ylabel("Clip odds ratio")
+    ax.set_title("Metropolis chain (first 3000 steps)")
+    ax.grid(alpha=0.3)
+    ax = axes[1]
+    edges = np.linspace(-1.8, 0.4, 70)
+    for (k, dr), color in zip(draws.items(), [BLUE, RED], strict=True):
+        ax.hist(
+            dr[:, clip],
+            bins=edges,
+            density=True,
+            color=color,
+            alpha=0.4,
+            label=f"Posterior, {k.lower()}",
+        )
+    b = np.linspace(-1.8, 0.4, 300)
+    ax.plot(
+        b,
+        stats.norm(b_hat, se).pdf(b),
+        color=GRAY,
+        ls="--",
+        label="Maximum likelihood (normal)",
+    )
+    ax.plot(
+        b, stats.norm(0, 0.35).pdf(b), color=RED, ls=":", lw=1, label="Sceptical prior"
+    )
+    ax.axvline(0, color="black", lw=0.8)
+    ax.set_xlabel("Clip coefficient (log odds ratio)")
+    ax.set_ylabel("Density")
+    ax.set_title("Posterior")
+    ax.legend(frameon=False, fontsize=7, loc="upper left")
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch13_bayes_clip.png", dpi=180)
+    plt.close(fig)
 
 
 def _separated_sample(df: pl.DataFrame, n: int = 120) -> pl.DataFrame:
