@@ -76,6 +76,12 @@ nav:
           - Wilkinson formula: models/formula.md
       - Figures: viz/overview.md
       - Cost-effectiveness: cea/overview.md
+  - Theory:
+      - 臨床家のための統計理論: theory/index.md
+      - 第 I 部 導入:
+          - 1. 「独立した危険因子」とは何か: theory/independent-risk-factor.md
+      - 数学補:
+          - A1. 確率、オッズ、対数: theory/math/odds-log.md
   - Examples:
       - Gallery: examples/index.md
       - Basic tests:
