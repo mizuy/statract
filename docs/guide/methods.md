@@ -6,7 +6,7 @@ statract にある統計解析を、「どういう時に」「どれを」「�
 
 手法は、ほぼ次の 3 つで決まります。
 
-1. **アウトカムの型**: 連続、二値、計数、時間（打ち切りあり）
+1. **アウトカムの型**: 連続、二値、順序、カテゴリ（3 水準以上）、計数、時間（打ち切りあり）
 2. **データの構造**: 独立、対応あり（前後・ペア）、クラスター（施設・患者内の反復）
 3. **目的**: 群の比較、関連の推定、因果効果の推定、予測
 
@@ -16,10 +16,12 @@ flowchart TD
   Q --> B["二値"]
   Q --> N["計数・率"]
   Q --> T["時間（打ち切りあり）"]
+  Q --> O["順序・カテゴリ"]
   C --> C1["2 群: t_test / wilcox_test<br/>調整: fit_ols"]
-  B --> B1["2 群: prop_test / binom_test<br/>調整: fit_glm binomial"]
+  B --> B1["2 群: prop_test / binom_test<br/>調整: fit_glm binomial / fit_risk_ratio"]
   N --> N1["fit_glm poisson<br/>過分散: fit_mixed negative_binomial"]
-  T --> T1["survival_curve / log_rank<br/>調整: cox_ph"]
+  T --> T1["survival_curve / log_rank / RMST<br/>調整: cox_ph"]
+  O --> O1["ordinal_regression<br/>multinomial_regression"]
   C1 --> R{"クラスターや反復がある？"}
   B1 --> R
   N1 --> R
@@ -40,14 +42,20 @@ flowchart TD
 | 多重比較を調整する | P 値 | Holm、BH など | `p_adjust` |
 | 調整した関連を推定する | 連続 | 線形回帰 | `fit_ols` |
 | 調整した関連を推定する | 二値・計数・正の連続 | GLM | `fit_glm` |
-| 非線形の関連を見る | 連続・二値・計数 | 加法モデル | `gam` |
+| リスク比を推定する | 二値 | 修正ポアソン、log-binomial | `fit_risk_ratio` |
+| 調整したリスク差・リスク比 | 二値・計数 | GLM の回帰標準化 | `standardize_glm` |
+| 順序のある結果 | 順序 | 比例オッズモデル | `ordinal_regression`、`brant_test` |
+| 順序のない結果 | カテゴリ | 多項ロジスティック | `multinomial_regression` |
+| 非線形の関連を見る | 連続・二値・時間 | スプライン | 式に `rcs(age, 4)`、`spline_effect` |
+| 非線形の関連を見る（罰則つき） | 連続・二値・計数 | 加法モデル | `gam` |
 | 施設や反復を考える | 連続・二値・計数 | 混合モデル | `fit_mixed`、`gamm` |
 | 生存曲線を描く・比べる | 時間 | Kaplan–Meier、log-rank | `survival_curve`、`log_rank` |
 | ハザード比を推定する | 時間 | Cox | `cox_ph` |
+| 平均の生存時間で比べる | 時間 | RMST | `restricted_mean_survival` |
 | PH が成り立たない | 時間 | AFT | `accelerated_failure` |
 | 競合する事象がある | 時間 | CIF、Gray 検定、Fine–Gray | `cumulative_incidence`、`fine_gray_regression` |
 | マッチしたセット | 二値 | 条件付きロジスティック | `conditional_logit` |
-| 処置の効果（観察研究） | 何でも | マッチング、IPTW、標準化 | `match_sample`、`fit_glm` + 重み、`standardize_cox` |
+| 処置の効果（観察研究） | 何でも | マッチング、IPTW、標準化 | `match_sample`、`propensity_weights`、`standardize_glm`、`standardize_cox` |
 | 予測モデルを評価する | 二値・時間 | ROC、内部検証、較正、DCA | `roc_curve`、`validate_logistic`、`calibrate_logistic`、`decision_curve_table` |
 | 欠損を埋める | 何でも | 多重代入 | `impute_chained`、`pool` |
 | 分岐のルールを探す | 連続 | 条件付き推論木 | `conditional_tree` |
@@ -107,8 +115,25 @@ tableone(
 | 二値 | ロジスティック | `fit_glm(frame, "y ~ x", family="binomial")` | `exp` でオッズ比 |
 | 計数・率 | ポアソン | `fit_glm(frame, "n ~ x", family="poisson", offset="log_years")` | `exp` で率比 |
 | 正の連続で右に歪む | ガンマ | `fit_glm(frame, "cost ~ x", family="gamma")` | 逆数リンク |
+| 二値でリスク比がほしい | 修正ポアソン | `fit_risk_ratio(frame, "y ~ x + age")` | リスク比 |
+| 順序（重症度など） | 比例オッズ | `ordinal_regression(frame, "grade ~ x", levels=["none", "mild", "severe"])` | `exp` で累積オッズ比 |
+| 3 水準以上で順序なし | 多項ロジスティック | `multinomial_regression(frame, "subtype ~ x + age")` | `exp` で基準水準に対する相対リスク比 |
 
 式の書き方は [Wilkinson 式](../models/formula.md) です。カテゴリの最初の水準が参照になります。係数表は `fit.tidy()` です。
+
+### 効果の尺度を選ぶ
+
+ロジスティック回帰のオッズ比は、結果がよく起きる（目安 10% 以上）とリスク比より大きく出ます。読み手に伝わりやすい尺度を選びます。
+
+| 出したいもの | 呼び方 |
+|--------------|--------|
+| 調整したオッズ比 | `fit_glm(..., family="binomial")` |
+| 調整したリスク比 | `fit_risk_ratio(frame, "y ~ arm + age")`。既定は修正ポアソン（HC0）、`method="log-binomial"` も選べる |
+| 調整したリスク差、リスク比、オッズ比（周辺） | `standardize_glm(frame, "y ~ arm * age + sex", values={"arm": [0, 1]})` のあと `.tidy(contrast="difference", reference=0)` |
+
+`standardize_glm` は全員の処置を 0 と 1 に置き換えて予測確率を平均します。交互作用を入れても、一つの数で要約できます。
+
+**注意**: 順序ロジスティックは比例オッズの仮定を `brant_test(fit)` で確かめます。崩れていれば多項ロジスティックを考えます。
 
 ### 標準誤差を選ぶ
 
@@ -133,9 +158,28 @@ tableone(
 | 自己相関 | `durbin_watson_test(fit)`、`breusch_godfrey_test(fit)` |
 | 関数形の誤り | `ramsey_reset_test(fit)` |
 
-## 非線形の関連: 加法モデル
+## 非線形の関連: スプラインと加法モデル
 
 **いつ**: 年齢や検査値の効果が直線でなさそうなとき。カットオフを決め打ちしたくないとき。
+
+### スプライン
+
+**どう**: 式に `rcs(age, 4)`（制限付き 3 次スプライン、節点 4 個）と書きます。`fit_glm`、`fit_ols`、`cox_ph` で使えます。`ns(age, df = 3)` と `bs(age, df = 5)` も書けます。
+
+```python
+from statract import fit_glm, plot_spline_effect, spline_effect, spline_test
+
+fit = fit_glm(frame, "death ~ rcs(age, 4) + sex", family="binomial")
+print(spline_test(fit, "rcs(age, 4)"))  # 全体と非線形部分の検定
+curve = spline_effect(fit, frame, "age", at=range(40, 86), reference=60, exponentiate=True)
+plot_spline_effect(curve)  # 60 歳を基準にした OR の曲線
+```
+
+**注意**: 節点は 3 から 5 個で足ります。非線形部分の P 値が大きければ、直線のモデルで構いません。書き方は [Wilkinson 式](../models/formula.md#スプライン) です。
+
+### 加法モデル
+
+**いつ**: 滑らかさをデータから決めたいとき。平滑を 2 本以上や、2 変数の曲面を入れたいとき。
 
 **どう**: `gam` に平滑項 `smooth` を渡します。平滑の滑らかさは REML で自動に決まります。
 
@@ -206,6 +250,12 @@ print(proportional_hazards_test(fit))
 
 **注意**: `proportional_hazards_test` で PH（比例ハザード）を確かめます。P 値が小さい共変量は、層にするか、時間で区切るか、AFT を考えます。診断図をまとめて出すときは `write_cox_diagnostic_suite` です。
 
+### RMST: 平均の生存時間で比べる
+
+**いつ**: PH が崩れていてハザード比が一つの数にまとまらないとき。「5 年のうち平均で何か月長く生きるか」で伝えたいとき。
+
+`restricted_mean_survival(frame, "time", "event", by="arm", tau=5)` です。`.arms` が群ごとの RMST、`.contrasts` が差と比です。`tau` は両群に十分な追跡がある時点にします。共変量で調整した RMST は `standardize_cox(..., measure="rmean")` です。
+
 ### PH が成り立たないとき: AFT
 
 `accelerated_failure(frame, "Surv(time, event) ~ arm", distribution="weibull")` です。係数は「時間が何倍に延びるか」で読みます。分布は `weibull`、`exponential`、`lognormal`、`loglogistic` などです。
@@ -236,10 +286,20 @@ print(proportional_hazards_test(fit))
 | 方法 | 推定するもの | 呼び方 |
 |------|--------------|--------|
 | 傾向スコアマッチング | ATT（処置群での効果） | `match_sample(frame, "treat", covs, method="nearest", distance="logit", caliper=0.2)` |
-| IPTW | ATE（集団全体での効果） | `fit_glm(..., family="binomial")` で傾向スコア → 重み列 → `fit_ols(..., weights=)` + `hc_covariance` |
+| IPTW | ATE、ATT、ATO | `propensity_weights(frame, "treat ~ age + sex + stage", estimand="ATE", stabilize=True, trim=0.99)` |
+| GLM の回帰標準化 | 周辺のリスク差・リスク比 | `standardize_glm(frame, "y ~ treat * age + sex", values={"treat": [0, 1]})` |
 | Cox の回帰標準化 | 周辺の生存曲線、その差、RMST | `standardize_cox(frame, "Surv(time, status) ~ treat * age + sex", values={"treat": [0, 1]}, times=[1, 3, 5])` |
 
-マッチングのあとは `matched.balance()` と `matched.love_plot()` で SMD を確かめます。IPTW は極端な重みを切り詰め（例: 1% と 99% 点）、ロバスト分散を使います。
+マッチングのあとは `matched.balance()` と `matched.love_plot()` で SMD を確かめます。
+
+IPTW は次の順で進めます。
+
+1. `ipw = propensity_weights(...)` で重みを作る。
+2. `ipw.balance(threshold=0.1)` と `ipw.love_plot("love.png")` で重みづけ後の SMD を確かめる。`ipw.effective_sample_size()` が小さすぎないかも見る。
+3. `ipw.frame()` の `weights` 列を、`fit_glm`、`fit_risk_ratio`、`cox_ph` の `weights=` に渡す。
+4. 分散はロバスト分散（`hc_covariance(fit, "HC0")`）にする。
+
+**注意**: 極端な重みは `trim` で切り詰めます。それでもバランスが悪ければ、傾向スコアのモデルを見直します。
 
 例: [傾向スコアマッチング](../examples/psm_rhc.md)、[逆確率重み付け（IPTW）](../examples/iptw_nhefs.md)
 
