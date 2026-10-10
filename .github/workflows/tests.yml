@@ -11,6 +11,10 @@ permissions:
 jobs:
   pytest:
     runs-on: ubuntu-latest
+    env:
+      # Without a pin, uv picks the newest Python, including pre-releases that
+      # polars does not support yet.
+      UV_PYTHON: "3.13"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
