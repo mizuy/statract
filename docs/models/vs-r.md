@@ -36,6 +36,8 @@
 | 完全一致、CEM | `method="exact"`、`method="cem"` | `method="exact"`、`method="cem"` | 重み |
 | 最適マッチ | `method="optimal"` | `method="optimal"` | 1:1 の総距離。重み |
 | full matching | `method="full"` | `method="full"` | 重みとサブクラスの分割 |
+| IPTW の重み | `WeightIt::weightit(method="glm", estimand=, stabilize=, s.weights=)`、`trim(at=, lower=)` | `propensity_weights(..., estimand=, stabilize=, trim=, trim_lower=, sampling_weights=)` | 傾向スコアと重み（rtol 1e-8）。fixture `iptw.json` 15 例: ATE / ATT / ATC / ATO、安定化、分位点と個数の切り詰め、下側も、3 水準と 2 水準の因子、欠測、`s.weights`。**R 側は手書き**（下の「WeightIt と cobalt」） |
+| 重み付けのバランス | `cobalt::bal.tab(W, un=TRUE, binary=, disp.means=TRUE, disp.v.ratio=TRUE)` | `PropensityWeights.balance(binary=)`、`effective_sample_size()` | 群の平均、差（SMD または割合の差）、分散比（rtol 1e-7）、群ごとの有効標本サイズ（rtol 1e-8）。同じ fixture、R 側は手書き |
 | 加法モデル | `gam(y ~ s(x, bs="cr", k=8), method="REML")` | `gam`、`smooth(..., k=8)` | 平滑化パラメータ、edf、REML、係数 |
 | 加法モデルの範囲 | `ps` / `cc` / `re` / `by`、線形項つき `cr`、binomial、poisson、gamma（inverse） | `smooth(..., basis=)`、`family=` | 平滑化パラメータ、edf、REML、係数 |
 | thin plate | `s(x, bs="tp")` | `smooth(..., basis="tp")` | edf と当てはめ。係数の向きは mgcv の固有ベクトルと違う |
@@ -106,6 +108,25 @@ rms の行は `rms.json`（rms 6.7-1、R 4.3.3）です。再生成は `Rscript 
 - `transform="logit"` と `"odds"` は生存関数で使えます。R の `summary_std_coxph` は作る前の `out$measure` を読むので止まります。fixture はグローバルに `out` を置いて R に計算させています。
 - `ci="log"` と `contrast="difference"` の組み合わせは拒否します。参照行の推定値が 0 になり、R では区間が NaN になります。
 - ケースウェイトはありません。R も Cox にウェイトを渡しません。
+
+## WeightIt と cobalt
+
+この環境では CRAN に届かず、WeightIt と cobalt を入れられません。`iptw.json` は `tests/r_oracle/scripts/iptw.R` が書きます。傾向スコアは `glm()` で、重み、切り詰め、SMD、分散比、有効標本サイズは WeightIt 1.x と cobalt 4.x の文書の式を base R で書いたものです。パッケージそのものとは比べていません。
+
+パッケージが使える環境では `Rscript tests/r_oracle/scripts/iptw_weightit.R` で同じ形の JSON を作り直せます（`weightit()`、`trim()`、`bal.tab()` を直接呼ぶ）。差が出たら、手書きの式が違っていたところです。
+
+確かめていない点:
+
+- `trim` の分位点は R の既定（type 7）です。WeightIt が別の type を使うなら値が少し変わります。
+- 個数での `trim`（`at` が 1 以上）と `lower=TRUE` の扱い。
+- 2 水準の文字列の列は 2 番目の水準だけ、論理値の列は `列名_TRUE` で出します。cobalt の名前の付け方とずれることがあります。
+- 交互作用や `I(age^2)` の項は設計行列の列名のまま 1 行にします。cobalt は名前の付け方が違います。
+
+WeightIt と違うところ:
+
+- `stabilize=True` を ATE 以外で使うと `ValueError` です。
+- `trim=(low, high)` の固定の上下限は WeightIt にありません。
+- 欠測のある行は落とします。WeightIt の `missing="ind"` はありません。
 
 ## 既存の名前
 

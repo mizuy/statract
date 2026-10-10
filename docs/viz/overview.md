@@ -9,11 +9,11 @@
 | 条件付き推論木 | `plot_tree` | `statract.viz.tree` |
 | 変量効果 | `plot_random_effects` | `statract.models.glmm_extras` |
 | 較正 / DCA | `plot_calibration`、`plot_dca` | `statract.models.probability` |
-| Love plot | `MatchResult.love_plot` | `statract.models.matching` |
+| Love plot | `plot_love`、`PropensityWeights.love_plot`、`MatchedSample.love_plot` | `statract.viz.balance`、`statract.models.matching` |
 | funnel / 画像の連結 | `funnel_plot`、`concat_images` | `statract.viz.misc` |
 
 論文の白黒は forest と Kaplan–Meier とも `style="bw"` です。係数図は `layout="table"` の forest を使います。
 
 生存曲線の数値（`survival_curve`、Cox、AFT、Fine–Gray）は `statract.surv` です。`statract.viz.km` は図だけです。
 
-API は [forest](../api/viz/forest.md)、[km](../api/viz/km.md)、[tree](../api/viz/tree.md)、[misc](../api/viz/misc.md) です。通しの図は [解析例](../examples/index.md) にあります。
+API は [forest](../api/viz/forest.md)、[km](../api/viz/km.md)、[tree](../api/viz/tree.md)、[balance](../api/viz/balance.md)、[misc](../api/viz/misc.md) です。通しの図は [解析例](../examples/index.md) にあります。
