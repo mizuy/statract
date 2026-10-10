@@ -107,7 +107,37 @@ def simulate(n: int = N, seed: int = SEED) -> pl.DataFrame:
     )
 
 
+def potential_outcomes(df: pl.DataFrame, seed: int = SEED + 1) -> pl.DataFrame:
+    """Add both potential outcomes ``y0`` (no clip) and ``y1`` (clip), with their risks.
+
+    The observed ``bleed`` is kept as the outcome of the arm each patient got.
+    The other outcome is drawn as if both came from one uniform number, so a
+    patient who bleeds with a clip would also bleed without one.
+    """
+    rng = np.random.default_rng(seed)
+    args = [df[c].to_numpy() for c in ["age", "antithrombotic", "size_mm", "proximal"]]
+    p0 = _expit(bleed_logit(*args, np.zeros(df.height)))
+    p1 = _expit(bleed_logit(*args, np.ones(df.height)))
+    clip = df["clip"].to_numpy()
+    bleed = df["bleed"].to_numpy()
+    u = rng.uniform(size=df.height)
+    # Clip arm: y1 observed; y0 = 1 if y1 = 1, else 1 with P((p0 - p1) / (1 - p1)).
+    y0_given_clip = np.where(bleed == 1, 1, u < (p0 - p1) / (1 - p1))
+    # No-clip arm: y0 observed; y1 = 0 if y0 = 0, else 1 with P(p1 / p0).
+    y1_given_none = np.where(bleed == 0, 0, u < p1 / p0)
+    y0 = np.where(clip == 1, y0_given_clip, bleed).astype(int)
+    y1 = np.where(clip == 1, bleed, y1_given_none).astype(int)
+    return df.with_columns(
+        pl.Series("p0", p0),
+        pl.Series("p1", p1),
+        pl.Series("y0", y0),
+        pl.Series("y1", y1),
+    )
+
+
 if __name__ == "__main__":
     df = simulate()
     save_data(project.cache / "build" / "bleeding.parquet", df)
+    # Only the simulation knows both outcomes; the chapters read this file for the truth.
+    save_data(project.cache / "build" / "potential.parquet", potential_outcomes(df))
     print(df.describe())

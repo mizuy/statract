@@ -80,6 +80,9 @@ nav:
       - 臨床家のための統計理論: theory/index.md
       - 第 I 部 導入:
           - 1. 「独立した危険因子」とは何か: theory/independent-risk-factor.md
+      - 第 II 部 因果推論:
+          - 2. 潜在アウトカムと因果効果: theory/potential-outcomes.md
+          - 3. 交絡と DAG: theory/confounding-dag.md
       - 数学補:
           - A1. 確率、オッズ、対数: theory/math/odds-log.md
   - Examples:

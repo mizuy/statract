@@ -47,8 +47,8 @@
 
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
-| 2. 潜在アウトカムと因果効果 | 反事実、ATE / ATT、リスク差・リスク比・オッズ比、オッズ比の非崩壊性 | 個人ごとの潜在アウトカム表 | `standardize_glm` |
-| 3. 交絡と DAG | 交絡、バックドア経路、合流点、中間因子、Table 2 の誤り | DAG（Mermaid）、合流点バイアスの散布図 | `fit_glm` |
+| 2. [潜在アウトカムと因果効果](potential-outcomes.md) | 反事実、ATE / ATT、リスク差・リスク比・オッズ比、オッズ比の非崩壊性 | 個人ごとの潜在アウトカム表 | `standardize_glm` |
+| 3. [交絡と DAG](confounding-dag.md) | 交絡、バックドア経路、合流点、中間因子、Table 2 の誤り | DAG（Mermaid）、合流点バイアスの散布図 | `fit_glm` |
 | 4. 回帰調整と g-formula | 条件付き効果と周辺効果、標準化、効果修飾（病変径とクリップ） | 標準化リスク、サイズ別の効果 | `standardize_glm`、`plot_spline_effect` |
 | 5. 傾向スコア | 治療選択のモデル、重なり（overlap）、正値性 | PS の分布 | `propensity_weights` |
 | 6. 傾向スコアマッチング | 比較できる集団を作る、バランスの確認、ATT | love plot、マッチ前後の Table 1 | `match_sample`、`plot_love`、`balance_table` |
