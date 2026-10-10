@@ -35,6 +35,7 @@ extra_javascript:
 
 hooks:
   - tools/mkdocs_hooks.py
+  - tools/mkdocs_citations.py
 
 markdown_extensions:
   - admonition

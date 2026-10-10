@@ -6,3 +6,7 @@ __pycache__/
 site/
 dist/
 build/
+.numba-cache/
+
+# bibliome project view (symlinks to ~/lab/tools/bibliome entries)
+reference/bibliome/
