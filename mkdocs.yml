@@ -105,10 +105,16 @@ nav:
           - Models:
               - formula: api/models/formula.md
               - fit: api/models/fit.md
+              - standardize: api/models/standardize.md
+              - risk: api/models/risk.md
+              - ordinal: api/models/ordinal.md
+              - multinom: api/models/multinom.md
               - covariance: api/models/covariance.md
               - linear_tests: api/models/linear_tests.md
+              - effects: api/models/effects.md
               - htest: api/models/htest.md
               - matching: api/models/matching.md
+              - weighting: api/models/weighting.md
               - roc: api/models/roc.md
               - gam: api/models/gam.md
               - gamm: api/models/gamm.md
@@ -119,10 +125,13 @@ nav:
               - validation: api/models/validation.md
           - Survival:
               - surv: api/surv/surv.md
+              - rmst: api/surv/rmst.md
           - Figures:
               - forest: api/viz/forest.md
               - km: api/viz/km.md
+              - effect: api/viz/effect.md
               - tree: api/viz/tree.md
+              - balance: api/viz/balance.md
               - misc: api/viz/misc.md
           - Cost-effectiveness:
               - markov: api/cea/markov.md

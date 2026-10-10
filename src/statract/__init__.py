@@ -4,9 +4,9 @@ The names below are re-exported from these subpackages:
 
 - ``statract.tableone``: Table One, aggregation columns, and group tests
 - ``statract.models``: OLS / GLM, sandwich covariance, tests, mixed and additive
-  models, trees, imputation, matching, ROC, calibration, and validation
+  models, trees, imputation, matching, weighting, ROC, calibration, and validation
 - ``statract.surv``: survival curves, log-rank, Cox, AFT, Fine–Gray
-- ``statract.viz``: forest, Kaplan–Meier, and tree plots
+- ``statract.viz``: forest, Kaplan–Meier, tree, and Love plots
 - ``statract.report``: CSV companions and task output folders
 - ``statract.cea``: cost-effectiveness analysis (import it directly)
 
@@ -68,7 +68,13 @@ from .models.covariance import (
     newey_west_covariance,
 )
 from .models.fit import fit_glm, fit_ols
+from .models.standardize import StandardizedGLM, standardize_glm
+from .models.multinom import MultinomialFit, multinomial_regression
+from .models.ordinal import BrantTest, OrdinalFit, brant_test, ordinal_regression
+from .models.risk import RiskRatioFit, fit_risk_ratio
 from .models.formula import model_matrix
+from .models.effects import spline_effect, spline_test
+from .viz.effect import plot_spline_effect
 from .models.mixed import MixedFit, fit_mixed
 from .models.impute import MultipleImputation, impute_chained, pool
 from .models.gamm import GammFit, gamm
@@ -88,6 +94,8 @@ from .models.linear_tests import (
     wald_test,
 )
 from .models.matching import match_sample
+from .models.weighting import PropensityWeights, balance_table, propensity_weights
+from .viz.balance import plot_love
 from .models.roc import RocCurve, RocTest, plot_roc, roc_curve, roc_test
 from .viz.forest import plot_forest
 from .models.glmm_extras import (
@@ -127,11 +135,13 @@ from .surv import (
     plot_cox_residuals,
     plot_loglog,
     proportional_hazards_test,
+    restricted_mean_survival,
     split_follow_up,
     standardize_cox,
     survival_curve,
     write_cox_diagnostic_suite,
 )
+from .surv.rmst import RmstResult
 from .viz.km import (
     add_at_risk_counts,
     cumulative_survival_ci,
@@ -235,9 +245,21 @@ __all__ = [
     "fine_gray",
     "fine_gray_regression",
     "fit_glm",
+    "StandardizedGLM",
+    "standardize_glm",
     "fit_mixed",
     "MixedFit",
     "fit_ols",
+    "fit_risk_ratio",
+    "RiskRatioFit",
+    "ordinal_regression",
+    "OrdinalFit",
+    "brant_test",
+    "BrantTest",
+    "multinomial_regression",
+    "MultinomialFit",
+    "restricted_mean_survival",
+    "RmstResult",
     "gamm",
     "GammFit",
     "impute_chained",
@@ -249,6 +271,10 @@ __all__ = [
     "likelihood_ratio_test",
     "log_rank",
     "match_sample",
+    "PropensityWeights",
+    "balance_table",
+    "propensity_weights",
+    "plot_love",
     "RocCurve",
     "RocTest",
     "plot_roc",
@@ -268,6 +294,9 @@ __all__ = [
     "tensor_interaction",
     "tensor_smooth",
     "wald_test",
+    "spline_effect",
+    "spline_test",
+    "plot_spline_effect",
     "glmm_gpboost",
     "proportion_ci",
     "threshold_tradeoff",

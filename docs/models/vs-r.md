@@ -8,6 +8,8 @@
 
 | 役割 | R | `statract` | テストが比べる量 |
 |------|---|----------------|------------------|
+| スプライン | `splines::ns`、`splines::bs`、`rms::rcs`。新しい行は `makepredictcall` の節点 | 式の `ns()`、`bs()`、`rcs()` | fixture `splines.json`。13 の式で列名と行列（欠損、同順位、100 行未満、端に 15% の同値）と範囲外を含む新しい行、`lm` の係数 |
+| スプラインの検定と効果曲線 | `anova(lrm)`、`anova(cph)` の項と `Nonlinear` の行、`contrast(fit, list(x = at), list(x = ref))` | `spline_test`、`spline_effect` | 同じ fixture。カイ二乗、自由度、p 値、対比の推定値、SE、区間。glm と coxph のスプラインつき係数と SE |
 | 最小二乗 | `lm` | `fit_ols` | 係数、SE、対数尤度、`tidy` の t 統計量と p 値。3 標本 |
 | HC0–HC5 | `sandwich::vcovHC` | `hc_covariance` | OLS の HC0–HC5。GLM の HC0 |
 | クラスタ頑健分散 | `sandwich::vcovCL` | `cluster_covariance` | OLS の 1-way と 2-way。既定は OLS が HC1、GLM が HC0 |
@@ -15,6 +17,12 @@
 | 入れ子の Wald / 尤度比 | `waldtest`、`lrtest` | `wald_test`、`likelihood_ratio_test` | 統計量と p 値 |
 | Breusch–Pagan、Durbin–Watson、RESET、Breusch–Godfrey | `lmtest` | 同名の `*_test` | 統計量と p 値。Durbin–Watson の p 値は n ≥ 100 の正規近似 |
 | 一般化線形モデル | `glm`。リンクは identity / logit / log / inverse | `fit_glm` | binomial、poisson、gamma の係数と SE、binomial と poisson の対数尤度、HC0 |
+| 修正ポアソン（リスク比） | `glm(family=poisson)` と `sandwich::vcovHC(type="HC0")`、`vcovCL(cluster=, type="HC0")` | `fit_risk_ratio(data, "y ~ arm + age")`、`cluster=` | fixture `risk_ratio.json` の 3 例（重みあり、交互作用）。係数 rtol 1e-8、HC0 とクラスタ頑健共分散 rtol 1e-6、モデルベース共分散、逸脱度、対数尤度、AIC |
+| log-binomial | `glm(family=binomial(link="log"))`、`start=` | `fit_risk_ratio(..., method="log-binomial", start=)` | 同じ fixture の 3 例（既定の開始値、重み、`start=`）。係数、モデルベースと HC0 の共分散、クラスタ頑健共分散 |
+| 順序ロジスティック | `ordinal::clm`（logit、probit、cloglog、loglog）。`gradTol=1e-10` | `ordinal_regression(data, "y ~ x + stage", link=)` | fixture `ordinal.json` の 7 例（文字列の水準、整数の水準と重み、欠測と交互作用）。係数、閾値、共分散（解析的 Hessian）rtol 1e-6、対数尤度、AIC、予測確率 |
+| 比例オッズ（MASS） | `MASS::polr(Hess=TRUE)`。`control=list(reltol=1e-14)` で収束させる | `ordinal_regression` | 同じ 7 例。係数と閾値 rtol 1e-6、逸脱度、AIC、予測確率。SE は rtol 2e-3（`polr` の Hessian は `optim` の差分近似で、約 1e-3 ずれる） |
+| Brant 検定 | R パッケージなし。`brant` パッケージの式を R で書き直したもの（切れ目ごとの二値 `glm` と、適合間の共分散 `(X'W_m X)^{-1} X'W_ml X (X'W_l X)^{-1}`） | `brant_test(fit)` | 同じ fixture の 3 例。切れ目ごとの係数、全体と係数ごとのカイ二乗と自由度（rtol 1e-6）、p 値 |
+| 多項ロジスティック | `nnet::multinom`。`reltol=1e-12, abstol=1e-14, maxit=1000` で当て直す | `multinomial_regression(data, "y ~ x + sex")` | fixture `multinom.json` の 3 例（3 水準、4 水準と重みと交互作用、2 水準）。係数と SE rtol 2e-5（BFGS は reltol 1e-12 でも最適点から 1e-6 程度で止まる）、逸脱度 rtol 1e-11 で R 以下、AIC、予測確率。既定の `multinom` とは係数 rtol 1e-2 |
 | Kaplan–Meier | `survfit`（既定の log 区間） | `survival_curve` | 時点 0.5, 1, 1.5 の生存率と区間 |
 | Nelson–Aalen | `survfit(..., stype=2)` | `survival_curve(..., kind="nelson_aalen")` | 同じ時点の生存率 |
 | log-rank | `survdiff` | `log_rank` | 層なし、rho = 0 のカイ二乗 |
@@ -31,11 +39,15 @@
 | Fine–Gray（cmprsk） | `crr(ftime, fstatus, cov1, failcode=, cengroup=)`、`predict.crr` | `fine_gray_regression`。式は `Surv(time, status) ~ x + grp`、`cause=`、`censor_group=` | 係数、Fine–Gray のサンドイッチ分散、情報行列、擬似対数尤度（null も）、基準ハザードの跳び、スコア残差、予測 CIF。rtol 1e-8 |
 | Cox 回帰標準化（生存関数） | `stdReg2::standardize_coxph(measure="survival")` と `tidy()`。Breslow の Cox、Sjölander (2016) のサンドイッチ | `standardize_cox(..., measure="survival")`、`.tidy(contrast=, reference=, transform=, ci=)` | fixture `stdreg_cox.json` の 4 例: 二値曝露と交互作用（打ち切りと事象が同じ時刻に重なる）、クラスタ、3 水準の連続曝露、変換。推定値、水準間の共分散、表を rtol 1e-6 |
 | Cox 回帰標準化（RMST） | `standardize_coxph(measure="rmean")`。群ごとの Efron の Cox、Chen–Tsiatis (2001) | `standardize_cox(..., measure="rmean")` | 同じ fixture の 3 例（主効果、交互作用、同順位）。同順位の例は、下の「群の取り方」の 1 行だけを直した R と比べる |
+| GLM の回帰標準化 | `marginaleffects` 0.18 の `avg_predictions` / `avg_comparisons`（`type="response"`、`comparison="difference"` / `"ratioavg"` / `"lnratioavg"` / `"lnoravg"`、`wts=`、`vcov=TRUE` / `"HC0"` / `"HC3"` / `~site`）。`stdReg2::standardize_glm` のサンドイッチ | `standardize_glm`、`.tidy(contrast=, reference=, ci=)`。`covariates="sampled"` が stdReg2 型 | fixture `standardize_glm.json` の 6 例: 二値曝露、交互作用、3 水準の因子、因子 × 共変量、offset 付きポアソン、重み。平均、共分散、差・比・オッズ比の表を rtol 1e-6。共分散は marginaleffects の数値微分の誤差（約 1e-10）があるので atol を対角の最大 × 1e-6。stdReg2 は入らないので、`covariates="sampled"` は R で手書きした同じ推定量と比べる |
+| RMST の 2 群比較 | `survRM2::rmst2`（調整なし）。`summary(survfit(...), rmean=tau)` と、`rmst1` / `rmst2` の式を R で書き直したもの（survRM2 1.0-4 と一致を確認済み） | `restricted_mean_survival(data, "time", "status", by="arm", tau=)` | fixture `rmst.json` の 6 例（0/1 と文字列の群、同順位、`tau` が観察時刻と同じ、短い群が事象で終わり `tau` がその先）。群ごとの RMST と SE は `survfit` と rtol 1e-10、区間、RMTL、差・RMST 比・RMTL 比の推定値、区間、p 値は書き直しと rtol 1e-9 |
 | 最近傍（logit） | `matchit(..., distance="glm", link="logit", m.order="data")` | `match_sample(..., distance="logit", order="data")` | 組、x1 のマッチ後標準化差 |
 | 最近傍（マハラノビス） | `distance="mahalanobis"` | `distance="mahalanobis"` | `order="data"` の組 |
 | 完全一致、CEM | `method="exact"`、`method="cem"` | `method="exact"`、`method="cem"` | 重み |
 | 最適マッチ | `method="optimal"` | `method="optimal"` | 1:1 の総距離。重み |
 | full matching | `method="full"` | `method="full"` | 重みとサブクラスの分割 |
+| IPTW の重み | `WeightIt::weightit(method="glm", estimand=, stabilize=, s.weights=)`、`trim(at=, lower=)` | `propensity_weights(..., estimand=, stabilize=, trim=, trim_lower=, sampling_weights=)` | 傾向スコアと重み（rtol 1e-8）。fixture `iptw.json` 15 例: ATE / ATT / ATC / ATO、安定化、分位点と個数の切り詰め、下側も、3 水準と 2 水準の因子、欠測、`s.weights`。R 側は WeightIt 2.1.0 と cobalt 5.0.0（下の「WeightIt と cobalt」） |
+| 重み付けのバランス | `cobalt::bal.tab(W, un=TRUE, binary=, disp.means=TRUE, disp.v.ratio=TRUE)` | `PropensityWeights.balance(binary=)`、`effective_sample_size()` | 群の平均、差（SMD または割合の差）、分散比（rtol 1e-7）、群ごとの有効標本サイズ（rtol 1e-8）。同じ fixture、R 側は cobalt 5.0.0 |
 | 加法モデル | `gam(y ~ s(x, bs="cr", k=8), method="REML")` | `gam`、`smooth(..., k=8)` | 平滑化パラメータ、edf、REML、係数 |
 | 加法モデルの範囲 | `ps` / `cc` / `re` / `by`、線形項つき `cr`、binomial、poisson、gamma（inverse） | `smooth(..., basis=)`、`family=` | 平滑化パラメータ、edf、REML、係数 |
 | thin plate | `s(x, bs="tp")` | `smooth(..., basis="tp")` | edf と当てはめ。係数の向きは mgcv の固有ベクトルと違う |
@@ -106,6 +118,38 @@ rms の行は `rms.json`（rms 6.7-1、R 4.3.3）です。再生成は `Rscript 
 - `transform="logit"` と `"odds"` は生存関数で使えます。R の `summary_std_coxph` は作る前の `out$measure` を読むので止まります。fixture はグローバルに `out` を置いて R に計算させています。
 - `ci="log"` と `contrast="difference"` の組み合わせは拒否します。参照行の推定値が 0 になり、R では区間が NaN になります。
 - ケースウェイトはありません。R も Cox にウェイトを渡しません。
+
+## WeightIt と cobalt
+
+`iptw.json` は `tests/r_oracle/scripts/iptw_weightit.R` が WeightIt 2.1.0 と cobalt 5.0.0 で書きます（`weightit()`、`trim()`、`bal.tab()` を直接呼ぶ）。`tests/r_oracle/scripts/iptw.R` は同じ計算を base R で書いたもので、パッケージのない環境で作り直すためのものです。15 例すべてでパッケージと一致します。
+
+パッケージと照合して分かった点:
+
+- `trim` の分位点は `quantile(type = 3)` です。
+- ATO のバランス表の SMD の分母は、cobalt の `"weighted"`（全標本を重み付きで計算した標準偏差）です。
+
+確かめていない点:
+
+- 2 水準の文字列の列は 2 番目の水準だけ、論理値の列は `列名_TRUE` で出します。cobalt の名前の付け方とずれることがあります。
+- 交互作用や `I(age^2)` の項は設計行列の列名のまま 1 行にします。cobalt は名前の付け方が違います。
+
+WeightIt と違うところ:
+
+- `stabilize=True` を ATE 以外で使うと `ValueError` です。
+- `trim=(low, high)` の固定の上下限は WeightIt にありません。
+- 欠測のある行は落とします。WeightIt の `missing="ind"` はありません。
+
+## polr、multinom、survRM2 と違うところ
+
+- `ordinal_regression` は正確な Hessian の Newton 法です。共分散は観測情報行列の逆行列で、`clm` と同じです。`polr` は `optim` の差分近似の Hessian なので、SE が約 1e-3 ずれます。
+- `polr` は BFGS を `reltol = 1e-8` で止めます。fixture は `reltol = 1e-14` で当て直しています。
+- cauchit リンクは R と比べていません。`polr` は線形予測子を ±100 で切り、`clm` も裾を切るので、どちらも本当の最適点を返しません。`ordinal_regression` は切らずに最適化します。
+- `ordinal_regression` の `n_obs` は行数です。重みがあると `clm` の `nobs` は重みの和です。`polr` は 3 水準以上を求めますが、`ordinal_regression` は 2 水準でも当てます。
+- 空の水準は警告を出して落とします（`multinom` と同じ）。`polr` は空の水準で閾値が発散します。
+- Brant 検定の重みは度数の重みとして扱います。R の `brant` パッケージは重みを扱いません。
+- `multinomial_regression` は Newton 法で、`multinom` の既定（BFGS、`reltol = 1e-8`）より最適点に近い値を返します。差は係数で 1e-4 程度です。`decay`（荷重減衰）はありません。
+- `fit_risk_ratio(method="log-binomial")` の対数尤度は、R と同じく重みを試行数とみなし、`round()` した二項分布で計算します。整数の重みなら度数の重みと同じです。`fit_glm` の二項の対数尤度とは扱いが違います。
+- `restricted_mean_survival` の fixture は `rmst1` / `rmst2` の式を R で書き直したものです。survRM2 1.0-4 が入っている環境では、スクリプトが 6 例すべてで survRM2 と一致することを確かめます（rtol 1e-12）。`tau` の既定と上限は `rmst2` と同じです。短い群の最終時刻の行がすべて事象なら 2 群の最終観察時刻の大きいほう、そうでなければ小さいほうです。共変量で調整する `rmst2(covariates=)` はありません。
 
 ## 既存の名前
 

@@ -27,12 +27,13 @@ import numpy as np
 import polars as pl
 
 from .design import Design, Predictor, _factor_levels, _is_factor, _level_key, column_series
+from .splines import BASES, SplineSpec, resolve as _resolve_spline
 
 _TOKEN = re.compile(
     r"\s+"
     r"|(?P<in>%in%)"
     r"|(?P<num>\d+(?:\.\d*)?)"
-    r"|(?P<op>\|\||[+\-*/:^~()|,])"
+    r"|(?P<op>\|\||[+\-*/:^~()|,=])"
     r"|(?P<name>`(?:\\`|[^`])+`|[A-Za-z_.][A-Za-z0-9_.]*)"
 )
 _FUNCS = {"log", "exp", "sqrt", "log10", "abs", "I"}
@@ -68,9 +69,19 @@ class Unary:
 class Call:
     fn: str
     args: tuple[Arith, ...]
+    kwargs: tuple[tuple[str, Arith], ...] = ()
 
 
-Arith = Num | Col | Bin | Unary | Call
+@dataclass(frozen=True)
+class Basis:
+    """A spline call with its knots fixed: ``ns``, ``bs``, or ``rcs``."""
+
+    fn: str
+    arg: Arith
+    spec: SplineSpec
+
+
+Arith = Num | Col | Bin | Unary | Call | Basis
 Term = frozenset[str]
 
 
@@ -221,6 +232,9 @@ def rebuild_formula_design(
         for name, level in recipe:
             if level is None:
                 column = column * computed_values.get(name, _numeric_kept(cache[name], keep))
+            elif isinstance(computed.get(name), Basis):
+                spec = computed[name].spec
+                column = column * computed_values[name][:, spec.suffixes.index(level)]
             else:
                 keys = [_cell_key(value) for value in _kept(cache[name], keep)]
                 column = column * np.asarray([key == level for key in keys], dtype=float)
@@ -310,6 +324,7 @@ def _materialize(response: Arith, response_label: str, terms: list[Term], state:
         observed = _kept(cache[name], keep) if name in cache else series.drop_nulls().to_numpy()
         factor_levels[name] = _formula_levels(series, observed)
     codes = _contrast_codes(terms, state.variables, state.intercept, factor_levels)
+    bases: dict[str, np.ndarray] = {}
     names: list[str] = ["(Intercept)"] if state.intercept else []
     recipes: list[tuple[tuple[str, str | None], ...]] = [()] if state.intercept else []
     columns: list[np.ndarray] = [np.ones(int(keep.sum()), dtype=float)] if state.intercept else []
@@ -322,6 +337,8 @@ def _materialize(response: Arith, response_label: str, terms: list[Term], state:
             for symbol, level in combo:
                 if level is None:
                     values = _symbol_values(symbol, computed, cache, keep)
+                elif isinstance(computed.get(symbol), Basis):
+                    values = _basis_column(computed[symbol], level, cache, keep, bases)
                 else:
                     keys = [_cell_key(value) for value in _kept(cache[symbol], keep)]
                     values = np.asarray([key == level for key in keys], dtype=float)
@@ -443,8 +460,15 @@ def _encode(node: object, state: _State) -> list[Term]:
             _install(state, label)
             state.offsets.append((label, node.args[0]))
             return [frozenset({label})]
+        if node.fn in BASES:
+            label = _deparse(node)
+            _install(state, label)
+            state.computed[label] = _basis(node, state.data)
+            return [frozenset({label})]
         if node.fn not in _FUNCS:
             raise ValueError(f"function {node.fn}() is not available in formulas")
+        if node.kwargs:
+            raise ValueError(f"{node.fn}() takes no named arguments")
         if len(node.args) != 1:
             raise ValueError(f"{node.fn}() takes one expression")
         label = _deparse(node)
@@ -563,6 +587,8 @@ def _random_effect(inner: object, group: str, correlated: bool, data: pl.DataFra
         name = ordered[0]
         if name in state.computed and state.computed[name].fn == "offset":
             raise ValueError("offset() is not a random slope")
+        if name in state.computed and isinstance(state.computed[name], Basis):
+            raise ValueError("a spline is not a random slope")
         slopes.append(name)
         if name in state.computed:
             exprs.append((name, state.computed[name]))
@@ -739,7 +765,11 @@ def _eval_arith(expr: Arith, cache: dict[str, np.ndarray], keep: np.ndarray) -> 
         if expr.op == "^":
             return left**right
         raise ValueError(f"unknown arithmetic operator {expr.op}")
+    if isinstance(expr, Basis):
+        return expr.spec.evaluate(_eval_arith(expr.arg, cache, keep))
     if isinstance(expr, Call):
+        if expr.fn in BASES:
+            raise ValueError(f"{expr.fn}() is a model term, not part of an expression")
         if len(expr.args) != 1:
             raise ValueError(f"{expr.fn}() takes one expression")
         arg = _eval_arith(expr.args[0], cache, keep)
@@ -750,7 +780,80 @@ def _eval_arith(expr: Arith, cache: dict[str, np.ndarray], keep: np.ndarray) -> 
     raise ValueError(f"cannot evaluate {expr!r}")
 
 
+_SPLINE_ARGS = {
+    "ns": ("df", "knots", "intercept", "Boundary.knots"),
+    "bs": ("df", "knots", "degree", "intercept", "Boundary.knots"),
+    "rcs": ("parms",),
+}
+
+
+def _basis(node: Call, data: pl.DataFrame) -> Basis:
+    """Fix a spline's knots from the non-missing rows of its argument."""
+    if not node.args:
+        raise ValueError(f"{node.fn}() needs a variable")
+    arg, *rest = node.args
+    allowed = _SPLINE_ARGS[node.fn]
+    if len(rest) > len(allowed):
+        raise ValueError(f"{node.fn}() takes at most {len(allowed) + 1} arguments")
+    options: dict[str, object] = {}
+    for key, value in zip(allowed, rest, strict=False):
+        options[key] = _constant(value)
+    for key, value in node.kwargs:
+        if key not in allowed:
+            raise ValueError(f"{node.fn}() has no argument {key!r}")
+        if key in options:
+            raise ValueError(f"{node.fn}() got {key!r} twice")
+        options[key] = _constant(value)
+    if node.fn == "rcs" and "parms" not in options:
+        options["parms"] = 5
+    names = _columns_in(arg)
+    if not names:
+        raise ValueError(f"{node.fn}() needs a column")
+    cache: dict[str, np.ndarray] = {}
+    keep = np.ones(data.height, dtype=bool)
+    for name in names:
+        series = _require_column(data, name)
+        if _formula_is_factor(series):
+            raise ValueError(f"{node.fn}() needs a numeric column, and {name!r} is a factor")
+        keep &= series.is_not_null().to_numpy()
+        cache[name] = series.to_numpy()
+    values = _eval_arith(arg, cache, keep)
+    label = names[0] if len(set(names)) == 1 else _deparse(arg)
+    return Basis(node.fn, arg, _resolve_spline(node.fn, values, options, label))
+
+
+def _constant(expr: Arith) -> object:
+    """A literal spline argument: a number, ``c(...)``, ``TRUE``, or ``FALSE``."""
+    if isinstance(expr, Num):
+        return expr.value
+    if isinstance(expr, Unary) and isinstance(expr.expr, Num):
+        return -expr.expr.value if expr.op == "-" else expr.expr.value
+    if isinstance(expr, Col) and expr.name in {"TRUE", "T", "FALSE", "F"}:
+        return expr.name in {"TRUE", "T"}
+    if isinstance(expr, Call) and expr.fn == "c" and not expr.kwargs:
+        values = [_constant(arg) for arg in expr.args]
+        if not values or any(isinstance(v, bool) for v in values):
+            raise ValueError("c() takes numbers")
+        return np.asarray(values, dtype=float)
+    raise ValueError(f"spline arguments must be literal numbers, got {_deparse(expr)!r}")
+
+
+def _basis_column(
+    basis: Basis,
+    suffix: str,
+    cache: dict[str, np.ndarray],
+    keep: np.ndarray,
+    bases: dict[str, np.ndarray],
+) -> np.ndarray:
+    key = _deparse(basis.arg) + repr(basis.spec)
+    if key not in bases:
+        bases[key] = _eval_arith(basis, cache, keep)
+    return bases[key][:, basis.spec.suffixes.index(suffix)]
+
+
 def _columns_in(expr: Arith) -> list[str]:
+    if isinstance(expr, Basis):
+        return _columns_in(expr.arg)
     if isinstance(expr, Col):
         return [] if expr.name == "." else [expr.name]
     if isinstance(expr, Num):
@@ -801,8 +904,9 @@ def _deparse_at(expr: Arith, parent: int, right: bool) -> str:
             needs = parent > prec or (parent == prec and right)
         return f"({text})" if needs else text
     if isinstance(expr, Call):
-        args = ", ".join(_deparse_at(arg, 0, False) for arg in expr.args)
-        return f"{expr.fn}({args})"
+        parts = [_deparse_at(arg, 0, False) for arg in expr.args]
+        parts += [f"{key} = {_deparse_at(value, 0, False)}" for key, value in expr.kwargs]
+        return f"{expr.fn}({', '.join(parts)})"
     raise ValueError(f"cannot deparse {expr!r}")
 
 
@@ -910,13 +1014,26 @@ class _Parser:
     def _parse_call(self, name: str) -> Call:
         self._expect("(")
         args: list[Arith] = []
+        kwargs: list[tuple[str, Arith]] = []
         if self._peek() != ")":
-            args.append(self._parse_arith())
+            self._parse_argument(args, kwargs)
             while self._peek() == ",":
                 self._pop()
-                args.append(self._parse_arith())
+                self._parse_argument(args, kwargs)
         self._expect(")")
-        return Call(name, tuple(args))
+        return Call(name, tuple(args), tuple(kwargs))
+
+    def _parse_argument(self, args: list[Arith], kwargs: list[tuple[str, Arith]]) -> None:
+        token = self._peek()
+        ahead = self.tokens[self.index + 1] if self.index + 1 < len(self.tokens) else None
+        if ahead == "=" and isinstance(token, str) and re.fullmatch(r"[A-Za-z_.][A-Za-z0-9_.]*", token):
+            self._pop()
+            self._pop()
+            kwargs.append((token, self._parse_arith()))
+            return
+        if kwargs:
+            raise ValueError("positional arguments must come before named ones")
+        args.append(self._parse_arith())
 
     def _parse_random(self) -> tuple:
         inner = self._parse_sum()
@@ -1075,6 +1192,9 @@ def _pieces_for(
     pieces: list[list[tuple[str, str | None]]] = []
     for symbol in variables:
         if symbol not in term:
+            continue
+        if isinstance(computed.get(symbol), Basis):
+            pieces.append([(symbol, suffix) for suffix in computed[symbol].spec.suffixes])
             continue
         if symbol in computed or symbol not in factor_levels:
             pieces.append([(symbol, None)])
