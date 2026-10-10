@@ -15,6 +15,14 @@ jobs:
       # Without a pin, uv picks the newest Python, including pre-releases that
       # polars does not support yet.
       UV_PYTHON: "3.13"
+      # numba compiles about 40 functions on first use. Keep the compiled
+      # code between runs; numba drops an entry when its source file changes.
+      NUMBA_CACHE_DIR: ${{ github.workspace }}/.numba-cache
+      # pytest-xdist runs one worker per core. Keep BLAS single-threaded so
+      # the workers do not fight over the cores.
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,5 +36,13 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev
 
+      - name: Restore numba cache
+        uses: actions/cache@v4
+        with:
+          path: .numba-cache
+          key: numba-${{ runner.os }}-py3.13-${{ hashFiles('uv.lock') }}-${{ github.sha }}
+          restore-keys: |
+            numba-${{ runner.os }}-py3.13-${{ hashFiles('uv.lock') }}-
+
       - name: Run tests
-        run: uv run pytest -q
+        run: uv run pytest -q -n auto
