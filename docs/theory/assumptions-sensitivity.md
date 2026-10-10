@@ -141,7 +141,34 @@ E-value の注意点です。
 
 これらで効果が違うなら、「クリップの効果」は一つに決まりません。データでは確かめられないので、**研究の設計**で決めます。何を「クリップあり」とするかを先に定義し、それを報告します。標的試験の模倣（target trial emulation）は、この定義をランダム化試験の計画書のように書き出す考え方です。
 
-## 6.5 解析の報告に書くこと {#reporting}
+## 6.5 一つの研究を超えて：Bradford Hill の視点 {#bradford-hill}
+
+ここまでは、**一つの研究**の解析で、仮定がくずれていないかを調べてきました。しかし、因果を判断するときは、一つの研究だけで決めることはまずありません。複数の研究や、生物学的な知識をあわせて考えます。そのときの手がかりとして古くから使われているのが、Austin Bradford Hill（1965）の 9 つの視点です。喫煙と肺癌の議論の中で示されました。
+
+Hill 自身は、これを「基準」（criteria）ではなく「視点」（viewpoints）と呼びました。全部を満たせば因果、というチェックリストではありません。Hill は、必ず満たすべきものは「時間の順序」だけだとしています。
+
+| 視点 | 意味 | 今の因果推論での見方 | クリップの例 |
+|------|------|------------------|------------|
+| 強さ（strength） | 関連が強い | 強い関連ほど、未測定交絡だけでは説明しにくい。E-value（6.3）がこれを数にしたもの | リスク比 0.50、E-value 3.43 |
+| 一貫性（consistency） | 別の集団、別の方法でも同じ結果 | 偏りの向きが違う複数の方法で同じ答えになるか（トライアンギュレーション、triangulation） | 観察研究とランダム化比較試験（randomized controlled trial、RCT）、施設や時代の違う研究で同じ向きか |
+| 特異性（specificity） | その原因はその結果だけを起こす | 多くの病気は原因が多く、結果も多いので、弱い視点 | クリップは出血以外（穿孔など）にも影響しうる |
+| 時間の順序（temporality） | 原因が結果より先 | 必ず必要。DAG の矢印の向き。標的試験の模倣（6.4）では、治療を決める時点と追跡の開始をそろえる | クリップは切除の直後、出血はそのあと |
+| 量反応関係（biological gradient） | 量が多いほど効果が大きい | あれば支えになるが、なくても因果は否定できない | 完全に閉じた場合ほど効果が大きいか |
+| もっともらしさ（plausibility） | 仕組みが説明できる | DAG を描く根拠になる臨床・生物学の知識 | 傷を閉じると血管の露出が減る |
+| 整合性（coherence） | 既知の事実と矛盾しない | 他の知識と合っているか | 大きく近位の病変ほど出血しやすい、という知識と合う |
+| 実験（experiment） | 介入すると結果が変わる | RCT、自然実験。交換可能性を設計で作る（第 2 章） | 大きな病変での RCT（Pohl ら 2019） |
+| 類推（analogy） | 似た原因で似た結果がある | 弱い視点 | 他の内視鏡治療での閉鎖の効果 |
+
+この表のように、Hill の視点の多くは、この本で扱ってきた考え方と重なります。
+
+- **強さ**は、未測定交絡への強さ（E-value）として数にできます。
+- **時間の順序**と**もっともらしさ**は、DAG を描くときに使う知識そのものです。
+- **実験**は、ランダム化が交換可能性を作る、という第 2 章の話です。
+- **一貫性**は、偏りの仕組みが違う研究（観察研究、RCT、別の調整方法）で答えがそろうかを見ることです。第 3 章で方法を並べて比べたのも、小さな意味での一貫性の確認です。
+
+一方で、視点のどれも、一つの観察研究の結果が因果だと**証明**するものではありません。Hill の視点は、研究を読む人が「この関連を因果とみなして行動してよいか」を考えるための枠組みです。Hill は論文の最後で、完全な証拠を待って行動を先送りしてはいけない、とも述べています。
+
+## 6.6 解析の報告に書くこと {#reporting}
 
 - 調整する変数を選んだ根拠（DAG）
 - 推定したいもの（ATE、ATT、ATO など。[略語](index.md#abbreviations)）と、その理由
@@ -156,6 +183,11 @@ E-value の注意点です。
 - Petersen ML, Porter KE, Gruber S, Wang Y, van der Laan MJ. Diagnosing and responding to violations in the positivity assumption. *Stat Methods Med Res.* 2012;21:31–54.
 - Hernán MA, Robins JM. Using big data to emulate a target trial when a randomized trial is not available. *Am J Epidemiol.* 2016;183:758–764.
 - Hernán MA, Robins JM. *Causal Inference: What If.* Chapman & Hall/CRC; 2020. 第 3 章.
+- Hill AB. The environment and disease: association or causation? *Proc R Soc Med.* 1965;58:295–300.
+- Rothman KJ, Greenland S. Causation and causal inference in epidemiology. *Am J Public Health.* 2005;95(Suppl 1):S144–S150.
+- Fedak KM, Bernal A, Capshaw ZA, Gross S. Applying the Bradford Hill criteria in the 21st century: how data integration has changed causal inference in molecular epidemiology. *Emerg Themes Epidemiol.* 2015;12:14.
+- Lawlor DA, Tilling K, Davey Smith G. Triangulation in aetiological epidemiology. *Int J Epidemiol.* 2016;45:1866–1886.
+- Pohl H, Grimm IS, Moyer MT, et al. Clip closure prevents bleeding after endoscopic resection of large colon polyps in a randomized trial. *Gastroenterology.* 2019;157:977–984.
 
 ## まとめ
 
@@ -164,5 +196,6 @@ E-value の注意点です。
 - 未測定の交絡は、例数を増やしても消えません。測った因子の向きから、偏りの向きを考えます。
 - E-value は、結論をくつがえすのに必要な未測定交絡の強さです。測った交絡因子の強さと比べて読みます。
 - 一致性は、治療の定義を研究の設計で決めることで守ります。
+- Bradford Hill の視点は、複数の研究と知識をあわせて因果を判断するための枠組みです。多くは、E-value、DAG、ランダム化、方法を変えた比較と重なります。必ず必要なのは時間の順序だけです。
 
 第 II 部はここまでです。[第 III 部](prediction-model.md)では、同じロジスティック回帰を、因果ではなく**予測**に使います。

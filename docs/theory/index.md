@@ -53,7 +53,7 @@
 | 3. [背景を調整する方法](adjustment-methods.md) | 限定、層別化、回帰と標準化、マッチング、重み付けの比較 | 方法ごとの推定値と本当の値 | `standardize_glm`、`match_sample`、`propensity_weights` |
 | 4. [傾向スコアマッチング](propensity-score-matching.md) | バランシングスコア、傾向スコア、重なり、キャリパー、バランスの確認 | 傾向スコアの分布、Love plot、マッチ前後の Table 1 | `match_sample`、`plot_love` |
 | 5. [IPTW（逆確率重み付け）](iptw.md) | 重みで仮の集団を作る、g-formula と同じ量になる理由、安定化、極端な重み、推定する対象 | 重みの分布、重み付きの Love plot、重みごとの推定値 | `propensity_weights`、`plot_love` |
-| 6. [仮定と感度分析](assumptions-sensitivity.md) | 正値性、未測定交絡、E-value、一致性 | 未測定交絡の影響、E-value の図 | `standardize_glm` |
+| 6. [仮定と感度分析](assumptions-sensitivity.md) | 正値性、未測定交絡、E-value、一致性、Bradford Hill の視点 | 未測定交絡の影響、E-value の図 | `standardize_glm` |
 
 ### 第 III 部 予測と機械学習
 
@@ -106,6 +106,7 @@
 | IPTW | inverse probability of treatment weighting | 治療の逆確率による重み付け |
 | LOOCV | leave-one-out cross-validation | 一つ抜き交差検証 |
 | OR | odds ratio | オッズ比 |
+| RCT | randomized controlled trial | ランダム化比較試験 |
 | ROC | receiver operating characteristic | 受信者動作特性 |
 | RR | risk ratio | リスク比 |
 | SMD | standardized mean difference | 標準化差 |
