@@ -1155,6 +1155,161 @@ def overfitting(out: Path) -> None:
         }
     )
     _write_csv(out, "ch8_bootstrap", boot)
+    cross_validation(test, big, out)
+
+
+def _cv_predictions(dev: pl.DataFrame, formula: str, folds: np.ndarray) -> np.ndarray:
+    """Held-out predicted risk for every patient; ``folds`` gives each row's fold."""
+    pred = np.empty(dev.height)
+    for k in np.unique(folds):
+        hold = folds == k
+        fit = fit_glm(dev.filter(pl.Series(~hold)), formula, family="binomial")
+        pred[hold] = np.asarray(
+            fit.predict(dev.filter(pl.Series(hold)), kind="response")
+        )
+    return pred
+
+
+def _cv_schematic(path: Path) -> None:
+    """Who is used to build and who to test, for 5-fold CV and LOOCV."""
+    fig, axes = plt.subplots(
+        1, 2, figsize=(8.4, 3.4), gridspec_kw={"width_ratios": [1, 1]}
+    )
+    for ax, n, k, title in [
+        (axes[0], 20, 5, "5-fold cross-validation"),
+        (axes[1], 10, 10, "Leave-one-out (n = 10)"),
+    ]:
+        size = n // k
+        for r in range(k):
+            for i in range(n):
+                test = r * size <= i < (r + 1) * size
+                ax.add_patch(
+                    plt.Rectangle(
+                        (i, k - 1 - r), 0.9, 0.8, color=RED if test else "#BFD7EA"
+                    )
+                )
+        ax.set_xlim(-0.2, n)
+        ax.set_ylim(-0.2, k)
+        ax.set_yticks([k - 1 - r + 0.4 for r in range(k)])
+        ax.set_yticklabels([f"Round {r + 1}" for r in range(k)], fontsize=8)
+        ax.set_xticks([])
+        ax.set_xlabel("Patients")
+        ax.set_title(title, fontsize=10)
+        for side in ("top", "right", "left", "bottom"):
+            ax.spines[side].set_visible(False)
+    handles = [
+        plt.Rectangle((0, 0), 1, 1, color="#BFD7EA"),
+        plt.Rectangle((0, 0), 1, 1, color=RED),
+    ]
+    fig.legend(
+        handles, ["Build the model", "Test"], loc="lower center", ncol=2, frameon=False
+    )
+    fig.tight_layout(rect=(0, 0.08, 1, 1))
+    fig.savefig(path, dpi=180)
+    plt.close(fig)
+
+
+def _cv_estimates(
+    dev: pl.DataFrame, test: pl.DataFrame, formula: str, label: str
+) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """Split-sample, k-fold, leave-one-out and bootstrap estimates of the C statistic."""
+    yd = dev["bleed"].to_numpy()
+    n = dev.height
+    fit = fit_glm(dev, formula, family="binomial")
+    truth = _auc(
+        test["bleed"].to_numpy(), np.asarray(fit.predict(test, kind="response"))
+    )
+    apparent = _auc(yd, np.asarray(fit.predict(dev, kind="response")))
+    rng = np.random.default_rng(11)
+    rows = []
+    # Split sample: 70% to build, 30% to test, 100 different random splits.
+    for r in range(100):
+        idx = rng.permutation(n)
+        tr, te = idx[: int(0.7 * n)], idx[int(0.7 * n) :]
+        f = fit_glm(dev[tr], formula, family="binomial")
+        yte = yd[te]
+        if 0 < yte.sum() < len(yte):
+            p_te = np.asarray(f.predict(dev[te], kind="response"))
+            rows.append({"method": "Split 70/30", "repeat": r, "auc": _auc(yte, p_te)})
+    # k-fold: the held-out predictions of all folds are pooled, then one C statistic.
+    for k in (5, 10):
+        for r in range(20):
+            folds = rng.permutation(np.arange(n) % k)
+            p_cv = _cv_predictions(dev, formula, folds)
+            rows.append({"method": f"{k}-fold CV", "repeat": r, "auc": _auc(yd, p_cv)})
+    loo = _cv_predictions(dev, formula, np.arange(n))
+    rows.append({"method": "Leave-one-out", "repeat": 0, "auc": _auc(yd, loo)})
+    val = validate_logistic(dev, formula, B=200, seed=8)
+    dxy = val.filter(pl.col("index") == "Dxy")
+    boot_c = float(dxy["index_corrected"][0]) / 2 + 0.5
+    rows.append({"method": "Bootstrap", "repeat": 0, "auc": boot_c})
+    est = pl.DataFrame(rows).with_columns(pl.lit(label).alias("sample"))
+    summary = (
+        est.group_by("sample", "method", maintain_order=True)
+        .agg(
+            pl.len().alias("repeats"),
+            pl.col("auc").mean().alias("mean"),
+            pl.col("auc").min().alias("min"),
+            pl.col("auc").max().alias("max"),
+            pl.col("auc").std().alias("sd"),
+        )
+        .with_columns(
+            pl.lit(truth).alias("new_patients"), pl.lit(apparent).alias("apparent")
+        )
+    )
+    return est, summary
+
+
+def cross_validation(test: pl.DataFrame, formula: str, out: Path) -> None:
+    """Chapter 8: internal validation with few events and with enough events."""
+    _cv_schematic(out / "figures" / "ch8_cv_scheme.png")
+    ests, sums = [], []
+    for n, seed in [(400, 4), (2000, 6)]:
+        dev = _with_noise(simulate(n=n, seed=seed), seed=10 * seed)
+        events = int(dev["bleed"].sum())
+        e, sm = _cv_estimates(dev, test, formula, f"{n} patients, {events} bleeds")
+        ests.append(e)
+        sums.append(sm)
+    est = pl.concat(ests)
+    summary = pl.concat(sums)
+    _write_csv(out, "ch8_cv_estimates", est)
+    _write_csv(out, "ch8_cv_summary", summary)
+
+    order = ["Split 70/30", "5-fold CV", "10-fold CV", "Leave-one-out", "Bootstrap"]
+    labels = [
+        "Split\n70/30",
+        "5-fold\nCV",
+        "10-fold\nCV",
+        "Leave-\none-out",
+        "Boot-\nstrap",
+    ]
+    fig, axes = plt.subplots(1, 2, figsize=(9.6, 4.0), sharey=True)
+    jitter = np.random.default_rng(0)
+    for ax, sample in zip(axes, est["sample"].unique(maintain_order=True), strict=True):
+        part = est.filter(pl.col("sample") == sample)
+        sm = summary.filter(pl.col("sample") == sample)
+        for i, m in enumerate(order):
+            v = part.filter(pl.col("method") == m)["auc"].to_numpy()
+            many = len(v) > 1
+            x = np.full(len(v), float(i)) + (
+                jitter.uniform(-0.15, 0.15, len(v)) if many else 0
+            )
+            ax.scatter(
+                x, v, s=12 if many else 50, color=BLUE, alpha=0.45 if many else 1
+            )
+        truth = float(sm["new_patients"][0])
+        app = float(sm["apparent"][0])
+        ax.axhline(truth, color=RED, linestyle=":", label=f"New patients ({truth:.2f})")
+        ax.axhline(app, color=GRAY, linestyle="--", label=f"Apparent ({app:.2f})")
+        ax.set_xticks(range(len(order)))
+        ax.set_xticklabels(labels, fontsize=8.5)
+        ax.set_title(f"{sample}, 17 predictors", fontsize=10)
+        ax.legend(frameon=False, loc="upper right", fontsize=8.5)
+        ax.grid(alpha=0.3, axis="y")
+    axes[0].set_ylabel("Estimated C statistic")
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch8_cv.png", dpi=180)
+    plt.close(fig)
 
 
 def _decile_table(y: np.ndarray, p: np.ndarray, model: str) -> pl.DataFrame:
