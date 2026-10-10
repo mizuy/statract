@@ -9,11 +9,12 @@
 リポジトリルートで `uv sync` のあと:
 
 ```bash
-cd examples/iptw_nhefs
-task all
+cd examples
+task iptw_nhefs:all
 # または
-PYTHONPATH=. uv run python build.py
-PYTHONPATH=. uv run python iptw_nhefs.py
+cd iptw_nhefs
+uv run python build.py
+uv run python iptw_nhefs.py
 ```
 
 完全な成果物は `iptw_nhefs_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/examples/assets/iptw_nhefs/`](../../docs/examples/assets/iptw_nhefs/) にあります。

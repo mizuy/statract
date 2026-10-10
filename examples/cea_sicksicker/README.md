@@ -9,11 +9,12 @@
 リポジトリルートで `uv sync` のあと:
 
 ```bash
-cd examples/cea_sicksicker
-task all
+cd examples
+task cea_sicksicker:all
 # または
-PYTHONPATH=. uv run python build.py
-PYTHONPATH=. uv run python cea_sicksicker.py
+cd cea_sicksicker
+uv run python build.py
+uv run python cea_sicksicker.py
 ```
 
 完全な成果物は `cea_sicksicker_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/examples/assets/cea_sicksicker/`](../../docs/examples/assets/cea_sicksicker/) にあります。

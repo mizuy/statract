@@ -15,9 +15,9 @@ from scipy import stats
 
 from numba import njit
 
-from ..design import ColumnRef, Design, build_design, column_series, design_matrix
-from ..fit import Fit
-from ..formula import is_formula
+from ..models.design import ColumnRef, Design, build_design, column_series, design_matrix
+from ..models.fit import Fit
+from ..models.formula import is_formula
 from .spec import combine_strata, parse_survival_formula
 
 _MAX_ITER = 25
@@ -26,7 +26,7 @@ _EPS = 1e-9
 
 @dataclass
 class CoxFit:
-    """Cox model. The coefficient table matches :class:`statract.fit.Fit`."""
+    """Cox model. The coefficient table matches :class:`statract.models.fit.Fit`."""
 
     coefficients: np.ndarray
     covariance: np.ndarray

@@ -9,11 +9,12 @@ KM / log-rank / Cox / Cox 標準化（`standardize_cox`）。`etype=1` で患者
 リポジトリルートで `uv sync` のあと:
 
 ```bash
-cd examples/surv_colon
-task all
+cd examples
+task surv_colon:all
 # または
-PYTHONPATH=. uv run python build.py
-PYTHONPATH=. uv run python surv_colon.py
+cd surv_colon
+uv run python build.py
+uv run python surv_colon.py
 ```
 
 完全な成果物は `surv_colon_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/examples/assets/surv_colon/`](../../docs/examples/assets/surv_colon/) にあります。

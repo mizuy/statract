@@ -272,8 +272,8 @@ $e^{\beta_1}$ が患者内（条件付き）の率比です。ポアソン版は
 ## 実行と成果物
 
 ```bash
-cd examples/glmm_epil
-task all
+cd examples
+task glmm_epil:all
 ```
 
-成果物は `examples/glmm_epil/glmm_epil_out/`、掲載分は `uv run python scripts/sync_example_assets.py --stem glmm_epil` で `docs/examples/assets/glmm_epil/` にコピーします。
+成果物は `examples/glmm_epil/glmm_epil_out/`、掲載分は `uv run python tools/sync_example_assets.py --stem glmm_epil` で `docs/examples/assets/glmm_epil/` にコピーします。

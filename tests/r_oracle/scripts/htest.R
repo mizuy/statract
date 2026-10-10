@@ -1,5 +1,5 @@
 # stats::t.test, wilcox.test, mcnemar.test, binom.test, prop.test, p.adjust
-# oracle for statract.htest. Run from the repo root:
+# oracle for statract.models.htest. Run from the repo root:
 #   Rscript tests/r_oracle/scripts/htest.R
 suppressPackageStartupMessages(library(jsonlite))
 

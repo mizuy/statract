@@ -6,7 +6,6 @@ repo_url: https://github.com/mizuy/statract
 edit_uri: edit/main/docs/
 
 exclude_docs: |
-  dev/
   examples/policy.md
 
 theme:
@@ -35,7 +34,7 @@ extra_javascript:
   - javascripts/katex.js
 
 hooks:
-  - hooks/docs_render.py
+  - tools/mkdocs_hooks.py
 
 markdown_extensions:
   - admonition
@@ -108,7 +107,6 @@ nav:
               - covariance: api/models/covariance.md
               - linear_tests: api/models/linear_tests.md
               - htest: api/models/htest.md
-              - surv: api/models/surv.md
               - matching: api/models/matching.md
               - roc: api/models/roc.md
               - gam: api/models/gam.md
@@ -116,18 +114,24 @@ nav:
               - tree: api/models/tree.md
               - mixed: api/models/mixed.md
               - impute: api/models/impute.md
-              - regression: api/models/regression.md
-              - confusion: api/models/confusion.md
+              - glmm_extras: api/models/glmm_extras.md
               - validation: api/models/validation.md
-              - r: api/models/r.md
+          - Survival:
+              - surv: api/surv/surv.md
           - Figures:
               - forest: api/viz/forest.md
-              - survival: api/viz/survival.md
-              - figure: api/viz/figure.md
+              - km: api/viz/km.md
+              - tree: api/viz/tree.md
+              - misc: api/viz/misc.md
           - Cost-effectiveness:
               - markov: api/cea/markov.md
               - summarize: api/cea/summarize.md
               - sensitivity: api/cea/sensitivity.md
+          - Report:
+              - artifacts: api/report/artifacts.md
+              - task_io: api/report/task_io.md
+          - R bridge:
+              - r: api/r/r.md
       - Validation:
           - Models vs R: models/vs-r.md
           - CEA vs R: cea/vs-r.md

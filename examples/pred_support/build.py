@@ -17,8 +17,9 @@ from urllib.request import urlopen
 
 import polars as pl
 
-from support import cache, snapshot_cache
-from project import project
+from support import ProjectPath, cache, snapshot_cache
+
+project = ProjectPath(__file__)
 
 HBIOSSTAT_ZIP = "https://hbiostat.org/data/repo/support2csv.zip"
 UCI_CSV = "https://archive.ics.uci.edu/static/public/880/data.csv"

@@ -1,4 +1,4 @@
-"""statract.validation against rms 6.7-1 (fixture from scripts/rms.R; R not needed)."""
+"""statract.models.validation against rms 6.7-1 (fixture from scripts/rms.R; R not needed)."""
 
 from __future__ import annotations
 
@@ -17,8 +17,8 @@ from statract import (
     validate_cox,
     validate_logistic,
 )
-from statract._lowess_r import lowess_r
-from statract.validation import _cox_data, _cox_fit, _logistic_data, _lrm_fit
+from statract._core.lowess_r import lowess_r
+from statract.models.validation import _cox_data, _cox_fit, _logistic_data, _lrm_fit
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "rms.json").read_text())
 

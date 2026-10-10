@@ -97,7 +97,7 @@ $$
 
 ## 結果
 
-n=602（全例）。サイト掲載は `assets/logit_indo/`。表の数値は `task all` の成果物と同一です。
+n=602（全例）。サイト掲載は `assets/logit_indo/`。表の数値は `task logit_indo:all` の成果物と同一です。
 
 ### 施設変量 GLMM（主解析、`fit_mixed` binomial）
 
@@ -280,8 +280,8 @@ MOR はライブラリ API（`statract.median_odds_ratio`）です。例スク�
 ## 実行と成果物
 
 ```bash
-cd examples/logit_indo
-task all
+cd examples
+task logit_indo:all
 ```
 
 既存の付随文書: [concept](https://github.com/mizuy/statract/blob/main/examples/logit_indo/logit_indo_concept.md) · [protocol](https://github.com/mizuy/statract/blob/main/examples/logit_indo/logit_indo_protocol.md) · [results](https://github.com/mizuy/statract/blob/main/examples/logit_indo/logit_indo_results.md) · [discussion](https://github.com/mizuy/statract/blob/main/examples/logit_indo/logit_indo_discussion.md)

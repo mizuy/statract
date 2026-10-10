@@ -1,30 +1,16 @@
-"""Statistical analysis: Table One, survival analysis, regression, and more.
+"""Statistics on Polars frames: Table One, models, survival, figures, and CEA.
 
-This module provides statistical analysis utilities for Polars DataFrames, including:
-- Table One generation
-- Survival analysis (Kaplan-Meier, log-rank test)
-- Statistical tests (ANOVA, chi-square, Fisher's exact, etc.)
-- Aggregation functions for descriptive statistics
-- Propensity score matching (experimental)
-- Linear and generalized linear mixed models (``fit_mixed``; lme-rs / lme-python)
-- Experimental extras (``glmm_gpboost`` via optional ``statract[gpboost]``)
-- Confusion matrix and related metrics (experimental)
-- Binary classification metrics (``binary_perf``) and probability evaluation
-  (calibration / Brier / decision curve)
+The names below are re-exported from these subpackages:
 
-.. warning::
-    Some functions in this module are experimental implementations:
-    - ``confusion_matrix``, ``ratio``, ``sm_summary2df`` (from ``.confusion``)
-    - ``glmm_gpboost`` (optional extra; not the default GLMM engine),
-      ``glmm_forestplot``
-    - ``median_odds_ratio``, ``glmm_random_effects``, ``plot_random_effects``
-      (MOR / BLUP helpers for ``fit_mixed``)
-    - ``plot_forest`` (from ``.forest``) — canonical Cox HR / GLM OR / OLS forest
+- ``statract.tableone``: Table One, aggregation columns, and group tests
+- ``statract.models``: OLS / GLM, sandwich covariance, tests, mixed and additive
+  models, trees, imputation, matching, ROC, calibration, and validation
+- ``statract.surv``: survival curves, log-rank, Cox, AFT, Fine–Gray
+- ``statract.viz``: forest, Kaplan–Meier, and tree plots
+- ``statract.report``: CSV companions and task output folders
+- ``statract.cea``: cost-effectiveness analysis (import it directly)
 
-    These may change or be removed in future versions. Use with caution.
-
-Statistical figures: ``plot_forest`` / ``plot_survival`` (and diagnostic helpers).
-Plotly funnel / image concat stay in ``statract.figure``.
+``glmm_gpboost`` needs the optional ``statract[gpboost]`` extra and is experimental.
 
 R integration lives in ``statract.r`` and needs the optional ``statract[r]`` extra plus a
 working R installation. Importing ``statract`` does not load rpy2; rpy2
@@ -35,7 +21,7 @@ from __future__ import annotations
 
 import polars as pl
 
-from .agg import (
+from .tableone.agg import (
     agg_bool_category,
     agg_bool_ci,
     agg_bool_n,
@@ -64,9 +50,8 @@ from .agg import (
     agg_ratio_pnnci,
     agg_size,
 )
-from .binary import binary_perf, decision_rates, threshold_tradeoff
-from .confusion import confusion_matrix, ratio, sm_summary2df
-from .probability import (
+from .models.binary import binary_perf, decision_rates, threshold_tradeoff
+from .models.probability import (
     brier_score,
     calibration_table,
     decision_curve_table,
@@ -75,23 +60,23 @@ from .probability import (
     plot_dca,
     write_probability_artifacts,
 )
-from .covariance import (
+from .models.covariance import (
     bootstrap_covariance,
     cluster_covariance,
     hc_covariance,
     meat,
     newey_west_covariance,
 )
-from .fit import fit_glm, fit_ols
-from .formula import model_matrix
-from .mixed import MixedFit, fit_mixed
-from .impute import MultipleImputation, impute_chained, pool
-from .gamm import GammFit, gamm
-from .gam import compare_gams, gam, smooth, tensor_interaction, tensor_smooth
-from .tree import conditional_tree
-from .htest import HTest, binom_test, mcnemar_test, p_adjust, prop_test, t_test, wilcox_test
-from .tree_plot import plot_tree
-from .linear_tests import (
+from .models.fit import fit_glm, fit_ols
+from .models.formula import model_matrix
+from .models.mixed import MixedFit, fit_mixed
+from .models.impute import MultipleImputation, impute_chained, pool
+from .models.gamm import GammFit, gamm
+from .models.gam import compare_gams, gam, smooth, tensor_interaction, tensor_smooth
+from .models.tree import conditional_tree
+from .models.htest import HTest, binom_test, mcnemar_test, p_adjust, prop_test, t_test, wilcox_test
+from .viz.tree import plot_tree
+from .models.linear_tests import (
     breusch_godfrey_test,
     breusch_pagan_test,
     coefficient_interval,
@@ -102,10 +87,10 @@ from .linear_tests import (
     ramsey_reset_test,
     wald_test,
 )
-from .matching import match_sample
-from .roc import RocCurve, RocTest, plot_roc, roc_curve, roc_test
-from .forest import plot_forest
-from .regression import (
+from .models.matching import match_sample
+from .models.roc import RocCurve, RocTest, plot_roc, roc_curve, roc_test
+from .viz.forest import plot_forest
+from .models.glmm_extras import (
     glmm_cluster_variance,
     glmm_forestplot,
     glmm_gpboost,
@@ -113,7 +98,7 @@ from .regression import (
     median_odds_ratio,
     plot_random_effects,
 )
-from .stat import (
+from .tableone.stat import (
     proportion_ci,
     cohen_d,
     format_pvalue,
@@ -147,29 +132,28 @@ from .surv import (
     survival_curve,
     write_cox_diagnostic_suite,
 )
-from .survival import (
+from .viz.km import (
     add_at_risk_counts,
     cumulative_survival_ci,
     default_at_risk_xticks,
     log_rank_pvalue,
     plot_survival,
-    plot_survival_grid,
 )
-from .tableone import (
+from .tableone.table import (
     TableOneStyle,
     tableone,
     tableone_gt_from_frame,
     tableone_raw,
     write_tableone_artifacts,
 )
-from .task_io import (
+from .report.task_io import (
     clear_task_output_dir,
     prepare_task_output,
     print_saved,
     save_frames,
     task_output_dir,
 )
-from .validation import (
+from .models.validation import (
     CalibrationCurve,
     SurvivalCalibration,
     calibrate_cox,
@@ -222,7 +206,6 @@ __all__ = [
     "binary_perf",
     "brier_score",
     "calibration_table",
-    "confusion_matrix",
     "decision_curve_table",
     "decision_rates",
     "net_benefit",
@@ -309,7 +292,6 @@ __all__ = [
     "default_at_risk_xticks",
     "log_rank_pvalue",
     "plot_survival",
-    "plot_survival_grid",
     "clear_task_output_dir",
     "prepare_task_output",
     "print_saved",

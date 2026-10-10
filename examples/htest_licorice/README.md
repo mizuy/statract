@@ -9,11 +9,12 @@
 リポジトリルートで `uv sync` のあと:
 
 ```bash
-cd examples/htest_licorice
-task all
+cd examples
+task htest_licorice:all
 # または
-PYTHONPATH=. uv run python build.py
-PYTHONPATH=. uv run python htest_licorice.py
+cd htest_licorice
+uv run python build.py
+uv run python htest_licorice.py
 ```
 
 データは R の `medicaldata` があればそこから、なければ Rdatasets の CSV、それも届かなければパッケージの `.rda` を GitHub から取って R で読みます。完全な成果物は `htest_licorice_out/`（git 管理外）。サイト掲載用は [`docs/examples/assets/htest_licorice/`](../../docs/examples/assets/htest_licorice/) です。

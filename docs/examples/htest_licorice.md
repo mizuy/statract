@@ -67,7 +67,7 @@
     ```python
     import io
     import polars as pl
-    from statract.reporting import mermaid_flowchart
+    from statract.report.artifacts import mermaid_flowchart
 
     buf = io.StringIO()
     cohort = flowchart(  # examples/support.py
@@ -121,7 +121,7 @@ RCT なので背景の群間検定は載せず、SMD だけを示します。
 
 ## 結果
 
-n=233（Sugar 116、Licorice 117）。サイト掲載は `assets/htest_licorice/`。表の数値は `task all` の成果物と同一です。
+n=233（Sugar 116、Licorice 117）。サイト掲載は `assets/htest_licorice/`。表の数値は `task htest_licorice:all` の成果物と同一です。
 
 ### 発生割合（群ごと、Clopper–Pearson 95% CI）
 
@@ -251,8 +251,8 @@ n=233（Sugar 116、Licorice 117）。サイト掲載は `assets/htest_licorice/
 ## 実行と成果物
 
 ```bash
-cd examples/htest_licorice
-task all
+cd examples
+task htest_licorice:all
 ```
 
-完全な成果物は `examples/htest_licorice/htest_licorice_out/`（git 管理外）。掲載用は `uv run python scripts/sync_example_assets.py --stem htest_licorice` で `docs/examples/assets/htest_licorice/` にコピーします。
+完全な成果物は `examples/htest_licorice/htest_licorice_out/`（git 管理外）。掲載用は `uv run python tools/sync_example_assets.py --stem htest_licorice` で `docs/examples/assets/htest_licorice/` にコピーします。

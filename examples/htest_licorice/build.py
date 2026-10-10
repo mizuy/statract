@@ -18,8 +18,9 @@ from pathlib import Path
 
 import polars as pl
 
-from support import cache, snapshot_cache
-from project import project
+from support import ProjectPath, cache, snapshot_cache
+
+project = ProjectPath(__file__)
 
 RDATASETS_CSV = "https://vincentarelbundock.github.io/Rdatasets/csv/medicaldata/licorice_gargle.csv"
 GITHUB_RDA = "https://raw.githubusercontent.com/higgi13425/medicaldata/master/data/licorice_gargle.rda"

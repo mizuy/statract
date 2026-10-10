@@ -64,30 +64,19 @@ def get_unique_path(path: Path | str, *, timezone: str | None = "UTC") -> Path:
 
 
 class ProjectPath:
-    def __init__(
-        self,
-        project_root: Path | str,
-        *,
-        data_dir: str = "data",
-        cache_dir: str = "cache",
-        snapshot_dir: str = "snapshot",
-        log_dir: str = "log",
-        save_dir: str = "save",
-    ) -> None:
-        if isinstance(project_root, str):
-            project_root = Path(project_root)
-        self.project_root = project_root.resolve()
-        self.data = self.project_root / data_dir
-        self.cache = self.project_root / cache_dir
-        self.snapshot = self.project_root / snapshot_dir
-        self.logdir_root = self.project_root / log_dir
-        self.save_root = self.project_root / save_dir
+    """Folders of one example: ``cache/``, ``snapshot/``, and ``<stem>_out/``.
 
-    def get_logdir(self, name: str) -> Path:
-        return get_unique_path(self.logdir_root / name)
+    Pass the example script's ``__file__`` (or its folder).
+    """
 
-    def get_save_dir(self, name: str) -> Path:
-        return get_unique_path(self.save_root / name)
+    def __init__(self, script: Path | str) -> None:
+        root = Path(script).resolve()
+        if root.is_file():
+            root = root.parent
+        self.project_root = root
+        self.cache = root / "cache"
+        self.snapshot = root / "snapshot"
+        self.out = root / f"{root.name}_out"
 
 
 def save_data(cache_path: Path | str, value: pl.DataFrame | dict[str, Any]) -> None:

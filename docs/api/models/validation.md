@@ -10,4 +10,4 @@ cal = calibrate_logistic(df, "y ~ age + sex", B=200, seed=1)
 plot_calibration_curve(cal, "fig_calibration.png")
 ```
 
-::: statract.validation
+::: statract.models.validation

@@ -17,8 +17,8 @@ import numpy as np
 import polars as pl
 from numba import njit
 
-from ..design import ColumnRef, Design, column_series, design_matrix
-from ..formula import is_formula, model_matrix
+from ..models.design import ColumnRef, Design, column_series, design_matrix
+from ..models.formula import is_formula, model_matrix
 from .cox import CoxFit, _EPS, _MAX_ITER, _newton
 from .spec import _drop_intercept, _subset_design, combine_strata
 

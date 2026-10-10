@@ -7,8 +7,8 @@ from dataclasses import dataclass
 import numpy as np
 import polars as pl
 
-from ..design import ColumnRef, Design, column_series
-from ..formula import _columns_in, model_matrix
+from ..models.design import ColumnRef, Design, column_series
+from ..models.formula import _columns_in, model_matrix
 
 
 @dataclass

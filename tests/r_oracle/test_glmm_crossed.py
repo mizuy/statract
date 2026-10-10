@@ -66,7 +66,7 @@ def test_variance_table_lists_every_term() -> None:
 
 
 def test_one_term_through_the_sparse_engine_equals_the_block_engine() -> None:
-    from statract._laplace import RandomTerm, fit_laplace_terms
+    from statract._core.laplace import RandomTerm, fit_laplace_terms
 
     single = fit_mixed(DATA, "y ~ x + arm + offset(log(exposure)) + (1 | e_examiner)", family="negative_binomial")
     _, codes = np.unique(DATA["e_examiner"].to_numpy(), return_inverse=True)

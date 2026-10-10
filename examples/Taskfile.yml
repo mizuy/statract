@@ -1,0 +1,97 @@
+# Run from examples/: `task surv_colon:all` for one example, `task all` for every one.
+version: '3'
+
+includes:
+  aft_rotterdam:
+    taskfile: ./Taskfile.example.yml
+    dir: ./aft_rotterdam
+    vars:
+      STEM: aft_rotterdam
+  cea_sicksicker:
+    taskfile: ./Taskfile.example.yml
+    dir: ./cea_sicksicker
+    vars:
+      STEM: cea_sicksicker
+  cif_pbc:
+    taskfile: ./Taskfile.example.yml
+    dir: ./cif_pbc
+    vars:
+      STEM: cif_pbc
+  cox_retinopathy:
+    taskfile: ./Taskfile.example.yml
+    dir: ./cox_retinopathy
+    vars:
+      STEM: cox_retinopathy
+  glmm_epil:
+    taskfile: ./Taskfile.example.yml
+    dir: ./glmm_epil
+    vars:
+      STEM: glmm_epil
+  htest_licorice:
+    taskfile: ./Taskfile.example.yml
+    dir: ./htest_licorice
+    vars:
+      STEM: htest_licorice
+  iptw_nhefs:
+    taskfile: ./Taskfile.example.yml
+    dir: ./iptw_nhefs
+    vars:
+      STEM: iptw_nhefs
+  lmm_pbcseq:
+    taskfile: ./Taskfile.example.yml
+    dir: ./lmm_pbcseq
+    vars:
+      STEM: lmm_pbcseq
+  logit_indo:
+    taskfile: ./Taskfile.example.yml
+    dir: ./logit_indo
+    vars:
+      STEM: logit_indo
+  pred_support:
+    taskfile: ./Taskfile.example.yml
+    dir: ./pred_support
+    vars:
+      STEM: pred_support
+  psm_rhc:
+    taskfile: ./Taskfile.example.yml
+    dir: ./psm_rhc
+    vars:
+      STEM: psm_rhc
+  surv_colon:
+    taskfile: ./Taskfile.example.yml
+    dir: ./surv_colon
+    vars:
+      STEM: surv_colon
+
+tasks:
+  all:
+    desc: Run every example
+    cmds:
+      - task: aft_rotterdam:all
+      - task: cea_sicksicker:all
+      - task: cif_pbc:all
+      - task: cox_retinopathy:all
+      - task: glmm_epil:all
+      - task: htest_licorice:all
+      - task: iptw_nhefs:all
+      - task: lmm_pbcseq:all
+      - task: logit_indo:all
+      - task: pred_support:all
+      - task: psm_rhc:all
+      - task: surv_colon:all
+
+  clear:
+    desc: Remove every example's cache and output
+    cmds:
+      - task: aft_rotterdam:clear
+      - task: cea_sicksicker:clear
+      - task: cif_pbc:clear
+      - task: cox_retinopathy:clear
+      - task: glmm_epil:clear
+      - task: htest_licorice:clear
+      - task: iptw_nhefs:clear
+      - task: lmm_pbcseq:clear
+      - task: logit_indo:clear
+      - task: pred_support:clear
+      - task: psm_rhc:clear
+      - task: surv_colon:clear

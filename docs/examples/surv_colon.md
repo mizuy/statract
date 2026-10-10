@@ -82,7 +82,7 @@ KM / log-rank / Cox の正本。`etype=1` で患者単位に畳み、`hue=rx` �
     ```python
     import io
     import polars as pl
-    from statract.reporting import markdown_flowchart, mermaid_flowchart
+    from statract.report.artifacts import markdown_flowchart, mermaid_flowchart
 
     buf = io.StringIO()
     cohort = raw.pp.flowchart(
@@ -149,7 +149,7 @@ $$
 
 ## 結果
 
-再発レコードに畳んだ **929 人**（Cox 完全例 911）。サイト掲載は `task all` 後の `surv_colon_out/` から `scripts/sync_example_assets.py` でコピーした同一ファイルです。
+再発レコードに畳んだ **929 人**（Cox 完全例 911）。サイト掲載は `task surv_colon:all` 後の `surv_colon_out/` から `tools/sync_example_assets.py` でコピーした同一ファイルです。
 
 ### Kaplan–Meier（`rx`、number-at-risk 付き）
 
@@ -389,10 +389,10 @@ Cox 標準化は同じモデルを絶対リスクの尺度に直したもので�
 ## 実行と成果物
 
 ```bash
-cd examples/surv_colon
-task all
+cd examples
+task surv_colon:all
 # docs 掲載用に同一ファイルをコピー:
-uv run python ../../scripts/sync_example_assets.py --stem surv_colon
+uv run python ../tools/sync_example_assets.py --stem surv_colon
 ```
 
 サイト掲載は `assets/surv_colon/` のみ（`*_out/` からのコピー）。既存の付随文書: [concept](https://github.com/mizuy/statract/blob/main/examples/surv_colon/surv_colon_concept.md) · [protocol](https://github.com/mizuy/statract/blob/main/examples/surv_colon/surv_colon_protocol.md) · [results](https://github.com/mizuy/statract/blob/main/examples/surv_colon/surv_colon_results.md) · [discussion](https://github.com/mizuy/statract/blob/main/examples/surv_colon/surv_colon_discussion.md)

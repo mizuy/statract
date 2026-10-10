@@ -6,19 +6,19 @@
 
 | 層 | モジュール | R での近いもの |
 |----|------------|----------------|
-| 設計行列 | `statract.design`、`model_matrix` | `model.matrix` の treatment contrast |
-| 線形モデル | `statract.fit` | `lm` / `glm` |
-| 共分散 | `statract.covariance` | sandwich |
-| 線形の検定 | `statract.linear_tests` | lmtest |
-| 基本の検定と区間 | `statract.htest` | `t.test`、`wilcox.test`、`mcnemar.test`、`binom.test`、`prop.test`、`p.adjust` |
+| 設計行列 | `statract.models.design`、`model_matrix` | `model.matrix` の treatment contrast |
+| 線形モデル | `statract.models.fit` | `lm` / `glm` |
+| 共分散 | `statract.models.covariance` | sandwich |
+| 線形の検定 | `statract.models.linear_tests` | lmtest |
+| 基本の検定と区間 | `statract.models.htest` | `t.test`、`wilcox.test`、`mcnemar.test`、`binom.test`、`prop.test`、`p.adjust` |
 | 生存時間 | `statract.surv` | survival |
-| マッチング | `statract.matching` | MatchIt |
-| 加法モデル | `statract.gam` | mgcv。gaussian / binomial / poisson / gamma、`cr` / `tp` / `cc` / `ps` / `re`、テンソル、`ti`、`by`、重み、offset |
-| 条件付き推論木 | `statract.tree` | `partykit::ctree`。数値の応答、二次形式、Šidák 調整 |
-| 線形・一般化線形混合 | `statract.mixed` | `lmer` / `glmer` / `glmmTMB`。ガウスとガンマは lme-python（lme-rs）、二項・ポアソン・負の二項は自前の Laplace。ゼロ過剰とハードルも |
-| 加法混合 | `statract.gamm` | `gamm4`。平滑と変量切片を一つの GLMM で |
-| 多重代入 | `statract.impute` | `mice`（pmm / logreg / polyreg）と `pool` |
-| 予測の評価 | `statract.binary`、`statract.probability` | 較正、Brier、決定曲線、閾値。図は [Figures](../viz/overview.md) |
+| マッチング | `statract.models.matching` | MatchIt |
+| 加法モデル | `statract.models.gam` | mgcv。gaussian / binomial / poisson / gamma、`cr` / `tp` / `cc` / `ps` / `re`、テンソル、`ti`、`by`、重み、offset |
+| 条件付き推論木 | `statract.models.tree` | `partykit::ctree`。数値の応答、二次形式、Šidák 調整 |
+| 線形・一般化線形混合 | `statract.models.mixed` | `lmer` / `glmer` / `glmmTMB`。ガウスとガンマは lme-python（lme-rs）、二項・ポアソン・負の二項は自前の Laplace。ゼロ過剰とハードルも |
+| 加法混合 | `statract.models.gamm` | `gamm4`。平滑と変量切片を一つの GLMM で |
+| 多重代入 | `statract.models.impute` | `mice`（pmm / logreg / polyreg）と `pool` |
+| 予測の評価 | `statract.models.binary`、`statract.models.probability` | 較正、Brier、決定曲線、閾値。図は [Figures](../viz/overview.md) |
 
 公開名は `statract` からまとめて import できます。数値の対応は [R パッケージとの対応](vs-r.md)、速度と差の一覧は [Benchmarks](benchmarks.md)、実データの一連の流れは [解析例](../examples/index.md) です。
 
@@ -193,7 +193,7 @@ print(table.select("term", "estimate", "std_error", "df", "fmi", "conf_low", "co
 
 ### 既存の関数
 
-`cumulative_survival_ci`、`log_rank_pvalue`、`plot_survival`、`tableone` はそのまま使えます。`sm_summary2df` は呼び出すと `DeprecationWarning` を出します（置き換え先は `Fit.tidy`）。マッチングは `match_sample`、係数表は `fit_glm` / `Fit.tidy` です。
+`cumulative_survival_ci`、`log_rank_pvalue`、`plot_survival`、`tableone` はそのまま使えます。`sm_summary2df` は削除しました（置き換え先は `Fit.tidy`）。マッチングは `match_sample`、係数表は `fit_glm` / `Fit.tidy` です。
 
 ## 次に読む
 

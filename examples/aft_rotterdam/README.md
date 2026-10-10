@@ -9,11 +9,12 @@ Cox、PH 検定、Weibull AFT を同じ公開コホートで通す。
 リポジトリルートで `uv sync` のあと:
 
 ```bash
-cd examples/aft_rotterdam
-task all
+cd examples
+task aft_rotterdam:all
 # または
-PYTHONPATH=. uv run python build.py
-PYTHONPATH=. uv run python aft_rotterdam.py
+cd aft_rotterdam
+uv run python build.py
+uv run python aft_rotterdam.py
 ```
 
 完全な成果物は `aft_rotterdam_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/examples/assets/aft_rotterdam/`](../../docs/examples/assets/aft_rotterdam/) にあります。

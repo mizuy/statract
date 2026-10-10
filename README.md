@@ -4,7 +4,7 @@
 
 # statract
 
-推定、生存時間、回帰、記述統計、統計図、費用効果分析（CEA）。データフレームは Polars。CSV companion や `out/` 準備は `statract.reporting` / `statract.task_io`。
+推定、生存時間、回帰、記述統計、統計図、費用効果分析（CEA）。データフレームは Polars。CSV companion や `out/` 準備は `statract.report.artifacts` / `statract.report.task_io`。
 
 核は pandas に依存しない。Kaplan–Meier は同梱の `survival_curve`（lifelines は使わない）。statsmodels にも依存しない。
 
@@ -19,7 +19,7 @@ import polars as pl
 from statract import fit_glm, fit_ols, plot_forest, survival_curve
 from statract.surv import cox_ph
 from statract.cea import calculate_icers, simulate_cohort_markov
-from statract.figure import funnel_plot
+from statract.viz.misc import funnel_plot
 ```
 
 R ブリッジは extra `r`（`statract.r`）。`import statract` では rpy2 を読まない。

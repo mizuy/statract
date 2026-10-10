@@ -73,7 +73,7 @@
     ```python
     import io
     import polars as pl
-    from statract.reporting import markdown_flowchart, mermaid_flowchart
+    from statract.report.artifacts import markdown_flowchart, mermaid_flowchart
 
     buf = io.StringIO()
     cohort = target.pp.flowchart(
@@ -292,8 +292,8 @@ $z$ は年齢、性別、ビリルビン、アルブミン、浮腫、病期。�
 ## 実行と成果物
 
 ```bash
-cd examples/cif_pbc
-task all
+cd examples
+task cif_pbc:all
 ```
 
 既存の付随文書: [concept](https://github.com/mizuy/statract/blob/main/examples/cif_pbc/cif_pbc_concept.md) · [protocol](https://github.com/mizuy/statract/blob/main/examples/cif_pbc/cif_pbc_protocol.md) · [results](https://github.com/mizuy/statract/blob/main/examples/cif_pbc/cif_pbc_results.md) · [discussion](https://github.com/mizuy/statract/blob/main/examples/cif_pbc/cif_pbc_discussion.md)

@@ -15,8 +15,8 @@ from pathlib import Path
 
 import polars as pl
 
-from support import load_parquet_dir
-from statract.reporting import write_csv_companion
+from support import ProjectPath, load_parquet_dir
+from statract.report.artifacts import write_csv_companion
 from statract import (
     agg_category,
     agg_mean_sd,
@@ -29,8 +29,10 @@ from statract import (
     plot_random_effects,
     write_tableone_artifacts,
 )
-from config import ANALYSIS_OUT, CACHE
-from project import project
+
+project = ProjectPath(__file__)
+CACHE = project.cache
+ANALYSIS_OUT = project.out
 
 RHS = "progabide + log_base2wk + age"
 

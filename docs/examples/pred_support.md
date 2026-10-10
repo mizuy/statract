@@ -75,7 +75,7 @@
     ```python
     import io
     import polars as pl
-    from statract.reporting import mermaid_flowchart
+    from statract.report.artifacts import mermaid_flowchart
 
     buf = io.StringIO()
     cohort = target.pp.flowchart(
@@ -502,8 +502,8 @@ DCA では閾値 0.30–0.50 付近で多変量の net benefit が treat-all と
 ## 実行と成果物
 
 ```bash
-cd examples/pred_support
-task all
+cd examples
+task pred_support:all
 ```
 
 既存の付随文書: [concept](https://github.com/mizuy/statract/blob/main/examples/pred_support/pred_support_concept.md) · [protocol](https://github.com/mizuy/statract/blob/main/examples/pred_support/pred_support_protocol.md) · [results](https://github.com/mizuy/statract/blob/main/examples/pred_support/pred_support_results.md) · [discussion](https://github.com/mizuy/statract/blob/main/examples/pred_support/pred_support_discussion.md)

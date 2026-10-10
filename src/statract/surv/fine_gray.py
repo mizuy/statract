@@ -10,8 +10,8 @@ import numpy as np
 import polars as pl
 from numba import njit
 
-from ..design import ColumnRef, column_series
-from ..formula import is_formula, model_matrix
+from ..models.design import ColumnRef, column_series
+from ..models.formula import is_formula, model_matrix
 from .spec import _covariate_names
 
 

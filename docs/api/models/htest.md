@@ -1,3 +1,3 @@
 # htest
 
-::: statract.htest
+::: statract.models.htest

@@ -9,11 +9,12 @@
 リポジトリルートで `uv sync` のあと:
 
 ```bash
-cd examples/logit_indo
-task all
+cd examples
+task logit_indo:all
 # または
-PYTHONPATH=. uv run python build.py
-PYTHONPATH=. uv run python logit_indo.py
+cd logit_indo
+uv run python build.py
+uv run python logit_indo.py
 ```
 
 完全な成果物は `logit_indo_out/`（git 管理外）。サイト掲載用に選んだ図・表だけが [`docs/examples/assets/logit_indo/`](../../docs/examples/assets/logit_indo/) にあります。

@@ -18,9 +18,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 
-from support import flowchart, load_parquet_dir
-from statract.reporting import mermaid_flowchart
-from statract.reporting import markdown_flowchart, write_csv_companion
+from support import ProjectPath, flowchart, load_parquet_dir
+from statract.report.artifacts import mermaid_flowchart
+from statract.report.artifacts import markdown_flowchart, write_csv_companion
 from statract import (
     agg_category,
     agg_mean_sd,
@@ -33,8 +33,10 @@ from statract import (
     survival_curve,
     write_tableone_artifacts,
 )
-from config import ANALYSIS_OUT, CACHE
-from project import project
+
+project = ProjectPath(__file__)
+CACHE = project.cache
+ANALYSIS_OUT = project.out
 
 TIMES_Y = [365.0, 730.0, 1825.0, 3650.0]
 FG_FORMULA = "Surv(time, status) ~ dp + age + sex + bili + albumin + edema + stage"

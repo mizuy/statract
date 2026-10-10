@@ -97,8 +97,8 @@ cox_ph(frame, "Surv(time, event) ~ x")
 ## 設計の前提
 
 - 核は pandas を使いません。データと結果の表は Polars です。Kaplan–Meier は自前の `survival_curve` で、lifelines は使いません。
-- 解析パイプラインの出力ディレクトリと CSV companion は `statract.reporting` と `statract.task_io` が担当します。
+- 解析パイプラインの出力ディレクトリと CSV companion は `statract.report.artifacts` と `statract.report.task_io` が担当します。
 
 ```python
-from statract.task_io import prepare_task_output, save_frames
+from statract.report.task_io import prepare_task_output, save_frames
 ```

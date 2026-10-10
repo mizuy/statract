@@ -70,7 +70,7 @@
 | Cox の内的妥当性 | `rms::validate.cph` | `validate_cox` | Dxy、R2、Slope、D、U、Q、g の各列（rtol 1e-6） |
 | Cox の較正 | `rms::calibrate.cph(cmethod="KM")`。`cph(..., surv=TRUE, time.inc=u)` | `calibrate_cox(..., u=, m=)` | 群ごとの予測生存、KM、KM.corrected、std.err、optimism（atol 1e-6） |
 | 一致指数 | `Hmisc::somers2`、`rms` の `dxy.cens` | `somers_dxy` | C と Dxy |
-| lowess | `stats::lowess` | `statract._lowess_r.lowess_r`（内部） | 既定（iter=3）、iter=0、f=0.2 と delta=0 の当てはめ |
+| lowess | `stats::lowess` | `statract._core.lowess_r.lowess_r`（内部） | 既定（iter=3）、iter=0、f=0.2 と delta=0 の当てはめ |
 
 各行は 3 標本です。許容差はサンドイッチ共分散は rtol 1e-8、Newton 法の係数は rtol 1e-6、平滑化パラメータは rtol 1e-3、edf は rtol 1e-4、REML は atol 1e-6、p 値は atol 1e-6 です。マッチの組は完全一致です。加法モデルの範囲、thin plate、テンソル、共線性、最適マッチ、full matching は `gam_scope.json`、`collinearity.json`、`match_opt_full.json` の 1 標本です。重みと offset、テンソル交互作用は `gam_weight_ti.json`、条件付き推論木は `ctree.json` の 1 標本です。ROC の 4 行は `proc.json` で、再生成は `Rscript tests/r_oracle/scripts/proc.R` です。
 
@@ -109,4 +109,4 @@ rms の行は `rms.json`（rms 6.7-1、R 4.3.3）です。再生成は `Rscript 
 
 ## 既存の名前
 
-`cumulative_survival_ci`、`log_rank_pvalue`、`plot_survival` はそのままです。`sm_summary2df` は警告付きで残しています（置き換え先は `Fit.tidy`）。マッチングは `match_sample`、回帰の係数表は `fit_glm` と `Fit.tidy` です。
+`cumulative_survival_ci`、`log_rank_pvalue`、`plot_survival` はそのままです。係数表は `Fit.tidy` です（`sm_summary2df` は削除しました）。マッチングは `match_sample`、回帰の係数表は `fit_glm` と `Fit.tidy` です。

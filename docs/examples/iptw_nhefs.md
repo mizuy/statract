@@ -72,8 +72,8 @@
     ```python
     import io
     import polars as pl
-    from statract.reporting import mermaid_flowchart
-    from statract.reporting import markdown_flowchart
+    from statract.report.artifacts import mermaid_flowchart
+    from statract.report.artifacts import markdown_flowchart
 
     buf = io.StringIO()
     cohort = target.pp.flowchart(
@@ -288,8 +288,8 @@ $W$ を 10 で切り詰め。アウトカムモデル $E[Y\mid A]$ は重み付�
 ## 実行と成果物
 
 ```bash
-cd examples/iptw_nhefs
-task all
+cd examples
+task iptw_nhefs:all
 ```
 
 既存の付随文書: [concept](https://github.com/mizuy/statract/blob/main/examples/iptw_nhefs/iptw_nhefs_concept.md) · [protocol](https://github.com/mizuy/statract/blob/main/examples/iptw_nhefs/iptw_nhefs_protocol.md) · [results](https://github.com/mizuy/statract/blob/main/examples/iptw_nhefs/iptw_nhefs_results.md) · [discussion](https://github.com/mizuy/statract/blob/main/examples/iptw_nhefs/iptw_nhefs_discussion.md)

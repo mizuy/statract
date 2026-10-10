@@ -28,8 +28,9 @@ import math
 
 import polars as pl
 
-from support import cache
-from project import project
+from support import ProjectPath, cache
+
+project = ProjectPath(__file__)
 
 # Calendar ages: 25 inclusive through 100 inclusive → 76 reward cycles,
 # 75 transitions (DARTH n_t = 100-25 = 75 with n_t+1 occupancy rows).
