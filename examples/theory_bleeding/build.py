@@ -24,7 +24,6 @@ risk, more so for lesions of 20 mm or more.
 
 import numpy as np
 import polars as pl
-
 from support import ProjectPath, save_data
 
 project = ProjectPath(__file__)

@@ -25,7 +25,7 @@
 | 予防的クリップは出血を減らすか | 因果 | 第 II 部 |
 | この患者は出血するか | 予測 | 第 III 部 |
 
-データは**シミュレーション**です。どの変数がどれに影響するか（DAG）をコードに書いて作っているので、各章で「推定した値」と「本当の値」を比べられます。作り方は [第 1 章](independent-risk-factor.md#data) と [`examples/theory_bleeding`](https://github.com/mizuy/statract/tree/main/examples/theory_bleeding) にあります。
+データは**シミュレーション**です。どの変数がどれに影響するか（DAG: directed acyclic graph、有向非巡回グラフ）をコードに書いて作っているので、各章で「推定した値」と「本当の値」を比べられます。作り方は [第 1 章](independent-risk-factor.md#data) と [`examples/theory_bleeding`](https://github.com/mizuy/statract/tree/main/examples/theory_bleeding) にあります。
 
 ## 読み方
 
@@ -52,8 +52,8 @@
 | 2. [因果推論の考え方](causal-basics.md) | Rubin の反事実モデル、交換可能性、DAG とバックドア基準、文献 | 群ごとの潜在アウトカム、DAG | `prop_test` |
 | 3. [背景を調整する方法](adjustment-methods.md) | 限定、層別化、回帰と標準化、マッチング、重み付けの比較 | 方法ごとの推定値と本当の値 | `standardize_glm`、`match_sample`、`propensity_weights` |
 | 4. [傾向スコアマッチング](propensity-score-matching.md) | バランシングスコア、傾向スコア、重なり、キャリパー、バランスの確認 | 傾向スコアの分布、Love plot、マッチ前後の Table 1 | `match_sample`、`plot_love` |
-| 5. IPTW | 重みで仮の集団を作る、g-formula と同じ量になる理由、安定化、極端な重み | 重みの分布、重み付きバランス | `propensity_weights`、`balance_table` |
-| 6. 仮定と感度分析 | 正値性、未測定交絡、E-value | 感度分析の図 | — |
+| 5. [IPTW（逆確率重み付け）](iptw.md) | 重みで仮の集団を作る、g-formula と同じ量になる理由、安定化、極端な重み、推定する対象 | 重みの分布、重み付きの Love plot、重みごとの推定値 | `propensity_weights`、`plot_love` |
+| 6. [仮定と感度分析](assumptions-sensitivity.md) | 正値性、未測定交絡、E-value、一致性 | 未測定交絡の影響、E-value の図 | `standardize_glm` |
 
 ### 第 III 部 予測と機械学習
 
@@ -85,6 +85,23 @@
 | A3. 期待値と分散 | 全体 |
 | A4. 微分と最大化 | 最尤法 |
 | A5. ベクトルと行列 | 多変量のモデル |
+
+## 略語 {#abbreviations}
+
+各章でも初出で説明します。
+
+| 略語 | 英語 | 日本語 |
+|------|------|--------|
+| ATE | average treatment effect | 平均処置効果 |
+| ATT | average treatment effect on the treated | 処置群での平均処置効果 |
+| ATO | average treatment effect in the overlap population | 重なり集団での平均処置効果 |
+| CI | confidence interval | 信頼区間 |
+| DAG | directed acyclic graph | 有向非巡回グラフ |
+| ESS | effective sample size | 有効サンプルサイズ |
+| IPTW | inverse probability of treatment weighting | 治療の逆確率による重み付け |
+| OR | odds ratio | オッズ比 |
+| RR | risk ratio | リスク比 |
+| SMD | standardized mean difference | 標準化差 |
 
 ## これから作るもの
 

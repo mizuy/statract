@@ -84,6 +84,8 @@ nav:
           - 2. 因果推論の考え方: theory/causal-basics.md
           - 3. 背景を調整する方法: theory/adjustment-methods.md
           - 4. 傾向スコアマッチング: theory/propensity-score-matching.md
+          - 5. IPTW: theory/iptw.md
+          - 6. 仮定と感度分析: theory/assumptions-sensitivity.md
       - 数学補:
           - A1. 確率、オッズ、対数: theory/math/odds-log.md
   - Examples:

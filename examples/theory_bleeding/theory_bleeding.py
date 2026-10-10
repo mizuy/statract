@@ -25,24 +25,24 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker
 import numpy as np
 import polars as pl
-
+from build import bleed_logit, potential_outcomes, simulate
 from support import ProjectPath, load_data
-from statract.report.artifacts import write_csv_companion
+
 from statract import (
-    hc_covariance,
-    match_sample,
-    plot_love,
-    propensity_weights,
-    prop_test,
-    standardize_glm,
     agg_category,
     agg_mean_sd,
     agg_median_iqr,
     fit_glm,
+    hc_covariance,
+    match_sample,
     plot_forest,
+    plot_love,
+    prop_test,
+    propensity_weights,
+    standardize_glm,
     write_tableone_artifacts,
 )
-from build import bleed_logit, potential_outcomes, simulate
+from statract.report.artifacts import write_csv_companion
 
 project = ProjectPath(__file__)
 CACHE = project.cache / "build" / "bleeding.parquet"
@@ -732,6 +732,210 @@ def ps_matching(df: pl.DataFrame, po: pl.DataFrame, matched, out: Path) -> None:
     )
 
 
+# ---- Chapter 5: IPTW; Chapter 6: assumptions and sensitivity ------------
+
+
+def _truth_weighted(po: pl.DataFrame, w: np.ndarray) -> float:
+    return float(np.sum(w * (po["y1"].to_numpy() - po["y0"].to_numpy())) / np.sum(w))
+
+
+def iptw(df: pl.DataFrame, po: pl.DataFrame, out: Path) -> None:
+    """Weights, weighted balance, and estimates under several weighting choices."""
+    ate = propensity_weights(df, PS_FORMULA, estimand="ATE")
+    w = np.asarray(ate.weights)
+    clip = df["clip"].to_numpy()
+    _write_csv(out, "ch5_weight_summary", ate.summary())
+
+    fig, ax = plt.subplots(figsize=(7, 3.6))
+    bins = np.logspace(0, np.log10(w.max() * 1.1), 40)
+    ax.hist(w[clip == 1], bins=bins, color=BLUE, alpha=0.85, label="Clipped: 1 / e")
+    ax.hist(
+        w[clip == 0],
+        bins=bins,
+        color=GRAY,
+        alpha=0.85,
+        label="Not clipped: 1 / (1 - e)",
+    )
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlabel("Weight (log scale)")
+    ax.set_ylabel("Patients (log scale)")
+    ax.set_title("ATE weights")
+    ax.legend(frameon=False)
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch5_weights.png", dpi=180)
+    plt.close(fig)
+
+    bal = (
+        ate.balance()
+        .filter(pl.col("term") != "prop.score")
+        .with_columns(
+            pl.col("term").replace(
+                {
+                    "age": "Age",
+                    "antithrombotic": "Antithrombotic",
+                    "size_mm": "Lesion size",
+                    "proximal": "Proximal colon",
+                }
+            )
+        )
+    )
+    _write_csv(out, "ch5_balance", bal)
+    plot_love(
+        bal,
+        out / "figures" / "ch5_love_plot.png",
+        threshold=0.1,
+        title="Balance before and after weighting (ATE)",
+        xlabel="Absolute standardized mean difference",
+    )
+
+    e = np.asarray(ate.ps)
+    rows = []
+    variants = [
+        ("ATE weights", "ATE", {"estimand": "ATE"}, None),
+        ("ATE, stabilized", "ATE", {"estimand": "ATE", "stabilize": True}, None),
+        (
+            "ATE, largest 1% of weights capped",
+            "ATE",
+            {"estimand": "ATE", "trim": 0.99},
+            None,
+        ),
+        ("ATT weights", "ATT", {"estimand": "ATT"}, "att"),
+        ("Overlap weights (ATO)", "ATO", {"estimand": "ATO"}, "ato"),
+    ]
+    truth_ate = float(po["y1"].mean() - po["y0"].mean())
+    truth = {
+        "ATE": truth_ate,
+        "ATT": _truth_weighted(po, clip.astype(float)),
+        "ATO": _truth_weighted(po, e * (1 - e)),
+    }
+    for name, estimand, kw, _ in variants:
+        pw = propensity_weights(df, PS_FORMULA, **kw)
+        r = _weighted_rd(df, np.asarray(pw.weights))
+        row = _rd_row(name, estimand, *r)
+        row["max_weight"] = float(np.max(pw.weights))
+        rows.append(row)
+    for k in ["ATE", "ATT", "ATO"]:
+        rows.append({**_rd_row(f"Truth: {k}", k, truth[k], 0.0), "max_weight": None})
+    table = pl.DataFrame(rows)
+    _write_csv(out, "ch5_estimates", table)
+    _effect_plot(
+        table.drop("estimand", "max_weight"),
+        out / "figures" / "ch5_estimates.png",
+        truth=truth_ate * 100,
+        title="IPTW estimates of the clip effect",
+    )
+
+
+def sensitivity(df: pl.DataFrame, out: Path) -> None:
+    """What an unmeasured confounder does, and the E-value."""
+    big = potential_outcomes(simulate(n=100_000, seed=2)).with_columns(
+        (pl.col("size_mm") >= 20).cast(pl.Int64).alias("large")
+    )
+    ate = float(big["y1"].mean() - big["y0"].mean())
+    rows = []
+    # The outcome model has the true form: clip works differently at 20 mm or more.
+    for name, formula in [
+        (
+            "All four confounders",
+            "bleed ~ clip + clip:large + age + antithrombotic + size_mm + proximal",
+        ),
+        (
+            "Antithrombotic not measured",
+            "bleed ~ clip + clip:large + age + size_mm + proximal",
+        ),
+        ("Lesion size not measured", "bleed ~ clip + age + antithrombotic + proximal"),
+    ]:
+        std = standardize_glm(big, formula, values={"clip": [0, 1]})
+        t = std.tidy(contrast="difference", reference=0).filter(pl.col("clip") == 1)
+        rows.append(
+            _rd_row(name, "ATE", float(t["estimate"][0]), float(t["std_error"][0]))
+        )
+    rows.append(_rd_row("Truth (ATE)", "ATE", ate, 0.0))
+    table = pl.DataFrame(rows)
+    _write_csv(out, "ch6_unmeasured", table)
+    _effect_plot(
+        table.drop("estimand"),
+        out / "figures" / "ch6_unmeasured.png",
+        truth=ate * 100,
+        title="When a confounder is not measured (100,000 patients)",
+    )
+
+    # E-value for the standardized risk ratio in the 3000-patient data.
+    std = standardize_glm(
+        df, "bleed ~ clip + " + " + ".join(COVARIATES), values={"clip": [0, 1]}
+    )
+    rr = std.tidy(contrast="ratio", reference=0, ci="log").filter(pl.col("clip") == 1)
+    est, lo, hi = (
+        float(rr["estimate"][0]),
+        float(rr["conf_low"][0]),
+        float(rr["conf_high"][0]),
+    )
+
+    def evalue(r: float) -> float:
+        r = 1 / r if r < 1 else r
+        return r + np.sqrt(r * (r - 1))
+
+    near = hi if est < 1 else lo
+    ev = pl.DataFrame(
+        {
+            "risk_ratio": [est],
+            "conf_low": [lo],
+            "conf_high": [hi],
+            "e_value": [evalue(est)],
+            "e_value_ci": [evalue(near) if (near < 1) == (est < 1) else 1.0],
+        }
+    )
+    _write_csv(out, "ch6_evalue", ev)
+
+    r = 1 / est if est < 1 else est
+    e_pt = evalue(est)
+    x = np.linspace(r * 1.0001, 12, 400)
+    y = r * (1 - x) / (r - x)  # RR_UY that, with RR_AU = x, just explains away r
+    fig, ax = plt.subplots(figsize=(5.6, 4.2))
+    ok = (y > 0) & (y < 12)
+    ax.plot(x[ok], y[ok], color=BLUE)
+    ax.fill_between(x[ok], y[ok], 12, color=BLUE, alpha=0.12)
+    ax.plot([e_pt], [e_pt], marker="o", color=RED)
+    ax.annotate(
+        f"E-value {e_pt:.2f}",
+        (e_pt, e_pt),
+        textcoords="offset points",
+        xytext=(8, 8),
+        color=RED,
+    )
+    ax.set_xlim(1, 12)
+    ax.set_ylim(1, 12)
+    ax.set_xlabel("Unmeasured confounder vs clip (risk ratio)")
+    ax.set_ylabel("Unmeasured confounder vs bleeding (risk ratio)")
+    ax.set_title("Strength needed to explain away the effect")
+    ax.text(7.5, 9.5, "could explain\naway the effect", ha="center", color=BLUE)
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch6_evalue.png", dpi=180)
+    plt.close(fig)
+
+    ps = np.asarray(propensity_weights(df, PS_FORMULA).ps)
+    clip = df["clip"].to_numpy()
+    pos = pl.DataFrame(
+        {
+            "range": ["PS < 0.05", "0.05 <= PS <= 0.95", "PS > 0.95"],
+            "clipped": [
+                int(((ps < 0.05) & (clip == 1)).sum()),
+                int(((ps >= 0.05) & (ps <= 0.95) & (clip == 1)).sum()),
+                int(((ps > 0.95) & (clip == 1)).sum()),
+            ],
+            "not_clipped": [
+                int(((ps < 0.05) & (clip == 0)).sum()),
+                int(((ps >= 0.05) & (ps <= 0.95) & (clip == 0)).sum()),
+                int(((ps > 0.95) & (clip == 0)).sum()),
+            ],
+        }
+    )
+    _write_csv(out, "ch6_positivity", pos)
+
+
 def _expit(x: np.ndarray) -> np.ndarray:
     return 1.0 / (1.0 + np.exp(-x))
 
@@ -752,6 +956,8 @@ def main() -> None:
     causal_effects(po, out)
     matched, _ = adjustment_methods(df, po, out)
     ps_matching(df, po, matched, out)
+    iptw(df, po, out)
+    sensitivity(df, out)
     n = df.height
     events = int(df["bleed"].sum())
     (out / "n.md").write_text(
