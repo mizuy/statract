@@ -110,6 +110,7 @@ nav:
               - effects: api/models/effects.md
               - htest: api/models/htest.md
               - matching: api/models/matching.md
+              - weighting: api/models/weighting.md
               - roc: api/models/roc.md
               - gam: api/models/gam.md
               - gamm: api/models/gamm.md
@@ -125,6 +126,7 @@ nav:
               - km: api/viz/km.md
               - effect: api/viz/effect.md
               - tree: api/viz/tree.md
+              - balance: api/viz/balance.md
               - misc: api/viz/misc.md
           - Cost-effectiveness:
               - markov: api/cea/markov.md
