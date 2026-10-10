@@ -9,9 +9,9 @@ if str(_EXAMPLES) not in sys.path:
 
 """Figures and tables for the theory text.
 
-Chapter 1: the conventional "independent risk factor" analysis.
-Chapter 2: potential outcomes and causal effects.
-Chapter 3: confounding and DAGs.
+Part I (chapter 1): the conventional "independent risk factor" analysis.
+Part II (chapters 2-6): potential outcomes, adjustment, PS matching, IPTW, sensitivity.
+Part III (chapters 7-9): prediction, overfitting, discrimination and calibration.
 """
 
 
@@ -32,14 +32,20 @@ from statract import (
     agg_category,
     agg_mean_sd,
     agg_median_iqr,
+    brier_score,
+    decision_curve_table,
     fit_glm,
     hc_covariance,
     match_sample,
     plot_forest,
     plot_love,
+    plot_roc,
     prop_test,
     propensity_weights,
+    roc_curve,
     standardize_glm,
+    threshold_tradeoff,
+    validate_logistic,
     write_tableone_artifacts,
 )
 from statract.report.artifacts import write_csv_companion
@@ -936,6 +942,363 @@ def sensitivity(df: pl.DataFrame, out: Path) -> None:
     _write_csv(out, "ch6_positivity", pos)
 
 
+# Part III: prediction. The test set is a large new sample from the same population.
+PRED_VARS = [
+    "age",
+    "male",
+    "antithrombotic",
+    "hypertension",
+    "size_mm",
+    "proximal",
+    "clip",
+]
+PRED_FORMULA = "bleed ~ " + " + ".join(PRED_VARS)
+NOISE_VARS = [f"lab{i}" for i in range(1, 11)]
+
+
+def _test_set(n: int = 50_000, seed: int = 3) -> pl.DataFrame:
+    return simulate(n=n, seed=seed)
+
+
+def _with_noise(df: pl.DataFrame, seed: int) -> pl.DataFrame:
+    """Add ten lab values that have nothing to do with bleeding."""
+    rng = np.random.default_rng(seed)
+    return df.with_columns(
+        [pl.Series(v, rng.normal(size=df.height)) for v in NOISE_VARS]
+    )
+
+
+def _auc(y: np.ndarray, p: np.ndarray) -> float:
+    return float(roc_curve(y, p).auc)
+
+
+def _slope(y: np.ndarray, p: np.ndarray) -> tuple[float, float]:
+    """Calibration intercept (with slope 1) and slope on new data."""
+    lp = np.log(p / (1 - p))
+    d = pl.DataFrame({"y": y, "lp": lp})
+    slope = float(fit_glm(d, "y ~ lp", family="binomial").tidy()["estimate"][1])
+    d = d.with_columns(pl.col("lp").alias("off"))
+    citl = float(
+        fit_glm(d, "y ~ 1", family="binomial", offset="off").tidy()["estimate"][0]
+    )
+    return citl, slope
+
+
+def prediction_model(df: pl.DataFrame, out: Path) -> None:
+    """Chapter 7: the same logistic regression, used to predict."""
+    fit = fit_glm(df, PRED_FORMULA, family="binomial")
+    _write_csv(out, "ch7_model", _labelled(_or_rows(fit, PRED_VARS)))
+    p = np.asarray(fit.predict(df, kind="response"))
+    y = df["bleed"].to_numpy()
+
+    fig, axes = plt.subplots(2, 1, figsize=(7, 4.6), sharex=True)
+    bins = np.linspace(0, max(0.4, float(p.max())), 41)
+    for ax, val, color, label in [
+        (axes[0], 0, GRAY, "No bleeding"),
+        (axes[1], 1, RED, "Delayed bleeding"),
+    ]:
+        ax.hist(p[y == val], bins=bins, color=color, alpha=0.85)
+        ax.set_ylabel("Patients")
+        ax.set_title(f"{label} (n = {int((y == val).sum())})", fontsize=10, loc="left")
+        ax.grid(alpha=0.3)
+    axes[1].set_xlabel("Predicted probability of delayed bleeding")
+    axes[1].xaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch7_predicted.png", dpi=180)
+    plt.close(fig)
+
+    patients = pl.DataFrame(
+        {
+            "patient": ["A", "B", "C"],
+            "age": [60, 75, 80],
+            "male": [1, 0, 1],
+            "antithrombotic": [0, 0, 1],
+            "hypertension": [0, 1, 1],
+            "size_mm": [8, 20, 40],
+            "proximal": [0, 1, 1],
+            "clip": [0, 1, 1],
+        }
+    )
+    risk = np.asarray(fit.predict(patients, kind="response"))
+    _write_csv(
+        out, "ch7_patients", patients.with_columns(pl.Series("risk_pct", risk * 100))
+    )
+
+    # Without the antithrombotic column, hypertension (no arrow into bleeding) picks up its signal.
+    no_at = [v for v in PRED_VARS if v != "antithrombotic"]
+    fit2 = fit_glm(df, "bleed ~ " + " + ".join(no_at), family="binomial")
+    test = _test_set()
+    yt = test["bleed"].to_numpy()
+    rows = []
+    for name, f in [("All seven", fit), ("Antithrombotic not recorded", fit2)]:
+        t = f.tidy(exponentiate=True).filter(pl.col("term") == "hypertension")
+        rows.append(
+            {
+                "model": name,
+                "hypertension_or": float(t["exp_estimate"][0]),
+                "conf_low": float(t["exp_conf_low"][0]),
+                "conf_high": float(t["exp_conf_high"][0]),
+                "p_value": float(t["p_value"][0]),
+                "auc_test": _auc(yt, np.asarray(f.predict(test, kind="response"))),
+            }
+        )
+    _write_csv(out, "ch7_hypertension", pl.DataFrame(rows))
+
+
+def overfitting(out: Path) -> None:
+    """Chapter 8: apparent vs new-patient performance, learning curve, bootstrap."""
+    test = _with_noise(_test_set(), seed=30)
+    yt = test["bleed"].to_numpy()
+    big = PRED_FORMULA + " + " + " + ".join(NOISE_VARS)
+
+    dev = _with_noise(simulate(n=400, seed=4), seed=40)
+    yd = dev["bleed"].to_numpy()
+    rows = []
+    for name, formula, k in [
+        ("7 predictors", PRED_FORMULA, len(PRED_VARS)),
+        ("7 predictors + 10 noise labs", big, len(PRED_VARS) + len(NOISE_VARS)),
+    ]:
+        fit = fit_glm(dev, formula, family="binomial")
+        pa = np.asarray(fit.predict(dev, kind="response"))
+        pt = np.asarray(fit.predict(test, kind="response"))
+        _, slope = _slope(yt, pt)
+        rows.append(
+            {
+                "model": name,
+                "n": dev.height,
+                "events": int(yd.sum()),
+                "parameters": k,
+                "events_per_parameter": yd.sum() / k,
+                "auc_apparent": _auc(yd, pa),
+                "auc_new": _auc(yt, pt),
+                "slope_new": slope,
+            }
+        )
+    _write_csv(out, "ch8_apparent", pl.DataFrame(rows))
+
+    # Learning curve: average over repeated development samples of each size.
+    sizes = [300, 600, 1200, 2400, 4800]
+    reps = 30
+    curve = []
+    for n in sizes:
+        app, new = [], []
+        for r in range(reps):
+            d = _with_noise(
+                simulate(n=n, seed=1000 + 37 * n + r), seed=5000 + 37 * n + r
+            )
+            fit = fit_glm(d, big, family="binomial")
+            app.append(
+                _auc(d["bleed"].to_numpy(), np.asarray(fit.predict(d, kind="response")))
+            )
+            new.append(_auc(yt, np.asarray(fit.predict(test, kind="response"))))
+        curve.append(
+            {
+                "n": n,
+                "auc_apparent": np.mean(app),
+                "auc_new": np.mean(new),
+                "reps": len(app),
+            }
+        )
+    curve = pl.DataFrame(curve)
+    _write_csv(out, "ch8_learning", curve)
+    best = _auc(
+        yt,
+        _expit(
+            bleed_logit(
+                *[
+                    test[c].to_numpy()
+                    for c in ["age", "antithrombotic", "size_mm", "proximal", "clip"]
+                ]
+            )
+        ),
+    )
+    fig, ax = plt.subplots(figsize=(6.4, 4.2))
+    ax.plot(
+        curve["n"],
+        curve["auc_apparent"],
+        marker="o",
+        color=GRAY,
+        label="Same patients (apparent)",
+    )
+    ax.plot(curve["n"], curve["auc_new"], marker="o", color=BLUE, label="New patients")
+    ax.axhline(best, color=RED, linestyle=":", label=f"True model ({best:.2f})")
+    ax.set_xscale("log")
+    ax.set_xticks(sizes)
+    ax.set_xticklabels([str(s) for s in sizes])
+    ax.xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+    ax.set_xlabel("Patients used to build the model")
+    ax.set_ylabel("C statistic (AUC)")
+    ax.set_title("17 candidate predictors, about 4.5% bleed")
+    ax.legend(frameon=False)
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch8_learning.png", dpi=180)
+    plt.close(fig)
+
+    # Bootstrap optimism on the 400-patient sample, checked against the new patients.
+    val = validate_logistic(dev, big, B=200, seed=8)
+    dxy = val.filter(pl.col("index") == "Dxy")
+    slope = val.filter(pl.col("index") == "Slope")
+    fit = fit_glm(dev, big, family="binomial")
+    pt = np.asarray(fit.predict(test, kind="response"))
+    _, slope_new = _slope(yt, pt)
+    boot = pl.DataFrame(
+        {
+            "index": ["C statistic", "Calibration slope"],
+            "apparent": [float(dxy["index_orig"][0]) / 2 + 0.5, 1.0],
+            "optimism": [float(dxy["optimism"][0]) / 2, float(slope["optimism"][0])],
+            "corrected": [
+                float(dxy["index_corrected"][0]) / 2 + 0.5,
+                float(slope["index_corrected"][0]),
+            ],
+            "new_patients": [_auc(yt, pt), slope_new],
+        }
+    )
+    _write_csv(out, "ch8_bootstrap", boot)
+
+
+def _decile_table(y: np.ndarray, p: np.ndarray, model: str) -> pl.DataFrame:
+    """Observed rate and mean predicted risk in tenths of predicted risk."""
+    edges = np.quantile(p, np.linspace(0, 1, 11))
+    group = np.clip(np.searchsorted(edges, p, side="right") - 1, 0, 9)
+    d = pl.DataFrame({"g": group, "y": y, "p": p})
+    return (
+        d.group_by("g")
+        .agg(
+            pl.len().alias("n"),
+            pl.col("p").mean().alias("pred_mean"),
+            pl.col("y").mean().alias("obs_rate"),
+        )
+        .sort("g")
+        .with_columns(pl.lit(model).alias("model"), (pl.col("g") + 1).alias("tenth"))
+        .select("model", "tenth", "n", "pred_mean", "obs_rate")
+    )
+
+
+def discrimination_calibration(df: pl.DataFrame, out: Path) -> None:
+    """Chapter 9: ROC, calibration, Brier score and decision curves on new patients."""
+    test = _test_set()
+    yt = test["bleed"].to_numpy()
+    full = fit_glm(df, PRED_FORMULA, family="binomial")
+    simple = fit_glm(df, "bleed ~ age + antithrombotic", family="binomial")
+    p_full = np.asarray(full.predict(test, kind="response"))
+    p_simple = np.asarray(simple.predict(test, kind="response"))
+
+    rocs = {
+        "Seven predictors": roc_curve(yt, p_full),
+        "Age + antithrombotic": roc_curve(yt, p_simple),
+    }
+    plot_roc(rocs, out / "figures" / "ch9_roc.png", title="ROC curve in new patients")
+
+    # Another hospital: same patients and same effects, but a higher baseline risk.
+    rng = np.random.default_rng(9)
+    lp_true = bleed_logit(
+        *[
+            test[c].to_numpy()
+            for c in ["age", "antithrombotic", "size_mm", "proximal", "clip"]
+        ]
+    )
+    y_other = rng.binomial(1, _expit(lp_true + 0.8))
+
+    cal = pl.concat(
+        [
+            _decile_table(yt, p_full, "Same population"),
+            _decile_table(y_other, p_full, "Hospital with higher risk"),
+        ]
+    )
+    _write_csv(out, "ch9_calibration", cal)
+    fig, ax = plt.subplots(figsize=(5.4, 5.0))
+    lim = 0.22
+    ax.plot([0, lim], [0, lim], color=GRAY, linestyle="--", label="Ideal")
+    for name, color in [("Same population", BLUE), ("Hospital with higher risk", RED)]:
+        part = cal.filter(pl.col("model") == name)
+        ax.plot(
+            part["pred_mean"], part["obs_rate"], marker="o", color=color, label=name
+        )
+    ax.set_xlim(0, lim)
+    ax.set_ylim(0, lim)
+    ax.xaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
+    ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
+    ax.set_xlabel("Predicted risk (mean of each tenth)")
+    ax.set_ylabel("Observed bleeding rate")
+    ax.set_title("Calibration in new patients")
+    ax.legend(frameon=False, loc="upper left")
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch9_calibration.png", dpi=180)
+    plt.close(fig)
+
+    rows = []
+    for name, y, p in [
+        ("Seven predictors, same population", yt, p_full),
+        ("Age + antithrombotic, same population", yt, p_simple),
+        ("Seven predictors, hospital with higher risk", y_other, p_full),
+    ]:
+        citl, slope = _slope(y, p)
+        rows.append(
+            {
+                "model": name,
+                "auc": _auc(y, p),
+                "mean_predicted": float(p.mean()),
+                "observed": float(y.mean()),
+                "calibration_in_the_large": citl,
+                "slope": slope,
+                "brier": brier_score(y, p),
+                "brier_null": brier_score(y, np.full(len(y), y.mean())),
+            }
+        )
+    _write_csv(out, "ch9_metrics", pl.DataFrame(rows))
+
+    trade = threshold_tradeoff(
+        yt, p_full, thresholds=np.array([0.02, 0.05, 0.10, 0.20])
+    )
+    _write_csv(out, "ch9_thresholds", trade)
+
+    th = np.linspace(0.01, 0.20, 20)
+    dca = pl.concat(
+        [
+            decision_curve_table(yt, p_full, thresholds=th, model="Seven predictors"),
+            decision_curve_table(
+                yt, p_simple, thresholds=th, model="Age + antithrombotic"
+            ),
+        ],
+        how="vertical_relaxed",
+    )
+    _write_csv(out, "ch9_dca", dca)
+    fig, ax = plt.subplots(figsize=(6.4, 4.2))
+    first = dca.filter(pl.col("model") == "Seven predictors").sort("threshold")
+    for name, color in [
+        ("Seven predictors", BLUE),
+        ("Age + antithrombotic", "#EFC000"),
+    ]:
+        part = dca.filter(pl.col("model") == name).sort("threshold")
+        ax.plot(part["threshold"], part["net_benefit"], color=color, label=name)
+    ax.plot(
+        first["threshold"],
+        first["treat_all"],
+        color=GRAY,
+        linestyle="--",
+        label="Admit everyone",
+    )
+    ax.plot(
+        first["threshold"],
+        first["treat_none"],
+        color="black",
+        linestyle=":",
+        label="Admit no one",
+    )
+    ax.set_ylim(-0.01, 0.04)
+    ax.xaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
+    ax.set_xlabel("Threshold risk for admission")
+    ax.set_ylabel("Net benefit")
+    ax.set_title("Decision curve in new patients")
+    ax.legend(frameon=False)
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch9_dca.png", dpi=180)
+    plt.close(fig)
+
+
 def _expit(x: np.ndarray) -> np.ndarray:
     return 1.0 / (1.0 + np.exp(-x))
 
@@ -958,6 +1321,9 @@ def main() -> None:
     ps_matching(df, po, matched, out)
     iptw(df, po, out)
     sensitivity(df, out)
+    prediction_model(df, out)
+    overfitting(out)
+    discrimination_calibration(df, out)
     n = df.height
     events = int(df["bleed"].sum())
     (out / "n.md").write_text(

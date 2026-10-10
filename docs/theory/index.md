@@ -59,9 +59,9 @@
 
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
-| 7. 予測モデルとしてのロジスティック回帰 | 同じ式を予測に使う、係数より予測値 | 予測確率の分布 | `fit_glm` |
-| 8. 過学習と汎化 | 学習・検証・テスト、交差検証、ブートストラップ | 学習曲線、楽観度 | `validate_logistic` |
-| 9. 識別と較正 | ROC と C 統計量、較正曲線、Brier、決定曲線 | ROC、較正曲線、DCA | `roc_curve`、`plot_roc`、`calibrate_logistic`、`plot_calibration`、`plot_dca` |
+| 7. [予測モデルとしてのロジスティック回帰](prediction-model.md) | 同じ式を予測に使う、係数より予測確率、因果でない変数も予測に役立つ | 予測確率の分布 | `fit_glm` |
+| 8. [過学習と汎化](overfitting.md) | 見かけの成績、学習曲線、例数の目安、交差検証、ブートストラップ | 学習曲線、楽観度 | `validate_logistic` |
+| 9. [識別と較正](discrimination-calibration.md) | ROC と C 統計量、較正の図と切片・傾き、Brier、決定曲線 | ROC、較正の図、DCA | `roc_curve`、`plot_roc`、`threshold_tradeoff`、`decision_curve_table` |
 | 10. 正則化 | ridge、LASSO、変数選択の代わりに | 係数の縮み（パス図） | statract に未実装（numpy で図示） |
 | 11. 木とアンサンブル | 決定木、ランダムフォレスト、勾配ブースティング | 木の図 | `conditional_tree`、`plot_tree` |
 | 12. ニューラルネットワークへ | ロジスティック回帰を重ねる、PRML の見方 | 決定境界 | — |
@@ -93,15 +93,20 @@
 | 略語 | 英語 | 日本語 |
 |------|------|--------|
 | ATE | average treatment effect | 平均処置効果 |
-| ATT | average treatment effect on the treated | 処置群での平均処置効果 |
 | ATO | average treatment effect in the overlap population | 重なり集団での平均処置効果 |
+| ATT | average treatment effect on the treated | 処置群での平均処置効果 |
+| AUC | area under the curve | 曲線下面積（ROC 曲線の下の面積） |
 | CI | confidence interval | 信頼区間 |
 | DAG | directed acyclic graph | 有向非巡回グラフ |
+| DCA | decision curve analysis | 決定曲線分析 |
+| EPV | events per variable | 1 変数あたりのイベント数 |
 | ESS | effective sample size | 有効サンプルサイズ |
 | IPTW | inverse probability of treatment weighting | 治療の逆確率による重み付け |
 | OR | odds ratio | オッズ比 |
+| ROC | receiver operating characteristic | 受信者動作特性 |
 | RR | risk ratio | リスク比 |
 | SMD | standardized mean difference | 標準化差 |
+| TRIPOD | Transparent Reporting of a multivariable prediction model for Individual Prognosis Or Diagnosis | 予測モデル研究の報告指針 |
 
 ## これから作るもの
 

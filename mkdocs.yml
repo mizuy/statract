@@ -86,6 +86,10 @@ nav:
           - 4. 傾向スコアマッチング: theory/propensity-score-matching.md
           - 5. IPTW: theory/iptw.md
           - 6. 仮定と感度分析: theory/assumptions-sensitivity.md
+      - 第 III 部 予測:
+          - 7. 予測モデルとしてのロジスティック回帰: theory/prediction-model.md
+          - 8. 過学習と汎化: theory/overfitting.md
+          - 9. 識別と較正: theory/discrimination-calibration.md
       - 数学補:
           - A1. 確率、オッズ、対数: theory/math/odds-log.md
   - Examples:
