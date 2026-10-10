@@ -584,7 +584,7 @@ def plot_survival(
     ax: Any = None,
     labels: list[str] | dict[str, str] | None = None,
     style: SurvivalPlotStyle = "color",
-    **kwargs,
+    **kwargs: Any,
 ) -> Any:
     """Plot Kaplan–Meier curves with publication-ready survminer-like defaults.
 

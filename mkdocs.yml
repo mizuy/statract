@@ -69,6 +69,7 @@ plugins:
 nav:
   - Guide:
       - Home: index.md
+      - 手法の選び方: guide/methods.md
       - Table One: tableone/overview.md
       - Models:
           - Overview: models/overview.md

@@ -87,6 +87,7 @@ cox_ph(frame, "Surv(time, event) ~ x")
 
 | 目的 | ページ |
 |------|--------|
+| どの手法を使えばよいか知りたい | [手法の選び方](guide/methods.md) |
 | 回帰や生存時間を動かしたい | [Models](models/overview.md)（Quickstart つき）、式の書き方は [Wilkinson 式](models/formula.md) |
 | 論文用の図を作りたい | [Figures](viz/overview.md) |
 | 費用効果分析をしたい | [Cost-effectiveness](cea/overview.md)（Quickstart つき） |
