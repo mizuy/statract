@@ -2,7 +2,7 @@
 
 g-formula（第 3、5 章）、標準誤差（第 12、13 章）など、本文のあちこちで使う記号をまとめます。
 
-[← 目次](../index.md) · [第 5 章](../iptw.md) · [第 13 章](../likelihood.md)
+[← 目次](../index.md) · [第 3 章](../adjustment-methods.md) · [第 5 章](../iptw.md) · [第 12 章](../probability-model.md) · [第 13 章](../likelihood.md)
 
 ## 期待値
 
@@ -71,13 +71,13 @@ $$
 \mathrm{Var}(Y_1 + Y_2 + \cdots + Y_n) = \mathrm{Var}(Y_1) + \mathrm{Var}(Y_2) + \cdots + \mathrm{Var}(Y_n)
 $$
 
-第 12 章で、同じ 3000 人に硬貨を投げ直したとき、出血の人数は平均 132 人、標準偏差 11 人でした。これは
+第 12 章で、同じ 3000 人に硬貨を投げ直したとき、出血の人数は平均 132 人、95% の範囲は 111–154 人でした。これを分散の足し算で計算すると
 
 $$
 \mathrm{E}[\text{人数}] = \sum_i p_i \approx 131.7, \qquad \mathrm{SD}[\text{人数}] = \sqrt{\sum_i p_i (1 - p_i)} \approx 11.1
 $$
 
-から計算した値とぴったり合います（[CSV](../../examples/assets/theory_bleeding/ch12_replicates.csv)）。
+となります。平均 ± 1.96 × 標準偏差は 110–153 人で、投げ直しの 95% の範囲とよく合います（[CSV](../../examples/assets/theory_bleeding/ch12_replicates.csv)）。
 
 独立でないときは、**共分散** $\mathrm{Cov}(Y_1, Y_2)$ の 2 倍が加わります。
 
