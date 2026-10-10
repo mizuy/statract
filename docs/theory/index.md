@@ -52,7 +52,7 @@
 | 2. [因果推論の考え方](causal-basics.md) | Rubin の反事実モデル、交換可能性、DAG とバックドア基準、文献 | 群ごとの潜在アウトカム、DAG | `prop_test` |
 | 3. [背景を調整する方法](adjustment-methods.md) | 限定、層別化、回帰と標準化、マッチング、重み付けの比較 | 方法ごとの推定値と本当の値 | `standardize_glm`、`match_sample`、`propensity_weights` |
 | 4. [傾向スコアマッチング](propensity-score-matching.md) | バランシングスコア、傾向スコア、重なり、キャリパー、バランスの確認 | 傾向スコアの分布、Love plot、マッチ前後の Table 1 | `match_sample`、`plot_love` |
-| 5. IPTW | 重みで仮の集団を作る、安定化、極端な重み | 重みの分布、重み付きバランス | `propensity_weights`、`balance_table` |
+| 5. IPTW | 重みで仮の集団を作る、g-formula と同じ量になる理由、安定化、極端な重み | 重みの分布、重み付きバランス | `propensity_weights`、`balance_table` |
 | 6. 仮定と感度分析 | 正値性、未測定交絡、E-value | 感度分析の図 | — |
 
 ### 第 III 部 予測と機械学習
