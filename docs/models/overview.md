@@ -8,11 +8,16 @@
 |----|------------|----------------|
 | 設計行列 | `statract.models.design`、`model_matrix` | `model.matrix` の treatment contrast |
 | 線形モデル | `statract.models.fit` | `lm` / `glm` |
+| リスク比 | `statract.models.risk` | 修正ポアソン（`glm` + `sandwich`）、log-binomial |
+| 順序ロジスティック | `statract.models.ordinal` | `MASS::polr`、`ordinal::clm`、Brant 検定 |
+| 多項ロジスティック | `statract.models.multinom` | `nnet::multinom` |
 | 共分散 | `statract.models.covariance` | sandwich |
+| GLM の回帰標準化 | `statract.models.standardize` | `marginaleffects::avg_comparisons`、`stdReg2::standardize_glm` |
 | 線形の検定 | `statract.models.linear_tests` | lmtest |
 | 基本の検定と区間 | `statract.models.htest` | `t.test`、`wilcox.test`、`mcnemar.test`、`binom.test`、`prop.test`、`p.adjust` |
-| 生存時間 | `statract.surv` | survival |
+| 生存時間 | `statract.surv` | survival。RMST の 2 群比較は `survRM2::rmst2` |
 | マッチング | `statract.models.matching` | MatchIt |
+| 逆確率重み付け | `statract.models.weighting` | WeightIt（`method="glm"`）、cobalt の `bal.tab` と `love.plot` |
 | 加法モデル | `statract.models.gam` | mgcv。gaussian / binomial / poisson / gamma、`cr` / `tp` / `cc` / `ps` / `re`、テンソル、`ti`、`by`、重み、offset |
 | 条件付き推論木 | `statract.models.tree` | `partykit::ctree`。数値の応答、二次形式、Šidák 調整 |
 | 線形・一般化線形混合 | `statract.models.mixed` | `lmer` / `glmer` / `glmmTMB`。ガウスとガンマは lme-python（lme-rs）、二項・ポアソン・負の二項は自前の Laplace。ゼロ過剰とハードルも |
@@ -70,6 +75,12 @@ print(same.tidy())
 
 二値の結果は `fit_glm(..., family="binomial")` です。`predict(kind="response")` は成功確率、`kind="link"` はロジットです。ポアソンは `family="poisson"`、ガンマは `family="gamma"`（リンクは逆数）です。
 
+GLM での回帰標準化は `standardize_glm(frame, "y ~ trt * age + sex", values={"trt": [0, 1]})` です。曝露を各値に置き換えて全員の予測確率を平均します。`.tidy()` が調整リスク、`.tidy(contrast="difference", reference=0)` がリスク差です。`contrast="ratio"` はリスク比、`"odds_ratio"` はオッズ比で、`ci="log"` で対数スケールの区間になります。既定の分散は共変量を固定した delta 法で、`marginaleffects::avg_comparisons` と同じ値です。`vcov="HC3"` や `cluster="site"` で係数の分散をサンドイッチにします。`covariates="sampled"` は共変量のばらつきも含む `stdReg2::standardize_glm` 型のサンドイッチです。`weights=` は GLM の重みで、平均にも使います。ポアソンは `family="poisson"` で、`offset(log(years))` を含められます。
+
+リスク比は `fit_risk_ratio(frame, "event ~ arm + age")` です。既定は修正ポアソン（Zou 2004）で、SE は HC0 のサンドイッチです。施設などのクラスタは `cluster="site"` です。log-binomial は `method="log-binomial"` で、収束しないときは `start=` を渡します。`tidy()` の推定値と区間はリスク比です。
+
+順序のある結果（重症度など）は `ordinal_regression(frame, "grade ~ age + stage", levels=["none", "mild", "severe"])` です。`polr` と `clm` の比例オッズモデルで、`tidy(exponentiate=True)` が累積オッズ比です。比例オッズの仮定は `brant_test(fit)` で調べます。順序のない 3 水準以上の結果は `multinomial_regression(frame, "subtype ~ age + sex")` です（`nnet::multinom`）。最初の水準が基準で、`tidy(exponentiate=True)` が相対リスク比です。両方とも `probabilities()` が水準ごとの予測確率を返します。
+
 ### 生存時間
 
 ```python
@@ -95,6 +106,10 @@ print(model.tidy())
 
 競合リスクの累積発生と Gray 検定は `cumulative_incidence(frame, "time", "status", by="arm")` です（`cmprsk::cuminc`）。`.tests` が原因ごとの検定、`.at([1, 3])` が時点の値です。`crr` と同じ Fine–Gray 回帰は `fine_gray_regression(frame, "Surv(time, status) ~ x + arm", cause=1)` で、SE は打ち切り分布の推定を含むサンドイッチです。`.predict(new)` が共変量ごとの CIF を返します。
 
+連続変数の非線形は、式に `rcs(age, 4)`（`rms::rcs`）、`ns(age, df = 3)`、`bs(age, df = 5)` と書きます。`spline_test(fit, "rcs(age, 4)")` が非線形の検定、`spline_effect(fit, data, "age", at=..., reference=60, exponentiate=True)` が基準値に対する OR や HR の曲線、`plot_spline_effect` がその図です。詳しくは [Wilkinson 式](formula.md#スプライン) です。
+
+制限付き平均生存時間（RMST）の 2 群比較は `restricted_mean_survival(frame, "time", "event", by="arm", tau=5)` です（`survRM2::rmst2`）。`.arms` が群ごとの RMST と RMTL、`.contrasts` が差、RMST 比、RMTL 比です。
+
 Cox モデルでの回帰標準化は `standardize_cox(frame, "Surv(time, status) ~ ope * age + sex", values={"ope": [0, 1]}, times=[1, 3, 5])` です（`stdReg2::standardize_coxph`）。曝露を各値に置き換えた生存の標本平均で、分散は共変量のばらつきを含むサンドイッチです。`.tidy()` が曲線、`.tidy(contrast="difference", reference=0)` が差です。`measure="rmean"` は 0/1 の曝露での制限付き平均生存時間です。R との違いは [vs R](vs-r.md) の「stdReg2 と違うところ」 にあります。
 
 ### マッチング
@@ -113,6 +128,36 @@ print(matched.balance())  # 行は distance と各共変量
 ```
 
 距離は `logit` のほか `mahalanobis`、`euclidean`、`scaled_euclidean`、`robust_mahalanobis` です。完全一致は `method="exact"`、粗化完全一致は `method="cem"` です。
+
+### 逆確率重み付け
+
+`propensity_weights` は二値の処置の IPTW です（`WeightIt::weightit(method = "glm")`）。傾向スコアは `fit_glm` のロジスティック回帰です。`estimand` は `ATE`、`ATT`、`ATC`、`ATO` です。
+
+```python
+from statract import cox_ph, fit_glm, hc_covariance, propensity_weights
+
+ipw = propensity_weights(frame, "treat ~ age + sex + stage", estimand="ATE", stabilize=True, trim=0.99)
+print(ipw.balance(threshold=0.1))  # cobalt::bal.tab と同じ行と列
+print(ipw.effective_sample_size())  # Kish の有効標本サイズ
+ipw.love_plot("love.png")  # cobalt::love.plot
+```
+
+- 重み: ATE は処置群 `1/e`、対照群 `1/(1-e)`。ATT は処置群 1、対照群 `e/(1-e)`。ATC は処置群 `(1-e)/e`、対照群 1。ATO は処置群 `1-e`、対照群 `e`。
+- `stabilize=True` は自分の群の割合を掛けます。WeightIt と同じく ATE だけです。
+- `trim` は `WeightIt::trim` です。1 未満は分位点で、上側だけを切ります。1 以上の整数は切る個数です。`trim_lower=True` で下側も切ります。ATT は処置群、ATC は対照群の重みを動かしません。`(low, high)` は固定の上下限で、これは WeightIt にありません。
+- `balance()` の連続変数は SMD です。分母は重みなしの標準偏差で、ATE と ATO は `sqrt((s1² + s0²) / 2)`、ATT は処置群、ATC は対照群です。2 値は割合の差です（`binary="std"` で SMD）。3 水準以上の因子は全水準を出します。
+- 任意の重み（マッチングの重みなど）の表は `balance_table(frame, "treat ~ ...", weights="w")` です。
+
+アウトカムのモデルは既存の関数に重みを渡します。重みは推定したものなので、分散は頑健分散にします。傾向スコアの推定を無視した頑健分散は、ATE では保守的です。
+
+```python
+frame = ipw.frame()  # ps と weights の列。式で落ちた行は null
+fit = fit_glm(frame, "death ~ treat", family="binomial", weights="weights")
+se = hc_covariance(fit, "HC0")  # R の sandwich::vcovHC(type = "HC0")
+cox = cox_ph(frame, "Surv(time, status) ~ treat", weights="weights")  # 整数でない重みは頑健分散
+```
+
+`sampling_weights=` は WeightIt の `s.weights` です。傾向スコアのモデルと表に入ります。`weights` 列には入らないので、アウトカムのモデルには積を渡します。
 
 ### 加法モデル
 
@@ -193,7 +238,7 @@ print(table.select("term", "estimate", "std_error", "df", "fmi", "conf_low", "co
 
 ### 既存の関数
 
-`cumulative_survival_ci`、`log_rank_pvalue`、`plot_survival`、`tableone` はそのまま使えます。`sm_summary2df` は削除しました（置き換え先は `Fit.tidy`）。マッチングは `match_sample`、係数表は `fit_glm` / `Fit.tidy` です。
+`cumulative_survival_ci`、`log_rank_pvalue`、`plot_survival`、`tableone` はそのまま使えます。`sm_summary2df` は削除しました（置き換え先は `Fit.tidy`）。マッチングは `match_sample`、逆確率重み付けは `propensity_weights`、係数表は `fit_glm` / `Fit.tidy` です。
 
 ## 次に読む
 

@@ -60,11 +60,13 @@ built.offset         # offset() の和。無ければ None
 | `center` `scale` `standardize` | 非対応 | |
 | `lag` | 非対応 | |
 | `poly` | 非対応 | 二乗は `I(x^2)` |
-| `bs` `cs` `cr` `cc` `te` | 非対応 | 平滑は式に書かず `smooth` |
+| `ns(x, df = 3)` `bs(x, df = 5)` | 対応 | R の `splines`。引数は `df`、`knots = c(...)`、`intercept`、`Boundary.knots`、`bs` は `degree` も。位置引数も R の順。節点は式を最初に評価したときの欠損でない値で決め、予測でも同じ節点を使う（R の `makepredictcall`）。列名は `ns(x, df = 3)1` のように R と同じ |
+| `rcs(x, 4)` `rcs(x, c(20, 40, 60))` | 対応 | `rms::rcs`（`Hmisc::rcspline.eval`、`norm=2`）。節点の数か位置。既定は 5 個。列名は `rcs(x, 4)x`、`rcs(x, 4)x'` |
+| `cs` `cr` `cc` `te` | 非対応 | 罰則つき平滑は式に書かず `smooth` |
 | `hashed` | 非対応 | |
 | `log2` `exp2` `exp10` | 非対応 | |
 | `np` と、呼び出し側の関数 | 非対応 | 名前空間を式へ渡す口は無い |
-| 引数のカンマ | 一部 | `Surv(time, status)` と `strata(a, b)` の区切り。`poly(x, 2)` や `log(x, 10)` は非対応 |
+| 引数のカンマと `名前 = 値` | 一部 | `Surv(time, status)`、`strata(a, b)`、スプラインの引数。スプラインの引数は数値、`c(...)`、`TRUE` / `FALSE` だけ。`poly(x, 2)` や `log(x, 10)` は非対応 |
 | `\|\|` | 非対応 | `(x \|\| g)` は読める。`fit_mixed` は無相関の傾きとしてエラーにする |
 | `s` | 非対応 | 平滑は `smooth` |
 
@@ -225,3 +227,16 @@ built.offset         # offset() の和。無ければ None
 | `response_name` | 左辺が列名のときの名前。関数のときは `None` |
 
 変量効果は `fit_mixed` に渡します（ガウスも二項 `family="binomial"` も同じ式）。固定効果だけなら `fit_glm` を使ってください。実験的な `glmm_gpboost` は optional extra で、同じ `model_matrix` 展開を使います。
+
+## スプライン
+
+```python
+from statract import cox_ph, fit_glm, plot_spline_effect, spline_effect, spline_test
+
+fit = fit_glm(data, "death ~ rcs(age, 4) + sex", family="binomial")
+spline_test(fit, "rcs(age, 4)")  # 項全体と非線形部分の Wald カイ二乗（anova.rms）
+curve = spline_effect(fit, data, "age", at=range(40, 86), reference=60, exponentiate=True)
+plot_spline_effect(curve)  # 60 歳を基準にした OR の曲線と 95% 区間
+```
+
+`spline_effect` は `rms::contrast(fit, list(age = at), list(age = 60))` と同じ数値です。ほかの変数は `datadist` と同じく、数値は中央値、因子は最も多い水準に固定します（`adjust=` で変えられます）。Cox でも同じ関数で HR の曲線になります。`spline_test` の非線形部分は `rcs` だけです。交互作用の列は項に含めません。
