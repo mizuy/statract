@@ -145,7 +145,7 @@ ipw.love_plot("love.png")  # cobalt::love.plot
 - 重み: ATE は処置群 `1/e`、対照群 `1/(1-e)`。ATT は処置群 1、対照群 `e/(1-e)`。ATC は処置群 `(1-e)/e`、対照群 1。ATO は処置群 `1-e`、対照群 `e`。
 - `stabilize=True` は自分の群の割合を掛けます。WeightIt と同じく ATE だけです。
 - `trim` は `WeightIt::trim` です。1 未満は分位点で、上側だけを切ります。1 以上の整数は切る個数です。`trim_lower=True` で下側も切ります。ATT は処置群、ATC は対照群の重みを動かしません。`(low, high)` は固定の上下限で、これは WeightIt にありません。
-- `balance()` の連続変数は SMD です。分母は重みなしの標準偏差で、ATE と ATO は `sqrt((s1² + s0²) / 2)`、ATT は処置群、ATC は対照群です。2 値は割合の差です（`binary="std"` で SMD）。3 水準以上の因子は全水準を出します。
+- `balance()` の差は SMD です。分母は重み付け前の pooled SD `sqrt((s1² + s0²) / 2)` で、推定対象によらず、重み付け前と後で同じ値です。2 値も分散 `p(1-p)` で標準化します。cobalt の既定（2 値は割合の差、ATT は処置群の SD など）は `binary="raw"` と `sd_denominator=` で再現できます（[実装メモ](../api/models/weighting.md#smd)）。3 水準以上の因子は全水準を出します。マッチングの `matched.balance()` も同じ定義です。
 - 任意の重み（マッチングの重みなど）の表は `balance_table(frame, "treat ~ ...", weights="w")` です。
 
 アウトカムのモデルは既存の関数に重みを渡します。重みは推定したものなので、分散は頑健分散にします。傾向スコアの推定を無視した頑健分散は、ATE では保守的です。

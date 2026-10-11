@@ -127,7 +127,7 @@ $$
     | meanbp1 | -0.4869 | 0.007307 | 5735 | 0.9878 |
     | pafi1 | -0.4566 | -0.01521 | 5735 | 1.023 |
 
-    抜粋。完全表: [CSV](assets/psm_rhc/balance.csv)
+    抜粋。完全表: [CSV](assets/psm_rhc/balance.csv)。この表は分母を処置群の標準偏差とした旧版の既定で作りました。現在の既定（調整前の pooled SD）で作り直すと値が変わります。旧版に近い値は `balance(sd_denominator="treated")` です。
 
 === "コード"
 

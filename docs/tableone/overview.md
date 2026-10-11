@@ -30,6 +30,6 @@ tableone(
 
 `add_pvalue=True` は群間の P 値の列を足します。`statfunc` を省くと、カテゴリは Fisher、中央値の集計（`agg_median_iqr` など）は Kruskal–Wallis、それ以外の数値は ANOVA です。`statfunc="kruskal"` のように名前でも選べます。`hue` に列を複数渡すと、表の列と同じ組み合わせの群で検定します。2×2 より大きい表の Fisher はモンテカルロで、seed を固定しているので同じ表は同じ P 値になります。
 
-`add_smd=True` は R の tableone と同じ標準化差（SMD）の列を足します。数値は 2 群の平均差を標本分散の平均の平方根で割ったもの、カテゴリは Yang と Dalton の多項版です。3 群以上では全ペアの平均です。単体の関数は `standardized_difference` です。
+`add_smd=True` は R の tableone と同じ標準化差（SMD）の列を足します。数値は 2 群の平均差を標本分散の平均の平方根で割ったもの、カテゴリは Yang と Dalton の多項版です。3 群以上では全ペアの平均です。単体の関数は `standardized_difference` です。分母は渡した表の中で計算するので、マッチ後の Table 1 の SMD はバランス表（分母を調整前に固定）と一致しないことがあります。0/1 の数値の列は平均で集計すると連続変数の式、カテゴリで集計すると $p(1-p)$ の式です。詳しくは [stat の実装メモ](../api/tableone/stat.md#smd) です。
 
 公開データでの表は [解析例](../examples/index.md) の各ページにあります。API は [tableone](../api/tableone/tableone.md)、[agg](../api/tableone/agg.md)、[stat](../api/tableone/stat.md) です。推定は [models](../models/overview.md) です。
