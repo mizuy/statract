@@ -50,7 +50,9 @@ def plot_love(
             ``"alphabetical"``.
         drop_distance: Drop the ``Distance`` row (``prop.score``).
         title: Optional title.
-        xlabel: Axis label. The default names the statistic.
+        xlabel: Axis label. The default is "(Absolute) Standardized Mean
+            Differences", which is what ``balance()`` gives by default. Pass a
+            label when the table was built with ``binary="raw"``.
         figsize: Figure size; height scales with the number of rows when omitted.
         dpi: PNG resolution when ``path`` is set.
         also_pdf: Also write ``path`` with a ``.pdf`` suffix.
@@ -84,9 +86,7 @@ def plot_love(
     un, adj = un[rank], adj[rank]
     y = np.arange(len(labels))[::-1]
     if xlabel is None:
-        stat = "Mean Differences"
-        if "type" in table.columns and set(table["type"].to_list()) <= {"Contin.", "Distance"}:
-            stat = "Standardized Mean Differences"
+        stat = "Standardized Mean Differences"
         xlabel = f"Absolute {stat}" if absolute else stat
     with plt.rc_context(_FOREST_RC):
         if figsize is None:

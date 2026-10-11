@@ -47,7 +47,7 @@
 | 最適マッチ | `method="optimal"` | `method="optimal"` | 1:1 の総距離。重み |
 | full matching | `method="full"` | `method="full"` | 重みとサブクラスの分割 |
 | IPTW の重み | `WeightIt::weightit(method="glm", estimand=, stabilize=, s.weights=)`、`trim(at=, lower=)` | `propensity_weights(..., estimand=, stabilize=, trim=, trim_lower=, sampling_weights=)` | 傾向スコアと重み（rtol 1e-8）。fixture `iptw.json` 15 例: ATE / ATT / ATC / ATO、安定化、分位点と個数の切り詰め、下側も、3 水準と 2 水準の因子、欠測、`s.weights`。R 側は WeightIt 2.1.0 と cobalt 5.0.0（下の「WeightIt と cobalt」） |
-| 重み付けのバランス | `cobalt::bal.tab(W, un=TRUE, binary=, disp.means=TRUE, disp.v.ratio=TRUE)` | `PropensityWeights.balance(binary=)`、`effective_sample_size()` | 群の平均、差（SMD または割合の差）、分散比（rtol 1e-7）、群ごとの有効標本サイズ（rtol 1e-8）。同じ fixture、R 側は cobalt 5.0.0 |
+| 重み付けのバランス | `cobalt::bal.tab(W, un=TRUE, binary=, disp.means=TRUE, disp.v.ratio=TRUE)` | `PropensityWeights.balance(binary=, sd_denominator=)`、`effective_sample_size()` | 群の平均、差（SMD または割合の差）、分散比（rtol 1e-7）、群ごとの有効標本サイズ（rtol 1e-8）。同じ fixture、R 側は cobalt 5.0.0 |
 | 加法モデル | `gam(y ~ s(x, bs="cr", k=8), method="REML")` | `gam`、`smooth(..., k=8)` | 平滑化パラメータ、edf、REML、係数 |
 | 加法モデルの範囲 | `ps` / `cc` / `re` / `by`、線形項つき `cr`、binomial、poisson、gamma（inverse） | `smooth(..., basis=)`、`family=` | 平滑化パラメータ、edf、REML、係数 |
 | thin plate | `s(x, bs="tp")` | `smooth(..., basis="tp")` | edf と当てはめ。係数の向きは mgcv の固有ベクトルと違う |
@@ -127,6 +127,7 @@ rms の行は `rms.json`（rms 6.7-1、R 4.3.3）です。再生成は `Rscript 
 
 - `trim` の分位点は `quantile(type = 3)` です。
 - ATO のバランス表の SMD の分母は、cobalt の `"weighted"`（全標本を重み付きで計算した標準偏差）です。
+- statract の既定の SMD は cobalt と違います（2 値も標準化し、分母は推定対象によらず pooled SD）。照合では `binary=` と `sd_denominator=`（ATE `"pooled"`、ATT `"treated"`、ATC `"control"`、ATO `"weighted"`）を cobalt に合わせて渡します。[実装メモ](../api/models/weighting.md#smd) を見てください。
 
 確かめていない点:
 
