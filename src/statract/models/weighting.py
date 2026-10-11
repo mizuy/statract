@@ -455,6 +455,9 @@ def _balance_from_design(
         raise ValueError("binary must be 'raw' or 'std'")
     if continuous not in _BINARY:
         raise ValueError("continuous must be 'raw' or 'std'")
+    if sd_denominator is None:
+        # Older callers passed None for the estimand-dependent default.
+        sd_denominator = "pooled"
     if sd_denominator not in _SD_DENOMS:
         raise ValueError(f"sd_denominator must be one of {sorted(_SD_DENOMS)}")
     treat = np.asarray(treat, dtype=bool)
