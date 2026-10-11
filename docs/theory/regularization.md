@@ -59,6 +59,10 @@ $\lambda$（ラムダ）は罰の強さです。$\lambda = 0$ なら普通の最
 - LASSO（右）では、罰を強めると係数が**一つずつ 0 になって**消えていきます。最後まで残るのは病変径と抗血栓薬、つまり本当に効いている変数です。
 - 検査値（灰色）も、最尤法では 0.3 近い係数を持っています。これは偶然を覚えたぶんです。
 
+下の図は、係数が二つだけの、例として作った小さな問題です。$\beta_1$ はよく効く変数、$\beta_2$ は効きの小さい変数で、二つの変数には相関があります。灰色の楕円は当てはまりの等高線で、中心が最尤推定です。罰をつけた推定値は、当てはまりの等高線と、罰が同じ大きさになる線（ridge は円、LASSO は菱形）が接する点です。$\lambda$ を大きくすると、ridge の点はなめらかに 0 へ近づきます。LASSO の点は菱形の角に当たり、$\beta_2$ がちょうど 0 になります。右は、$\lambda$ に対する係数の動き（経路図）です。
+
+<div class="sx-widget" data-widget="penalty-geometry">この図を動かすには JavaScript が必要です。</div>
+
 statract には正則化の関数がまだないので、この章では numpy で書いた短い実装（[`penalized.py`](https://github.com/mizuy/statract/blob/main/examples/theory_bleeding/penalized.py)）を使っています。R の glmnet と同じ考え方の計算です。
 
 ## 10.3 λ を交差検証で選ぶ {#choose-lambda}

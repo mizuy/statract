@@ -129,6 +129,7 @@
 }
 
 .md-typeset table.sx-readout th {
+  padding-right: 0.8em;
   font-weight: normal;
   white-space: nowrap;
 }
@@ -145,4 +146,10 @@
   .sx-slider__label {
     grid-column: 1 / -1;
   }
+}
+
+/* Wide display formulas scroll inside the page on phones. */
+.md-typeset .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
 }
