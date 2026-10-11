@@ -1,6 +1,9 @@
 // Interactive figures for the theory text (docs/theory).
 //
 // Markup: <div class="sx-widget" data-widget="likelihood"></div>
+// This file holds the shared helpers and the first widgets. Files in
+// docs/javascripts/theory/ add more widgets with SX.register(name, fn), where
+// fn(root) draws into the div (it may be async). The helpers are on window.SX.
 // Data come from the CSV files that tools/sync_example_assets.py copies into
 // docs/examples/assets/theory_bleeding/, so the widgets show the same numbers
 // as the static figures and tables.
@@ -62,14 +65,37 @@
     return new URL(base.replace(/\/?$/, "/"), window.location.href);
   }
 
+  // One CSV line, with double-quoted fields that may hold commas.
+  function splitCsvLine(line) {
+    const cells = [];
+    let cell = "";
+    let quoted = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (quoted) {
+        if (c === '"' && line[i + 1] === '"') {
+          cell += '"';
+          i++;
+        } else if (c === '"') quoted = false;
+        else cell += c;
+      } else if (c === '"') quoted = true;
+      else if (c === ",") {
+        cells.push(cell);
+        cell = "";
+      } else cell += c;
+    }
+    cells.push(cell);
+    return cells;
+  }
+
   async function loadCsv(name) {
     const url = new URL(ASSETS + name, siteBase());
     const response = await fetch(url);
     if (!response.ok) throw new Error("cannot load " + url);
     const lines = (await response.text()).trim().split(/\r?\n/);
-    const header = lines[0].split(",");
+    const header = splitCsvLine(lines[0]);
     return lines.slice(1).map((line) => {
-      const cells = line.split(",");
+      const cells = splitCsvLine(line);
       const row = {};
       header.forEach((h, i) => {
         const v = cells[i];
@@ -145,7 +171,7 @@
     return (lo + hi) / 2;
   }
 
-  function golden(f, lo, hi) {
+  function golden(f, lo, hi, iters) {
     const r = (Math.sqrt(5) - 1) / 2;
     let a = lo;
     let b = hi;
@@ -153,7 +179,7 @@
     let d = a + r * (b - a);
     let fc = f(c);
     let fd = f(d);
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < (iters || 60); i++) {
       if (fc > fd) {
         b = d;
         d = c;
@@ -575,7 +601,7 @@
 
     // Marginal log-likelihood of the random-intercept model, integrating the
     // hospital effect on a grid (trapezoid rule with normal weights).
-    const K = 121;
+    const K = 81;
     const z = [];
     const wz = [];
     for (let k = 0; k < K; k++) {
@@ -603,20 +629,24 @@
       return ll;
     }
 
+    // Best intercept for a given sigma; the search starts near a nearby answer.
+    const bestMu = (s, near) => golden((m) => marginal(m, s), near - 0.5, near + 0.5, 30);
     const sigmas = [];
     const mus = [];
     const lls = [];
-    for (let i = 0; i <= 150; i++) {
-      const s = i / 100;
-      const mu = golden((m) => marginal(m, s), -5, -1);
+    let near = logit(total);
+    for (let i = 0; i <= 75; i++) {
+      const s = i / 50;
+      const mu = bestMu(s, near);
+      near = mu;
       sigmas.push(s);
       mus.push(mu);
       lls.push(marginal(mu, s));
     }
     const best = lls.indexOf(Math.max(...lls));
     // Refine the maximum between grid points.
-    const sigmaHat = golden((s) => marginal(golden((m) => marginal(m, s), -5, -1), s), Math.max(0, sigmas[best] - 0.01), sigmas[best] + 0.01);
-    const muAt = (s) => golden((m) => marginal(m, s), -5, -1);
+    const sigmaHat = golden((s) => marginal(bestMu(s, mus[best]), s), Math.max(0, sigmas[best] - 0.02), sigmas[best] + 0.02, 30);
+    const muAt = (s) => bestMu(s, mus[Math.min(75, Math.round(s * 50))]);
 
     // Conditional modes of the hospital effects (what fit_mixed reports).
     function pooled(mu, sigma) {
@@ -943,9 +973,9 @@
   function boot(scope) {
     for (const root of (scope || document).querySelectorAll(".sx-widget[data-widget]")) {
       if (root.dataset.ready) continue;
-      root.dataset.ready = "1";
       const make = WIDGETS[root.dataset.widget];
       if (!make) continue;
+      root.dataset.ready = "1";
       root.textContent = "";
       Promise.resolve()
         .then(() => make(root))
@@ -954,6 +984,64 @@
         });
     }
   }
+
+  // Seeded random numbers, so a widget draws the same data on every visit.
+  function rng(seed) {
+    let a = seed >>> 0;
+    const uniform = () => {
+      a = (a + 0x6d2b79f5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const normal = () => {
+      let u = 0;
+      while (u === 0) u = uniform();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * uniform());
+    };
+    return { uniform, normal };
+  }
+
+  // Standard normal CDF (Zelen and Severo 26.2.17, error below 1e-7).
+  function normCdf(x) {
+    const t = 1 / (1 + 0.2316419 * Math.abs(x));
+    const d = 0.3989422804014327 * Math.exp((-x * x) / 2);
+    const p = d * t * (0.31938153 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+    return x > 0 ? 1 - p : p;
+  }
+
+  function register(name, make) {
+    WIDGETS[name] = make;
+    if (document.readyState !== "loading") boot(document);
+  }
+
+  window.SX = {
+    COLOR,
+    el,
+    svgEl,
+    pct,
+    range,
+    signed,
+    loadCsv,
+    logGamma,
+    betaLogPdf,
+    betaQuantiles,
+    expit,
+    logit,
+    bisect,
+    golden,
+    rng,
+    normCdf,
+    controls,
+    slider,
+    buttons,
+    readout,
+    panel,
+    newSvg,
+    legend,
+    register,
+  };
 
   if (typeof document$ !== "undefined") {
     document$.subscribe(({ body }) => boot(body));

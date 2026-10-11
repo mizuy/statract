@@ -33,6 +33,20 @@ extra_javascript:
   - javascripts/vendor/katex/contrib/auto-render.min.js
   - javascripts/katex.js
   - javascripts/theory-widgets.js
+  - javascripts/theory/ch01.js
+  - javascripts/theory/ch02.js
+  - javascripts/theory/ch03.js
+  - javascripts/theory/ch04.js
+  - javascripts/theory/ch05.js
+  - javascripts/theory/ch07.js
+  - javascripts/theory/ch08.js
+  - javascripts/theory/ch09.js
+  - javascripts/theory/ch10.js
+  - javascripts/theory/ch11.js
+  - javascripts/theory/ch12.js
+  - javascripts/theory/ch14.js
+  - javascripts/theory/ch15.js
+  - javascripts/theory/math.js
 
 hooks:
   - tools/mkdocs_hooks.py
