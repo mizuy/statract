@@ -25,6 +25,8 @@ from .flow import full_match_edges
 
 _METHODS = {"nearest", "exact", "subclass", "cem", "optimal", "full"}
 _DISTANCES = {"logit", "probit", "mahalanobis", "robust_mahalanobis", "euclidean", "scaled_euclidean"}
+_SD_DENOMS = {"pooled", "treated", "control"}
+_BINARY = {"raw", "std"}
 
 
 @dataclass
@@ -81,9 +83,26 @@ class MatchedSample:
             return 0.0
         return float(np.sum(table["distance"].to_numpy()))
 
-    def balance(self) -> pl.DataFrame:
+    def balance(self, *, sd_denominator: str = "pooled", binary: str = "std") -> pl.DataFrame:
+        """Balance before (``*_all``) and after (``*_matched``) matching.
+
+        ``smd_*`` is the treated mean minus the control mean over one fixed
+        denominator, computed on the whole sample before matching and shared by
+        both rows. ``sd_denominator="pooled"`` (default) is
+        ``sqrt((s1^2 + s0^2) / 2)``; ``"treated"`` or ``"control"`` uses that
+        group's standard deviation (MatchIt's ATT and ATC default). A column with
+        two distinct values is binary: with ``binary="std"`` (default) its
+        variance is ``p(1-p)`` (Austin 2009), with ``binary="raw"`` its
+        ``smd_*`` is the unstandardized difference (cobalt's default). The
+        ``distance`` row is always standardized. ``pair_distance`` is the mean
+        absolute within-pair difference over the same denominator.
+        """
+        if sd_denominator not in _SD_DENOMS:
+            raise ValueError(f"sd_denominator must be one of {sorted(_SD_DENOMS)}")
+        if binary not in _BINARY:
+            raise ValueError("binary must be 'raw' or 'std'")
         self._ensure_distance()
-        return _balance(self)
+        return _balance(self, sd_denominator=sd_denominator, binary=binary)
 
     def love_plot(self):
         """Standardized mean differences before and after matching."""
@@ -1043,7 +1062,7 @@ def _pair_distance_ids(dist: np.ndarray, treated: np.ndarray, control: np.ndarra
     return np.abs(dist[treated] - dist[control])
 
 
-def _subclass_pair_balance(values, treat, labels, focal) -> float:
+def _subclass_pair_balance(values, treat, labels, denom: float) -> float:
     """Mean |treated - control| over the subclass product, without building it."""
     values = np.asarray(values, dtype=float)
     total = 0.0
@@ -1062,10 +1081,9 @@ def _subclass_pair_balance(values, treat, labels, focal) -> float:
         count += int(treated.size * control.size)
     if count == 0:
         return float("nan")
-    sd = float(np.std(values[focal], ddof=1))
-    if sd == 0 or not np.isfinite(sd):
+    if not (denom > 0 and np.isfinite(denom)):
         return float("nan")
-    return float((total / count) / sd)
+    return float((total / count) / denom)
 
 
 def _sum_abs_outer(treated: np.ndarray, control: np.ndarray) -> float:
@@ -1496,7 +1514,7 @@ def _robust_mahalanobis_coordinates(x: np.ndarray, _treat: np.ndarray) -> np.nda
     return _mahalanobize(ranks, var)
 
 
-def _balance(matched: MatchedSample) -> pl.DataFrame:
+def _balance(matched: MatchedSample, *, sd_denominator: str = "pooled", binary: str = "std") -> pl.DataFrame:
     treat = np.asarray(matched.data[matched.treatment].to_numpy(), dtype=float) > 0
     if matched.estimand == "ATC":
         focal = ~treat
@@ -1512,21 +1530,49 @@ def _balance(matched: MatchedSample) -> pl.DataFrame:
             if not np.issubdtype(np.asarray(raw).dtype, np.number):
                 continue
             values = np.asarray(raw, dtype=float)
-        all_row = _one_balance(values, focal, np.ones(len(focal), dtype=bool))
-        matched_row = _one_balance(values, focal, np.ones(len(focal), dtype=bool), weights=matched.weights)
-        if matched._expand_pairs:
-            pair = _subclass_pair_balance(values, treat, matched.subclass, focal)
+        is_binary = name != "distance" and np.unique(values[np.isfinite(values)]).size == 2
+        if is_binary and binary == "raw":
+            denom = 1.0
         else:
-            pair = _pair_balance(values, matched.pair_table, focal)
+            denom = _smd_denominator(values, treat, sd_denominator, is_binary)
+        everyone = np.ones(len(focal), dtype=bool)
+        all_row = _one_balance(values, focal, everyone, denom=denom)
+        matched_row = _one_balance(values, focal, everyone, weights=matched.weights, denom=denom)
+        if matched._expand_pairs:
+            pair = _subclass_pair_balance(values, treat, matched.subclass, denom)
+        else:
+            pair = _pair_balance(values, matched.pair_table, denom)
         rows.append({"term": name, **_prefix(all_row, "all"), **_prefix(matched_row, "matched"), "pair_distance": pair})
     return pl.DataFrame(rows)
+
+
+def _smd_denominator(values, treat, how: str, is_binary: bool) -> float:
+    """Standard deviation for the SMD, from the whole sample before matching."""
+    finite = np.isfinite(values)
+
+    def var(mask):
+        x = values[finite & mask]
+        if is_binary:
+            # p(1-p) on the 0/1 scale, rescaled to the two observed values.
+            lo, hi = np.unique(values[finite])
+            p = float(np.mean(x == hi)) if x.size else float("nan")
+            return p * (1.0 - p) * (hi - lo) ** 2
+        return float(np.var(x, ddof=1)) if x.size >= 2 else float("nan")
+
+    if how == "treated":
+        v = var(treat)
+    elif how == "control":
+        v = var(~treat)
+    else:
+        v = (var(treat) + var(~treat)) / 2.0
+    return float(np.sqrt(v)) if np.isfinite(v) and v >= 0 else float("nan")
 
 
 def _prefix(row: dict, name: str) -> dict:
     return {f"{key}_{name}" if key != "n" else f"n_{name}": value for key, value in row.items()}
 
 
-def _one_balance(values, focal, mask, weights=None):
+def _one_balance(values, focal, mask, weights=None, *, denom: float):
     w = np.ones(len(values)) if weights is None else np.asarray(weights, dtype=float)
     finite = mask & np.isfinite(values)
     ft = finite & focal & (w > 0)
@@ -1534,10 +1580,9 @@ def _one_balance(values, focal, mask, weights=None):
     wt, wc = w[ft], w[fc]
     mt = _wmean(values[ft], wt)
     mc = _wmean(values[fc], wc)
-    # The ATT denominator is the treated standard deviation. MatchIt uses the
-    # sampling weights, which are constant here, on the units that enter the mean.
-    sd = _wsd(values[ft], np.ones(ft.sum()))
-    smd = (mt - mc) / sd if sd > 0 else float("nan")
+    # One denominator from the unmatched sample for both rows, so the change
+    # in SMD reflects the change in means, not in spread.
+    smd = (mt - mc) / denom if denom > 0 else float("nan")
     vt = _wvar(values[ft], np.ones(ft.sum()))
     vc = _wvar(values[fc], np.ones(fc.sum()))
     ratio = vt / vc if vc > 0 else float("nan")
@@ -1553,14 +1598,13 @@ def _one_balance(values, focal, mask, weights=None):
     }
 
 
-def _pair_balance(values, pairs: pl.DataFrame, focal) -> float:
+def _pair_balance(values, pairs: pl.DataFrame, denom: float) -> float:
     if pairs.height == 0:
         return float("nan")
     diff = np.abs(values[pairs["treated"].to_numpy()] - values[pairs["control"].to_numpy()])
-    sd = float(np.std(values[focal], ddof=1))
-    if sd == 0:
+    if not (denom > 0 and np.isfinite(denom)):
         return float("nan")
-    return float(diff.mean() / sd)
+    return float(diff.mean() / denom)
 
 
 def _wmean(values, weights):

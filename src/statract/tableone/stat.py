@@ -487,6 +487,14 @@ def standardized_difference(column: pl.Series, groups: pl.Series, *, categorical
     formula for two levels. With more than two groups this is the mean of the
     pairwise differences. Missing values are dropped. Returns ``nan`` when it
     cannot be computed.
+
+    The denominator comes from the rows given, so on a matched or weighted
+    sample it is recomputed after adjustment. The balance tables
+    (``MatchedSample.balance``, ``PropensityWeights.balance``) fix it on the
+    unadjusted sample instead; on the unadjusted sample the two agree up to
+    sign. A numeric 0/1 column is numeric here (sample variance, as R tableone
+    without ``factorVars``); pass ``categorical=True``, or use a category
+    aggregate in ``tableone``, for the ``p(1-p)`` variance the balance tables use.
     """
     frame = pl.DataFrame({"_value": column, "_group": groups}).drop_nulls()
     if categorical is None:

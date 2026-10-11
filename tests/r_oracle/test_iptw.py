@@ -33,6 +33,11 @@ NUMERIC = [
 ]
 
 
+# cobalt's bal.tab defaults. statract's own default is the pooled SD for every
+# estimand with binaries standardized, so the oracle passes cobalt's choices.
+COBALT_SD = {"ATE": "pooled", "ATT": "treated", "ATC": "control", "ATO": "weighted"}
+
+
 def _num(values) -> np.ndarray:
     return np.asarray([np.nan if v in ("NA", None) else v for v in values], dtype=float)
 
@@ -71,7 +76,7 @@ def test_ps_and_weights(name: str) -> None:
 @pytest.mark.parametrize("name", CASES)
 def test_balance(name: str) -> None:
     want = FIXTURE["cases"][name]
-    table = _weights(name).balance(binary=want["binary"])
+    table = _weights(name).balance(binary=want["binary"], sd_denominator=COBALT_SD[want["estimand"]])
     bal = want["balance"]
     assert table["term"].to_list() == bal["term"]
     assert table["type"].to_list() == bal["type"]

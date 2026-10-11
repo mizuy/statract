@@ -3,8 +3,10 @@
 ``propensity_weights`` follows ``WeightIt::weightit(method = "glm")``. The
 propensity score is a logistic regression fitted with ``fit_glm``. The weights
 for each estimand, ``stabilize=TRUE``, and ``WeightIt::trim`` follow WeightIt
-1.x. The balance table and the effective sample sizes follow ``cobalt::bal.tab``
-4.x on the weighted sample. The figure is ``statract.viz.balance.plot_love``.
+1.x. The balance table has the rows and columns of ``cobalt::bal.tab`` 4.x and
+the effective sample sizes follow it. Its SMD is statract's own default (pooled
+unadjusted SD, binaries standardized); ``binary="raw"`` and ``sd_denominator=``
+reproduce cobalt. The figure is ``statract.viz.balance.plot_love``.
 
 Outcome models are not here. Pass the ``weights`` column of ``frame()`` to
 ``fit_glm(..., weights=)`` with ``hc_covariance(fit, "HC0")``, or to
@@ -88,15 +90,18 @@ class PropensityWeights:
     def balance(
         self,
         *,
-        binary: str = "raw",
+        binary: str = "std",
         continuous: str = "std",
-        sd_denominator: str | None = None,
+        sd_denominator: str = "pooled",
         threshold: float | None = None,
         distance: bool = True,
     ) -> pl.DataFrame:
-        """Balance before and after weighting, as ``cobalt::bal.tab``.
+        """Balance before and after weighting, laid out as ``cobalt::bal.tab``.
 
-        See ``balance_table`` for the columns. The first row is ``prop.score``.
+        See ``balance_table`` for the columns and the options. The first row is
+        ``prop.score``. ``binary="raw"`` with ``sd_denominator`` ``"treated"``
+        (ATT), ``"control"`` (ATC), ``"weighted"`` (ATO), or ``"pooled"`` (ATE)
+        reproduces cobalt's defaults.
         """
         idx = self.row_index
         return _balance_from_design(
@@ -207,9 +212,9 @@ def balance_table(
     weights: ColumnRef | np.ndarray,
     estimand: str = "ATE",
     sampling_weights: ColumnRef | np.ndarray | None = None,
-    binary: str = "raw",
+    binary: str = "std",
     continuous: str = "std",
-    sd_denominator: str | None = None,
+    sd_denominator: str = "pooled",
     threshold: float | None = None,
     distance: ColumnRef | np.ndarray | None = None,
 ) -> pl.DataFrame:
@@ -219,13 +224,16 @@ def balance_table(
     or more levels shows every level as ``name_level``. A two-level factor shows
     its second level. A column with two distinct values is binary.
 
-    ``diff_*`` is the treated mean minus the control mean. For a continuous
-    covariate it is divided by the standard deviation of the sample without
-    the balancing weights (sampling weights kept). ``sd_denominator`` defaults
-    from the estimand: ``ATT`` treated, ``ATC`` control, ``ATO`` weighted (the
-    whole sample under the balancing weights, as cobalt), otherwise ``pooled``,
-    ``sqrt((s1^2 + s0^2) / 2)``. A binary covariate shows the raw difference in
-    proportions unless ``binary="std"``; its variance is then ``p(1-p)``.
+    ``diff_*`` is the treated mean minus the control mean over one denominator,
+    computed once on the sample without the balancing weights (sampling weights
+    kept) and shared by the unadjusted and adjusted rows. The default,
+    ``sd_denominator="pooled"``, is ``sqrt((s1^2 + s0^2) / 2)`` for every
+    estimand; ``"treated"``, ``"control"``, and ``"all"`` use that group's (or
+    the whole sample's) standard deviation, and ``"weighted"`` the whole sample
+    under the balancing weights (cobalt's ATO default). A binary covariate is
+    standardized too, with variance ``p(1-p)`` (Austin 2009), unless
+    ``binary="raw"``, which shows the raw difference in proportions (cobalt's
+    default). ``continuous="raw"`` leaves continuous covariates unstandardized.
     ``variance_ratio_*`` is treated over control with cobalt's weighted
     variance, for continuous covariates only. ``distance`` adds a first row,
     ``prop.score``, that is always standardized.
@@ -439,7 +447,7 @@ def _balance_from_design(
     estimand: str,
     binary: str,
     continuous: str,
-    sd_denominator: str | None,
+    sd_denominator: str,
     threshold: float | None,
     distance: np.ndarray | None,
 ) -> pl.DataFrame:
@@ -448,7 +456,8 @@ def _balance_from_design(
     if continuous not in _BINARY:
         raise ValueError("continuous must be 'raw' or 'std'")
     if sd_denominator is None:
-        sd_denominator = {"ATT": "treated", "ATC": "control", "ATO": "weighted"}.get(estimand, "pooled")
+        # Older callers passed None for the estimand-dependent default.
+        sd_denominator = "pooled"
     if sd_denominator not in _SD_DENOMS:
         raise ValueError(f"sd_denominator must be one of {sorted(_SD_DENOMS)}")
     treat = np.asarray(treat, dtype=bool)
