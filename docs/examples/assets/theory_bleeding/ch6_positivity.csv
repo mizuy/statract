@@ -1,0 +1,4 @@
+range,clipped,not_clipped
+PS < 0.05,4,161
+0.05 <= PS <= 0.95,823,1906
+PS > 0.95,100,6

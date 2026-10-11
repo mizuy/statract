@@ -1,0 +1,1 @@
+Time-homogeneous 4-state STM (H, S1, S2, D). State rewards only (no DARTH transition rewards / half-cycle / age-specific mortality). Discount 3% on cost, QALY, and LY. PSA n=1000, seed=2026. WTP for NMB/DSA tornado = $100,000/QALY. Tornado is NMB of the optimal strategy at WTP $100,000/QALY.

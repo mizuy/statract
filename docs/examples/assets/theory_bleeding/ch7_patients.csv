@@ -1,0 +1,4 @@
+patient,age,male,antithrombotic,hypertension,size_mm,proximal,clip,risk_pct
+A,60,1,0,0,8,0,0,1.6298819944201082
+B,75,0,0,1,20,1,1,3.4129875524215767
+C,80,1,1,1,40,1,1,20.193286793531815

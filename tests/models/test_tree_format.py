@@ -1,0 +1,65 @@
+import numpy as np
+import polars as pl
+import pytest
+
+from statract import conditional_tree
+
+
+def test_format_and_terminal_count():
+    rng = np.random.default_rng(0)
+    n = 600
+    x = rng.normal(size=n)
+    g = rng.choice(["a", "b", "c"], n)
+    y = (rng.random(n) < 0.2 + 0.5 * (x > 0.5) + 0.2 * (g == "c")).astype(float)
+    tree = conditional_tree(pl.DataFrame({"y": y, "x": x, "g": g}), "y", ["x", "g"])
+    text = tree.format()
+    lines = text.splitlines()
+    assert lines[0] == "[1] root"
+    leaves = [line for line in lines if "(n = " in line]
+    assert len(leaves) == tree.n_terminal() >= 2
+    assert sum(int(line.split("(n = ")[1].rstrip(")")) for line in leaves) == n
+    assert any("x <= " in line for line in lines)
+    assert any("g in {" in line for line in lines)
+
+
+def test_format_single_node():
+    tree = conditional_tree(pl.DataFrame({"y": [0.0, 1.0, 0.0], "x": [1.0, 2.0, 3.0]}), "y", ["x"])
+    assert tree.format() == "[1] root: 0.333 (n = 3)\n"
+    assert tree.n_terminal() == 1
+
+
+def test_plot_tree(tmp_path):
+    import matplotlib
+
+    matplotlib.use("Agg")
+    from statract import plot_tree
+
+    rng = np.random.default_rng(1)
+    n = 400
+    x = rng.normal(size=n)
+    g = rng.choice(["a", "b", "c"], n)
+    binary = (rng.random(n) < 0.2 + 0.6 * (x > 0)).astype(float)
+    numeric = 2 * x + 3 * (g == "c") + rng.normal(size=n)
+    for y in (binary, numeric):
+        tree = conditional_tree(pl.DataFrame({"y": y, "x": x, "g": g}), "y", ["x", "g"])
+        out = plot_tree(tree, tmp_path / "tree.png")
+        assert out.stat().st_size > 0
+        fig = tree.plot()
+        # One canvas plus one panel per terminal node.
+        assert len(fig.axes) == 1 + tree.n_terminal()
+    with pytest.raises(ValueError):
+        plot_tree(tree, terminal="barplot")
+
+
+def test_tiny_p_values_pick_the_smallest():
+    # Both covariates have p-values far below 1e-17. The Šidák adjustment must
+    # stay on the log scale, or both round to 0 and the first column wins.
+    rng = np.random.default_rng(2)
+    n = 4000
+    weak = rng.normal(size=n)
+    strong = rng.normal(size=n)
+    y = 0.15 * weak + 0.4 * strong + rng.normal(size=n)
+    tree = conditional_tree(pl.DataFrame({"y": y, "weak": weak, "strong": strong}), "y", ["weak", "strong"])
+    tests = tree.tests()
+    assert tests["p_value"].to_list()[0] > 0
+    assert tree.root.split.column == "strong"

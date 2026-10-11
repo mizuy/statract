@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+site/
+dist/
+build/
+.numba-cache/
+
+# bibliome project view (symlinks to ~/lab/tools/bibliome entries)
+reference/bibliome/

@@ -1,0 +1,7 @@
+model,formula,df,logLik,AIC,theta,rho,converged,delta_AIC
+"Poisson GLMM, (1|subject)",y ~ progabide + log_base2wk + age + (1 | subject),5,-671.2940705085473,1352.5881410170946,,,true,91.37894523217483
+"NB GLMM, (1|subject)",y ~ progabide + log_base2wk + age + (1 | subject),6,-627.3952702037616,1266.7905404075232,7.198555659286469,,true,5.58134462260341
+"Poisson GLMM, ar1",y ~ progabide + log_base2wk + age + ar1(period + 0 | subject),6,-628.0788629755839,1268.1577259511678,,0.6874373537956001,true,6.94853016624802
+"NB GLMM, ar1",y ~ progabide + log_base2wk + age + ar1(period + 0 | subject),7,-627.1763249916133,1268.3526499832267,9.683374248471917,0.9142563373159768,true,7.143454198306927
+"ZINB GLMM, (1|subject)",y ~ progabide + log_base2wk + age + (1 | subject),7,-623.6045978924599,1261.2091957849198,9.327382436327069,,true,0.0
+"Poisson GLM, no RE",y ~ progabide + log_base2wk + age,4,-862.5369683750012,1733.0739367500023,,,true,471.86474096508255

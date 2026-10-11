@@ -1,0 +1,2 @@
+n_treated,n_treated_matched,n_controls_matched,risk_no_clip_matched,risk_clip_matched,risk_difference,conf_low,conf_high,truth_att_matched_treated
+927,648,648,0.06327160493827161,0.037037037037037035,-0.02623456790123457,-0.0493796856981054,-0.003089450104363744,-0.018518518518518517

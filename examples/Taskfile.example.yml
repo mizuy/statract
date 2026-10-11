@@ -1,0 +1,32 @@
+# Tasks for one example. examples/Taskfile.yml includes this file once per
+# example folder and sets STEM to the folder name.
+version: '3'
+
+tasks:
+  build:
+    desc: Fetch the data and build the analysis cache
+    sources:
+      - build.py
+    generates:
+      - cache/build
+    cmds:
+      - uv run python build.py
+
+  analysis:
+    desc: Run the analysis and write {{.STEM}}_out
+    deps:
+      - build
+    sources:
+      - '{{.STEM}}.py'
+    cmds:
+      - uv run python {{.STEM}}.py
+
+  all:
+    desc: Build the cache and run the analysis
+    deps:
+      - analysis
+
+  clear:
+    desc: Remove the cache and analysis output
+    cmds:
+      - rm -rf cache/build cache/build.RData {{.STEM}}_out

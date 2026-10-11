@@ -1,0 +1,198 @@
+site_name: Statract
+site_description: Estimation, statistical figures, and cost-effectiveness analysis
+site_author: MIZUGUCHI Yasuhiko
+repo_name: mizuy/statract
+repo_url: https://github.com/mizuy/statract
+edit_uri: edit/main/docs/
+
+exclude_docs: |
+  examples/policy.md
+
+theme:
+  name: material
+  logo: assets/logo-mark.png
+  favicon: assets/favicon.png
+  palette:
+    - scheme: default
+      primary: custom
+      accent: custom
+  features:
+    - navigation.indexes
+    - navigation.path
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+
+extra_css:
+  - stylesheets/extra.css
+  - javascripts/vendor/katex/katex.min.css
+
+extra_javascript:
+  - javascripts/vendor/katex/katex.min.js
+  - javascripts/vendor/katex/contrib/auto-render.min.js
+  - javascripts/katex.js
+  - javascripts/theory-widgets.js
+  - javascripts/theory/ch01.js
+  - javascripts/theory/ch02.js
+  - javascripts/theory/ch03.js
+  - javascripts/theory/ch04.js
+  - javascripts/theory/ch05.js
+  - javascripts/theory/ch07.js
+  - javascripts/theory/ch08.js
+  - javascripts/theory/ch09.js
+  - javascripts/theory/ch10.js
+  - javascripts/theory/ch11.js
+  - javascripts/theory/ch12.js
+  - javascripts/theory/ch14.js
+  - javascripts/theory/ch15.js
+  - javascripts/theory/ch16.js
+  - javascripts/theory/math.js
+
+hooks:
+  - tools/mkdocs_hooks.py
+  - tools/mkdocs_citations.py
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.arithmatex:
+      generic: true
+  - tables
+  - attr_list
+  - md_in_html
+  - pymdownx.snippets:
+      base_path: [docs]
+      check_paths: true
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+
+nav:
+  - Guide:
+      - Home: index.md
+      - 手法の選び方: guide/methods.md
+      - Table One: tableone/overview.md
+      - Models:
+          - Overview: models/overview.md
+          - Wilkinson formula: models/formula.md
+      - Figures: viz/overview.md
+      - Cost-effectiveness: cea/overview.md
+  - Learn:
+      - 臨床の問いから始める統計: learn/index.md
+      - 第 I 部 導入:
+          - 1. 「独立した危険因子」とは何か: learn/independent-risk-factor.md
+      - 第 II 部 因果推論:
+          - 2. 因果推論の考え方: learn/causal-basics.md
+          - 3. 背景を調整する方法: learn/adjustment-methods.md
+          - 4. 傾向スコアマッチング: learn/propensity-score-matching.md
+          - 5. IPTW（発展）: learn/iptw.md
+          - 6. 仮定と感度分析（発展）: learn/assumptions-sensitivity.md
+      - 第 III 部 予測:
+          - 7. 予測モデルとしてのロジスティック回帰: learn/prediction-model.md
+          - 8. 過学習と汎化: learn/overfitting.md
+          - 9. 識別と較正: learn/discrimination-calibration.md
+          - 10. 正則化（発展）: learn/regularization.md
+          - 11. 木、アンサンブル、ニューラルネットワーク（発展）: learn/trees-ensembles.md
+      - 第 IV 部 統計モデリング:
+          - 12. 確率モデルとしてのロジスティック回帰: learn/probability-model.md
+          - 13. 尤度と二つの推定法：最尤法とベイズ: learn/likelihood.md
+          - 14. 階層モデル: learn/hierarchical.md
+      - 第 V 部 生存時間と診断:
+          - 15. 生存時間解析: learn/survival.md
+          - 16. 診断の指標: learn/diagnostic-metrics.md
+      - 数学補:
+          - A1. 確率、オッズ、対数: learn/math/odds-log.md
+          - A2. 条件付き確率とベイズの定理: learn/math/conditional-probability.md
+          - A3. 期待値と分散: learn/math/expectation-variance.md
+          - A4. 微分と最大化: learn/math/derivatives-maximization.md
+          - A5. ベクトルと行列: learn/math/vectors-matrices.md
+          - A6. 確率分布: learn/math/distributions.md
+  - Examples:
+      - Gallery: examples/index.md
+      - Basic tests:
+          - 2 群 RCT の基本検定: examples/htest_licorice.md
+      - Survival:
+          - 生存曲線と Cox 回帰: examples/surv_colon.md
+          - 競合リスク解析: examples/cif_pbc.md
+          - PH 検定と AFT モデル: examples/aft_rotterdam.md
+          - クラスター頑健 Cox: examples/cox_retinopathy.md
+      - Regression and mixed models:
+          - 多施設 RCT の混合ロジスティック: examples/logit_indo.md
+          - てんかん RCT の計数 GLMM: examples/glmm_epil.md
+          - 反復測定の線形混合モデル: examples/lmm_pbcseq.md
+      - Prediction:
+          - 予測モデルの較正と DCA: examples/pred_support.md
+      - Causal inference:
+          - 傾向スコアマッチング: examples/psm_rhc.md
+          - 逆確率重み付け（IPTW）: examples/iptw_nhefs.md
+      - Cost-effectiveness:
+          - Markov モデルの費用対効果分析: examples/cea_sicksicker.md
+  - Reference:
+      - API:
+          - Table One:
+              - tableone: api/tableone/tableone.md
+              - agg: api/tableone/agg.md
+              - stat: api/tableone/stat.md
+          - Models:
+              - formula: api/models/formula.md
+              - fit: api/models/fit.md
+              - standardize: api/models/standardize.md
+              - risk: api/models/risk.md
+              - firth: api/models/firth.md
+              - penalized: api/models/penalized.md
+              - ordinal: api/models/ordinal.md
+              - multinom: api/models/multinom.md
+              - covariance: api/models/covariance.md
+              - linear_tests: api/models/linear_tests.md
+              - effects: api/models/effects.md
+              - htest: api/models/htest.md
+              - diagnostic: api/models/diagnostic.md
+              - evalue: api/models/evalue.md
+              - matching: api/models/matching.md
+              - weighting: api/models/weighting.md
+              - roc: api/models/roc.md
+              - gam: api/models/gam.md
+              - gamm: api/models/gamm.md
+              - tree: api/models/tree.md
+              - mixed: api/models/mixed.md
+              - impute: api/models/impute.md
+              - glmm_extras: api/models/glmm_extras.md
+              - validation: api/models/validation.md
+          - Survival:
+              - surv: api/surv/surv.md
+              - rmst: api/surv/rmst.md
+          - Figures:
+              - forest: api/viz/forest.md
+              - km: api/viz/km.md
+              - effect: api/viz/effect.md
+              - tree: api/viz/tree.md
+              - balance: api/viz/balance.md
+              - misc: api/viz/misc.md
+          - Cost-effectiveness:
+              - markov: api/cea/markov.md
+              - summarize: api/cea/summarize.md
+              - sensitivity: api/cea/sensitivity.md
+          - Report:
+              - artifacts: api/report/artifacts.md
+              - task_io: api/report/task_io.md
+          - R bridge:
+              - r: api/r/r.md
+      - Validation:
+          - Models vs R: models/vs-r.md
+          - CEA vs R: cea/vs-r.md
+          - Benchmarks: models/benchmarks.md

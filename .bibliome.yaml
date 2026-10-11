@@ -1,0 +1,8 @@
+# bibliome project config. Run from ~/lab/tools/bibliome:
+#   task project:sync PAPER_DIR=~/lab/statract   # tag cited papers project/statract
+#   task bib PAPER_DIR=~/lab/statract            # write references.bib
+project_id: statract
+scan:
+  - docs/**/*.md
+link_dir: reference/bibliome
+tag: project/statract
