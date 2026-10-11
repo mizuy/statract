@@ -2323,7 +2323,15 @@ def likelihood(df: pl.DataFrame, out: Path) -> None:
     )
     axes[1].set_ylim(-8, 0.5)
     axes[1].set_ylabel("log likelihood (minus its maximum)")
-    axes[1].legend(frameon=False, fontsize=8, loc="upper right")
+    # Keep the legend right of x = 6.3%, where the curves have already fallen
+    # below the 95% line, so no curve runs through it.
+    axes[1].legend(
+        frameon=False,
+        fontsize=7.5,
+        handlelength=1.5,
+        loc="upper right",
+        borderaxespad=0.3,
+    )
     for ax in axes:
         ax.set_xlabel("Bleeding rate p")
         ax.set_xlim(0, 0.10)
@@ -2472,8 +2480,16 @@ def _bayes_rate(sets: dict[str, pl.DataFrame], out: Path) -> None:
                     "cri_high": float(post.ppf(0.975)),
                 }
             )
-            if prior != "Flat":
-                ax.plot(grid, stats.beta(a, b).pdf(grid), color=color, ls=":", lw=1)
+            # The flat prior has density 1 everywhere; draw it slightly thicker
+            # so it stays visible just above the baseline.
+            flat = prior == "Flat"
+            ax.plot(
+                grid,
+                stats.beta(a, b).pdf(grid),
+                color=color,
+                ls=":",
+                lw=1.6 if flat else 1,
+            )
             ax.plot(
                 grid,
                 post.pdf(grid),
@@ -2481,6 +2497,18 @@ def _bayes_rate(sets: dict[str, pl.DataFrame], out: Path) -> None:
                 label=prior,
             )
         ax.set_title(f"{name} ({events} bleeds)")
+        # Label the flat prior in the empty band below the baseline.
+        top = ax.get_ylim()[1]
+        ax.set_ylim(-0.1 * top, top)
+        ax.text(
+            0.118,
+            -0.012 * top,
+            "Flat prior (density 1)",
+            color=GRAY,
+            fontsize=7.5,
+            ha="right",
+            va="top",
+        )
         ax.set_xlabel("Bleeding rate p")
         ax.set_xlim(0, 0.12)
         ax.xaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
@@ -2980,7 +3008,9 @@ def survival(df: pl.DataFrame, out: Path) -> None:
         ax.figure,
         {km_palette[i]: house[g] for i, g in enumerate(first)},
     )
-    ax.figure.savefig(out / "figures" / "ch15_km.png", dpi=180)
+    ax.figure.savefig(
+        out / "figures" / "ch15_km.png", dpi=180, bbox_inches="tight", pad_inches=0.1
+    )
     plt.close(ax.figure)
 
     # Person-time: the classic rate.
