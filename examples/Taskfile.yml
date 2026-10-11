@@ -62,6 +62,11 @@ includes:
     dir: ./surv_colon
     vars:
       STEM: surv_colon
+  theory_bleeding:
+    taskfile: ./Taskfile.example.yml
+    dir: ./theory_bleeding
+    vars:
+      STEM: theory_bleeding
 
 tasks:
   all:
@@ -79,6 +84,7 @@ tasks:
       - task: pred_support:all
       - task: psm_rhc:all
       - task: surv_colon:all
+      - task: theory_bleeding:all
 
   clear:
     desc: Remove every example's cache and output
@@ -95,3 +101,4 @@ tasks:
       - task: pred_support:clear
       - task: psm_rhc:clear
       - task: surv_colon:clear
+      - task: theory_bleeding:clear

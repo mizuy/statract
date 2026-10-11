@@ -32,6 +32,7 @@ extra_javascript:
   - javascripts/vendor/katex/katex.min.js
   - javascripts/vendor/katex/contrib/auto-render.min.js
   - javascripts/katex.js
+  - javascripts/theory-widgets.js
 
 hooks:
   - tools/mkdocs_hooks.py
@@ -77,6 +78,33 @@ nav:
           - Wilkinson formula: models/formula.md
       - Figures: viz/overview.md
       - Cost-effectiveness: cea/overview.md
+  - Theory:
+      - 臨床の問いから始める統計: theory/index.md
+      - 第 I 部 導入:
+          - 1. 「独立した危険因子」とは何か: theory/independent-risk-factor.md
+      - 第 II 部 因果推論:
+          - 2. 因果推論の考え方: theory/causal-basics.md
+          - 3. 背景を調整する方法: theory/adjustment-methods.md
+          - 4. 傾向スコアマッチング: theory/propensity-score-matching.md
+          - 5. IPTW: theory/iptw.md
+          - 6. 仮定と感度分析: theory/assumptions-sensitivity.md
+      - 第 III 部 予測:
+          - 7. 予測モデルとしてのロジスティック回帰: theory/prediction-model.md
+          - 8. 過学習と汎化: theory/overfitting.md
+          - 9. 識別と較正: theory/discrimination-calibration.md
+          - 10. 正則化: theory/regularization.md
+          - 11. 木、アンサンブル、ニューラルネットワーク: theory/trees-ensembles.md
+      - 第 IV 部 統計モデリング:
+          - 12. 確率モデルとしてのロジスティック回帰: theory/probability-model.md
+          - 13. 尤度と二つの推定法：最尤法とベイズ: theory/likelihood.md
+          - 14. 階層モデル: theory/hierarchical.md
+          - 15. 生存時間解析: theory/survival.md
+      - 数学補:
+          - A1. 確率、オッズ、対数: theory/math/odds-log.md
+          - A2. 条件付き確率とベイズの定理: theory/math/conditional-probability.md
+          - A3. 期待値と分散: theory/math/expectation-variance.md
+          - A4. 微分と最大化: theory/math/derivatives-maximization.md
+          - A5. ベクトルと行列: theory/math/vectors-matrices.md
   - Examples:
       - Gallery: examples/index.md
       - Basic tests:
