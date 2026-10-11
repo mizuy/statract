@@ -23,7 +23,7 @@ nocite: "[@Steyerberg2010-pe; @Vickers2019-rs]"
 
 [CSV](../examples/assets/theory_bleeding/ch9_thresholds.csv)
 
-陽性的中率は、感度、特異度と出血の割合から、ベイズの定理で計算できます（[数学補 A2](math/conditional-probability.md#ppv)）。
+陽性的中率は、感度、特異度と出血割合から、ベイズの定理で計算できます（[数学補 A2](math/conditional-probability.md#ppv)）。
 
 閾値を下から上へ動かしたときの（1 − 特異度、感度）をつないだものが **ROC 曲線**（receiver operating characteristic curve、受信者動作特性曲線）です。
 

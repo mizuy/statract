@@ -301,7 +301,7 @@ $\theta$（シータ）は知りたい値、$\propto$ は「比例する」で�
 ## 13.9 尤度はこの本のあちこちにある {#everywhere}
 
 - **AIC**（Akaike information criterion、赤池情報量規準、第 8 章）は、最大の対数尤度に、係数の数のぶんの罰を足したものです。
-- **ridge と LASSO**（LASSO は least absolute shrinkage and selection operator、係数の絶対値の和に罰をつける正則化。第 10 章）は、対数尤度に罰を足して最大にする**罰付き尤度**です。Firth の方法も同じ仲間です。
+- **ridge** と **LASSO**（least absolute shrinkage and selection operator、係数の絶対値の和に罰をつける正則化）は、対数尤度に罰を足して最大にする**罰付き尤度**です（第 10 章）。Firth の方法も同じ仲間です。
 - **WAIC**（widely applicable information criterion、広く使える情報量規準、第 8 章）は、事後分布を使って予測の当たりを見積もります。
 - **階層モデル**（第 14 章）では、施設ごとの効果を積分した尤度を最大にします。施設の分布が、施設ごとの効果の事前分布の役をします。
 - **Cox 比例ハザードモデル**（第 15 章）では、ベースラインハザードが自由な関数なので普通の尤度をそのままでは使えず、**部分尤度**という別の尤度を使います。部分尤度は、ベースラインハザードについてのプロファイル尤度とも読めます。
