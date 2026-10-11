@@ -25,3 +25,124 @@
   height: 1.8rem;
   width: auto;
 }
+
+/* Interactive figures in docs/theory (docs/javascripts/theory-widgets.js). */
+.sx-widget {
+  margin: 1.2em 0;
+  padding: 0.8em 1em;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.3rem;
+  font-size: 0.72rem;
+}
+
+.sx-controls {
+  display: grid;
+  gap: 0.4em;
+  margin-bottom: 0.6em;
+}
+
+.sx-slider {
+  display: grid;
+  grid-template-columns: minmax(9em, 16em) 1fr 4.5em;
+  align-items: center;
+  gap: 0.6em;
+}
+
+.sx-slider input[type="range"] {
+  width: 100%;
+  accent-color: var(--md-primary-fg-color);
+}
+
+.sx-slider__value {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.sx-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3em 0.4em;
+}
+
+.sx-buttons__label {
+  margin-right: 0.3em;
+}
+
+.md-typeset .sx-button {
+  margin: 0;
+  padding: 0.2em 0.7em;
+  font-size: 0.68rem;
+  font-weight: normal;
+}
+
+.md-typeset .sx-button--on {
+  background-color: var(--md-primary-fg-color);
+  border-color: var(--md-primary-fg-color);
+  color: var(--md-primary-bg-color);
+}
+
+.sx-figure svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 44rem;
+  font-size: 12px;
+}
+
+.sx-figure text {
+  fill: var(--md-default-fg-color--light);
+}
+
+.sx-figure .sx-label,
+.sx-figure .sx-title {
+  fill: var(--md-default-fg-color);
+}
+
+.sx-figure .sx-note {
+  font-size: 11px;
+}
+
+.sx-frame {
+  fill: none;
+  stroke: var(--md-default-fg-color--lighter);
+}
+
+.sx-tick {
+  stroke: var(--md-default-fg-color--lighter);
+}
+
+.sx-guide {
+  stroke: var(--md-default-fg-color--lighter);
+  stroke-dasharray: 2 3;
+}
+
+.md-typeset table.sx-readout:not([class*="highlight"]) {
+  display: table;
+  margin: 0.4em 0 0;
+  font-size: 0.7rem;
+}
+
+.md-typeset table.sx-readout th,
+.md-typeset table.sx-readout td {
+  text-align: left;
+}
+
+.md-typeset table.sx-readout th {
+  font-weight: normal;
+  white-space: nowrap;
+}
+
+.md-typeset table.sx-readout td {
+  font-variant-numeric: tabular-nums;
+}
+
+@media screen and (max-width: 44.9375em) {
+  .sx-slider {
+    grid-template-columns: 1fr 4em;
+  }
+
+  .sx-slider__label {
+    grid-column: 1 / -1;
+  }
+}

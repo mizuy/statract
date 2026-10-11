@@ -32,6 +32,7 @@ extra_javascript:
   - javascripts/vendor/katex/katex.min.js
   - javascripts/vendor/katex/contrib/auto-render.min.js
   - javascripts/katex.js
+  - javascripts/theory-widgets.js
 
 hooks:
   - tools/mkdocs_hooks.py

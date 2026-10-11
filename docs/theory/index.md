@@ -32,6 +32,7 @@
 - 本文は**高校数学まで**を前提にします。それを超える数学は [数学補](math/odds-log.md) にまとめ、一段ずつ説明します。
 - 本文では式の導出より、「その式が何を意味するか」「何をしているか」を重視します。
 - 図は statract で描き、コードを添えます。
+- 第 6、9、13、14 章には、スライダーで動かせる図があります。
 
 ## 目次
 
@@ -51,7 +52,7 @@
 | 3. [背景を調整する方法](adjustment-methods.md) | 限定、層別化、回帰と標準化、マッチング、重み付けの比較 | 方法ごとの推定値と本当の値 | `fit_glm`、`hc_covariance`、`standardize_glm`、`match_sample`、`propensity_weights` |
 | 4. [傾向スコアマッチング](propensity-score-matching.md) | バランシングスコア、傾向スコア、重なり、キャリパー、バランスの確認 | 傾向スコアの分布、Love plot、マッチ前後の Table 1 | `match_sample`、`plot_love`、`write_tableone_artifacts` |
 | 5. [IPTW](iptw.md) | 重みで仮の集団を作る、g-formula と同じ量になる理由、安定化、極端な重み、推定する対象 | 重みの分布、重み付きの Love plot、重みごとの推定値 | `propensity_weights`、`plot_love` |
-| 6. [仮定と感度分析](assumptions-sensitivity.md) | 正値性、未測定交絡、E-value、一致性、Bradford Hill の視点 | 未測定交絡の影響、E-value の図 | `standardize_glm` |
+| 6. [仮定と感度分析](assumptions-sensitivity.md) | 正値性、未測定交絡、E-value、一致性、Bradford Hill の視点 | 未測定交絡の影響、E-value の図、バイアス因子を動かす図 | `standardize_glm` |
 
 ### 第 III 部 予測
 
@@ -59,7 +60,7 @@
 |----|------|--------|----------|
 | 7. [予測モデルとしてのロジスティック回帰](prediction-model.md) | 同じ式を予測に使う、係数より予測確率、因果でない変数も予測に役立つ | 予測確率の分布 | `fit_glm` |
 | 8. [過学習と汎化](overfitting.md) | 見かけの成績、学習曲線、例数の目安、分割、交差検証、LOOCV、AIC と WAIC、ブートストラップ | 学習曲線、交差検証の模式図と比較 | `fit_glm`、`roc_curve`、`validate_logistic` |
-| 9. [識別と較正](discrimination-calibration.md) | ROC と C 統計量、較正の図と切片・傾き、Brier、決定曲線 | ROC、較正の図、DCA | `roc_curve`、`plot_roc`、`decision_curve_table`、`plot_dca` |
+| 9. [識別と較正](discrimination-calibration.md) | ROC と C 統計量、較正の図と切片・傾き、Brier、決定曲線 | ROC、較正の図、DCA、閾値を動かす DCA | `roc_curve`、`plot_roc`、`decision_curve_table`、`plot_dca` |
 | 10. [正則化](regularization.md) | ridge、LASSO、λ を交差検証で選ぶ、一回では当てにならないこと、ベイズとのつながり | 係数の経路、繰り返しでの較正の傾き | statract に未実装（numpy で図示） |
 | 11. [木、アンサンブル、ニューラルネットワーク](trees-ensembles.md) | 条件付き推測木（ctree）、ランダムフォレストと勾配ブースティングの紹介、ロジスティック回帰を重ねたニューラルネットワーク | 木の図、ネットワークの模式図 | `conditional_tree`、`plot_tree`（森、ブースティング、ネットワークは numpy） |
 
@@ -68,8 +69,8 @@
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
 | 12. [確率モデルとしてのロジスティック回帰](probability-model.md) | データが生まれる仕組み、データの作り方の種明かし、モデルから作ったデータでの確認、スプライン、GLM | 生成過程の模式図、硬貨を投げ直したときの出血の人数、模擬データと実データ、直線とスプライン | `fit_glm`、`spline_test` |
-| 13. [尤度と二つの推定法：最尤法とベイズ](likelihood.md) | 尤度、対数尤度と曲がり具合、標準誤差、ニュートン法、プロファイル尤度、三つの検定、ベイズ推論（事前分布、事後分布、信用区間）、MCMC、最尤法とベイズの比較、分離と Firth の方法 | 尤度曲線、プロファイル尤度、事前と事後、MCMC の連鎖 | `fit_glm`、`likelihood_ratio_test`（MCMC は numpy） |
-| 14. [階層モデル](hierarchical.md) | 施設差、完全・部分・なしのプーリング、縮小、ICC と MOR、施設の順位づけ、ベイズ推論で読む部分プーリング（経験ベイズ） | 施設ごとの推定の縮み、施設の効果の区間、事前と事後 | `fit_mixed`、`glmm_cluster_variance`、`plot_random_effects` |
+| 13. [尤度と二つの推定法：最尤法とベイズ](likelihood.md) | 尤度、対数尤度と曲がり具合、標準誤差、ニュートン法、プロファイル尤度、三つの検定、ベイズ推論（事前分布、事後分布、信用区間）、MCMC、最尤法とベイズの比較、分離と Firth の方法 | 尤度曲線、プロファイル尤度、事前と事後、MCMC の連鎖、人数と事前分布を動かす図 | `fit_glm`、`likelihood_ratio_test`（MCMC は numpy） |
+| 14. [階層モデル](hierarchical.md) | 施設差、完全・部分・なしのプーリング、縮小、ICC と MOR、施設の順位づけ、ベイズ推論で読む部分プーリング（経験ベイズ） | 施設ごとの推定の縮み、施設の効果の区間、事前と事後、施設差を動かす図 | `fit_mixed`、`glmm_cluster_variance`、`plot_random_effects` |
 | 15. [生存時間解析](survival.md) | 打ち切り、Kaplan–Meier 法、ハザードと人年法、Poisson 回帰、Cox 比例ハザードモデル、セミパラメトリックの意味と部分尤度、加速故障時間（AFT）モデル、モデルの比較と使い分け | 累積出血割合、区間ごとのハザード、リスク集合の模式図 | `plot_survival`、`cox_ph`、`proportional_hazards_test`、`fit_glm`（poisson）、`accelerated_failure` |
 
 ### 数学補
@@ -122,7 +123,3 @@
 | SMD | standardized mean difference | 標準化差 |
 | TRIPOD | Transparent Reporting of a multivariable prediction model for Individual Prognosis Or Diagnosis | 予測モデル研究の報告指針 |
 | WAIC | widely applicable information criterion | 広く使える情報量規準（渡辺–赤池情報量規準とも） |
-
-## これから作るもの
-
-- 必要な所の対話型の図
