@@ -23,19 +23,19 @@
 
 ## B.2 ランダム化比較試験：CONSORT と SPIRIT {#consort}
 
-**CONSORT**（Consolidated Standards of Reporting Trials）は、ランダム化比較試験の報告指針です。2025 年に改訂されました。割付けの方法、盲検化、参加者の流れ図（何人が組み入れられ、何人が脱落したか）、事前に決めた主要アウトカムなどを書きます。第 0 章で見たように、Table 1 で群の差を検定しないことも求めています。
+**CONSORT**（Consolidated Standards of Reporting Trials）は、ランダム化比較試験の報告指針です。2025 年に改訂されました [@Hopewell2025-el]。割付けの方法、盲検化、参加者の流れ図（何人が組み入れられ、何人が脱落したか）、事前に決めた主要アウトカムなどを書きます。第 0 章で見たように、Table 1 で群の差を検定しないことも求めています。
 
-**SPIRIT**（Standard Protocol Items: Recommendations for Interventional Trials）は、試験を始める前の計画書（プロトコル）の指針です。CONSORT と同じ年に改訂されました。
+**SPIRIT**（Standard Protocol Items: Recommendations for Interventional Trials）は、試験を始める前の計画書（プロトコル）の指針です。CONSORT と同じ年に改訂されました [@Chan2025-kx]。
 
 ## B.3 観察研究：STROBE と RECORD {#strobe}
 
-**STROBE**（Strengthening the Reporting of Observational Studies in Epidemiology）は、コホート研究、症例対照研究、横断研究の報告指針です。対象集団の選び方、曝露とアウトカムの定義、交絡因子とその選び方、欠測の扱いなどを書きます。本書の第 I–II 部の解析は、多くがこの型の研究です。
+**STROBE**（Strengthening the Reporting of Observational Studies in Epidemiology）は、コホート研究、症例対照研究、横断研究の報告指針です [@von-Elm2007-wg]。対象集団の選び方、曝露とアウトカムの定義、交絡因子とその選び方、欠測の扱いなどを書きます。本書の第 I–II 部の解析は、多くがこの型の研究です。
 
-**RECORD**（REporting of studies Conducted using Observational Routinely-collected health Data）は、STROBE を、レセプトや電子カルテなど診療のために集めたデータの研究向けに拡張したものです。データベースの中身、患者や病名を拾い出すコードとアルゴリズム、データの結合の方法などを加えて書きます。
+**RECORD**（REporting of studies Conducted using Observational Routinely-collected health Data）は、STROBE を、レセプトや電子カルテなど診療のために集めたデータの研究向けに拡張したものです [@Benchimol2015-qo]。データベースの中身、患者や病名を拾い出すコードとアルゴリズム、データの結合の方法などを加えて書きます。
 
 ## B.4 標的試験の模倣：TARGET {#target}
 
-**TARGET**（TrAnsparent ReportinG of observational studies Emulating a Target trial）は、観察データで「もし試験をしたら」を模倣する研究（標的試験の模倣、target trial emulation）の報告指針です。2025 年に発表されました。模倣したい試験の計画（対象、治療の定義、追跡の開始、アウトカム、推定したい量）を先に書き、観察データでそれをどう再現したかを書きます。第 6 章の一致性で見たように、「何を治療とするか」を先に決めることは、因果を推定する研究の土台です。
+**TARGET**（TrAnsparent ReportinG of observational studies Emulating a Target trial）は、観察データで「もし試験をしたら」を模倣する研究（標的試験の模倣、target trial emulation）の報告指針です。2025 年に発表されました [@Cashin2025-mp]。模倣したい試験の計画（対象、治療の定義、追跡の開始、アウトカム、推定したい量）を先に書き、観察データでそれをどう再現したかを書きます。第 6 章の一致性で見たように、「何を治療とするか」を先に決めることは、因果を推定する研究の土台です。
 
 ## B.5 予測モデル：TRIPOD+AI {#tripod}
 
@@ -43,11 +43,11 @@
 
 ## B.6 診断精度：STARD {#stard}
 
-**STARD**（Standards for Reporting of Diagnostic Accuracy Studies）は、診断精度研究の報告指針です。患者の集め方、参照基準、2×2 表、感度や特異度とその信頼区間を書きます。主な項目は[第 16 章](diagnostic-metrics.md)にまとめています。
+**STARD**（Standards for Reporting of Diagnostic Accuracy Studies）は、診断精度研究の報告指針です [@Bossuyt2015-ea]。患者の集め方、参照基準、2×2 表、感度や特異度とその信頼区間を書きます。主な項目は[第 16 章](diagnostic-metrics.md)にまとめています。
 
 ## B.7 系統的レビュー：PRISMA {#prisma}
 
-**PRISMA**（Preferred Reporting Items for Systematic reviews and Meta-Analyses）は、系統的レビューとメタ解析の報告指針です。文献の探し方、選び方の流れ図、研究ごとの偏りの評価、結果の統合の方法を書きます。
+**PRISMA**（Preferred Reporting Items for Systematic reviews and Meta-Analyses）は、系統的レビューとメタ解析の報告指針です [@Page2021-bp]。文献の探し方、選び方の流れ図、研究ごとの偏りの評価、結果の統合の方法を書きます。
 
 ## B.8 日本語訳 {#japanese}
 
@@ -65,14 +65,6 @@
 日本語訳は、EQUATOR Network の翻訳の一覧と、日本医学会の「医学雑誌編集ガイドライン 2022」にもまとまっています。
 
 ## 文献 {#references}
-
-- Hopewell S, Chan AW, Collins GS, Hróbjartsson A, Moher D, Schulz KF, et al. CONSORT 2025 statement: updated guideline for reporting randomised trials. BMJ. 2025;389:e081123.
-- Chan AW, Boutron I, Hopewell S, Moher D, Schulz KF, Collins GS, et al. SPIRIT 2025 statement: updated guideline for protocols of randomised trials. BMJ. 2025;389:e081477.
-- von Elm E, Altman DG, Egger M, Pocock SJ, Gøtzsche PC, Vandenbroucke JP. The Strengthening the Reporting of Observational Studies in Epidemiology (STROBE) statement: guidelines for reporting observational studies. Lancet. 2007;370(9596):1453–1457.
-- Benchimol EI, Smeeth L, Guttmann A, Harron K, Moher D, Petersen I, et al. The REporting of studies Conducted using Observational Routinely-collected health Data (RECORD) statement. PLoS Med. 2015;12(10):e1001885.
-- Cashin AG, Hansford HJ, Hernán MA, Swanson SA, Lee H, Jones MD, et al. Transparent reporting of observational studies emulating a target trial: the TARGET Statement. BMJ. 2025;390:e087179.
-- Bossuyt PM, Reitsma JB, Bruns DE, Gatsonis CA, Glasziou PP, Irwig L, et al. STARD 2015: an updated list of essential items for reporting diagnostic accuracy studies. BMJ. 2015;351:h5527.
-- Page MJ, McKenzie JE, Bossuyt PM, Boutron I, Hoffmann TC, Mulrow CD, et al. The PRISMA 2020 statement: an updated guideline for reporting systematic reviews. BMJ. 2021;372:n71.
 
 ::: {#refs}
 :::
