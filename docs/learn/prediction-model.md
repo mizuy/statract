@@ -12,7 +12,7 @@ $$
 \log \frac{p}{1-p} = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \cdots
 $$
 
-右辺の和を**線形予測子**（linear predictor）と呼び、$\eta$（イータ）と書きます。両辺をひっくり返すと、出血の確率そのものが出ます（[数学補 A1](math/odds-log.md)）。
+右辺の和を**線形予測子**（linear predictor）と呼び、$\eta$（イータ）と書きます。両辺をひっくり返すと、出血の確率そのものが出ます（[数学補 A2](math/odds-log.md)）。
 
 $$
 p = \frac{1}{1 + e^{-\eta}}

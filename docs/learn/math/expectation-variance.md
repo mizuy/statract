@@ -1,4 +1,4 @@
-# A3. 期待値と分散
+# A4. 期待値と分散
 
 g-formula（第 3、5 章）、標準誤差（第 12、13 章）など、本文のあちこちで使う記号をまとめます。
 
@@ -18,7 +18,7 @@ $$
 
 ## 条件付き期待値
 
-$\mathrm{E}[Y \mid X = x]$ は、「$X = x$ の人に絞ったときの $Y$ の平均」です（条件付き確率は [A2](conditional-probability.md)）。
+$\mathrm{E}[Y \mid X = x]$ は、「$X = x$ の人に絞ったときの $Y$ の平均」です（条件付き確率は [A3](conditional-probability.md)）。
 
 - $\mathrm{E}[Y \mid \text{抗血栓薬あり}]$ は、抗血栓薬を飲んでいる人の出血の確率です。
 - 回帰モデルは、$\mathrm{E}[Y \mid X]$ を $X$ の式で表すものです。ロジスティック回帰なら $\mathrm{E}[Y \mid X] = 1 / (1 + e^{-\eta})$ です。
@@ -118,4 +118,4 @@ $$
 ::: {#refs}
 :::
 
-**次へ：**[数学補 A4 微分と最大化](derivatives-maximization.md)
+**次へ：**[数学補 A5 微分と最大化](derivatives-maximization.md)

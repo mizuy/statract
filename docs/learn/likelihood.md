@@ -54,7 +54,7 @@ $$
 - 3000 人の曲線は鋭く、300 人の曲線はなだらかです。データが多いほど、もっともらしい $p$ の範囲が狭くなります。
 - 対数尤度の頂上の**曲がり具合**が、推定の精度を表します。鋭く曲がっていれば、頂上から少しずれただけで対数尤度が大きく下がる、つまりデータとよく合う値の範囲が狭いということです。
 
-この曲がり具合（2 階微分、[数学補 A4](math/derivatives-maximization.md)）から**標準誤差**が出ます。
+この曲がり具合（2 階微分、[数学補 A5](math/derivatives-maximization.md)）から**標準誤差**が出ます。
 
 $$
 \text{標準誤差} = \frac{1}{\sqrt{-\dfrac{d^2 \log L}{dp^2}}} = \sqrt{\frac{\hat p (1 - \hat p)}{n}}
@@ -192,7 +192,7 @@ $\theta$（シータ）は知りたい値、$\propto$ は「比例する」で�
     ```python
     from scipy import stats
 
-    # 事前分布がベータ分布 Beta(a, b)（数学補 A6）なら、事後分布も Beta(a + 出血, b + 出血なし)
+    # 事前分布がベータ分布 Beta(a, b)（数学補 A7）なら、事後分布も Beta(a + 出血, b + 出血なし)
     a, b = 5, 95
     posterior = stats.beta(a + 11, b + 300 - 11)
     posterior.mean(), posterior.ppf([0.025, 0.975])
@@ -308,9 +308,9 @@ $\theta$（シータ）は知りたい値、$\propto$ は「比例する」で�
 
 ## 13.9 尤度はこの本のあちこちにある {#everywhere}
 
-- **AIC**（Akaike information criterion、赤池情報量規準、[数学補 A7](math/information-criteria.md)）は、最大の対数尤度に、係数の数のぶんの罰を足したものです。
+- **AIC**（Akaike information criterion、赤池情報量規準、[数学補 A8](math/information-criteria.md)）は、最大の対数尤度に、係数の数のぶんの罰を足したものです。
 - **ridge** と **LASSO**（least absolute shrinkage and selection operator、係数の絶対値の和に罰をつける正則化）は、対数尤度に罰を足して最大にする**罰付き尤度**です（第 10 章）。Firth の方法も同じ仲間です。
-- **WAIC**（widely applicable information criterion、広く使える情報量規準、[数学補 A7](math/information-criteria.md)）は、事後分布を使って予測の当たりを見積もります。
+- **WAIC**（widely applicable information criterion、広く使える情報量規準、[数学補 A8](math/information-criteria.md)）は、事後分布を使って予測の当たりを見積もります。
 - **階層モデル**（第 14 章）では、施設ごとの効果を積分した尤度を最大にします。施設の分布が、施設ごとの効果の事前分布の役をします。
 - **Cox 比例ハザードモデル**（第 15 章）では、ベースラインハザードが自由な関数なので普通の尤度をそのままでは使えず、**部分尤度**という別の尤度を使います。部分尤度は、ベースラインハザードについてのプロファイル尤度とも読めます。
 

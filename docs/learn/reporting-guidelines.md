@@ -4,7 +4,7 @@
 
 読む側にも役に立ちます。論文を読むとき、ガイドラインの項目が書かれているかを見れば、どこに偏りが入りうるかがわかります。報告ガイドラインは EQUATOR Network（Enhancing the QUAlity and Transparency Of health Research）のサイトにまとまっています。
 
-[← 目次](index.md) · [← 数学補 A7](math/information-criteria.md)
+[← 目次](index.md) · [← 数学補 A8](math/information-criteria.md)
 
 ## B.1 問いとデザインから選ぶ {#choose}
 

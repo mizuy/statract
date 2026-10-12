@@ -117,13 +117,14 @@ nav:
           - 15. 生存時間解析: learn/survival.md
           - 16. 診断の指標: learn/diagnostic-metrics.md
       - 数学補:
-          - A1. 確率、オッズ、対数: learn/math/odds-log.md
-          - A2. 条件付き確率とベイズの定理: learn/math/conditional-probability.md
-          - A3. 期待値と分散: learn/math/expectation-variance.md
-          - A4. 微分と最大化: learn/math/derivatives-maximization.md
-          - A5. ベクトルと行列: learn/math/vectors-matrices.md
-          - A6. 確率分布: learn/math/distributions.md
-          - A7. 情報量規準（AIC、WAIC）: learn/math/information-criteria.md
+          - A1. 確率と確率変数: learn/math/probability.md
+          - A2. オッズと対数: learn/math/odds-log.md
+          - A3. 条件付き確率とベイズの定理: learn/math/conditional-probability.md
+          - A4. 期待値と分散: learn/math/expectation-variance.md
+          - A5. 微分と最大化: learn/math/derivatives-maximization.md
+          - A6. ベクトルと行列: learn/math/vectors-matrices.md
+          - A7. 確率分布: learn/math/distributions.md
+          - A8. 情報量規準（AIC、WAIC）: learn/math/information-criteria.md
       - 付録:
           - B. 報告ガイドライン: learn/reporting-guidelines.md
   - Examples:

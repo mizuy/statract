@@ -101,7 +101,7 @@ $x$ が 1 増えると、対数オッズは $\beta_1$ だけ増えます。対�
 
 <div class="sx-widget" data-widget="logistic-curve">この図を動かすには JavaScript が必要です。</div>
 
-指数と対数に自信がなければ [A1. 確率、オッズ、対数](math/odds-log.md) を先に読んでください。
+指数と対数に自信がなければ [A2. オッズと対数](math/odds-log.md) を先に読んでください。
 
 ### 変数を増やす
 

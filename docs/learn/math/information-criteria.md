@@ -1,6 +1,6 @@
-# A7. 情報量規準（AIC、WAIC）
+# A8. 情報量規準（AIC、WAIC）
 
-[第 8 章](../overfitting.md)の一つ抜き交差検証（leave-one-out cross-validation、LOOCV）を、モデルを作り直さずに近似する方法です。対数尤度（[第 13 章](../likelihood.md)）とベイズ推論（第 13 章、[A2](conditional-probability.md)）を使います。
+[第 8 章](../overfitting.md)の一つ抜き交差検証（leave-one-out cross-validation、LOOCV）を、モデルを作り直さずに近似する方法です。対数尤度（[第 13 章](../likelihood.md)）とベイズ推論（第 13 章、[A3](conditional-probability.md)）を使います。
 
 [← 目次](../index.md) · [第 8 章](../overfitting.md) · [第 13 章](../likelihood.md)
 
