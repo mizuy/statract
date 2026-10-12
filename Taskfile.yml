@@ -16,3 +16,23 @@ tasks:
     desc: r-oracle:check for the four scripts rewritten from the papers in 2026-10
     cmds:
       - bash tests/r_oracle/run.sh --check ordinal standardize_glm gamm4 stdreg_cox
+
+  books:add:
+    desc: Look up a book in NDL and print a books.yaml entry (`task books:add -- Key2024-book 9784000058421`)
+    cmds:
+      - uv run --no-project --with pyyaml python tools/books.py add {{.CLI_ARGS}}
+
+  books:fetch:
+    desc: Record NDL / openBD data for new ISBNs in books.lock.json (`-- --refresh` for all)
+    cmds:
+      - uv run --no-project --with pyyaml python tools/books.py fetch {{.CLI_ARGS}}
+
+  books:build:
+    desc: Regenerate manual_entries.bib from books.yaml
+    cmds:
+      - uv run --no-project --with pyyaml python tools/books.py build
+
+  books:check:
+    desc: Check books.yaml against books.lock.json and manual_entries.bib (offline)
+    cmds:
+      - uv run --no-project --with pyyaml python tools/books.py check
