@@ -129,7 +129,7 @@ LOOCV の特徴は次のとおりです。
 - **ばらつきが大きくなります。** $n$ 個のモデルはほとんど同じなので、結果はその一つのデータに強く依存します。データが変わると LOOCV の値も大きく変わります。
 - **C 統計量は低めに出やすくなります。** 出血した一人を抜くと、残りのデータでは出血割合が少し下がり、その人の予測確率が少し下がります。出血しなかった人ではこの逆が起きます。この小さなずれが毎回「不利な向き」に入るため、まとめた C 統計量が低めになります。
 
-モデルを $n$ 回作り直さずに LOOCV を近似する方法として、AIC（Akaike information criterion、赤池情報量規準）や WAIC（widely applicable information criterion、広く使える情報量規準）などの**情報量規準**もあります。尤度やベイズ推論を前提にする発展的な内容なので、[数学補 A7](math/information-criteria.md) にまとめました。
+モデルを $n$ 回作り直さずに LOOCV を近似する方法として、AIC（Akaike information criterion、赤池情報量規準）や WAIC（widely applicable information criterion、広く使える情報量規準）などの**情報量規準**もあります。AIC は尤度を、WAIC は基本的にベイズ推論を前提にする発展的な内容なので、[数学補 A7](math/information-criteria.md) にまとめました。
 
 ## 8.8 ブートストラップ {#bootstrap}
 
