@@ -2,7 +2,8 @@
 
 Paperpile holds the papers. Books live here, keyed by ISBN, and are checked
 against the National Diet Library (NDL Search OpenSearch API), with openBD as
-a fallback for Japanese books NDL does not return::
+fallbacks (openBD for Japanese ISBNs, Open Library for others) when NDL
+has no record::
 
     books.yaml          what the docs print (hand-written, the source)
     books.lock.json     what NDL / openBD say for each ISBN (fetched)
@@ -46,6 +47,7 @@ BIB = ROOT / "manual_entries.bib"
 
 NDL_URL = "https://ndlsearch.ndl.go.jp/api/opensearch?isbn={isbn}"
 OPENBD_URL = "https://api.openbd.jp/v1/get?isbn={isbn}"
+OPENLIBRARY_URL = "https://openlibrary.org/api/books?bibkeys=ISBN:{isbn}&format=json&jscmd=data"
 USER_AGENT = "statract-books/1 (+https://github.com/mizuy/statract)"
 # NDL answers 429 to bursts. One request at a time, with a pause.
 PAUSE = 2.0
@@ -106,6 +108,8 @@ def _get(url: str) -> bytes:
             if e.code not in (429, 500, 502, 503, 504):
                 raise
             body = b"<error><code>%d</code></error>" % e.code
+        except (TimeoutError, urllib.error.URLError, ConnectionError):
+            body = b"<error>timeout</error>"
         # NDL reports overload in the body with status 200.
         if not body.lstrip().startswith(b"<error>"):
             return body
@@ -164,13 +168,34 @@ def parse_openbd(body: bytes) -> list[dict]:
     return records
 
 
+def parse_openlibrary(body: bytes) -> list[dict]:
+    records = []
+    for hit in json.loads(body).values():
+        title = hit.get("title")
+        if hit.get("subtitle"):
+            title = f"{title} : {hit['subtitle']}"
+        records.append({k: v for k, v in {
+            "title": title,
+            "publisher": ", ".join(p["name"] for p in hit.get("publishers", [])),
+            "date": _year(hit.get("publish_date")),
+            "creators": [a["name"] for a in hit.get("authors", [])],
+            "url": hit.get("url"),
+        }.items() if v})
+    return records
+
+
 def fetch_isbn(isbn: str) -> dict:
     records = parse_ndl(_get(NDL_URL.format(isbn=isbn)))
     source = "ndl"
     if not records:
         time.sleep(PAUSE)
-        records = parse_openbd(_get(OPENBD_URL.format(isbn=isbn)))
-        source = "openbd" if records else "none"
+        if isbn.startswith("9784"):
+            source, url, parse = "openbd", OPENBD_URL, parse_openbd
+        else:
+            source, url, parse = "openlibrary", OPENLIBRARY_URL, parse_openlibrary
+        records = parse(_get(url.format(isbn=isbn)))
+        if not records:
+            source = "none"
     return {"source": source, "fetched": _dt.date.today().isoformat(), "records": records}
 
 
@@ -377,13 +402,22 @@ def suggest(key: str, isbns: list[str], lock: dict) -> dict:
 
 # ---------------------------------------------------------------- main
 
-def _fetch(isbns: list[str], lock: dict, refresh: bool) -> None:
+def _fetch(isbns: list[str], lock: dict, refresh: bool) -> bool:
+    """Fetch and save after each ISBN, so a later failure keeps the rest."""
     todo = [i for i in dict.fromkeys(isbns) if refresh or i not in lock]
+    ok = True
     for n, isbn in enumerate(todo):
         if n:
             time.sleep(PAUSE)
-        lock[isbn] = fetch_isbn(isbn)
+        try:
+            lock[isbn] = fetch_isbn(isbn)
+        except Exception as e:  # noqa: BLE001 - report and go on
+            print(f"{isbn}: FAILED {e}", file=sys.stderr)
+            ok = False
+            continue
+        save_lock(lock)
         print(f"{isbn}: {lock[isbn]['source']}, {len(lock[isbn]['records'])} record(s)", file=sys.stderr)
+    return ok
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -403,15 +437,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "fetch":
         books = load_books()
         isbns = [isbn_digits(i) for i in args.isbn] or [i for e in books for _, i in entry_isbns(e)]
-        _fetch(isbns, lock, args.refresh or bool(args.isbn))
-        save_lock(lock)
+        return 0 if _fetch(isbns, lock, args.refresh or bool(args.isbn)) else 1
     elif args.cmd == "add":
         isbns = [isbn_digits(i) for i in args.isbn]
         for i in isbns:
             if not isbn13_ok(i):
                 ap.error(f"{i} is not a valid ISBN-13")
-        _fetch(isbns, lock, refresh=False)
-        save_lock(lock)
+        if not _fetch(isbns, lock, refresh=False):
+            return 1
         out = yaml.safe_dump([suggest(args.key, isbns, lock)], allow_unicode=True, sort_keys=False)
         print("# Check against the book, then append to books.yaml:\n" + out)
     elif args.cmd == "build":

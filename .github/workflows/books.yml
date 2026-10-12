@@ -33,6 +33,7 @@ jobs:
       - name: Fetch from NDL / openBD
         run: uv run --no-project --with pyyaml python tools/books.py fetch ${{ inputs.refresh && '--refresh' || '' }}
       - name: Commit books.lock.json
+        if: always()
         run: |
           git diff --quiet books.lock.json 2>/dev/null && git ls-files --error-unmatch books.lock.json >/dev/null 2>&1 && exit 0
           git config user.name "github-actions[bot]"
