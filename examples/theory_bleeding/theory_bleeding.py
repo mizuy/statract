@@ -55,6 +55,7 @@ from statract import (
     plot_tree,
     prop_test,
     propensity_weights,
+    proportion_ci,
     proportional_hazards_test,
     roc_curve,
     spline_test,
@@ -202,6 +203,85 @@ def table1(df: pl.DataFrame, out: Path) -> None:
         add_pvalue=True,
         column_order=["No bleeding", "Delayed bleeding"],
     )
+
+
+def descriptive(df: pl.DataFrame, out: Path) -> None:
+    """Chapter 0: describe the cohort before asking causal or predictive questions."""
+    params = {
+        "Age": ("age", agg_mean_sd),
+        "Male": ("male_label", agg_category),
+        "Antithrombotic": ("antithrombotic_label", agg_category),
+        "Hypertension": ("hypertension_label", agg_category),
+        "Lesion size (mm)": ("size_mm", agg_median_iqr),
+        "Proximal colon": ("proximal_label", agg_category),
+        "Prophylactic clip": ("clip_label", agg_category),
+        "Delayed bleeding": ("bleed_label", agg_category),
+    }
+    yes_no = {0: "No", 1: "Yes"}
+    shown = df.with_columns(
+        pl.col(c).replace_strict(yes_no).alias(f"{c}_label")
+        for c in ["male", "antithrombotic", "hypertension", "proximal", "clip", "bleed"]
+    )
+    write_tableone_artifacts(out, "ch0_table1", df=shown, params=params)
+
+    # Bleeding proportion with a Wilson interval, overall and by clip.
+    rows = []
+    for label, sub in [
+        ("All", df),
+        ("Clip", df.filter(pl.col("clip") == 1)),
+        ("No clip", df.filter(pl.col("clip") == 0)),
+    ]:
+        ci = sub.select(proportion_ci(pl.col("bleed"), method="wilson").alias("ci"))
+        rows.append(
+            {
+                "group": label,
+                "n": sub.height,
+                "events": int(sub["bleed"].sum()),
+                "proportion": float(sub["bleed"].mean()),
+                "conf_low": float(ci["ci"].struct.field("lo")[0]),
+                "conf_high": float(ci["ci"].struct.field("hi")[0]),
+            }
+        )
+    _write_csv(out, "ch0_rates", pl.DataFrame(rows))
+
+    # Mean and SD vs median and IQR: symmetric age, skewed lesion size.
+    rows = []
+    for col, name in [("age", "Age"), ("size_mm", "Lesion size (mm)")]:
+        x = df[col].to_numpy().astype(float)
+        q1, med, q3 = np.percentile(x, [25, 50, 75])
+        rows.append(
+            {
+                "variable": name,
+                "mean": x.mean(),
+                "sd": x.std(ddof=1),
+                "median": med,
+                "q1": q1,
+                "q3": q3,
+                "min": x.min(),
+                "max": x.max(),
+                "skewness": float(stats.skew(x)),
+            }
+        )
+    _write_csv(out, "ch0_summary", pl.DataFrame(rows))
+
+    fig, axes = plt.subplots(1, 2, figsize=(9, 3.4))
+    for ax, row, col in zip(axes, rows, ["age", "size_mm"]):
+        x = df[col].to_numpy()
+        # Values are whole numbers: 2-unit bins centred on them avoid empty bars.
+        bins = np.arange(x.min(), x.max() + 3, 2) - 0.5
+        ax.hist(x, bins=bins, color=GRAY, alpha=0.6)
+        ax.axvline(row["mean"], color=RED, label=f"Mean {row['mean']:.1f}")
+        ax.axvline(
+            row["median"], color=BLUE, ls="--", label=f"Median {row['median']:.0f}"
+        )
+        ax.set_xlabel(row["variable"])
+        ax.set_ylabel("Patients")
+        ax.legend(frameon=False)
+    axes[0].set_title("Age: nearly symmetric")
+    axes[1].set_title("Lesion size: long right tail")
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch0_distribution.png", dpi=180)
+    plt.close(fig)
 
 
 def conventional(df: pl.DataFrame, out: Path) -> tuple[pl.DataFrame, list[str]]:
@@ -3351,6 +3431,7 @@ def _expit(x: np.ndarray) -> np.ndarray:
 def main() -> None:
     out = _clear_out(ANALYSIS_OUT)
     df = load_data(CACHE)
+    descriptive(df, out)
     table1(df, out)
     _, selected = conventional(df, out)
     (out / "selected.md").write_text(

@@ -1,0 +1,21 @@
+name,All
+Age,68.0 (9.9)
+Male,""
+  No,1214 (40.5%)
+  Yes,1786 (59.5%)
+Antithrombotic,""
+  No,2384 (79.5%)
+  Yes,616 (20.5%)
+Hypertension,""
+  No,1547 (51.6%)
+  Yes,1453 (48.4%)
+Lesion size (mm),"14.0 [10.0,20.0]"
+Proximal colon,""
+  No,1347 (44.9%)
+  Yes,1653 (55.1%)
+Prophylactic clip,""
+  No,2073 (69.1%)
+  Yes,927 (30.9%)
+Delayed bleeding,""
+  No,2864 (95.5%)
+  Yes,136 (4.5%)

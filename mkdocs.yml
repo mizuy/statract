@@ -95,6 +95,7 @@ nav:
   - Learn:
       - 臨床の問いから始める統計: learn/index.md
       - 第 I 部 導入:
+          - 0. 記述：まずデータを見る: learn/descriptive.md
           - 1. 「独立した危険因子」とは何か: learn/independent-risk-factor.md
       - 第 II 部 因果推論:
           - 2. 因果推論の考え方: learn/causal-basics.md

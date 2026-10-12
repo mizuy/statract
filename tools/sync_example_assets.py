@@ -213,6 +213,11 @@ CURATED: dict[str, list[str]] = {
     ],
     "theory_bleeding": [
         "n.md",
+        "ch0_table1_gt.md",
+        "ch0_table1.csv",
+        "ch0_rates.csv",
+        "ch0_summary.csv",
+        "figures/ch0_distribution.png",
         "selected.md",
         "table1_gt.md",
         "table1.csv",
