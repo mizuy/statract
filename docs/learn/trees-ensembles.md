@@ -134,7 +134,7 @@
 
 ## 文献 {#references}
 
-ニューラルネットワークは Bishop [@Bishop2006-book] が詳しく、日本語訳 [@Bishop2012-book-ja] があります。
+決定木、ランダムフォレスト、ブースティングは、James ら [@James2018-book-ja] の第 8 章がやさしく説明しています。ニューラルネットワークは Bishop [@Bishop2006-book] が詳しく、日本語訳 [@Bishop2012-book-ja] があります。
 
 ::: {#refs}
 :::
