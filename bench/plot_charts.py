@@ -77,33 +77,17 @@ LABELS = {
 }
 
 
-def _tasks(rows: list[dict[str, str]], slices: set[str]) -> list[dict]:
-    grouped: dict[tuple[str, str], dict] = {}
-    order: list[tuple[str, str]] = []
+def _tasks(rows: list[dict[str, str]], slices: set[str]) -> dict[str, dict]:
+    grouped: dict[str, dict] = {}
     for row in rows:
         if row["slice"] not in slices:
             continue
-        key = (row["task"], row["slice"])
-        slot = grouped.get(key)
-        if slot is None:
-            slot = {"task": row["task"], "py": None, "r": None, "failed": False}
-            grouped[key] = slot
-            order.append(key)
-        passed = row["passed"] == "True"
-        slot["failed"] = slot["failed"] or not passed
+        slot = grouped.setdefault(row["task"], {"py": None, "r": None, "failed": False})
+        slot["failed"] = slot["failed"] or row["passed"] != "True"
         if slot["py"] is None and row["python_s"] and row["r_s"]:
             slot["py"] = float(row["python_s"])
             slot["r"] = float(row["r_s"])
-    tasks = []
-    for key in order:
-        slot = grouped[key]
-        if slot["py"] is None or slot["r"] is None or slot["r"] == 0.0:
-            continue
-        label = LABELS.get(slot["task"], slot["task"])
-        if slot["failed"]:
-            label = f"{label}（tol外）"
-        tasks.append({**slot, "label": label})
-    return tasks
+    return {task: slot for task, slot in grouped.items() if slot["py"] and slot["r"]}
 
 
 def _ratio_tick(k: float) -> str:
@@ -111,38 +95,43 @@ def _ratio_tick(k: float) -> str:
     if k == 0:
         return "等速"
     factor = 2 ** abs(k)
-    side = "R" if k > 0 else "Python"
-    return f"{side}\n{factor:.0f}倍"
+    side = "Python" if k > 0 else "R"
+    return f"{side} が\n{factor:.0f}倍速い"
 
 
-def _ratio(tasks: list[dict], path: Path) -> None:
-    labels = [task["label"] for task in tasks]
-    values = np.array([np.log2(task["r"] / task["py"]) for task in tasks])
-    y = np.arange(len(tasks))
-    fig_h = max(8.0, 0.42 * len(tasks) + 1.6)
+def _ratio(large: dict[str, dict], small: dict[str, dict], path: Path) -> None:
+    order = [task for task in LABELS if task in large or task in small]
+    y = np.arange(len(order))
+    height = 0.4
+    fig_h = max(8.0, 0.5 * len(order) + 1.6)
     fig, ax = plt.subplots(figsize=(12.6, fig_h), dpi=120)
-    colors = [R_COLOR if value >= 0 else PYTHON for value in values]
-    bars = ax.barh(y, values, color=colors, height=0.72)
-    for bar, task in zip(bars, tasks, strict=True):
-        if task["failed"]:
-            bar.set_hatch("///")
-            bar.set_edgecolor(PYTHON)
-            bar.set_linewidth(0.6)
+    values = []
+    for offset, slices, color in ((-height / 2, large, PYTHON), (height / 2, small, R_COLOR)):
+        for i, task in enumerate(order):
+            slot = slices.get(task)
+            if slot is None:
+                continue
+            value = np.log2(slot["r"] / slot["py"])
+            values.append(value)
+            bar = ax.barh(y[i] + offset, value, height=height, color=color)[0]
+            if slot["failed"]:
+                bar.set_hatch("///")
+                bar.set_edgecolor("white")
+                bar.set_linewidth(0.6)
     ax.axvline(0, color="0.35", linewidth=0.8)
     ax.set_yticks(y)
-    ax.set_yticklabels(labels, fontsize=9)
+    ax.set_yticklabels([LABELS[task] for task in order], fontsize=9)
+    ax.margins(y=0.01)
     ax.invert_yaxis()
-    lo = int(np.floor(values.min()))
-    hi = int(np.ceil(values.max()))
-    ticks = np.arange(lo, hi + 1)
+    ticks = np.arange(int(np.floor(min(values))), int(np.ceil(max(values))) + 1)
     ax.set_xticks(ticks)
     ax.set_xticklabels([_ratio_tick(tick) for tick in ticks], fontsize=8)
     ax.set_xlabel("log2(R の壁時計 / Python の壁時計)")
     ax.legend(
         handles=[
-            Patch(facecolor=R_COLOR, label="R が遅い"),
-            Patch(facecolor=PYTHON, label="Python が遅い"),
-            Patch(facecolor="white", edgecolor=PYTHON, hatch="///", label="tol外"),
+            Patch(facecolor=PYTHON, label="大きい側（約 10,000 行）"),
+            Patch(facecolor=R_COLOR, label="1,000 行側"),
+            Patch(facecolor="0.6", edgecolor="white", hatch="///", label="tol外"),
         ],
         loc="lower right",
     )
@@ -154,10 +143,10 @@ def _ratio(tasks: list[dict], path: Path) -> None:
 
 def main() -> None:
     rows = list(csv.DictReader(CSV_PATH.open()))
-    for name, slices in (("large", LARGE), ("small", SMALL)):
-        tasks = _tasks(rows, slices)
-        _ratio(tasks, OUT / f"ratio-{name}.png")
-        print(name, len(tasks), "tasks")
+    large = _tasks(rows, LARGE)
+    small = _tasks(rows, SMALL)
+    _ratio(large, small, OUT / "ratio.png")
+    print(len(large), "large tasks,", len(small), "small tasks")
 
 
 if __name__ == "__main__":
