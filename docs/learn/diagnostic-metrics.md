@@ -182,6 +182,8 @@ roc_test(roc_curve(y_new, p_full), roc_curve(y_new, p_simple))   # 対応のあ�
 
 ## 文献 {#references}
 
+日本語では、高田 [@Takada2022-book] が、感度、特異度、尤度比、的中率から、診断精度研究の読み方と作り方、STARD、診断予測モデルまでを説明しています。
+
 ::: {#refs}
 :::
 
