@@ -102,6 +102,12 @@
 | A6. [確率分布](math/distributions.md) | ベルヌーイと二項、Poisson（二項とのつながり）、負の二項（過分散）、正規、指数と Weibull、ベータ、ガンマ、分布の選び方（第 12、13、15、16 章） |
 | A7. [情報量規準（AIC、WAIC）](math/information-criteria.md) | LOOCV の得点、AIC、WAIC と実効的なパラメータの数、正則なモデルと特異なモデル（第 8、10、13 章） |
 
+### 付録
+
+| 項 | 内容 |
+|----|------|
+| B. [報告ガイドライン](reporting-guidelines.md) | CONSORT、SPIRIT、STROBE、RECORD、TARGET、TRIPOD+AI、STARD、PRISMA と日本語訳 |
+
 ## 文献 {#references}
 
 - Hernán MA, Hsu J, Healy B. A second chance to get causal inference right: a classification of data science tasks. Chance. 2019;32(1):42–49.
@@ -129,6 +135,7 @@
 | DAG | directed acyclic graph | 有向非巡回グラフ |
 | DCA | decision curve analysis | 決定曲線分析 |
 | EPV | events per variable | 1 変数あたりのイベント数 |
+| EQUATOR | Enhancing the QUAlity and Transparency Of health Research | 報告指針をまとめる国際的な取り組み |
 | ESS | effective sample size | 有効サンプルサイズ |
 | GEE | generalized estimating equations | 一般化推定方程式 |
 | GLM | generalized linear model | 一般化線形モデル |
@@ -145,8 +152,10 @@
 | NPV | negative predictive value | 陰性的中率 |
 | OR | odds ratio | オッズ比 |
 | PPV | positive predictive value | 陽性的中率 |
+| PRISMA | Preferred Reporting Items for Systematic reviews and Meta-Analyses | 系統的レビューの報告指針 |
 | PSIS-LOO | Pareto-smoothed importance sampling leave-one-out cross-validation | パレート平滑化重点サンプリングによる一つ抜き交差検証 |
 | RCT | randomized controlled trial | ランダム化比較試験 |
+| RECORD | REporting of studies Conducted using Observational Routinely-collected health Data | 診療データを使った観察研究の報告指針 |
 | RHC | right heart catheterization | 右心カテーテル |
 | RMST | restricted mean survival time | 制限付き平均生存時間 |
 | ROC | receiver operating characteristic | 受信者動作特性 |
@@ -154,7 +163,10 @@
 | SD | standard deviation | 標準偏差 |
 | SE | standard error | 標準誤差 |
 | SMD | standardized mean difference | 標準化差 |
+| SPIRIT | Standard Protocol Items: Recommendations for Interventional Trials | 試験計画書の報告指針 |
 | STARD | Standards for Reporting of Diagnostic Accuracy Studies | 診断精度研究の報告指針 |
+| STROBE | Strengthening the Reporting of Observational Studies in Epidemiology | 観察研究の報告指針 |
+| TARGET | TrAnsparent ReportinG of observational studies Emulating a Target trial | 標的試験の模倣の報告指針 |
 | TRIPOD | Transparent Reporting of a multivariable prediction model for Individual Prognosis Or Diagnosis | 予測モデル研究の報告指針 |
 | WAIC | widely applicable information criterion | 広く使える情報量規準（渡辺–赤池情報量規準とも） |
 

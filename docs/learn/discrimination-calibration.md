@@ -155,6 +155,8 @@ DCA の読み方の要点は、**自分の閾値の範囲で**、モデルの曲
 - 臨床での有用性：使い方と閾値の範囲を決めたうえでの決定曲線
 - どのデータで測ったか（見かけ、内部検証、外部検証）
 
+予測モデルの報告指針 TRIPOD+AI は、[付録 B](reporting-guidelines.md#tripod) で紹介しています。
+
 ## 文献 {#references}
 
 識別、較正、臨床的有用性の評価は、Steyerberg の教科書 [@Steyerberg2019-book] が詳しく、日本語訳 [@Steyerberg2023-book-ja] があります。

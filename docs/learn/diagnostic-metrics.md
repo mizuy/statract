@@ -170,7 +170,7 @@ roc_test(roc_curve(y_new, p_full), roc_curve(y_new, p_simple))   # 対応のあ�
 
 ## 16.8 何を報告するか {#report}
 
-診断精度研究の報告指針が **STARD**（Standards for Reporting of Diagnostic Accuracy Studies、診断精度研究の報告指針）です。主な項目は次のとおりです。
+診断精度研究の報告指針が **STARD**（Standards for Reporting of Diagnostic Accuracy Studies、診断精度研究の報告指針）です（ほかの報告指針は [付録 B](reporting-guidelines.md)）。主な項目は次のとおりです。
 
 - 患者の集め方（1 ゲートか 2 ゲートか、連続して集めたか）と、対象の場面
 - 検査と参照基準の内容、陽性の閾値を前もって決めたか
