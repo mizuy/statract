@@ -68,7 +68,7 @@
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
 | 7. [予測モデルとしてのロジスティック回帰](prediction-model.md) | 同じ式を予測に使う、係数より予測確率、因果でない変数も予測に役立つ | 予測確率の分布 | `fit_glm` |
-| 8. [過学習と汎化](overfitting.md) | 見かけの成績、学習曲線、例数の目安、分割、交差検証、LOOCV、AIC と WAIC、ブートストラップ | 学習曲線、交差検証の模式図と比較 | `fit_glm`、`roc_curve`、`validate_logistic` |
+| 8. [過学習と汎化](overfitting.md) | 見かけの成績、学習曲線、例数の目安、分割、交差検証、LOOCV、ブートストラップ | 学習曲線、交差検証の模式図と比較 | `fit_glm`、`roc_curve`、`validate_logistic` |
 | 9. [識別と較正](discrimination-calibration.md) | ROC と C 統計量、較正の図と切片・傾き、Brier、決定曲線 | ROC、較正の図、DCA | `roc_curve`、`plot_roc`、`decision_curve_table`、`plot_dca` |
 | 10. [正則化](regularization.md)（発展） | ridge、LASSO、λ を交差検証で選ぶ、一回では当てにならないこと、ベイズとのつながり | 係数の経路、繰り返しでの較正の傾き | statract に未実装（numpy で図示） |
 | 11. [木、アンサンブル、ニューラルネットワーク](trees-ensembles.md)（発展） | 条件付き推測木（ctree）、ランダムフォレストと勾配ブースティングの紹介、ロジスティック回帰を重ねたニューラルネットワーク | 木の図、ネットワークの模式図 | `conditional_tree`、`plot_tree`（森、ブースティング、ネットワークは numpy） |
@@ -98,6 +98,7 @@
 | A4. [微分と最大化](math/derivatives-maximization.md) | 頂上では傾きが 0、曲がり具合と標準誤差、ニュートン法（第 13 章） |
 | A5. [ベクトルと行列](math/vectors-matrices.md) | 計画行列、情報行列と分散共分散行列、係数の組み合わせ、LOOCV の近道（第 8、13 章） |
 | A6. [確率分布](math/distributions.md) | ベルヌーイと二項、Poisson（二項とのつながり）、負の二項（過分散）、正規、指数と Weibull、ベータ、ガンマ、分布の選び方（第 12、13、15、16 章） |
+| A7. [情報量規準（AIC、WAIC）](math/information-criteria.md) | LOOCV の得点、AIC、WAIC と実効的なパラメータの数、正則なモデルと特異なモデル（第 8、10、13 章） |
 
 ## 文献 {#references}
 
