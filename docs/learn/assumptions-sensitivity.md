@@ -202,7 +202,7 @@ Hill 自身は、これを「基準」（criteria）ではなく「視点」（v
 
 ## 文献 {#references}
 
-教科書では、Hernán と Robins [@Hernan2020-book] の第 3 章が三つの仮定を扱っています。
+教科書では、Hernán と Robins [@Hernan2020-book] の第 3 章が三つの仮定を扱っています。日本語では、田中 [@Tanaka2022-book-rubin] の第 3 章が、一致性、非干渉性、効果の識別に必要な仮定を説明しています。
 
 ::: {#refs}
 :::
