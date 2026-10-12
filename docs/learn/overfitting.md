@@ -243,7 +243,7 @@ LOOCV の特徴は次のとおりです。
 
 ## 文献 {#references}
 
-教科書では、Hastie ら [@Hastie2009-book] の第 7 章が交差検証と情報量規準を扱っています。
+教科書では、Hastie ら [@Hastie2009-book] の第 7 章が交差検証と情報量規準を扱っています。日本語訳 [@Hastie2014-book-ja] があります。
 
 ::: {#refs}
 :::

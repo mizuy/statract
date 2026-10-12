@@ -131,7 +131,7 @@ statract には正則化の関数がまだないので、この章では numpy �
 
 ## 文献 {#references}
 
-教科書では、Hastie ら [@Hastie2009-book] の第 3、4 章が ridge と LASSO を扱っています。
+教科書では、Hastie ら [@Hastie2009-book] の第 3、4 章が ridge と LASSO を扱っています。日本語訳 [@Hastie2014-book-ja] があります。
 
 ::: {#refs}
 :::

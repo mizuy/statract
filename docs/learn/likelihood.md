@@ -316,7 +316,7 @@ $\theta$（シータ）は知りたい値、$\propto$ は「比例する」で�
 
 ## 文献 {#references}
 
-教科書では、尤度は Pawitan [@Pawitan2001-book] と Agresti [@Agresti2013-book] の第 1、4、5 章、ベイズ推論は Gelman ら [@Gelman2013-book] と McElreath [@McElreath2020-book] が詳しいです。
+教科書では、尤度は Pawitan [@Pawitan2001-book] と Agresti [@Agresti2013-book] の第 1、4、5 章、ベイズ推論は Gelman ら [@Gelman2013-book] と McElreath [@McElreath2020-book] が詳しいです。Gelman らには日本語訳 [@Gelman2024-book-ja] があります。
 
 ::: {#refs}
 :::

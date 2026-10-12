@@ -162,6 +162,8 @@ statract の `random_effects()` は区間を返さないので、図の区間は
 
 ## 文献 {#references}
 
+ベイズの階層モデルは Gelman ら [@Gelman2013-book] が詳しく、日本語訳 [@Gelman2024-book-ja] があります。
+
 ::: {#refs}
 :::
 

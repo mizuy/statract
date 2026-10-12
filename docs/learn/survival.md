@@ -271,7 +271,7 @@ Weibull モデルは、AFT モデルでもあり比例ハザードモデルで�
 
 ## 文献 {#references}
 
-教科書では、Collett [@Collett2023-book] が入門に、Therneau と Grambsch [@Therneau2000-book] が Cox モデルの拡張と診断に向いています。
+教科書では、Collett [@Collett2023-book] が入門に、Therneau と Grambsch [@Therneau2000-book] が Cox モデルの拡張と診断に向いています。Collett は第 2 版の日本語訳 [@Collett2013-book-ja] があります。日本語で書かれた教科書では、大橋ら [@Ohashi2022-book] が Kaplan–Meier 法から Cox 回帰までを SAS の例とともに説明しています。
 
 ::: {#refs}
 :::

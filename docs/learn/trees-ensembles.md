@@ -134,6 +134,8 @@
 
 ## 文献 {#references}
 
+ニューラルネットワークは Bishop [@Bishop2006-book] が詳しく、日本語訳 [@Bishop2012-book-ja] があります。
+
 ::: {#refs}
 :::
 
