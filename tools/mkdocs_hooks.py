@@ -83,8 +83,41 @@ _NAV_BREAKPOINT = {
     "js": [("(min-width: 76.25em)", "(min-width: 60em)")],
 }
 
+# The drawer on narrow screens shows one nav level at a time as sliding panels.
+# Drop those panel rules and apply the desktop tree rules at every width, so the
+# drawer holds the same collapsible tree as the sidebar. Each block is found by
+# its media query and the first rule inside it.
+_DRAWER_PANELS = (
+    "@media screen and (max-width:76.234375em){",
+    ".md-nav--primary,.md-nav--primary .md-nav{background-color:",
+)
+_DESKTOP_TREE = (
+    "@media screen and (min-width:76.25em){",
+    ".md-nav{margin-bottom:-.4rem;",
+)
 
-def _lower_nav_breakpoint(site: Path) -> None:
+
+def _media_block(text: str, query: str, first_rule: str) -> tuple[int, int]:
+    """Return the span of the ``@media`` rule that starts with ``first_rule``."""
+    start = text.find(query + first_rule)
+    if start < 0:
+        raise RuntimeError(f"{first_rule!r} block not found; Material changed")
+    depth, i = 1, start + len(query)
+    while depth:
+        depth += {"{": 1, "}": -1}.get(text[i], 0)
+        i += 1
+    return start, i
+
+
+def _tree_nav_everywhere(text: str) -> str:
+    start, end = _media_block(text, *_DRAWER_PANELS)
+    text = text[:start] + text[end:]
+    start, end = _media_block(text, *_DESKTOP_TREE)
+    inner = text[start + len(_DESKTOP_TREE[0]) : end - 1]
+    return text[:start] + inner + text[end:]
+
+
+def _patch_material_assets(site: Path) -> None:
     targets = {
         "css": site.glob("assets/stylesheets/main.*.min.css"),
         "js": site.glob("assets/javascripts/bundle.*.min.js"),
@@ -95,6 +128,8 @@ def _lower_nav_breakpoint(site: Path) -> None:
             raise RuntimeError(f"Material {kind} bundle not found")
         for f in files:
             text = f.read_text(encoding="utf-8")
+            if kind == "css":
+                text = _tree_nav_everywhere(text)
             for old, new in _NAV_BREAKPOINT[kind]:
                 if old not in text:
                     raise RuntimeError(
@@ -107,7 +142,7 @@ def _lower_nav_breakpoint(site: Path) -> None:
 def on_post_build(config) -> None:
     """Write directory-URL redirects for the old ``stat/`` docs paths."""
     site = Path(config["site_dir"])
-    _lower_nav_breakpoint(site)
+    _patch_material_assets(site)
     for src, dst in _REDIRECTS.items():
         page = site / Path(src).with_suffix("") / "index.html"
         target = site / Path(dst).with_suffix("")

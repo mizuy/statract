@@ -157,3 +157,29 @@
     display: none;
   }
 }
+
+/* Below 60em the nav sits in the drawer, and tools/mkdocs_hooks.py styles it
+   as the same tree as the desktop sidebar. Let the drawer scroll, keep the
+   page TOC folded until its icon is tapped, and drop the sticky title that
+   would cover the repository link. */
+@media screen and (max-width: 59.984375em) {
+  .md-sidebar--primary .md-sidebar__scrollwrap {
+    overflow-y: auto;
+  }
+
+  .md-nav--primary .md-nav__link[for="__toc"] ~ .md-nav {
+    display: grid;
+  }
+
+  .md-nav--primary .md-nav--secondary > .md-nav__title {
+    display: none;
+  }
+
+  .md-nav--primary .md-nav__title[for="__drawer"] {
+    display: none;
+  }
+
+  .md-nav--primary > .md-nav__list {
+    padding-top: 0.4rem;
+  }
+}
