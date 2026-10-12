@@ -123,7 +123,7 @@ DAG の道の形は三つしかありません。
 
 入門には、Hernán と Robins [@Hernan2020-book] が最も向いています。著者のウェブサイトで無料公開されていて、反事実モデル、DAG、各手法を臨床疫学の例で説明しています。短い論文では Hernán [@Hernan2004-fx] があります。
 
-日本語では、最初の一冊に林 [@Hayashi2024-book] を勧めます。DAG とバックドア基準を、図とことばで説明しています。数式をほとんど使わない入門にはローゼンバウム [@Rosenbaum2024-book-ja]、一般向けの読み物にはパールとマッケンジー [@Pearl2022-book-ja] があります。教科書としては岩崎 [@Iwasaki2015-book] と、R のコードで手を動かせる高橋 [@Takahashi2022-book]、発展的な内容は星野 [@Hoshino2009-book] です。
+日本語では、最初の一冊に林 [@Hayashi2024-book] を勧めます。DAG とバックドア基準を、図とことばで説明しています。数式をほとんど使わない入門にはローゼンバウム [@Rosenbaum2024-book-ja]、一般向けの読み物にはパールとマッケンジー [@Pearl2022-book-ja] があります。教科書としては岩崎 [@Iwasaki2015-book] と、R のコードで手を動かせる高橋 [@Takahashi2022-book]、発展的な内容は星野 [@Hoshino2009-book] です。医学研究の例で潜在的結果の考え方を学ぶなら、田中 [@Tanaka2022-book-rubin] があります。
 
 原著と発展的な文献は、反事実モデルが Rubin [@Rubin1974-nh] と Imbens と Rubin [@Imbens2015-book]、DAG が Greenland ら [@Greenland1999-rp] と Pearl [@Pearl2009-book] です。Imbens と Rubin には日本語訳 [@Imbens2023-book-ja] があり、Pearl は初版の日本語訳 [@Pearl2009-book-ja] があります。第 1 章の Table 2 の誤りは Westreich と Greenland [@Westreich2013-ax] が論じています。
 
