@@ -122,8 +122,13 @@ Table 1 を群に分けて、群の差に $P$ 値をつける論文をよく見�
 
 ## 文献 {#references}
 
-1. Lesko CR, Fox MP, Edwards JK. A framework for descriptive epidemiology. Am J Epidemiol. 2022;191(12):2063–2070.
-2. Moher D, Hopewell S, Schulz KF, Montori V, Gøtzsche PC, Devereaux PJ, et al. CONSORT 2010 explanation and elaboration: updated guidelines for reporting parallel group randomised trials. BMJ. 2010;340:c869.
+日本語では、新谷 [@Shintani2024-book] が臨床家向けに、記述統計、信頼区間、検定の基礎を説明しています。
+
+- Lesko CR, Fox MP, Edwards JK. A framework for descriptive epidemiology. Am J Epidemiol. 2022;191(12):2063–2070.
+- Moher D, Hopewell S, Schulz KF, Montori V, Gøtzsche PC, Devereaux PJ, et al. CONSORT 2010 explanation and elaboration: updated guidelines for reporting parallel group randomised trials. BMJ. 2010;340:c869.
+
+::: {#refs}
+:::
 
 ## まとめ
 

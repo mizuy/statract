@@ -111,4 +111,11 @@ $$
 
 <div class="sx-widget" data-widget="sampling">この図を動かすには JavaScript が必要です。</div>
 
+## 文献 {#references}
+
+日本語では、田中 [@Tanaka2022-book-glm] の第 2–4 章が、確率の復習、正規分布の信頼区間、推定量の良し悪しの基準（不偏性など）を扱っています。
+
+::: {#refs}
+:::
+
 **次へ：**[数学補 A4 微分と最大化](derivatives-maximization.md)

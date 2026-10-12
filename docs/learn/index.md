@@ -11,6 +11,8 @@
 
 この三つの分け方は、Hernán ら（2019）と Shmueli（2010）に基づきます。Hernán らは因果推論を「反事実の予測」と呼び、記述、予測と並べています。
 
+臨床の疑問を研究の問い（リサーチクエスチョン）に仕上げる手順は、日本語では福原 [@Fukuhara2017-book] が詳しく説明しています。
+
 | 問いの種類 | 例 | 本書 |
 |------------|----|------|
 | 記述 | 出血は何%に起きるか。検査の感度はいくらか | 第 0 章、第 16 章 |
@@ -81,7 +83,7 @@
 | 13. [尤度と二つの推定法：最尤法とベイズ](likelihood.md) | 尤度、対数尤度と曲がり具合、標準誤差、ニュートン法、プロファイル尤度、三つの検定、ベイズ推論（事前分布、事後分布、信用区間）、MCMC、最尤法とベイズの比較、分離と Firth の方法 | 尤度曲線、プロファイル尤度、事前と事後、MCMC の連鎖 | `fit_glm`、`likelihood_ratio_test`（MCMC は numpy） |
 | 14. [階層モデル](hierarchical.md) | 施設差、完全・部分・なしのプーリング、縮小、ICC と MOR、施設の順位づけ、ベイズ推論で読む部分プーリング（経験ベイズ） | 施設ごとの推定の縮み、施設の効果の区間、事前と事後 | `fit_mixed`、`glmm_cluster_variance`、`plot_random_effects` |
 
-### 第 V 部 生存時間と診断
+### 第 V 部 臨床でよく使う解析
 
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
@@ -102,8 +104,11 @@
 
 ## 文献 {#references}
 
-1. Hernán MA, Hsu J, Healy B. A second chance to get causal inference right: a classification of data science tasks. Chance. 2019;32(1):42–49.
-2. Shmueli G. To explain or to predict? Stat Sci. 2010;25(3):289–310.
+- Hernán MA, Hsu J, Healy B. A second chance to get causal inference right: a classification of data science tasks. Chance. 2019;32(1):42–49.
+- Shmueli G. To explain or to predict? Stat Sci. 2010;25(3):289–310.
+
+::: {#refs}
+:::
 
 ## 略語 {#abbreviations}
 

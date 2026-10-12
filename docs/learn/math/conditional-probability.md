@@ -98,4 +98,11 @@ $$
 P(Y = 1) = \sum_x P(Y = 1 \mid X = x)\, P(X = x)
 $$
 
+## 文献 {#references}
+
+ベイズの定理を診断に使う考え方（検査前確率と検査後確率）は、日本語では高田 [@Takada2022-book] が説明しています。ベイズ推論の入門には、赤石と須山 [@Akaishi2023-book] があります。
+
+::: {#refs}
+:::
+
 **次へ：**[数学補 A3 期待値と分散](expectation-variance.md)

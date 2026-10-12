@@ -217,7 +217,7 @@ ATT の重みは、クリップなしの患者をクリップ群の背景に合�
 
 ## 文献 {#references}
 
-教科書では、Hernán と Robins [@Hernan2020-book] の第 12 章が IPTW を扱っています。
+教科書では、Hernán と Robins [@Hernan2020-book] の第 12 章が IPTW を扱っています。日本語では、田中 [@Tanaka2022-book-rubin] の第 8 章が、逆確率重み付け（inverse probability weighting、IPW）による推定量、二重頑健推定量、重なりが崩れたときの対処を説明しています。
 
 ::: {#refs}
 :::

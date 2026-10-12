@@ -160,7 +160,7 @@ $$
 
 ## 文献 {#references}
 
-教科書では、Gelman ら [@Gelman2020-book] の第 5、11 章と、Harrell [@Harrell2015-book] の第 2 章が、この章の内容に近いです。
+教科書では、Gelman ら [@Gelman2020-book] の第 5、11 章と、Harrell [@Harrell2015-book] の第 2 章が、この章の内容に近いです。日本語では、田中 [@Tanaka2022-book-glm] が医学研究の例で一般化線型モデルを説明しています。データが生まれる仕組みとしてモデルを読む見方は、久保 [@Kubo2012-book] がやさしく説明しています。
 
 ::: {#refs}
 :::

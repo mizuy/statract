@@ -316,7 +316,7 @@ $\theta$（シータ）は知りたい値、$\propto$ は「比例する」で�
 
 ## 文献 {#references}
 
-教科書では、尤度は Pawitan [@Pawitan2001-book] と Agresti [@Agresti2013-book] の第 1、4、5 章、ベイズ推論は Gelman ら [@Gelman2013-book] と McElreath [@McElreath2020-book] が詳しいです。
+教科書では、尤度は Pawitan [@Pawitan2001-book] と Agresti [@Agresti2013-book] の第 1、4、5 章、ベイズ推論は Gelman ら [@Gelman2013-book] と McElreath [@McElreath2020-book] が詳しいです。Gelman らには日本語訳 [@Gelman2024-book-ja] があります。Python で手を動かしながら学ぶなら、赤石と須山 [@Akaishi2023-book] が入門に、Martin の日本語訳 [@Martin2018-book-ja] が PyMC での実践に向いています。日本語では、田中 [@Tanaka2022-book-glm] が最尤法、Fisher 情報量、Wald 信頼区間を医学研究の例で説明しています。小標本でのペナルティ付き尤度も扱っています。
 
 ::: {#refs}
 :::

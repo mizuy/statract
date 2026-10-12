@@ -534,6 +534,11 @@
     <layout>
       <text suffix="." variable="citation-number"/>
       <text macro="bibliography"/>
+      <choose>
+        <if type="book">
+          <text variable="ISBN" prefix=" ISBN " suffix="."/>
+        </if>
+      </choose>
     </layout>
   </bibliography>
 </style>
