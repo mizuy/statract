@@ -7,7 +7,12 @@ tasks:
     cmds:
       - bash tests/r_oracle/run.sh {{.CLI_ARGS}}
 
-  r-oracle:rewritten:
-    desc: Same as r-oracle for the four scripts rewritten from the papers in 2026-10
+  r-oracle:check:
+    desc: Run R oracle scripts and compare with the saved fixtures without changing them (`task r-oracle:check -- htest` for some)
     cmds:
-      - bash tests/r_oracle/run.sh ordinal standardize_glm gamm4 stdreg_cox
+      - bash tests/r_oracle/run.sh --check {{.CLI_ARGS}}
+
+  r-oracle:rewritten:
+    desc: r-oracle:check for the four scripts rewritten from the papers in 2026-10
+    cmds:
+      - bash tests/r_oracle/run.sh --check ordinal standardize_glm gamm4 stdreg_cox
