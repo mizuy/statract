@@ -1,7 +1,6 @@
-"""Draw the wall-clock and speed-ratio charts from the published comparison table.
+"""Draw the speed-ratio charts from the published comparison table.
 
-Other tasks keep the seconds already stored in the CSV. This script does not
-remeasure them.
+This script reads the seconds stored in the CSV. It does not remeasure them.
 """
 
 from __future__ import annotations
@@ -107,26 +106,6 @@ def _tasks(rows: list[dict[str, str]], slices: set[str]) -> list[dict]:
     return tasks
 
 
-def _speed(tasks: list[dict], path: Path) -> None:
-    labels = [task["label"] for task in tasks]
-    y = np.arange(len(tasks))
-    height = 0.38
-    fig_h = max(8.0, 0.42 * len(tasks) + 1.4)
-    fig, ax = plt.subplots(figsize=(12.4, fig_h), dpi=120)
-    ax.barh(y - height / 2, [task["py"] * 1000 for task in tasks], height=height, color=PYTHON, label="Python")
-    ax.barh(y + height / 2, [task["r"] * 1000 for task in tasks], height=height, color=R_COLOR, label="R")
-    ax.set_yticks(y)
-    ax.set_yticklabels(labels, fontsize=9)
-    ax.invert_yaxis()
-    ax.set_xscale("log")
-    ax.set_xlabel("壁時計（ms）")
-    ax.legend(loc="lower right")
-    ax.grid(axis="x", which="both", color="0.85", linewidth=0.6)
-    fig.tight_layout()
-    fig.savefig(path)
-    plt.close(fig)
-
-
 def _ratio_tick(k: float) -> str:
     k = int(k)
     if k == 0:
@@ -177,7 +156,6 @@ def main() -> None:
     rows = list(csv.DictReader(CSV_PATH.open()))
     for name, slices in (("large", LARGE), ("small", SMALL)):
         tasks = _tasks(rows, slices)
-        _speed(tasks, OUT / f"speed-{name}.png")
         _ratio(tasks, OUT / f"ratio-{name}.png")
         print(name, len(tasks), "tasks")
 
