@@ -317,7 +317,8 @@ def check_entry(entry: dict, lock: dict) -> list[str]:
         got = " | ".join(sorted({r["publisher"] for r in records if r.get("publisher")}))
         bad("publisher", f"{entry.get('publisher')!r} vs {got!r}")
 
-    eds = {_edition(r.get("edition")) for r in records}
+    # A copy without an edition statement does not outvote one with it.
+    eds = {_edition(r["edition"]) for r in records if r.get("edition")} or {"1"}
     if _edition(entry.get("edition") and str(entry["edition"])) not in eds:
         got = sorted({r.get("edition") or "(none)" for r in records})
         bad("edition", f"{entry.get('edition')!r} vs {got}")
