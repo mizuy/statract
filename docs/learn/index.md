@@ -38,7 +38,7 @@
 
 ## 読み方
 
-- 本文は**高校数学まで**を前提にします。それを超える数学は [数学補](math/odds-log.md) にまとめ、一段ずつ説明します。
+- 本文は**高校数学まで**を前提にします。それを超える数学は [数学補](math/probability.md) にまとめ、一段ずつ説明します。
 - 本文では式の導出より、「その式が何を意味するか」「何をしているか」を重視します。
 - 図は statract で描き、コードを添えます。
 - 各章と数学補に、スライダーやクリックで動かせる図があります。
@@ -94,13 +94,14 @@
 
 | 項 | 内容 |
 |----|------|
-| A1. [確率、オッズ、対数](math/odds-log.md) | 第 1 章で使う道具 |
-| A2. [条件付き確率とベイズの定理](math/conditional-probability.md) | 条件付き独立、陽性的中率、ベイズ推論（第 II 部、第 9 章、第 13 章、第 16 章） |
-| A3. [期待値と分散](math/expectation-variance.md) | 繰り返し期待値と g-formula、和の分散、標準誤差、1.96（全体） |
-| A4. [微分と最大化](math/derivatives-maximization.md) | 頂上では傾きが 0、曲がり具合と標準誤差、ニュートン法（第 13 章） |
-| A5. [ベクトルと行列](math/vectors-matrices.md) | 計画行列、情報行列と分散共分散行列、係数の組み合わせ、LOOCV の近道（第 8、13 章） |
-| A6. [確率分布](math/distributions.md) | ベルヌーイと二項、Poisson（二項とのつながり）、負の二項（過分散）、正規、指数と Weibull、ベータ、ガンマ、分布の選び方（第 12、13、15、16 章） |
-| A7. [情報量規準（AIC、WAIC）](math/information-criteria.md) | LOOCV の得点、AIC、WAIC と実効的なパラメータの数、正則なモデルと特異なモデル（第 8、10、13 章） |
+| A1. [確率と確率変数](math/probability.md) | 確率空間、確率変数、確率分布（全体） |
+| A2. [オッズと対数](math/odds-log.md) | オッズ、オッズ比、指数と対数、ロジット。第 1 章で使う道具 |
+| A3. [条件付き確率とベイズの定理](math/conditional-probability.md) | 条件付き独立、陽性的中率、ベイズ推論（第 II 部、第 9 章、第 13 章、第 16 章） |
+| A4. [期待値と分散](math/expectation-variance.md) | 繰り返し期待値と g-formula、和の分散、標準誤差、1.96（全体） |
+| A5. [微分と最大化](math/derivatives-maximization.md) | 頂上では傾きが 0、曲がり具合と標準誤差、ニュートン法（第 13 章） |
+| A6. [ベクトルと行列](math/vectors-matrices.md) | 計画行列、情報行列と分散共分散行列、係数の組み合わせ、LOOCV の近道（第 8、13 章） |
+| A7. [確率分布](math/distributions.md) | ベルヌーイと二項、Poisson（二項とのつながり）、負の二項（過分散）、正規、指数と Weibull、ベータ、ガンマ、分布の選び方（第 12、13、15、16 章） |
+| A8. [情報量規準（AIC、WAIC）](math/information-criteria.md) | LOOCV の得点、AIC、WAIC と実効的なパラメータの数、正則なモデルと特異なモデル（第 8、10、13 章） |
 
 ### 付録
 

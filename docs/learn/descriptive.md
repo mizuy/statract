@@ -110,7 +110,7 @@ df.select(proportion_ci(pl.col("bleed"), method="wilson"))
 - 年齢は左右ほぼ対称です。平均と中央値がほぼ同じなので、平均（標準偏差）で示します。
 - 病変径は右に長く裾を引きます。少数の大きな病変に引っぱられて、平均（16.2 mm）が中央値（14 mm）より大きくなります。このようなときは中央値（四分位範囲）で示します。
 
-標準偏差（standard deviation、SD）は個々の患者のばらつき、標準誤差（standard error、SE）は平均や割合の推定のばらつきです。Table 1 で示すのは患者のばらつきなので、標準偏差を使います。詳しくは [A3. 期待値と分散](math/expectation-variance.md) にあります。
+標準偏差（standard deviation、SD）は個々の患者のばらつき、標準誤差（standard error、SE）は平均や割合の推定のばらつきです。Table 1 で示すのは患者のばらつきなので、標準偏差を使います。詳しくは [A4. 期待値と分散](math/expectation-variance.md) にあります。
 
 ## 0.5 Table 1 に P 値をつけるか {#pvalue}
 
