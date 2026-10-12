@@ -113,7 +113,7 @@ nav:
           - 12. 確率モデルとしてのロジスティック回帰: learn/probability-model.md
           - 13. 尤度と二つの推定法：最尤法とベイズ: learn/likelihood.md
           - 14. 階層モデル: learn/hierarchical.md
-      - 第 V 部 生存時間と診断:
+      - 第 V 部 その他の話題:
           - 15. 生存時間解析: learn/survival.md
           - 16. 診断の指標: learn/diagnostic-metrics.md
       - 数学補:
