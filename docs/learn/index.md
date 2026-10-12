@@ -11,6 +11,8 @@
 
 この三つの分け方は、Hernán ら（2019）と Shmueli（2010）に基づきます。Hernán らは因果推論を「反事実の予測」と呼び、記述、予測と並べています。
 
+臨床の疑問を研究の問い（リサーチクエスチョン）に仕上げる手順は、日本語では福原 [@Fukuhara2017-book] が詳しく説明しています。
+
 | 問いの種類 | 例 | 本書 |
 |------------|----|------|
 | 記述 | 出血は何%に起きるか。検査の感度はいくらか | 第 0 章、第 16 章 |
@@ -102,8 +104,11 @@
 
 ## 文献 {#references}
 
-1. Hernán MA, Hsu J, Healy B. A second chance to get causal inference right: a classification of data science tasks. Chance. 2019;32(1):42–49.
-2. Shmueli G. To explain or to predict? Stat Sci. 2010;25(3):289–310.
+- Hernán MA, Hsu J, Healy B. A second chance to get causal inference right: a classification of data science tasks. Chance. 2019;32(1):42–49.
+- Shmueli G. To explain or to predict? Stat Sci. 2010;25(3):289–310.
+
+::: {#refs}
+:::
 
 ## 略語 {#abbreviations}
 
