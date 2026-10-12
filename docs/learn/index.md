@@ -1,32 +1,38 @@
 # 臨床の問いから始める統計
 
-臨床研究に使う統計の考え方を、高校数学から学び直すテキストです。手法の一覧ではありません。「この研究で何を知りたいのか」から出発し、因果推論、予測、統計モデリングを一つの枠組みで理解することを目指します。
+臨床研究に使う統計の考え方を、高校数学から学び直すテキストです。手法の一覧ではありません。「この研究で何を知りたいのか」から出発します。臨床の問いを記述、予測、因果の三つに分け、それぞれに合う解析を、統計モデリングという共通の土台の上で理解することを目指します。
 
 関数の選び方だけを知りたいときは [手法の選び方](../guide/methods.md) を見てください。
 
 ## 中心のメッセージ
 
 !!! note ""
-    統計手法から研究を考えるのではなく、まず何を知りたいのかを決める。その問いが**因果**なのか**予測**なのかを区別する。そのうえで、合ったモデルと解析方法を選ぶ。
+    統計手法から研究を考えるのではなく、まず何を知りたいのかを決める。その問いが**記述**（どのくらい起きているか）、**予測**（この患者はどうなるか）、**因果**（変えたら変わるか）のどれなのかを区別する。そのうえで、合ったモデルと解析方法を選ぶ。
 
-臨床家にとっての重要度は、おおむね次の順と考えます。
+この三つの分け方は、Hernán ら（2019）と Shmueli（2010）に基づきます。Hernán らは因果推論を「反事実の予測」と呼び、記述、予測と並べています。
 
-**因果推論 > 機械学習・予測 > 統計モデリング**
+| 問いの種類 | 例 | 本書 |
+|------------|----|------|
+| 記述 | 出血は何%に起きるか。検査の感度はいくらか | 第 0 章、第 16 章 |
+| 予測 | この患者は出血するか | 第 III 部 |
+| 因果 | クリップを使えば出血は減るか | 第 II 部 |
 
-ただし三つは別々の分野ではありません。どれもロジスティック回帰と確率モデルを共通の言葉としてつながっています。
+臨床家がまず区別できるようにしたいのは、取り違えやすい因果と予測です。本書の中心もこの二つです。統計モデリングは問いの種類ではなく、どの問いにも使う共通の言葉です。本書ではロジスティック回帰と確率モデルを通して、三つをつなげます（第 IV 部）。
 
 ## 通しの例
 
-全章で同じ例を使います。**大腸内視鏡治療後の遅発性出血**と**予防的クリップ閉鎖**です。同じデータに、次の三つの違う問いを繰り返し投げます。
+全章で同じ例を使います。**大腸内視鏡治療後の遅発性出血**と**予防的クリップ閉鎖**です。同じデータに、次の違う問いを繰り返し投げます。
 
 | 問い | 種類 | 扱う部 |
 |------|------|--------|
+| 出血はどのくらい起きているか | 記述 | 第 I 部 |
 | 遅発性出血の「独立した危険因子」は何か | あいまい（分けて考える） | 第 I 部 |
 | 予防的クリップは出血を減らすか | 因果 | 第 II 部 |
 | この患者は出血するか | 予測 | 第 III 部 |
-| いつ出血するか、検査が陽性ならどのくらい確かか | 時間、診断 | 第 V 部 |
+| いつ出血するか | アウトカムが時間（記述、予測、因果のどれにも） | 第 V 部 |
+| 検査が陽性ならどのくらい確かか | 記述（検査の性能）と予測 | 第 V 部 |
 
-データは**シミュレーション**です。どの変数がどれに影響するかを表す有向非巡回グラフ（directed acyclic graph、DAG）をコードに書いて作っているので、各章で「推定した値」と「本当の値」を比べられます。作り方は [第 1 章](independent-risk-factor.md#simulation) と [`examples/theory_bleeding`](https://github.com/mizuy/statract/tree/main/examples/theory_bleeding) にあります。
+データは**シミュレーション**です。どの変数がどれに影響するかを表す有向非巡回グラフ（directed acyclic graph、DAG）をコードに書いて作っているので、各章で「推定した値」と「本当の値」を比べられます。データの中身は [第 0 章](descriptive.md)、作り方は [第 1 章](independent-risk-factor.md#simulation) と [`examples/theory_bleeding`](https://github.com/mizuy/statract/tree/main/examples/theory_bleeding) にあります。
 
 ## 読み方
 
@@ -42,6 +48,7 @@
 
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
+| 0. [記述：まずデータを見る](descriptive.md) | 記述という問い、Table 1、割合と信頼区間、平均と中央値、Table 1 の $P$ 値 | 年齢と病変径の分布 | `write_tableone_artifacts`、`proportion_ci` |
 | 1. [「独立した危険因子」とは何か](independent-risk-factor.md) | 慣習的な解析（単変量 → 多変量）、ロジスティック回帰の基本、因果か予測か | ロジスティック曲線、forest、層別の出血割合 | `fit_glm`、`write_tableone_artifacts`、`plot_forest` |
 
 ### 第 II 部 因果推論
@@ -61,7 +68,7 @@
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
 | 7. [予測モデルとしてのロジスティック回帰](prediction-model.md) | 同じ式を予測に使う、係数より予測確率、因果でない変数も予測に役立つ | 予測確率の分布 | `fit_glm` |
-| 8. [過学習と汎化](overfitting.md) | 見かけの成績、学習曲線、例数の目安、分割、交差検証、LOOCV、AIC と WAIC、ブートストラップ | 学習曲線、交差検証の模式図と比較 | `fit_glm`、`roc_curve`、`validate_logistic` |
+| 8. [過学習と汎化](overfitting.md) | 見かけの成績、学習曲線、バイアスと分散、例数の目安、分割、交差検証、LOOCV、ブートストラップ | 学習曲線、交差検証の模式図と比較 | `fit_glm`、`roc_curve`、`validate_logistic` |
 | 9. [識別と較正](discrimination-calibration.md) | ROC と C 統計量、較正の図と切片・傾き、Brier、決定曲線 | ROC、較正の図、DCA | `roc_curve`、`plot_roc`、`decision_curve_table`、`plot_dca` |
 | 10. [正則化](regularization.md)（発展） | ridge、LASSO、λ を交差検証で選ぶ、一回では当てにならないこと、ベイズとのつながり | 係数の経路、繰り返しでの較正の傾き | statract に未実装（numpy で図示） |
 | 11. [木、アンサンブル、ニューラルネットワーク](trees-ensembles.md)（発展） | 条件付き推測木（ctree）、ランダムフォレストと勾配ブースティングの紹介、ロジスティック回帰を重ねたニューラルネットワーク | 木の図、ネットワークの模式図 | `conditional_tree`、`plot_tree`（森、ブースティング、ネットワークは numpy） |
@@ -91,6 +98,12 @@
 | A4. [微分と最大化](math/derivatives-maximization.md) | 頂上では傾きが 0、曲がり具合と標準誤差、ニュートン法（第 13 章） |
 | A5. [ベクトルと行列](math/vectors-matrices.md) | 計画行列、情報行列と分散共分散行列、係数の組み合わせ、LOOCV の近道（第 8、13 章） |
 | A6. [確率分布](math/distributions.md) | ベルヌーイと二項、Poisson（二項とのつながり）、負の二項（過分散）、正規、指数と Weibull、ベータ、ガンマ、分布の選び方（第 12、13、15、16 章） |
+| A7. [情報量規準（AIC、WAIC）](math/information-criteria.md) | LOOCV の得点、AIC、WAIC と実効的なパラメータの数、正則なモデルと特異なモデル（第 8、10、13 章） |
+
+## 文献 {#references}
+
+1. Hernán MA, Hsu J, Healy B. A second chance to get causal inference right: a classification of data science tasks. Chance. 2019;32(1):42–49.
+2. Shmueli G. To explain or to predict? Stat Sci. 2010;25(3):289–310.
 
 ## 略語 {#abbreviations}
 
@@ -106,6 +119,7 @@
 | AUC | area under the curve | 曲線下面積（ROC 曲線の下の面積） |
 | CART | classification and regression trees | 分類回帰木 |
 | CI | confidence interval | 信頼区間 |
+| CONSORT | Consolidated Standards of Reporting Trials | ランダム化比較試験の報告指針 |
 | CV | cross-validation | 交差検証 |
 | DAG | directed acyclic graph | 有向非巡回グラフ |
 | DCA | decision curve analysis | 決定曲線分析 |
@@ -132,10 +146,11 @@
 | RMST | restricted mean survival time | 制限付き平均生存時間 |
 | ROC | receiver operating characteristic | 受信者動作特性 |
 | RR | risk ratio | リスク比 |
+| SD | standard deviation | 標準偏差 |
 | SE | standard error | 標準誤差 |
 | SMD | standardized mean difference | 標準化差 |
 | STARD | Standards for Reporting of Diagnostic Accuracy Studies | 診断精度研究の報告指針 |
 | TRIPOD | Transparent Reporting of a multivariable prediction model for Individual Prognosis Or Diagnosis | 予測モデル研究の報告指針 |
 | WAIC | widely applicable information criterion | 広く使える情報量規準（渡辺–赤池情報量規準とも） |
 
-**次へ：**[第 1 章 「独立した危険因子」とは何か](independent-risk-factor.md)
+**次へ：**[第 0 章 記述：まずデータを見る](descriptive.md)
