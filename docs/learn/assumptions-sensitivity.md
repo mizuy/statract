@@ -200,6 +200,8 @@ Hill 自身は、これを「基準」（criteria）ではなく「視点」（v
 - 主な仮定と、感度分析（E-value など）
 - できれば、方法を変えた解析（回帰の標準化と IPTW など）の結果
 
+観察研究の報告指針（STROBE、RECORD、TARGET）は [付録 B](reporting-guidelines.md#strobe) で紹介しています。
+
 ## 文献 {#references}
 
 教科書では、Hernán と Robins [@Hernan2020-book] の第 3 章が三つの仮定を扱っています。日本語では、田中 [@Tanaka2022-book-rubin] の第 3 章が、一致性、非干渉性、効果の識別に必要な仮定を説明しています。

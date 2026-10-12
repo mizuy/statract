@@ -124,6 +124,8 @@ nav:
           - A5. ベクトルと行列: learn/math/vectors-matrices.md
           - A6. 確率分布: learn/math/distributions.md
           - A7. 情報量規準（AIC、WAIC）: learn/math/information-criteria.md
+      - 付録:
+          - B. 報告ガイドライン: learn/reporting-guidelines.md
   - Examples:
       - Gallery: examples/index.md
       - Basic tests:
