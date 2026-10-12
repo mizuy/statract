@@ -9,7 +9,7 @@
 !!! note ""
     統計手法から研究を考えるのではなく、まず何を知りたいのかを決める。その問いが**記述**（どのくらい起きているか）、**予測**（この患者はどうなるか）、**因果**（変えたら変わるか）のどれなのかを区別する。そのうえで、合ったモデルと解析方法を選ぶ。
 
-この三つの分け方は、Hernán ら（2019）と Shmueli（2010）に基づきます。Hernán らは因果推論を「反事実の予測」と呼び、記述、予測と並べています。
+この三つの分け方は、Hernán ら [@Hernan2019-dl] と Shmueli [@Shmueli2010-bg] に基づきます。Hernán らは因果推論を「反事実の予測」と呼び、記述、予測と並べています。
 
 臨床の疑問を研究の問い（リサーチクエスチョン）に仕上げる手順は、日本語では福原 [@Fukuhara2017-book] が詳しく説明しています。
 
@@ -110,9 +110,6 @@
 | B. [報告ガイドライン](reporting-guidelines.md) | CONSORT、SPIRIT、STROBE、RECORD、TARGET、TRIPOD+AI、STARD、PRISMA と日本語訳 |
 
 ## 文献 {#references}
-
-- Hernán MA, Hsu J, Healy B. A second chance to get causal inference right: a classification of data science tasks. Chance. 2019;32(1):42–49.
-- Shmueli G. To explain or to predict? Stat Sci. 2010;25(3):289–310.
 
 ::: {#refs}
 :::

@@ -2,7 +2,7 @@
 
 臨床の問いには、記述、予測、因果の三つがあります（[はじめに](index.md)）。この章は**記述**です。どんな患者が何人いて、出血がどのくらい起きたのかを、そのまま示します。
 
-記述は、ほかの二つの前置きではありません。「この治療を受けた患者で、出血はどのくらい起きるか」は、それ自体が臨床の問いです。記述の問いでも、**誰について**（対象集団）、**いつの**（時点と期間）、**何を**（割合、平均など）示すのかを決めます（Lesko ら 2022）。
+記述は、ほかの二つの前置きではありません。「この治療を受けた患者で、出血はどのくらい起きるか」は、それ自体が臨床の問いです。記述の問いでも、**誰について**（対象集団）、**いつの**（時点と期間）、**何を**（割合、平均など）示すのかを決めます [@Lesko2022-wi]。
 
 [← 目次](index.md)
 
@@ -116,16 +116,13 @@ df.select(proportion_ci(pl.col("bleed"), method="wilson"))
 
 Table 1 を群に分けて、群の差に $P$ 値をつける論文をよく見ます。これには注意が要ります。
 
-- ランダム化比較試験（randomized controlled trial、RCT）では、群の差は偶然でしか生じません。偶然かどうかを検定しても意味がないので、報告指針 CONSORT は Table 1 で検定しないよう勧めています（Moher ら 2010。報告指針は [付録 B](reporting-guidelines.md) にまとめています）。
+- ランダム化比較試験（randomized controlled trial、RCT）では、群の差は偶然でしか生じません。偶然かどうかを検定しても意味がないので、報告指針 CONSORT は Table 1 で検定しないよう勧めています [@Moher2010-cd]。報告指針は [付録 B](reporting-guidelines.md) にまとめています。
 - 観察研究で治療の有無に分けるときは、群の違いの大きさを標準化差（standardized mean difference、SMD）で示します。$P$ 値は例数が多いほど小さくなり、違いの大きさを表さないからです。[第 4 章](propensity-score-matching.md) で扱います。
 - 結果（出血の有無）で分けて $P$ 値をつけると、それはもう記述ではなく、一つずつの比較（単変量解析）です。[第 1 章](independent-risk-factor.md) はここから始まります。
 
 ## 文献 {#references}
 
 日本語では、新谷 [@Shintani2024-book] が臨床家向けに、記述統計、信頼区間、検定の基礎を説明しています。
-
-- Lesko CR, Fox MP, Edwards JK. A framework for descriptive epidemiology. Am J Epidemiol. 2022;191(12):2063–2070.
-- Moher D, Hopewell S, Schulz KF, Montori V, Gøtzsche PC, Devereaux PJ, et al. CONSORT 2010 explanation and elaboration: updated guidelines for reporting parallel group randomised trials. BMJ. 2010;340:c869.
 
 ::: {#refs}
 :::
