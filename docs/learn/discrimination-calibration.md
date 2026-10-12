@@ -157,6 +157,8 @@ DCA の読み方の要点は、**自分の閾値の範囲で**、モデルの曲
 
 ## 文献 {#references}
 
+識別、較正、臨床的有用性の評価は、Steyerberg の教科書 [@Steyerberg2019-book] が詳しく、日本語訳 [@Steyerberg2023-book-ja] があります。
+
 ::: {#refs}
 :::
 

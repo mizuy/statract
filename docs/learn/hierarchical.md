@@ -162,7 +162,7 @@ statract の `random_effects()` は区間を返さないので、図の区間は
 
 ## 文献 {#references}
 
-ベイズの階層モデルは Gelman ら [@Gelman2013-book] が詳しく、日本語訳 [@Gelman2024-book-ja] があります。
+ベイズの階層モデルは Gelman ら [@Gelman2013-book] が詳しく、日本語訳 [@Gelman2024-book-ja] があります。日本語の入門では、久保 [@Kubo2012-book] が一般化線形混合モデルから階層ベイズモデルまでを、例題を使ってやさしく説明しています。
 
 ::: {#refs}
 :::

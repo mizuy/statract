@@ -99,6 +99,8 @@ C さんは 5 人に 1 人の割合で出血すると予測されます。入院
 
 ## 文献 {#references}
 
+教科書では、Steyerberg [@Steyerberg2019-book] が予測モデルの作り方から検証、更新までを扱っています。日本語訳 [@Steyerberg2023-book-ja] があります。
+
 ::: {#refs}
 :::
 
