@@ -1,6 +1,6 @@
 # models と R パッケージの対応
 
-呼び方は Python の関数と列名です。同じ標本で R と数値が一致することを、`tests/r_oracle` の fixture で確認します。pytest の実行時に R は要りません。fixture の再生成は `Rscript tests/r_oracle/scripts/generate.R` です。
+呼び方は Python の関数と列名です。同じ標本で R と数値が一致することを、`tests/r_oracle` の fixture で確認します。pytest の実行時に R は要りません。fixture の再生成は `task r-oracle` です（R と go-task が要ります）。`task r-oracle -- htest rms` のようにスクリプト名を渡すと、その分だけ作り直します。
 
 使い方とモジュールの分け方は [Models](overview.md)、式の文法は [Wilkinson 式](formula.md) です。公開データでの秒数と最大誤差の一覧は [Benchmarks](benchmarks.md) です。ガウスの `lmer` は `fit_mixed`（既定エンジン lme-python）です。二項・ポアソン・負の二項の GLMM も同じ関数で、既定は自前の Laplace エンジンです。
 

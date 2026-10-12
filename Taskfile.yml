@@ -1,0 +1,13 @@
+# Run from the repository root. `task --list` shows every task.
+version: '3'
+
+tasks:
+  r-oracle:
+    desc: Regenerate R oracle fixtures, show the diff, and run their tests (`task r-oracle -- ordinal gamm4` for some)
+    cmds:
+      - bash tests/r_oracle/run.sh {{.CLI_ARGS}}
+
+  r-oracle:rewritten:
+    desc: Same as r-oracle for the four scripts rewritten from the papers in 2026-10
+    cmds:
+      - bash tests/r_oracle/run.sh ordinal standardize_glm gamm4 stdreg_cox
