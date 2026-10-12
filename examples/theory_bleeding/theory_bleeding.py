@@ -1512,6 +1512,94 @@ def overfitting(out: Path) -> None:
     cross_validation(test, big, out)
 
 
+def bias_variance(out: Path, reps: int = 200) -> None:
+    """Chapter 8: split new-patient squared error into noise, bias^2 and variance.
+
+    For the predicted probability p_hat and the true probability p of a test
+    patient, E[(p_hat - y)^2] = p(1 - p) + (E[p_hat] - p)^2 + Var(p_hat), where
+    the expectation runs over repeated development samples.
+    """
+    test = _with_noise(_test_set(n=5000, seed=31), seed=32)
+    p_true = _expit(
+        bleed_logit(
+            *[
+                test[c].to_numpy()
+                for c in ["age", "antithrombotic", "size_mm", "proximal", "clip"]
+            ]
+        )
+    )
+    models = [
+        ("Intercept only", "bleed ~ 1", 0),
+        ("Lesion size", "bleed ~ size_mm", 1),
+        ("4 causes", "bleed ~ age + antithrombotic + size_mm + proximal", 4),
+        ("7 predictors", PRED_FORMULA, len(PRED_VARS)),
+        (
+            "7 + 5 noise labs",
+            PRED_FORMULA + " + " + " + ".join(NOISE_VARS[:5]),
+            len(PRED_VARS) + 5,
+        ),
+        (
+            "7 + 10 noise labs",
+            PRED_FORMULA + " + " + " + ".join(NOISE_VARS),
+            len(PRED_VARS) + 10,
+        ),
+    ]
+    noise = float(np.mean(p_true * (1 - p_true)))
+    rows = []
+    for n in [400, 2000]:
+        preds = {name: [] for name, _, _ in models}
+        for r in range(reps):
+            d = _with_noise(
+                simulate(n=n, seed=70_000 + 13 * n + r), seed=80_000 + 13 * n + r
+            )
+            for name, formula, _ in models:
+                fit = fit_glm(d, formula, family="binomial")
+                preds[name].append(np.asarray(fit.predict(test, kind="response")))
+        for name, _, k in models:
+            ph = np.vstack(preds[name])
+            bias2 = float(np.mean((ph.mean(axis=0) - p_true) ** 2))
+            var = float(np.mean(ph.var(axis=0)))
+            rows.append(
+                {
+                    "n": n,
+                    "model": name,
+                    "parameters": k,
+                    "bias2": bias2,
+                    "variance": var,
+                    "noise": noise,
+                    "error": noise + bias2 + var,
+                    "reps": reps,
+                }
+            )
+    table = pl.DataFrame(rows)
+    _write_csv(out, "ch8_bias_variance", table)
+
+    fig, axes = plt.subplots(1, 2, figsize=(9, 3.8), sharey=True)
+    labels = [name for name, _, _ in models]
+    x = np.arange(len(labels))
+    for ax, n in zip(axes, [400, 2000]):
+        t = table.filter(pl.col("n") == n)
+        scale = 1e4
+        ax.plot(x, t["bias2"] * scale, marker="o", color=RED, label="Bias$^2$")
+        ax.plot(x, t["variance"] * scale, marker="o", color=BLUE, label="Variance")
+        ax.plot(
+            x,
+            (t["bias2"] + t["variance"]) * scale,
+            marker="o",
+            color="black",
+            label="Bias$^2$ + variance",
+        )
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels, rotation=35, ha="right")
+        ax.set_title(f"{n} patients to build the model")
+        ax.grid(alpha=0.3)
+    axes[0].set_ylabel("Squared error ($\\times 10^{-4}$)")
+    axes[0].legend(frameon=False)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch8_bias_variance.png", dpi=180)
+    plt.close(fig)
+
+
 def _cv_predictions(dev: pl.DataFrame, formula: str, folds: np.ndarray) -> np.ndarray:
     """Held-out predicted risk for every patient; ``folds`` gives each row's fold."""
     pred = np.empty(dev.height)
@@ -3449,6 +3537,7 @@ def main() -> None:
     sensitivity(df, out)
     prediction_model(df, out)
     overfitting(out)
+    bias_variance(out)
     discrimination_calibration(df, out)
     regularization(out)
     trees_ensembles(df, out)
