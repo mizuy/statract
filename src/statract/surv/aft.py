@@ -8,6 +8,7 @@ free, is ``Log(scale)``.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -47,7 +48,17 @@ class AftFit:
     converged: bool
 
     def tidy(self, *, level: float = 0.95, exponentiate: bool = False) -> pl.DataFrame:
-        return Fit.tidy(self, level=level, exponentiate=exponentiate, df=np.inf)
+        frame = Fit.tidy(self, level=level, exponentiate=exponentiate, df=np.inf)
+        # A non-positive variance means the Hessian was not negative definite
+        # (no maximum was reached). Report no inference rather than a zero SE.
+        bad = ~(np.diag(self.covariance) > 0)
+        if not bad.any():
+            return frame
+        mask = pl.Series(bad)
+        inference = [c for c in frame.columns if c not in {"term", "estimate", "exp_estimate"}]
+        return frame.with_columns(
+            pl.when(mask).then(pl.lit(float("nan"))).otherwise(pl.col(c)).alias(c) for c in inference
+        )
 
 
 def accelerated_failure(
@@ -113,6 +124,13 @@ def accelerated_failure(
     sigma0 = float(np.sqrt(np.average(resid**2, weights=weight_a)))
     theta0 = np.concatenate([beta0, [np.log(max(sigma0, 1e-3))]]) if free_scale else beta0
     theta, ll, hess, converged = _newton(theta0, design.x, y, event_a, weight_a, offset_a, distribution, free_scale)
+    if not converged:
+        warnings.warn(
+            f"accelerated_failure ({distribution}) did not converge; "
+            "estimates and standard errors are not maximum-likelihood values",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     cov = np.linalg.pinv(-hess)
     scale = 1.0 if not free_scale else float(np.exp(theta[-1]))
     names = list(design.names)
