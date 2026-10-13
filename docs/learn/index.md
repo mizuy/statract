@@ -50,7 +50,7 @@
 
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
-| 1. [記述：まずデータを見る](descriptive.md) | 記述という問い、Table 1、割合と信頼区間、平均と中央値、$P$ 値と信頼区間、ASA 声明と NEJM の報告指針、Table 1 の $P$ 値 | 年齢と病変径の分布 | `write_tableone_artifacts`、`proportion_ci` |
+| 1. [記述：まずデータを見る](descriptive.md) | 記述という問い、Table 1、割合と信頼区間、平均と中央値、$P$ 値と信頼区間の要点、Table 1 の $P$ 値 | 年齢と病変径の分布 | `write_tableone_artifacts`、`proportion_ci` |
 | 2. [「独立した危険因子」とは何か](independent-risk-factor.md) | 慣習的な解析（単変量 → 多変量）、ロジスティック回帰の基本、因果か予測か | ロジスティック曲線、forest、層別の出血割合 | `fit_glm`、`write_tableone_artifacts`、`plot_forest` |
 
 ### 第 II 部 因果推論
@@ -108,7 +108,7 @@
 | 項 | 内容 |
 |----|------|
 | B. [報告ガイドライン](reporting-guidelines.md) | CONSORT、SPIRIT、STROBE、RECORD、TARGET、TRIPOD+AI、STARD、PRISMA と日本語訳 |
-| C. [P 値の書き方](p-value-format.md) | NEJM、JAMA、Lancet、BMJ の書き方（大文字か小文字か、斜体、0 の有無、桁数）と共通の注意 |
+| C. [P 値の読み方と書き方](p-value.md) | 統計モデルと検定統計量、モデル全体の合わなさとしての $P$ 値、よくある読み違い、ASA 声明、NEJM の報告指針、NEJM、JAMA、Lancet、BMJ の書き方（大文字か小文字か、斜体、0 の有無、桁数） |
 
 ## 文献 {#references}
 

@@ -127,7 +127,7 @@ nav:
           - A8. 情報量規準（AIC、WAIC）: learn/math/information-criteria.md
       - 付録:
           - B. 報告ガイドライン: learn/reporting-guidelines.md
-          - C. P 値の書き方: learn/p-value-format.md
+          - C. P 値の読み方と書き方: learn/p-value.md
   - Examples:
       - Gallery: examples/index.md
       - Basic tests:
