@@ -62,4 +62,4 @@ AIC は、日本語では久保 [@Kubo2012-book] の第 4 章がやさしく説�
 ::: {#refs}
 :::
 
-**次へ：**[数学補 A9 P 値](p-value.md)
+**次へ：**[付録 B 報告ガイドライン](../reporting-guidelines.md)
