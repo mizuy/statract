@@ -1,28 +1,28 @@
 # クラスター頑健 Cox
 
-`cox_retinopathy` — クラスター頑健 Cox（Lin–Wei sandwich）
+`cox_retinopathy` — クラスター頑健 Cox（Lin–Wei のサンドイッチ分散）
 
-患者あたり両眼の公開 RCT で、`cox_ph` の **Lin–Wei sandwich**（`cluster(id)` / `cluster=`）を通す正本。OLS/GLM の `hc_covariance` や `fit_mixed` は使わない。
+患者あたり両眼の公開されたランダム化比較試験（randomized controlled trial、RCT）で、`cox_ph` の **クラスター頑健分散（Lin–Wei のサンドイッチ分散）**（`cluster(id)` / `cluster=`）を通す正本。最小二乗法（ordinary least squares、OLS）や一般化線形モデル（generalized linear model、GLM）向けの `hc_covariance` や `fit_mixed` は使わない。
 
 [← ギャラリー](index.md) · [実行用ディレクトリと手順（GitHub）](https://github.com/mizuy/statract/tree/main/examples/cox_retinopathy)
 
 ## 目的概説
 
-単一イベント生存の Cox は [`surv_colon`](surv_colon.md) が患者独立の正本です。ここでは **同一患者の両眼** が相関するため、モデルベース SE では不十分な場面を示します。係数は同じでも、分散はスコア残差を `id` で合算した Lin–Wei（`survival::coxph` の `cluster()`）です。
+単一イベント生存の Cox は [`surv_colon`](surv_colon.md) が患者独立の正本です。ここでは **同一患者の両眼** が相関するため、モデルベースの標準誤差（standard error、SE）では不十分な場面を示します。係数は同じでも、分散はスコア残差を `id` で合算した Lin–Wei の頑健分散（`survival::coxph` の `cluster()`）です。
 
 ## データと列の説明
 
 | 項目 | 内容 |
 |------|------|
 | ソース | R `survival::retinopathy`（糖尿病網膜症・片眼レーザー）。ライセンス LGPL (>= 2)。git 非収載 |
-| 取得 | `build.py`（R が使えれば `data(retinopathy, package="survival")`、否则 Rdatasets CSV） |
+| 取得 | `build.py`（R が使えれば `data(retinopathy, package="survival")`、なければ Rdatasets CSV） |
 | 単位 | 眼 1 行。197 人 × 両眼 = 394 行。行の除外なし |
 
 主な解析列:
 
 | 列 | 意味 |
 |----|------|
-| `id` | 患者。sandwich のクラスター |
+| `id` | 患者。頑健分散のクラスター |
 | `futime` | 視力喪失または打ち切りまでの月 |
 | `status` / `event` | 視力喪失（`status==1` → `event` bool） |
 | `trt` / `trt_label` | 治療眼 `treated` / 対照眼 `control`。参照は `control`（`pl.Enum` 順） |
@@ -37,11 +37,11 @@
 方針:
 
 1. 全 394 眼を解析セットとする（除外ゼロのため **flowchart は置かない**）
-2. Table 1（`hue=trt_label`）。患者単位の列は群間で同一（患者内無作為化）
-3. KM（**number-at-risk 表付き**）+ log-rank は記述
-4. Cox（`trt_label + type + risk + cluster(id)`）で調整 HR。`plot_forest(..., layout="table")`
-5. 同じ平均構造のモデルベース SE と sandwich SE の比を表にする
-6. `proportional_hazards_test` と Schoenfeld / log-log / dfbeta / martingale / deviance
+2. Table 1（`hue=trt_label`）。患者単位の列は群間で同一（患者内ランダム化）
+3. Kaplan–Meier 法（Kaplan–Meier method、KM）に **at risk 数（number at risk、NAR）の表** を付け、log-rank とあわせて記述する
+4. Cox（`trt_label + type + risk + cluster(id)`）で調整したハザード比（hazard ratio、HR）。`plot_forest(..., layout="table")`
+5. 同じ平均構造のモデルベース SE と頑健 SE の比を表にする
+6. 比例ハザード（proportional hazards、PH）の検定 `proportional_hazards_test` と Schoenfeld / log-log / dfbeta / martingale / deviance
 
 推論の主はクラスター Cox。KM / log-rank は眼を独立とみなす記述です。
 
@@ -81,15 +81,17 @@
 
 ## メインの解析方法とそのコア
 
+解説は Learn の [第 15 章 階層モデル](../learn/hierarchical.md)（[15.3 固定効果はどう変わるか](../learn/hierarchical.md#fixed-effects)：クラスター内の相関と標準誤差）と [第 16 章 16.5 Cox 比例ハザードモデル](../learn/survival.md#cox) を参照してください。
+
 Kaplan–Meier 生存関数 $\hat S(t)$（群 = `trt_label`）。2 標本 log-rank（Mantel–Haenszel、$\rho=0$）。Cox:
 
 $$
 h(t \mid x) = h_0(t)\exp(\beta_{\mathrm{trt}} + \beta_{\mathrm{type}}\mathrm{type} + \beta_{\mathrm{risk}}\mathrm{risk}).
 $$
 
-分散は Lin–Wei: スコア残差を患者 `id` で足して meat とし、情報行列の逆との sandwich にする（`cox_ph` が `cluster=` または式の `cluster(id)` を見たとき。right-censored、entry=0）。
+分散は Lin–Wei: スコア残差を患者 `id` で足して meat とし、情報行列の逆で挟む（サンドイッチ）（`cox_ph` が `cluster=` または式の `cluster(id)` を見たとき。right-censored、entry=0）。
 
-- KM / 図: `plot_survival`（既定で number-at-risk。NAR は曲線の x 軸と揃える。論文用白黒は `style="bw"`）
+- KM / 図: `plot_survival`（既定で NAR 表。NAR は曲線の x 軸と揃える。論文用白黒は `style="bw"`）
 - log-rank: `log_rank(..., by="trt_label")`
 - Cox: `cox_ph(..., cluster=)` → `tidy(exponentiate=True)` → `plot_forest(..., layout="table")`（論文用白黒は `style="bw"`）
 - 比較: `cluster` なしのモデルベース SE
@@ -101,7 +103,7 @@ $$
 
 **394 眼 / 197 人**。サイト掲載は `task cox_retinopathy:all` 後の `cox_retinopathy_out/` から `tools/sync_example_assets.py` でコピーした同一ファイルです。
 
-### Kaplan–Meier（`trt_label`、number-at-risk 付き）
+### Kaplan–Meier（`trt_label`、NAR 付き）
 
 === "図"
 
@@ -158,7 +160,7 @@ $$
     lr = log_rank(cohort, "futime", "event", by="trt_label")
     ```
 
-### Cox PH（Lin–Wei sandwich、指数化）
+### Cox PH（Lin–Wei の頑健分散、指数化）
 
 === "表"
 
@@ -179,11 +181,11 @@ $$
         cohort,
         "Surv(futime, event) ~ trt_label + type + risk + cluster(id)",
     )
-    # 同じ sandwich: cox_ph(cohort, "futime", "event", ["trt_label", "type", "risk"], cluster="id")
+    # 同じ頑健分散: cox_ph(cohort, "futime", "event", ["trt_label", "type", "risk"], cluster="id")
     tidy = fit.tidy(exponentiate=True)
     ```
 
-### モデルベース SE と sandwich SE
+### モデルベース SE と頑健 SE
 
 === "表"
 
@@ -205,7 +207,7 @@ $$
     )
     ```
 
-### Cox forest（表 + forest、sandwich）
+### Cox forest（表 + forest、頑健分散）
 
 === "図"
 
@@ -231,8 +233,8 @@ $$
 
     | term | statistic | df | p_value |
     | --- | --- | --- | --- |
-    | trt_labeltreated | 0.5759 | 1 | 0.4479 |
-    | typejuvenile | 0.6285 | 1 | 0.4279 |
+    | trt_label | 0.5759 | 1 | 0.4479 |
+    | type | 0.6285 | 1 | 0.4279 |
     | risk | 1.688 | 1 | 0.1938 |
     | global | 2.905 | 3 | 0.4065 |
 
@@ -276,13 +278,13 @@ $$
     )
     ```
 
-ギャップ: 対話的 faceting / 外れ値ラベルなし。entry>0 の counting process ではこの実装は sandwich を掛けずモデルベース共分散のまま（Fine–Gray 展開とは別）。
+ギャップ: 対話的 faceting / 外れ値ラベルなし。entry>0 の counting process ではこの実装は頑健分散を使わずモデルベース共分散のまま（Fine–Gray 展開とは別）。
 
 ## 解釈と解説
 
-レーザー治療眼は対照眼より視力喪失ハザードが低い（log-rank 22.25、df=1、p≈2.4×10⁻⁶）。クラスター Cox では **treated 対 control の HR が約 0.46**（sandwich 95% CI 約 0.34–0.62）。病型はほぼ中立、リスクスコアが高いほどハザードが高い。`proportional_hazards_test` の全体 p≈0.41 で、このモデルでは PH の強い破綻は示唆されない。
+レーザー治療眼は対照眼より視力喪失ハザードが低い（log-rank 22.25、df=1、p≈2.4×10⁻⁶）。クラスター Cox では **treated 対 control の HR が約 0.46**（頑健分散による 95% 信頼区間（confidence interval、CI）約 0.34–0.62）。病型はほぼ中立、リスクスコアが高いほどハザードが高い。`proportional_hazards_test` の全体 p≈0.41 で、このモデルでは PH の強い破綻は示唆されない。
 
-sandwich が必要な理由: 両眼は同じ患者の frailty を共有する。患者内で治療を割付けているため、**治療項の sandwich SE はモデルベースより小さい**（比 ≈ 0.89）。患者単位の病型では比 > 1 になり、独立とみなすと SE を過小評価しうる。これが `cluster(id)` を教えるデータである。
+頑健分散が必要な理由: 両眼は同じ患者の共有フレイルティ（患者ごとの変量効果、[第 15 章](../learn/hierarchical.md)）を持つ。患者内で治療を割付けているため、**治療項の頑健 SE はモデルベースより小さい**（比 ≈ 0.89）。患者単位の病型では比 > 1 になり、独立とみなすと SE を過小評価しうる（[第 15 章 15.3](../learn/hierarchical.md#fixed-effects) の、施設の単位で決まる変数と同じ構図）。これが `cluster(id)` を教えるデータである。
 
 限界:
 

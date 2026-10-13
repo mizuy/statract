@@ -50,11 +50,11 @@ def _fetch_via_r() -> pl.DataFrame | None:
         )
         if proc.returncode != 0 or not dest.exists():
             return None
-        return _drop_rownames(pl.read_csv(dest))
+        return _drop_rownames(pl.read_csv(dest, null_values="NA"))
 
 
 def _fetch_via_url() -> pl.DataFrame:
-    return _drop_rownames(pl.read_csv(RDATASETS_PBC))
+    return _drop_rownames(pl.read_csv(RDATASETS_PBC, null_values="NA"))
 
 
 @snapshot_cache(project.snapshot / "pbc.parquet")

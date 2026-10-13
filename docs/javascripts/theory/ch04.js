@@ -344,38 +344,62 @@
     ).select(0);
     function setScale(s) {
       state.scale = s;
+      rg = ranges[s];
+      setupPanel();
       draw();
     }
 
     // Mirrored histogram as in the figure of 4.4: clip above, no clip below.
+    // The x axis is the scale the caliper is measured on, so the caliper
+    // width drawn on the figure is the real matching window.
     const BINS = 40;
-    const bin = (p) => Math.min(BINS - 1, Math.floor(p * BINS));
-    const tot1 = new Array(BINS).fill(0);
-    const tot0 = new Array(BINS).fill(0);
-    ps.forEach((p, i) => (treat[i] ? tot1 : tot0)[bin(p)]++);
-    const top = Math.ceil(Math.max(...tot1) / 50) * 50;
-    const bottom = Math.ceil(Math.max(...tot0) / 50) * 50;
-    const yticks = [];
-    for (let t = -Math.floor(bottom / 100) * 100; t < 0; t += 100) yticks.push(t);
-    for (let t = 0; t <= top; t += 50) yticks.push(t);
+    const ranges = {
+      ps: { x: [0, 1], ticks: [0, 0.2, 0.4, 0.6, 0.8, 1], fmt: (t) => t, label: "傾向スコア（クリップをされる確率）" },
+    };
+    {
+      const lo = Math.floor(Math.min(...lps));
+      const hi = Math.ceil(Math.max(...lps));
+      const step = hi - lo > 8 ? 2 : 1;
+      const ticks = [];
+      for (let t = lo; t <= hi; t += step) ticks.push(t);
+      ranges.logit = { x: [lo, hi], ticks, fmt: (t) => (t < 0 ? "−" + -t : String(t)), label: "傾向スコアのロジット（対数オッズ）" };
+    }
+    let rg = ranges.logit;
+    const bin = (v) => Math.max(0, Math.min(BINS - 1, Math.floor(((v - rg.x[0]) / (rg.x[1] - rg.x[0])) * BINS)));
 
     const svg = newSvg(root, 680, 330, "クリップ群と非クリップ群の傾向スコアと、組ができた患者");
-    const P = panel(svg, {
-      left: 56,
-      top: 24,
-      width: 400,
-      height: 250,
-      x: [0, 1],
-      y: [-bottom, top],
-      xticks: [0, 0.2, 0.4, 0.6, 0.8, 1],
-      yticks,
-      yfmt: (t) => String(Math.abs(t)),
-      xlab: "傾向スコア（クリップをされる確率）",
-      ylab: "人数",
-      ylabOffset: 40,
-    });
-    svgEl("text", { x: P.sx(0.01), y: P.sy(top) + 16, class: "sx-label", text: "クリップ群" }, svg);
-    svgEl("text", { x: P.sx(0.99), y: P.sy(-bottom) - 8, "text-anchor": "end", class: "sx-label", text: "非クリップ群" }, svg);
+    const holder = svgEl("g", {}, svg);
+    let P;
+    let top;
+    function setupPanel() {
+      holder.textContent = "";
+      const score = scales[state.scale].score;
+      const tot1 = new Array(BINS).fill(0);
+      const tot0 = new Array(BINS).fill(0);
+      score.forEach((v, i) => (treat[i] ? tot1 : tot0)[bin(v)]++);
+      top = Math.ceil(Math.max(...tot1) / 50) * 50;
+      const bottom = Math.ceil(Math.max(...tot0) / 50) * 50;
+      const yticks = [];
+      for (let t = -Math.floor(bottom / 100) * 100; t < 0; t += 100) yticks.push(t);
+      for (let t = 0; t <= top; t += 50) yticks.push(t);
+      P = panel(holder, {
+        left: 56,
+        top: 24,
+        width: 400,
+        height: 250,
+        x: rg.x,
+        y: [-bottom, top],
+        xticks: rg.ticks,
+        xfmt: rg.fmt,
+        yticks,
+        yfmt: (t) => String(Math.abs(t)),
+        xlab: rg.label,
+        ylab: "人数",
+        ylabOffset: 40,
+      });
+      svgEl("text", { x: P.sx(rg.x[0]) + 4, y: P.sy(top) + 16, class: "sx-label", text: "クリップ群" }, holder);
+      svgEl("text", { x: P.sx(rg.x[1]) - 4, y: P.sy(-bottom) - 8, "text-anchor": "end", class: "sx-label", text: "非クリップ群" }, holder);
+    }
     const box = (attrs) => ({ stroke: "none", "stroke-width": 8, "stroke-linecap": "butt", ...attrs });
     legend(svg, 470, 40, [
       { label: "クリップ群：組ができた", attrs: box({ stroke: COLOR.blue }) },
@@ -386,7 +410,8 @@
     const table = readout(root);
 
     function bars(counts, sign, base, color, opacity) {
-      const w = P.sx(1 / BINS) - P.sx(0);
+      const width = (rg.x[1] - rg.x[0]) / BINS;
+      const w = P.sx(rg.x[0] + width) - P.sx(rg.x[0]);
       counts.forEach((c, b) => {
         if (!c) return;
         const y0 = P.sy(sign * base[b]);
@@ -394,7 +419,7 @@
         svgEl(
           "rect",
           {
-            x: P.sx(b / BINS) + 0.5,
+            x: P.sx(rg.x[0] + b * width) + 0.5,
             y: Math.min(y0, y1),
             width: Math.max(w - 1, 0.5),
             height: Math.abs(y1 - y0),
@@ -416,12 +441,12 @@
       const u0 = new Array(BINS).fill(0);
       const dropped = [];
       const kept = [];
-      ps.forEach((p, i) => {
+      sc.score.forEach((v, i) => {
         const matched = partner[i] >= 0;
         if (treat[i]) {
-          (matched ? m1 : d1)[bin(p)]++;
+          (matched ? m1 : d1)[bin(v)]++;
           (matched ? kept : dropped).push(i);
-        } else (matched ? m0 : u0)[bin(p)]++;
+        } else (matched ? m0 : u0)[bin(v)]++;
       });
       P.clear();
       const zero = new Array(BINS).fill(0);
@@ -429,7 +454,14 @@
       bars(d1, 1, m1, COLOR.red, 1);
       bars(m0, -1, zero, COLOR.gray, 1);
       bars(u0, -1, m0, COLOR.gray, 0.3);
-      svgEl("line", { x1: P.sx(0), x2: P.sx(1), y1: P.sy(0), y2: P.sy(0), stroke: COLOR.ink, "stroke-width": 0.8 }, P.over);
+      svgEl("line", { x1: P.sx(rg.x[0]), x2: P.sx(rg.x[1]), y1: P.sy(0), y2: P.sy(0), stroke: COLOR.ink, "stroke-width": 0.8 }, P.over);
+      // The caliper as a bar in the units of the x axis, beside the legend.
+      const yBar = 140;
+      const xStart = 474;
+      const xEnd = xStart + (P.sx(rg.x[0] + limit) - P.sx(rg.x[0]));
+      svgEl("line", { x1: xStart, x2: xEnd, y1: yBar, y2: yBar, stroke: COLOR.ink, "stroke-width": 2 }, P.over);
+      for (const x of [xStart, xEnd]) svgEl("line", { x1: x, x2: x, y1: yBar - 4, y2: yBar + 4, stroke: COLOR.ink, "stroke-width": 1 }, P.over);
+      svgEl("text", { x: xStart, y: yBar + 18, class: "sx-label", text: "キャリパーの幅（横軸と同じ目盛り）" }, P.over);
 
       const c = COVS[state.cov];
       const mean = (idx) => idx.reduce((s, i) => s + rows[i][c.key], 0) / idx.length;
@@ -455,6 +487,7 @@
         ["リスク差", isFinite(rd) ? `${signed(100 * rd, 1)} ポイント（組にした集団：クリップ ${pct(risk(kept))}、非クリップ ${pct(risk(pairs0))}）` : "—"],
       ]);
     }
+    setupPanel();
     draw();
   }
 

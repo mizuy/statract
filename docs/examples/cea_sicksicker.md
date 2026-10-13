@@ -6,9 +6,11 @@
 
 [← ギャラリー](index.md) · [実行用ディレクトリと手順（GitHub）](https://github.com/mizuy/statract/tree/main/examples/cea_sicksicker) · CEA 概要は [cea/overview](../cea/overview.md)
 
+Learn には費用対効果分析（cost-effectiveness analysis、CEA）の章がないため、解説は [CEA 概要](../cea/overview.md) を参照してください。報告は CHEERS 2022（Consolidated Health Economic Evaluation Reporting Standards）に従います（ほかの報告指針は [Learn 付録 B](../learn/reporting-guidelines.md)）。
+
 ## 目的概説
 
-Quickstart の 3 状態合成例を、**引用可能な教学パラメータ**と 4 戦略に置き換えます。見せるのは `simulate_cohort_markov` → `calculate_icers` / NMB → `one_way_dsa` → `run_psa`（`ce_plane` / `ceac` / `evpi`）です。半サイクル補正・遷移報酬・年齢別死亡・tunnels は V1 核に無いので入れません（論文フルモデルとはそこが違う、と明記します）。
+Quickstart の 3 状態合成例を、**引用可能な教学パラメータ**と 4 戦略に置き換えます。見せるのは `simulate_cohort_markov` → 増分費用効果比（incremental cost-effectiveness ratio、ICER）の `calculate_icers` と正味の金銭的便益（net monetary benefit、NMB）→ 決定論的感度分析（deterministic sensitivity analysis、DSA）の `one_way_dsa` → 確率的感度分析（probabilistic sensitivity analysis、PSA）の `run_psa`（費用効果平面 `ce_plane`、費用効果受容曲線［cost-effectiveness acceptability curve、CEAC］の `ceac`、完全情報の期待価値［expected value of perfect information、EVPI］の `evpi`）です。半サイクル補正・遷移報酬・年齢別死亡・tunnels は V1 核に無いので入れません（論文フルモデルとはそこが違う、と明記します）。
 
 ## データと列の説明
 
@@ -33,7 +35,7 @@ Quickstart の 3 状態合成例を、**引用可能な教学パラメータ**�
 
 ## CQ と大まかな解析方針
 
-**CQ** — 25 歳で Healthy の仮想コホートに対し、SoC と比べて治療 A・B・AB はいくらの増分費用対効果か。WTP $100,000/QALY での最適戦略と、決定の不確実性はどうか。
+**CQ** — 25 歳で Healthy の仮想コホートに対し、標準治療（standard of care、SoC）と比べて治療 A・B・AB はいくらの増分費用対効果か。支払意思額（willingness to pay、WTP）$100,000/質調整生存年（quality-adjusted life year、QALY）での最適戦略と、決定の不確実性はどうか。
 
 方針:
 
@@ -167,7 +169,7 @@ $P$ は example 側。S1/S2 死亡は $p_{HD}$ を率に変換してハザード
 
 ### One-way DSA（最適戦略の NMB）
 
-WTP $100{,}000$/QALY で 4 戦略のうち最大の NMB。教学レンジ（論文の OWSA 表そのものではない）。
+WTP $100{,}000$/QALY で 4 戦略のうち最大の NMB。教学レンジ（論文の一元感度分析［one-way sensitivity analysis、OWSA］の表そのものではない）。
 
 === "表"
 
@@ -236,7 +238,7 @@ WTP $100{,}000$/QALY で 4 戦略のうち最大の NMB。教学レンジ（論�
 
 ## 解釈と解説
 
-基本ケースでは A は B より高くて QALY が少ないので強支配です。WTP $100{,}000$/QALY なら B が NMB 最大（AB の増分 ICER は閾値を超える）。tornado で効くのは進行（`p_S1S2`）と発症（`p_HS1`）、ついで治療 B の OR です。`c_trtA` の spread が小さいのは、このレンジでは最適が B のままだからです。
+基本ケースでは A は B より高くて QALY が少ないので強支配です。WTP $100{,}000$/QALY なら B が NMB 最大（AB の増分 ICER は閾値を超える）。tornado で効くのは進行（`p_S1S2`）と発症（`p_HS1`）、ついで治療 B のオッズ比です。`c_trtA` の spread が小さいのは、このレンジでは最適が B のままだからです。
 
 論文チュートリアルとの差: 年齢別死亡・tunnels・遷移報酬・半サイクルなし。数値を論文の図とビット一致させないでください。役割分担（Markov 核 vs 病態）を見せる教学例です。
 

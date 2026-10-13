@@ -121,6 +121,7 @@ def main() -> None:
         covs,
         method="nearest",
         distance="logit",
+        link="linear.logit",
         order="data",
         estimand="ATT",
         ratio=1,

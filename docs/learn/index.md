@@ -2,7 +2,7 @@
 
 臨床研究に使う統計の考え方を、学び直すテキストです。臨床の問いから出発し、記述、予測、因果の三つに分け、それぞれに合う解析を、統計モデリングという共通の土台の上で理解することを目指します。
 
-関数の選び方だけを知りたいときは [手法の選び方](../guide/methods.md) を見てください。
+関数の選び方だけを知りたいときは [手法の選び方](../guide/methods.md) を見てください。実データでの解析の例は [解析例ギャラリー](../examples/index.md) にあり、各例から関係する章へリンクしています。
 
 ## 中心のメッセージ
 
@@ -170,7 +170,7 @@
 | STARD | Standards for Reporting of Diagnostic Accuracy Studies | 診断精度研究の報告指針 |
 | STROBE | Strengthening the Reporting of Observational Studies in Epidemiology | 観察研究の報告指針 |
 | TARGET | TrAnsparent ReportinG of observational studies Emulating a Target trial | 標的試験の模倣の報告指針 |
-| TRIPOD | Transparent Reporting of a multivariable prediction model for Individual Prognosis Or Diagnosis | 予測モデル研究の報告指針 |
+| TRIPOD+AI | Transparent Reporting of a multivariable prediction model for Individual Prognosis Or Diagnosis + Artificial Intelligence | 予測モデル研究の報告指針（回帰と機械学習の両方を扱う 2024 年版） |
 | WAIC | widely applicable information criterion | 広く使える情報量規準（渡辺–赤池情報量規準とも） |
 
 **次へ：**[第 1 章 記述：まずデータを見る](descriptive.md)

@@ -1,42 +1,42 @@
 # 競合リスク解析
 
-`cif_pbc` — 競合リスク（CIF / Fine–Gray）
+`cif_pbc` — 競合リスク（累積発生関数 / Fine–Gray）
 
-単一イベントの colon に対し、競合リスク（肝死 vs 移植）の正本。Fine–Gray forest、cmprsk 流の `cuminc`（Gray 検定）と `crr` まで。
+単一イベントの colon に対し、競合リスク（移植なしの死亡 vs 移植）の正本。累積発生関数（cumulative incidence function、CIF）、Fine–Gray forest、cmprsk 流の `cuminc`（Gray 検定）と `crr` まで。
 
 [← ギャラリー](index.md) · [実行用ディレクトリと手順（GitHub）](https://github.com/mizuy/statract/tree/main/examples/cif_pbc)
 
 ## 目的概説
 
-単一イベントの KM/Cox は [`surv_colon`](surv_colon.md) で示した。ここでは移植を競合とした **肝死** の累積発生（Aalen–Johansen）と Fine–Gray を、同じ `statract` 公開 API で通すための例です。
+単一イベントの Kaplan–Meier 法（Kaplan–Meier method、KM）と Cox 回帰は [`surv_colon`](surv_colon.md) で示しました。ここでは移植を競合とした **死亡（移植なし）** の累積発生（Aalen–Johansen 推定量）と Fine–Gray モデルを、同じ `statract` 公開 API で通すための例です。
 
 ## データと列の説明
 
 | 項目 | 内容 |
 |------|------|
-| ソース | R `survival::pbc`（無作為化 312 例）。LGPL (>= 2) |
-| 取得 | `build.py`（R `survival`、否则 Rdatasets CSV） |
-| 単位 | 患者 1 行。非無作為化 106 例は主解析に入れない |
+| ソース | R `survival::pbc`（ランダム化 312 例）。LGPL (>= 2) |
+| 取得 | `build.py`（R `survival`、なければ Rdatasets CSV） |
+| 単位 | 患者 1 行。非ランダム化 106 例は主解析に入れない |
 
 主な解析列:
 
 | 列 | 意味 |
 |----|------|
 | `time` | 追跡日数 |
-| `status` | 0 打ち切り、1 移植（競合）、2 死亡（関心事象 = 肝死） |
+| `status` | 0 打ち切り、1 移植（競合）、2 死亡（関心事象。原因は問わない） |
 | `death_naive` | 誤用 KM 用（移植を打ち切り扱い） |
 | `trt` / `trt_label` / `dp` | 治療（D-ペニシラミン = 1）。参照はプラセボ |
 | `age`, `sex`, `bili`, `albumin`, `edema`, `stage` | Fine–Gray 共変量 |
 
 ## CQ と大まかな解析方針
 
-**CQ** — 無作為化 PBC 試験で、D-ペニシラミンはプラセボと比べ、移植を競合事象としたときの **肝死の累積発生** を下げるか。
+**CQ** — 原発性胆汁性胆管炎（primary biliary cholangitis、PBC）のランダム化試験で、D-ペニシラミンはプラセボと比べ、移植を競合事象としたときの **死亡（移植なし）の累積発生** を下げるか。
 
 方針:
 
-1. flowchart で無作為化例を確定
+1. flowchart でランダム化例を確定
 2. Table 1（`hue=trt_label`）
-3. 誤用 KM（対比）と Aalen–Johansen CIF（肝死）
+3. 誤用 KM（対比）と Aalen–Johansen CIF（死亡）
 4. Fine–Gray（`fine_gray` → 重み付き `cox_ph`）と `plot_forest(..., layout="table")`
 5. `cumulative_incidence`（Gray 検定。出力は `cuminc` と比べています）と `fine_gray_regression`（出力は `crr` と比べています）で同じ問いを確かめる
 
@@ -46,7 +46,7 @@
 
 | 段 | flowchart キー | 対応基準 |
 |----|----------------|----------|
-| 無作為化 | `Randomized (trt not missing)` | `trt` / `trt_label` 非欠損 |
+| ランダム化 | `Randomized (trt not missing)` | `trt` / `trt_label` 非欠損 |
 | 時間 | `Time and status present` | `time` / `status` 非欠損 |
 
 === "図"
@@ -119,22 +119,24 @@
 
 ## メインの解析方法とそのコア
 
-原因 $k=2$（肝死）。Aalen–Johansen 累積発生 $\hat F_2(t)$。誤用として移植を打ち切りにした Kaplan–Meier を対比。Fine–Gray の subdistribution ハザード:
+解説は Learn の [第 16 章 16.9 どう使い分けるか](../learn/survival.md#choose)（競合リスク）を参照してください。
+
+原因 $k=2$（死亡）。Aalen–Johansen 累積発生 $\hat F_2(t)$。誤用として移植を打ち切りにした Kaplan–Meier を対比。Fine–Gray の部分分布ハザード（subdistribution hazard）:
 
 $$
 \lambda_2(t \mid x)=\lambda_{2,0}(t)\exp(\beta_{\mathrm{dp}}\mathrm{dp}+\beta^\top z),
 $$
 
-$z$ は年齢、性別、ビリルビン、アルブミン、浮腫、病期。実装: `fine_gray(..., cause=2)` のあと `cox_ph("Surv(fgstart, fgstop, fgstatus) ~ ...", weights="fgwt")` → `plot_forest(..., layout="table")`（論文用白黒は `style="bw"`）。CIF 図は matplotlib ステップ（`plot_survival` は使わない）。偽の PH 診断スイートは載せない。
+$z$ は年齢、性別、ビリルビン、アルブミン、浮腫、病期。実装: `fine_gray(..., cause=2)` のあと `cox_ph("Surv(fgstart, fgstop, fgstatus) ~ ...", weights="fgwt")` → `plot_forest(..., layout="table")`（論文用白黒は `style="bw"`）。CIF 図は matplotlib ステップ（`plot_survival` は使わない）。通常の Cox 向けの比例ハザード（proportional hazards、PH）診断スイートは、この重み付きモデルには当てはまらないので載せない。
 
-同じ解析を R `cmprsk` 流でも行う。`cumulative_incidence(..., by="trt_label")` は群・原因ごとの CIF と、群間の **Gray 検定**（$(1-\hat F(t-))^\rho$ 重み、既定 $\rho=0$）を返す。`fine_gray_regression("Surv(time, status) ~ ...", cause=2)` は `crr` と同じ擬似尤度を直接解き、SE には打ち切り分布の推定を含む Fine–Gray のサンドイッチ分散を使う。
+同じ解析を R `cmprsk` 流でも行う。`cumulative_incidence(..., by="trt_label")` は群・原因ごとの CIF と、群間の **Gray 検定**（$(1-\hat F(t-))^\rho$ 重み、既定 $\rho=0$）を返す。`fine_gray_regression("Surv(time, status) ~ ...", cause=2)` は `crr` と同じ擬似尤度を直接解き、標準誤差（standard error、SE）には打ち切り分布の推定を含む Fine–Gray のサンドイッチ分散を使う。
 
 
 ## 結果
 
-無作為化 312 例。サイト掲載は `assets/cif_pbc/`。
+ランダム化 312 例。サイト掲載は `assets/cif_pbc/`。
 
-### Aalen–Johansen CIF（肝死）
+### Aalen–Johansen CIF（死亡）
 
 === "図"
 
@@ -149,7 +151,7 @@ $z$ は年齢、性別、ビリルビン、アルブミン、浮腫、病期。�
         cohort, "time", "status", by="trt_label", kind="aalen_johansen"
     )
     cif = aj.frame()
-    # state == "2" が肝死。図はステッププロット（例スクリプトの _plot_cif）
+    # state == "2" が死亡（移植なし）。図はステッププロット（例スクリプトの _plot_cif）
     ```
 
 ### CIF 時点値
@@ -202,7 +204,7 @@ $z$ は年齢、性別、ビリルビン、アルブミン、浮腫、病期。�
     fg_tidy = fg_fit.tidy(exponentiate=True)
     ```
 
-### Fine–Gray forest（subdistribution HR）
+### Fine–Gray forest（部分分布ハザード比）
 
 === "図"
 
@@ -224,7 +226,7 @@ $z$ は年齢、性別、ビリルビン、アルブミン、浮腫、病期。�
 
 ### cuminc と Gray 検定
 
-`cumulative_incidence` は肝死（cause 2）と移植（cause 1）の CIF を群ごとに返す。点推定は上の Aalen–Johansen と一致する（5 年肝死 0.284 / 0.282）。SE は `cuminc` の分散式なので `survival_curve` の値と少し違う（例: D-ペニシラミン 5 年 0.037 vs 0.044）。
+`cumulative_incidence` は死亡（cause 2）と移植（cause 1）の CIF を群ごとに返す。点推定は上の Aalen–Johansen と一致する（5 年死亡 0.284 / 0.282）。SE は `cuminc` の分散式なので `survival_curve` の値と少し違う（例: D-ペニシラミン 5 年 0.037 vs 0.044）。
 
 === "図"
 
@@ -237,7 +239,7 @@ $z$ は年齢、性別、ビリルビン、アルブミン、浮腫、病期。�
     | cause | statistic | p_value | df |
     | --- | --- | --- | --- |
     | 1（移植） | 0.01943 | 0.8891 | 1 |
-    | 2（肝死） | 0.06659 | 0.7964 | 1 |
+    | 2（死亡） | 0.06659 | 0.7964 | 1 |
 
     [Gray 検定 CSV](assets/cif_pbc/gray_test.csv) · [時点値 CSV](assets/cif_pbc/cuminc_at.csv)
 
@@ -266,7 +268,7 @@ $z$ は年齢、性別、ビリルビン、アルブミン、浮腫、病期。�
     | edema | 1.041 | 1.042 | 2.832 | 2.835 | 0.3224 | 0.3175 | 0.3119 |
     | stage | 0.4495 | 0.45 | 1.568 | 1.568 | 0.1279 | 0.1245 | 0.1308 |
 
-    `crr` の `dp` SHR 0.97（95% CI 0.67–1.41）。擬似尤度比検定 χ² = 168.5（df 7）。[比較 CSV](assets/cif_pbc/crr_vs_finegray.csv) · [crr tidy CSV](assets/cif_pbc/crr_tidy.csv)
+    `crr` の `dp` の部分分布ハザード比（subdistribution hazard ratio、SHR）は 0.97（95% 信頼区間（confidence interval、CI）0.67–1.41）。擬似尤度比検定 χ² = 168.5（df 7）。[比較 CSV](assets/cif_pbc/crr_vs_finegray.csv) · [crr tidy CSV](assets/cif_pbc/crr_tidy.csv)
 
 === "コード"
 
@@ -285,9 +287,9 @@ $z$ は年齢、性別、ビリルビン、アルブミン、浮腫、病期。�
 
 ## 解釈と解説
 
-肝死の 5 年 CIF は D-ペニシラミン約 0.28、プラセボ約 0.28。Fine–Gray の `dp` subdistribution HR は約 **0.97**（95% CI 約 0.68–1.40、robust SE）。`crr` でも SHR 0.97（0.67–1.41）、Gray 検定も肝死 p = 0.80、移植 p = 0.89 で、群差の証拠はない。治療の点推定が 1 付近なのは、歴史的試験で生存利益が明確でなかったことと方向が一致します。ビリルビンの SHR は約 1.13（1 mg/dL あたり）。
+死亡（移植なし）の 5 年 CIF は D-ペニシラミン約 0.28、プラセボ約 0.28。Fine–Gray の `dp` の SHR は約 **0.97**（95% CI 約 0.68–1.40、robust SE）。`crr` でも SHR 0.97（0.67–1.41）、Gray 検定も死亡 p = 0.80、移植 p = 0.89 で、群差の証拠はない。治療の点推定が 1 付近なのは、歴史的試験で生存利益が明確でなかったことと方向が一致します。ビリルビンの SHR は約 1.13（1 mg/dL あたり）。
 
-限界: 非無作為化例は除外。誤用 KM は対比用。CIF 図は公式 `plot_survival` ではない。LGPL 教学データ。
+限界: 非ランダム化例は除外。`status` 2 は肝臓に限らない全死亡で、肝死には絞れない。誤用 KM は対比用。CIF 図は公式 `plot_survival` ではない。LGPL 教学データ。
 
 ## 実行と成果物
 

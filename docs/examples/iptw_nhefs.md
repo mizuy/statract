@@ -1,20 +1,22 @@
-# 逆確率重み付け（IPTW）
+# 治療の逆確率による重み付け（IPTW）
 
 `iptw_nhefs` — 安定化 IPTW（ATE）
 
-`psm_rhc` の対。連続アウトカムの安定化 IPTW（ATE のみ）。ライブラリに `iptw()` は無く、重みは例スクリプトの手計算。IPTW OLS の forest と、欠損アウトカムの多重代入感度（`impute_chained` + `pool`）まで。
+`psm_rhc` の対。連続アウトカムに、安定化した治療の逆確率による重み付け（inverse probability of treatment weighting、IPTW）を使い、平均処置効果（average treatment effect、ATE）だけを推定します。重みは例スクリプトで手計算しています（`propensity_weights` でも同じ種類の重みを作れます）。IPTW の重み付き最小二乗法（ordinary least squares、OLS）の forest と、欠損アウトカムの多重代入感度（`impute_chained` + `pool`）まで。
 
 [← ギャラリー](index.md) · [実行用ディレクトリと手順（GitHub）](https://github.com/mizuy/statract/tree/main/examples/iptw_nhefs)
 
 ## 目的概説
 
-[`psm_rhc`](psm_rhc.md) は 1:1 最近傍の ATT です。ここでは連続アウトカムの **ATE 安定化 IPTW** を、名前付き `iptw()` が無い現状の公開 API（`fit_glm` + 重み列 + `fit_ols` + HC + `plot_forest`）で示すための例です。
+[`psm_rhc`](psm_rhc.md) は 1:1 最近傍で処置群での平均処置効果（average treatment effect on the treated、ATT）を推定します。ここでは連続アウトカムの **ATE の安定化 IPTW** を、公開 API（`fit_glm` + 手計算の重み列 + `fit_ols` + 頑健分散 + `plot_forest`）で示すための例です。
+
+解説は Learn の [第 6 章 IPTW](../learn/iptw.md) を参照してください。
 
 ## データと列の説明
 
 | 項目 | 内容 |
 |------|------|
-| ソース | NHEFS（`causaldata` / Rdatasets / Hernán CSV）。**fetch only** |
+| ソース | NHANES I 疫学追跡研究（NHANES I Epidemiologic Follow-up Study、NHEFS）（`causaldata` / Rdatasets / Hernán CSV）。**fetch only** |
 | 取得 | `build.py` |
 | 単位 | 参加者 1 行 |
 
@@ -24,8 +26,8 @@
 |----|------|
 | `qsmk` | 追跡中の禁煙 1、継続喫煙 0 |
 | `wt82_71` | 1982−1971 の体重変化（kg） |
-| `age`, `sex`, `race`, `education`, `smokeintensity`, `smokeyrs`, `exercise`, `active`, `wt71` | PS 共変量 |
-| `ps`, `sw`, `sw_trunc` | 傾向スコアと安定化重み（上限 10） |
+| `age`, `sex`, `race`, `education`, `smokeintensity`, `smokeyrs`, `exercise`, `active`, `wt71` | 傾向スコア（propensity score、PS）の共変量 |
+| `ps`, `sw`, `sw_trunc` | 傾向スコアと安定化重み（10 で頭打ち） |
 
 ## CQ と大まかな解析方針
 
@@ -35,9 +37,9 @@
 
 1. flowchart で曝露・アウトカム・PS 共変量の完全例を確定
 2. Table 1（`hue=qsmk`）
-3. PS 二項 GLM → 安定化 ATE 重み（上限 10）→ 重み付き OLS + HC3 + `plot_forest(..., layout="table")`
-4. 感度: CEM の `balance` / `love_plot` のみ（第二推定対象にしない）
-5. 感度: 欠損アウトカム 63 行を `impute_chained`（MICE）で多重代入し、各代入セットで IPTW OLS を再推定して `pool`（Rubin のルール）で統合。完全例の推定と比べる
+3. PS の二項一般化線形モデル（generalized linear model、GLM）→ 安定化 ATE 重み（10 で頭打ち）→ 重み付き OLS + 不均一分散に頑健な標準誤差（heteroskedasticity-consistent standard error、HC3）+ `plot_forest(..., layout="table")`
+4. 感度: 粗い完全一致マッチング（coarsened exact matching、CEM）の `balance` / `love_plot` のみ（第二推定対象にしない）
+5. 感度: 欠損アウトカム 63 行を `impute_chained`（連鎖方程式による多重代入、multiple imputation by chained equations、MICE）で多重代入し、各代入セットで IPTW OLS を再推定して `pool`（Rubin のルール）で統合。完全例の推定と比べる
 
 ## flowchart / tableone
 
@@ -123,13 +125,15 @@
 
 ## メインの解析方法とそのコア
 
-傾向スコア $\pi(x)=P(A=1\mid X=x)$ を二項 GLM。安定化 ATE 重み
+傾向スコア $\pi(x)=P(A=1\mid X=x)$ を二項 GLM で推定し、安定化した ATE の重み
 
 $$
 W=\frac{A\,P(A=1)}{\pi(X)}+\frac{(1-A)\,P(A=0)}{1-\pi(X)},
 $$
 
-$W$ を 10 で切り詰め。アウトカムモデル $E[Y\mid A]$ は重み付き OLS。分散は HC3。推定対象は ATE のみ（ATT ブランチは作らない）。係数 forest は `plot_forest(..., layout="table")`（論文用白黒は `style="bw"`）。
+を使います。$W$ は 10 で頭打ちにします（患者は全員残す）。アウトカムモデル $E[Y\mid A]$ は重み付き OLS、分散は HC3 です。推定対象は ATE のみ（ATT ブランチは作らない）。係数 forest は `plot_forest(..., layout="table")`（論文用白黒は `style="bw"`）。
+
+重みはスクリプトで手計算していますが、`propensity_weights(cohort, PS_FORMULA, estimand="ATE", stabilize=True, trim=(0, 10))` でも同じ種類の重みを作れます。`trim` に数を一つだけ渡すと、1 未満は分位点、1 以上は「上位何個」の意味になるので、値での頭打ちは `(下限, 上限)` の組で渡します。重み、安定化、頭打ちの考え方は Learn の [6.3](../learn/iptw.md#weights)、[安定化](../learn/iptw.md#stabilize)、[頭打ち](../learn/iptw.md#trimming) を参照してください。
 
 
 ## 結果
@@ -224,14 +228,14 @@ $W$ を 10 で切り詰め。アウトカムモデル $E[Y\mid A]$ は重み付�
 
 ### 感度: 多重代入（MICE + Rubin）と完全例の比較
 
-完全例では `wt82_71` 欠損の 63 行（3.9%）を落としています。`impute_chained` で `wt82_71` を PMM により m=20 回代入（`qsmk` と PS 共変量を予測子、`n_iter=10`、`seed=20261008`）し、各セットで PS GLM → 安定化重み（上限 10）→ 重み付き OLS + HC3 をやり直して `pool` で統合しました。
+完全例では `wt82_71` 欠損の 63 行（3.9%）を落としています。`impute_chained` で `wt82_71` を予測平均マッチング（predictive mean matching、PMM）により m=20 回代入（`qsmk` と PS 共変量を予測子、`n_iter=10`、`seed=20261008`）し、各セットで PS GLM → 安定化重み（10 で頭打ち）→ 重み付き OLS + HC3 をやり直して `pool` で統合しました。表の列は標準誤差（standard error、SE）、95% 信頼区間（confidence interval、CI）、欠損情報割合（fraction of missing information、FMI）です。
 
 === "表"
 
     | 解析 | n | 代入数 | qsmk 推定 (kg) | SE | 95% CI | FMI |
     | --- | --- | --- | --- | --- | --- | --- |
     | 完全例（IPTW, HC3） | 1566 | 0 | 3.28 | 0.523 | 2.25–4.31 | — |
-    | MICE m=20 + Rubin（IPTW, HC3） | 1629 | 63 | 3.31 | 0.512 | 2.31–4.32 | 0.026 |
+    | MICE m=20 + Rubin（IPTW, HC3） | 1629 | 63 | 3.25 | 0.518 | 2.23–4.26 | 0.038 |
 
     [比較 CSV](assets/iptw_nhefs/mi_vs_cc.csv) · [pool 出力（ubar / b / t / df / fmi）](assets/iptw_nhefs/mi_pooled.csv)
 
@@ -279,11 +283,18 @@ $W$ を 10 で切り詰め。アウトカムモデル $E[Y\mid A]$ は重み付�
 
 ## 解釈と解説
 
-安定化 IPTW（ATE、上限 10、実際に cap された重みは 0、HC3）では禁煙の体重変化差は約 **+3.28 kg**（95% CI 約 2.25–4.31）。未調整は約 +2.54 kg。「禁煙後に体重が増える」方向は教科書の NHEFS 例と一致します。ライブラリに `iptw()` は無く、重みは例スクリプトの手計算です。教学 reproductions であり、禁煙指導の体重効果の確定推定ではありません。
+安定化 IPTW（ATE、10 で頭打ち、実際に頭打ちになった重みは 0、HC3）では禁煙の体重変化差は約 **+3.28 kg**（95% CI 約 2.25–4.31）。未調整は約 +2.54 kg。「禁煙後に体重が増える」方向は教科書の NHEFS 例と一致します。重みは例スクリプトの手計算です。教学用の再現であり、禁煙指導の体重効果の確定推定ではありません。
 
-多重代入の感度では、欠損アウトカム 63 行を MICE（m=20）で埋めて Rubin のルールで統合しても約 **+3.31 kg**（95% CI 2.31–4.32）で、完全例の +3.28 kg とほぼ同じでした。欠損割合が 3.9% と小さく、欠損情報割合（FMI）も約 0.03 なので、代入による分散の上乗せもわずかです。ただしこれは「`qsmk` と PS 共変量が与えられれば欠損は MAR」という仮定のもとでの一致にすぎません。NHEFS の 1982 年体重欠損には追跡中の死亡・脱落が含まれ、その理由が体重変化そのものと関係する（MNAR）なら、MI も完全例も同じように偏ります。代入モデルは主効果のみで、PS 推定の不確かさは各セットの HC3 に含めていません。
+多重代入の感度では、欠損アウトカム 63 行を MICE（m=20）で埋めて Rubin のルールで統合しても約 **+3.25 kg**（95% CI 2.23–4.26）で、完全例の +3.28 kg とほぼ同じでした。欠損割合が 3.9% と小さく、FMI も約 0.04 なので、代入による分散の上乗せもわずかです。ただしこれは「`qsmk` と PS 共変量が与えられれば欠損はランダム（missing at random、MAR）」という仮定のもとでの一致にすぎません。NHEFS の 1982 年体重欠損には追跡中の死亡・脱落が含まれ、その理由が体重変化そのものと関係する（ランダムでない欠損、missing not at random、MNAR）なら、多重代入も完全例も同じように偏ります。代入モデルは主効果のみで、PS 推定の不確かさは各セットの HC3 に含めていません。
 
-限界: ATT は出していない。CEM はバランス感度（実装が ATT 風の重みなので因果効果として読まない）。Positivity・切り詰め・未測定交絡。fetch-only データ。
+限界:
+
+- ATT は未推定
+- CEM はバランスの感度分析のみ（実装が ATT 風の重みなので、因果効果としては読みません）
+- 正値性（[Learn 7.1](../learn/assumptions-sensitivity.md#positivity)）、重みの頭打ち（患者は全員残す）、未測定交絡（[Learn 7.3 E-value](../learn/assumptions-sensitivity.md#e-value)）
+- HC3 の標準誤差は傾向スコアを既知の値として扱い、その推定の不確かさを含みません（[Learn 6.5](../learn/iptw.md#effect)）
+- 重み付け後のバランス表は未掲載。重み付け後のバランスの確かめ方は [Learn 6.4](../learn/iptw.md#balance)
+- fetch-only データ
 
 ## 実行と成果物
 

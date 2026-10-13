@@ -63,18 +63,18 @@
 <thead>
 <tr class="gt_col_headings">
   <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" scope="col" id="name"></th>
-  <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1" scope="col" id="All">All<br>(N=3350)</th>
-  <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1" scope="col" id="0">0<br>(n=1675)</th>
-  <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1" scope="col" id="1">1<br>(n=1675)</th>
+  <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1" scope="col" id="All">All<br>(N=3374)</th>
+  <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1" scope="col" id="0">0<br>(n=1687)</th>
+  <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1" scope="col" id="1">1<br>(n=1687)</th>
   <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1" scope="col" id="P-value">P value</th>
 </tr>
 </thead>
 <tbody class="gt_table_body">
   <tr>
     <td style="font-weight: bold;" class="gt_row gt_left">Age</td>
-    <td class="gt_row gt_center">60.7 (16.5)</td>
+    <td class="gt_row gt_center">60.8 (16.5)</td>
     <td class="gt_row gt_center">60.6 (17.5)</td>
-    <td class="gt_row gt_center">60.8 (15.5)</td>
+    <td class="gt_row gt_center">60.9 (15.5)</td>
     <td class="gt_row gt_center">-</td>
   </tr>
   <tr>
@@ -86,16 +86,16 @@
   </tr>
   <tr>
     <td class="gt_row gt_left">　Female</td>
-    <td class="gt_row gt_center">1441 (43.0%)</td>
-    <td class="gt_row gt_center">727 (43.4%)</td>
-    <td class="gt_row gt_center">714 (42.6%)</td>
+    <td class="gt_row gt_center">1450 (43.0%)</td>
+    <td class="gt_row gt_center">732 (43.4%)</td>
+    <td class="gt_row gt_center">718 (42.6%)</td>
     <td class="gt_row gt_center"></td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　Male</td>
-    <td class="gt_row gt_center">1909 (57.0%)</td>
-    <td class="gt_row gt_center">948 (56.6%)</td>
-    <td class="gt_row gt_center">961 (57.4%)</td>
+    <td class="gt_row gt_center">1924 (57.0%)</td>
+    <td class="gt_row gt_center">955 (56.6%)</td>
+    <td class="gt_row gt_center">969 (57.4%)</td>
     <td class="gt_row gt_center"></td>
   </tr>
   <tr>
@@ -107,30 +107,30 @@
   </tr>
   <tr>
     <td class="gt_row gt_left">　black</td>
-    <td class="gt_row gt_center">516 (15.4%)</td>
-    <td class="gt_row gt_center">253 (15.1%)</td>
-    <td class="gt_row gt_center">263 (15.7%)</td>
+    <td class="gt_row gt_center">518 (15.4%)</td>
+    <td class="gt_row gt_center">253 (15.0%)</td>
+    <td class="gt_row gt_center">265 (15.7%)</td>
     <td class="gt_row gt_center"></td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　other</td>
-    <td class="gt_row gt_center">205 (6.1%)</td>
-    <td class="gt_row gt_center">101 (6.0%)</td>
-    <td class="gt_row gt_center">104 (6.2%)</td>
+    <td class="gt_row gt_center">208 (6.2%)</td>
+    <td class="gt_row gt_center">102 (6.0%)</td>
+    <td class="gt_row gt_center">106 (6.3%)</td>
     <td class="gt_row gt_center"></td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　white</td>
-    <td class="gt_row gt_center">2629 (78.5%)</td>
-    <td class="gt_row gt_center">1321 (78.9%)</td>
-    <td class="gt_row gt_center">1308 (78.1%)</td>
+    <td class="gt_row gt_center">2648 (78.5%)</td>
+    <td class="gt_row gt_center">1332 (79.0%)</td>
+    <td class="gt_row gt_center">1316 (78.0%)</td>
     <td class="gt_row gt_center"></td>
   </tr>
   <tr>
     <td style="font-weight: bold;" class="gt_row gt_left">Education (years)</td>
     <td class="gt_row gt_center">11.8 (3.1)</td>
     <td class="gt_row gt_center">11.9 (3.1)</td>
-    <td class="gt_row gt_center">11.7 (3.2)</td>
+    <td class="gt_row gt_center">11.7 (3.1)</td>
     <td class="gt_row gt_center">-</td>
   </tr>
   <tr>
@@ -142,23 +142,23 @@
   </tr>
   <tr>
     <td class="gt_row gt_left">　ARF</td>
-    <td class="gt_row gt_center">1535 (45.8%)</td>
-    <td class="gt_row gt_center">779 (46.5%)</td>
-    <td class="gt_row gt_center">756 (45.1%)</td>
+    <td class="gt_row gt_center">1547 (45.9%)</td>
+    <td class="gt_row gt_center">783 (46.4%)</td>
+    <td class="gt_row gt_center">764 (45.3%)</td>
     <td class="gt_row gt_center"></td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　CHF</td>
-    <td class="gt_row gt_center">343 (10.2%)</td>
-    <td class="gt_row gt_center">166 (9.9%)</td>
-    <td class="gt_row gt_center">177 (10.6%)</td>
+    <td class="gt_row gt_center">346 (10.3%)</td>
+    <td class="gt_row gt_center">169 (10.0%)</td>
+    <td class="gt_row gt_center">177 (10.5%)</td>
     <td class="gt_row gt_center"></td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　COPD</td>
     <td class="gt_row gt_center">102 (3.0%)</td>
     <td class="gt_row gt_center">44 (2.6%)</td>
-    <td class="gt_row gt_center">58 (3.5%)</td>
+    <td class="gt_row gt_center">58 (3.4%)</td>
     <td class="gt_row gt_center"></td>
   </tr>
   <tr>
@@ -177,9 +177,9 @@
   </tr>
   <tr>
     <td class="gt_row gt_left">　Coma</td>
-    <td class="gt_row gt_center">171 (5.1%)</td>
-    <td class="gt_row gt_center">90 (5.4%)</td>
-    <td class="gt_row gt_center">81 (4.8%)</td>
+    <td class="gt_row gt_center">172 (5.1%)</td>
+    <td class="gt_row gt_center">90 (5.3%)</td>
+    <td class="gt_row gt_center">82 (4.9%)</td>
     <td class="gt_row gt_center"></td>
   </tr>
   <tr>
@@ -191,16 +191,16 @@
   </tr>
   <tr>
     <td class="gt_row gt_left">　MOSF w/Malignancy</td>
-    <td class="gt_row gt_center">270 (8.1%)</td>
-    <td class="gt_row gt_center">138 (8.2%)</td>
-    <td class="gt_row gt_center">132 (7.9%)</td>
+    <td class="gt_row gt_center">272 (8.1%)</td>
+    <td class="gt_row gt_center">140 (8.3%)</td>
+    <td class="gt_row gt_center">132 (7.8%)</td>
     <td class="gt_row gt_center"></td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　MOSF w/Sepsis</td>
-    <td class="gt_row gt_center">820 (24.5%)</td>
-    <td class="gt_row gt_center">401 (23.9%)</td>
-    <td class="gt_row gt_center">419 (25.0%)</td>
+    <td class="gt_row gt_center">826 (24.5%)</td>
+    <td class="gt_row gt_center">404 (23.9%)</td>
+    <td class="gt_row gt_center">422 (25.0%)</td>
     <td class="gt_row gt_center"></td>
   </tr>
   <tr>
@@ -212,37 +212,37 @@
   </tr>
   <tr>
     <td class="gt_row gt_left">　Metastatic</td>
-    <td class="gt_row gt_center">210 (6.3%)</td>
+    <td class="gt_row gt_center">210 (6.2%)</td>
     <td class="gt_row gt_center">104 (6.2%)</td>
     <td class="gt_row gt_center">106 (6.3%)</td>
     <td class="gt_row gt_center"></td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　No</td>
-    <td class="gt_row gt_center">2581 (77.0%)</td>
-    <td class="gt_row gt_center">1291 (77.1%)</td>
-    <td class="gt_row gt_center">1290 (77.0%)</td>
+    <td class="gt_row gt_center">2602 (77.1%)</td>
+    <td class="gt_row gt_center">1301 (77.1%)</td>
+    <td class="gt_row gt_center">1301 (77.1%)</td>
     <td class="gt_row gt_center"></td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　Yes</td>
-    <td class="gt_row gt_center">559 (16.7%)</td>
-    <td class="gt_row gt_center">280 (16.7%)</td>
-    <td class="gt_row gt_center">279 (16.7%)</td>
+    <td class="gt_row gt_center">562 (16.7%)</td>
+    <td class="gt_row gt_center">282 (16.7%)</td>
+    <td class="gt_row gt_center">280 (16.6%)</td>
     <td class="gt_row gt_center"></td>
   </tr>
   <tr>
     <td style="font-weight: bold;" class="gt_row gt_left">APS1</td>
-    <td class="gt_row gt_center">57.2 (19.4)</td>
     <td class="gt_row gt_center">57.3 (19.4)</td>
-    <td class="gt_row gt_center">57.1 (19.4)</td>
+    <td class="gt_row gt_center">57.4 (19.4)</td>
+    <td class="gt_row gt_center">57.2 (19.4)</td>
     <td class="gt_row gt_center">-</td>
   </tr>
   <tr>
     <td style="font-weight: bold;" class="gt_row gt_left">Mean BP</td>
-    <td class="gt_row gt_center">72.8 (35.4)</td>
+    <td class="gt_row gt_center">72.7 (35.3)</td>
     <td class="gt_row gt_center">72.7 (35.2)</td>
-    <td class="gt_row gt_center">72.9 (35.6)</td>
+    <td class="gt_row gt_center">72.8 (35.5)</td>
     <td class="gt_row gt_center">-</td>
   </tr>
   <tr>
@@ -254,16 +254,16 @@
   </tr>
   <tr>
     <td class="gt_row gt_left">　No</td>
-    <td class="gt_row gt_center">3087 (92.1%)</td>
-    <td class="gt_row gt_center">1548 (92.4%)</td>
-    <td class="gt_row gt_center">1539 (91.9%)</td>
+    <td class="gt_row gt_center">3107 (92.1%)</td>
+    <td class="gt_row gt_center">1557 (92.3%)</td>
+    <td class="gt_row gt_center">1550 (91.9%)</td>
     <td class="gt_row gt_center"></td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　Yes</td>
-    <td class="gt_row gt_center">263 (7.9%)</td>
-    <td class="gt_row gt_center">127 (7.6%)</td>
-    <td class="gt_row gt_center">136 (8.1%)</td>
+    <td class="gt_row gt_center">267 (7.9%)</td>
+    <td class="gt_row gt_center">130 (7.7%)</td>
+    <td class="gt_row gt_center">137 (8.1%)</td>
     <td class="gt_row gt_center"></td>
   </tr>
 </tbody>

@@ -2,9 +2,11 @@
 
 `htest_licorice` — 比率の差・Clopper–Pearson・Wilcoxon・McNemar・Holm
 
-2 群の RCT を、回帰を使わずに基本の検定と区間だけで解析する例です。発生割合は群ごとに正確（Clopper–Pearson）区間、群間はリスク差と `prop_test`、痛みスコアは Wilcoxon 順位和検定、群内の時点比較は McNemar と対応のある Wilcoxon です。4 時点をくり返し比べるので、p 値は Holm で補正します。
+2 群のランダム化比較試験（randomized controlled trial、RCT）を、回帰を使わずに基本の検定と区間だけで解析する例です。発生割合は群ごとに正確（Clopper–Pearson）な信頼区間（confidence interval、CI）、群間はリスク差と `prop_test`、痛みスコアは Wilcoxon 順位和検定、群内の時点比較は McNemar 検定と対応のある Wilcoxon 検定です。4 時点をくり返し比べるので、P 値は Holm 法で補正します。
 
 [← ギャラリー](index.md) · [実行用ディレクトリと手順（GitHub）](https://github.com/mizuy/statract/tree/main/examples/htest_licorice)
+
+解説は Learn の [第 1 章 記述](../learn/descriptive.md)（割合の信頼区間、Table 1 の P 値）、[第 17 章 診断の指標](../learn/diagnostic-metrics.md)（Clopper–Pearson と McNemar 検定）、[付録 C P 値](../learn/p-value.md)（多重性と書き方）を参照してください。
 
 ## 目的概説
 
@@ -23,9 +25,9 @@
 | 列 | 意味 |
 |----|------|
 | `treat` / `arm` | 挿管前のうがい。0 = 砂糖水（Sugar）、1 = 甘草（Licorice） |
-| `pain_<時点>` | 安静時の咽頭痛スコア 0–10。時点は PACU 30 分・90 分、術後 4 時間、術後 1 日朝 |
+| `pain_<時点>` | 安静時の咽頭痛スコア 0–10。時点は麻酔後回復室（post-anesthesia care unit、PACU）での 30 分・90 分、術後 4 時間、術後 1 日（postoperative day 1、POD1）朝 |
 | `sore_<時点>` | 咽頭痛あり（スコア > 0） |
-| `age`, `bmi`, `sex`, `asa`, `mallampati`, `smoking`, `surgery_size` | Table 1 用の背景 |
+| `age`, `bmi`, `sex`, `asa`, `mallampati`, `smoking`, `surgery_size` | Table 1 用の背景。`asa` は米国麻酔科学会（American Society of Anesthesiologists、ASA）の全身状態分類で、Learn の [付録 C](../learn/p-value.md#asa) の ASA（米国統計学会）とは別物 |
 
 ## CQ と大まかな解析方針
 
@@ -34,8 +36,8 @@
 方針:
 
 1. 痛みスコアが全時点そろう 233 例を解析セットにする（flowchart）
-2. Table 1（`hue=arm`、SMD）
-3. **主**: 各時点の咽頭痛の発生割合。群ごとに `binom_test` の正確区間、群間はリスク差を `prop_test`（2 標本、連続性補正あり）。4 時点の p 値を `p_adjust(..., "holm")`
+2. Table 1（`hue=arm`、標準化差［standardized mean difference、SMD］）
+3. **主**: 各時点の咽頭痛の発生割合。群ごとに `binom_test` の正確区間、群間はリスク差を `prop_test`（2 標本、連続性補正あり）。4 時点の P 値を `p_adjust(..., "holm")`
 4. **副**: 痛みスコアを `wilcox_test`（順位和）。効果の大きさは `t_test`（Welch）の平均差
 5. **群内**: PACU 30 分と術後 1 日朝の比較。有無は `mcnemar_test`、スコアは `wilcox_test(..., paired=True)`
 
@@ -107,21 +109,21 @@
     gt = tableone(cohort, params, hue="arm", add_all=True, add_smd=True)
     ```
 
-RCT なので背景の群間検定は載せず、SMD だけを示します。
+RCT なので背景の群間検定は載せず、SMD だけを示します（[Learn 1.6](../learn/descriptive.md#pvalue)）。試験の報告は CONSORT（Consolidated Standards of Reporting Trials、[付録 B](../learn/reporting-guidelines.md#consort)）に従います。
 
 ## メインの解析方法とそのコア
 
 時点 $t$ の咽頭痛の割合を群 $g$ で $p_{gt}$ とします。
 
-- **群ごとの区間**: 発生数 $x \sim \mathrm{Bin}(n, p)$ の Clopper–Pearson 区間。下限は $\mathrm{Beta}(\alpha/2;\,x,\,n-x+1)$、上限は $\mathrm{Beta}(1-\alpha/2;\,x+1,\,n-x)$ の分位点（`binom_test`）。
-- **リスク差**: $\hat p_{\mathrm{L}t} - \hat p_{\mathrm{S}t}$ と、連続性補正つきの Wald 区間。検定は 2 × 2 表の $\chi^2$（`prop_test`、R の `prop.test` と同じ）。
-- **多重性**: 4 時点の p 値を Holm で補正（`p_adjust`）。
+- **群ごとの区間**: 発生数 $x \sim \mathrm{Bin}(n, p)$ の Clopper–Pearson 区間。名目の水準を下回らないよう正確な二項分布を使う区間で、Wilson 法よりやや広めです（[Learn 17.5](../learn/diagnostic-metrics.md#ci)）。下限は $\mathrm{Beta}(\alpha/2;\,x,\,n-x+1)$、上限は $\mathrm{Beta}(1-\alpha/2;\,x+1,\,n-x)$ の分位点（`binom_test`）。
+- **リスク差**: $\hat p_{\mathrm{L}t} - \hat p_{\mathrm{S}t}$ と、連続性補正つきの Wald 区間。検定は 2 × 2 表の $\chi^2$（`prop_test`、R の `prop.test` と同じ）。連続性補正は R の既定に合わせて入れています（[Learn 1.5](../learn/descriptive.md#p-value) は手計算と合わせるため `correct=False`）。
+- **多重性**: 4 時点の P 値を Holm 法で補正（`p_adjust`）。多重性の考え方は [付録 C](../learn/p-value.md#nejm)。
 - **痛みスコア**: 0–10 の順序尺度なので Wilcoxon 順位和検定（同順位補正と連続性補正つきの正規近似）。7 割前後が 0 点のため、Hodges–Lehmann のずれは 0 に潰れます（R でも同じ）。効果の大きさは Welch の平均差で示します。
-- **群内の時点比較**: 同じ患者の 2 時点なので、有無は McNemar、スコアは対応のある Wilcoxon 符号付き順位検定。
+- **群内の時点比較**: 同じ患者の 2 時点なので、有無は McNemar 検定（食い違った人だけを使う。[Learn 17.6](../learn/diagnostic-metrics.md#compare)）、スコアは対応のある Wilcoxon 符号付き順位検定。
 
 ## 結果
 
-n=233（Sugar 116、Licorice 117）。サイト掲載は `assets/htest_licorice/`。表の数値は `task htest_licorice:all` の成果物と同一です。
+n=233（Sugar 116、Licorice 117）。サイト掲載は `assets/htest_licorice/`。表の数値は `task htest_licorice:all` の成果物と同一です。表の P 値は成果物の桁のまま載せ、本文では [付録 C](../learn/p-value.md#compare) に合わせて 0.001 より小さい値を P<0.001 と書きます。
 
 ### 発生割合（群ごと、Clopper–Pearson 95% CI）
 
@@ -243,10 +245,10 @@ n=233（Sugar 116、Licorice 117）。サイト掲載は `assets/htest_licorice/
 
 ## 解釈と解説
 
-- 甘草うがいは 4 時点すべてで咽頭痛の割合を下げました。リスク差は −17 から −25 % ポイントで、Holm 補正後もすべて P < 0.005 です。元論文の主要評価（PACU 30 分の咽頭痛）と同じ向きです。
+- 甘草うがいは 4 時点すべてで咽頭痛の割合を下げました。リスク差は −25–−17 % ポイントで、Holm 補正後もすべて P<0.005 です。元論文の主要評価（PACU 30 分の咽頭痛）と同じ向きです。
 - 痛みスコアも 4 時点で甘草群が低く、Wilcoxon の結果は発生割合と一致します。0 点が多いデータでは Hodges–Lehmann の推定値と区間が 0 付近に潰れて役に立たないので、平均差か発生割合を効果の大きさに使います。
 - 群内の比較では、咽頭痛の有無は PACU 30 分と術後 1 日朝でほぼ同じでした（McNemar）。砂糖水群ではスコアの分布だけが有意に変わりました。有無とスコアは別の情報なので、両方を見ます。
-- 4 時点は同じ患者のくり返し測定です。時点ごとの検定と Holm 補正は単純で読みやすい反面、時点間の相関は使いません。経時の効果を一つのモデルで見るなら GEE や混合モデル（[反復測定の線形混合モデル](lmm_pbcseq.md)）を使います。
+- 4 時点は同じ患者のくり返し測定です。時点ごとの検定と Holm 補正は単純で読みやすい反面、時点間の相関は使いません。経時の効果を一つのモデルで見るなら一般化推定方程式（generalized estimating equations、GEE）や混合モデル（[反復測定の線形混合モデル](lmm_pbcseq.md)）を使います。
 
 ## 実行と成果物
 

@@ -1,14 +1,14 @@
 # 反復測定の線形混合モデル
 
-`lmm_pbcseq` — ガウス LMM / クラスタ SE / GAM / GAMM
+`lmm_pbcseq` — ガウス LMM / クラスター SE / GAM / GAMM
 
-indo の二項混合に対し、ガウス `fit_mixed`（lmer 相当）の正本。GAM は主解析（ガウス・平滑1本）。
+indo の二項混合に対し、ガウスの線形混合モデル（linear mixed model、LMM）`fit_mixed`（lmer 相当）の正本。主解析は変量切片 LMM で、一般化加法モデル（generalized additive model、GAM。ガウス・平滑 1 本）と一般化加法混合モデル（generalized additive mixed model、GAMM）は、病日の形を見る副次解析です。
 
 [← ギャラリー](index.md) · [実行用ディレクトリと手順（GitHub）](https://github.com/mizuy/statract/tree/main/examples/lmm_pbcseq)
 
 ## 目的概説
 
-[`logit_indo`](logit_indo.md) の混合は二項 `fit_mixed(..., family="binomial")` です。ここではガウス `fit_mixed`（`lmer` 相当）、患者クラスタ SE、および現行制限つき GAM を縦断検査で本編に載せるための例です。
+[`logit_indo`](logit_indo.md) の混合は二項 `fit_mixed(..., family="binomial")` です。ここではガウス `fit_mixed`（`lmer` 相当）、患者クラスターの頑健な標準誤差（standard error、SE）、および現行の制限つき GAM を縦断検査で本編に載せるための例です。
 
 ## データと列の説明
 
@@ -22,7 +22,7 @@ indo の二項混合に対し、ガウス `fit_mixed`（lmer 相当）の正本�
 
 | 列 | 意味 |
 |----|------|
-| `id` | 患者 ID（変量 / クラスタ） |
+| `id` | 患者 ID（変量 / クラスター） |
 | `bili` / `log_bili` | ビリルビン（mg/dL）と対数 |
 | `day` / `day_years` | 病日と年換算（`day/365.25`） |
 | `dp` / `trt_label` | 治療（患者内で一定とみなす） |
@@ -30,15 +30,15 @@ indo の二項混合に対し、ガウス `fit_mixed`（lmer 相当）の正本�
 
 ## CQ と大まかな解析方針
 
-**CQ** — 無作為化 PBC の反復検査で、病日と D-ペニシラミンは対数ビリルビンと関連するか。患者内相関を変量切片で入れたとき、集団の病日カーブ（GAM）はどうか。
+**CQ** — 原発性胆汁性胆管炎（primary biliary cholangitis、PBC）のランダム化試験の反復検査で、病日と D-ペニシラミンは対数ビリルビンと関連するか（患者内相関は変量切片で入れる）。副次的に、集団の病日カーブ（GAM）はどうか。
 
 方針:
 
 1. 患者単位 Table 1（除外なしのため flowchart 省略）
-2. 変量切片 LMM（主）
-3. 同平均構造の OLS + `cluster_covariance`（比較）
-4. GAM `s(day_years)`（主解析の一部。治療・変量は API 制限で入れられない）
-5. `gamm`（出力は `gamm4` と比べています）: `s(day_years) + dp + (1 | id)`。`gamm` は二項・Poisson のみなので、結果は「ビリルビン > 2 mg/dL」の二値。同じ二値で患者相関を無視した `gam` と、病日を線形にした二項 GLMM と比べる
+2. 変量切片 LMM（主解析）
+3. 同平均構造の最小二乗法（ordinary least squares、OLS）+ `cluster_covariance`（比較）
+4. GAM `s(day_years)`（副次解析。病日の形を見る。治療・変量は API 制限で入れられない）
+5. `gamm`（出力は `gamm4` と比べています）: `s(day_years) + dp + (1 | id)`。`gamm` は二項・Poisson のみなので、結果は「ビリルビン > 2 mg/dL」の二値。同じ二値で患者相関を無視した `gam` と、病日を線形にした二項の一般化線形混合モデル（generalized linear mixed model、GLMM）と比べる
 
 ## flowchart / tableone
 
@@ -70,19 +70,23 @@ indo の二項混合に対し、ガウス `fit_mixed`（lmer 相当）の正本�
 
 ## メインの解析方法とそのコア
 
+解説は Learn の [第 15 章 階層モデル](../learn/hierarchical.md)（変量効果と部分プーリングは [15.2](../learn/hierarchical.md#pooling)、条件付きと周辺の効果は [15.3](../learn/hierarchical.md#fixed-effects)）を参照してください。
+
 訪問 $ij$、患者 $i$。主解析の LMM:
 
 $$
 \log(\mathrm{bili}_{ij})=\beta_0+\beta_1\mathrm{day\_years}_{ij}+\beta_2\mathrm{dp}_i+u_i+\varepsilon_{ij},\quad u_i\sim N(0,\sigma_u^2).
 $$
 
-比較: 同じ平均構造の OLS に患者クラスタのサンドイッチ。GAM（主解析）:
+LMM は `fit_mixed` の既定どおり制限付き最尤法（restricted maximum likelihood、REML）で当てはめます。REML の尤度は固定効果の違うモデルどうしでは比べられないので、固定効果を尤度比検定や赤池情報量規準（Akaike information criterion、AIC、[数学補 A8](../learn/math/information-criteria.md)）で比べるときは `method="ml"`（最尤法）で当てはめ直します。
+
+比較: 同じ平均構造の OLS に患者クラスターのサンドイッチ分散。GAM（副次解析）:
 
 $$
 \log(\mathrm{bili})=\beta_0+s(\mathrm{day\_years})+\varepsilon,
 $$
 
-$s$ は立方回帰スプライン（`smooth`、`k` は一意な病日数以下）。この版の GAM は `family="gaussian"`・`cr`・平滑1本・REML。
+$s$ は立方回帰スプライン（`smooth`、`k` は一意な病日数以下）。この版の GAM は `family="gaussian"`・`cr`・平滑 1 本・REML。
 
 GAMM（`gamm`、R `gamm4` 相当）。$y_{ij}=1[\mathrm{bili}_{ij}>2]$:
 
@@ -95,7 +99,7 @@ $$
 
 ## 結果
 
-無作為化 312 人、訪問 1945 行。サイト掲載は `assets/lmm_pbcseq/`。
+ランダム化 312 人、訪問 1945 行。サイト掲載は `assets/lmm_pbcseq/`。
 
 ### GAM 平滑（病日）
 
@@ -131,7 +135,7 @@ $$
 
 ### GAMM: 病日平滑 + 患者変量切片（ビリルビン > 2 mg/dL）
 
-訪問 1945 行のうち 39.3% がビリルビン > 2 mg/dL。図は 3 モデルの病日効果（対数オッズ、訪問平均で 0 に中心化）。帯は 95% 点ごと CI。
+訪問 1945 行のうち 39.3% がビリルビン > 2 mg/dL。図は 3 モデルの病日効果（対数オッズ、訪問平均で 0 に中心化）。帯は 95% 点ごと信頼区間（confidence interval、CI）。表の edf は有効自由度（effective degrees of freedom、edf）で、1 なら直線です。
 
 === "図"
 
@@ -209,7 +213,7 @@ $$
     # mixed.variance_table() → 患者間分散 / 残差
     ```
 
-### OLS + クラスタ SE
+### OLS + クラスター SE
 
 === "表"
 
@@ -259,11 +263,11 @@ $$
 
 ## 解釈と解説
 
-変量切片 LMM では `day_years` が対数ビリルビンと正の関連（約 **+0.095 / 年**）。`dp` は約 −0.11（区間は 0 を含む）。患者間分散 1.20 に対し残差 0.24 で、独立 OLS をそのまま読む根拠は弱い。GAM（`s(day_years)`、k=8、edf≈2.1）は治療を含まない集団平滑です。クラスタ OLS の `day_years` は点推定が小さく区間が広い（変量切片の有無で平均構造の意味が違う）。
+変量切片 LMM では `day_years` が対数ビリルビンと正の関連（約 **+0.095 / 年**）。`dp` は約 −0.11（区間は 0 を含む）。患者間分散 1.20 に対し残差 0.24 で、独立 OLS をそのまま読む根拠は弱い。GAM（`s(day_years)`、k=8、edf≈2.1）は治療を含まない集団平滑です。クラスター SE の OLS の `day_years` は点推定が小さく区間が広い（変量切片の有無で平均構造の意味が違う）。
 
-**GAMM。** ビリルビン > 2 mg/dL の二値で、`gamm` の病日平滑（edf≈1.95）はほぼ直線に上がり、0 年から 8 年で対数オッズが約 4 上がる。病日線形の GLMM（+0.52 / 年）とほぼ重なり、変量切片を入れた範囲では非線形性の証拠は弱い。一方、患者相関を無視した `gam` の平滑はほぼ平坦で、ガウスの OLS（クラスタ SE）の `day_years` が小さかったのと同じ形です。変量切片モデルは「同じ患者の中での経時変化」を、変量なしのモデルは「各時点に残っている患者の平均」を見ています。ビリルビンの高い患者ほど早く死亡・移植で観察から抜けるので（初回ビリルビン > 2 の 124 人は最終訪問の中央値 2.2 年、≤ 2 の 188 人は 5.7 年）、後の時点ほど軽い患者が残り、集団平均の曲線は平らになります（脱落の影響で、どちらか一方が「正しい」わけではない）。加えて患者切片の分散が約 34 と非常に大きく、患者内の条件付き効果は周辺効果よりもともと大きく出ます。`dp` の SE は `gam` で 0.093、`gamm` で 0.72 で、患者相関を無視すると治療効果の不確かさを 8 倍近く過小評価します。治療はどのモデルでも 0 を含みます。
+**GAMM。** ビリルビン > 2 mg/dL の二値で、`gamm` の病日平滑（edf≈1.95）はほぼ直線に上がり、0 年から 8 年で対数オッズが約 4 上がる。病日線形の GLMM（+0.52 / 年）とほぼ重なり、変量切片を入れた範囲では非線形性の証拠は弱い。一方、患者相関を無視した `gam` の平滑はほぼ平坦で、ガウスの OLS（クラスター SE）の `day_years` が小さかったのと同じ形です。変量切片モデルは「同じ患者の中での経時変化」を、変量なしのモデルは「各時点に残っている患者の平均」を見ています。ビリルビンの高い患者ほど早く死亡・移植で観察から抜けるので（初回ビリルビン > 2 の 124 人は最終訪問の中央値 2.2 年、≤ 2 の 188 人は 5.7 年）、後の時点ほど軽い患者が残り、集団平均の曲線は平らになります（脱落の影響で、どちらか一方が「正しい」わけではない）。加えて患者切片の分散が約 34 と非常に大きく、患者内の条件付き効果は周辺効果よりもともと大きく出ます（ロジスティックモデルの非縮約性、[第 15 章 15.3](../learn/hierarchical.md#fixed-effects)）。`dp` の SE は `gam` で 0.093、`gamm` で 0.72 で、患者相関を無視すると治療効果の不確かさを 8 倍近く過小評価します。治療はどのモデルでも 0 を含みます。
 
-限界: 上の Gaussian GAM は平滑1本・治療なし・変量なし。`gamm` は二項・Poisson のみで、対数ビリルビンそのもの（ガウス）には当てられないため二値化した（> 2 mg/dL は閾値の選択に依存）。欠測は完全例。`cif_pbc` と同じ疾患だが解析単位が違う。LGPL 教学データ。
+限界: 上のガウス GAM は平滑 1 本・治療なし・変量なし。`gamm` は二項・Poisson のみで、対数ビリルビンそのもの（ガウス）には当てられないため二値化した（> 2 mg/dL は閾値の選択に依存）。欠測は完全例。`cif_pbc` と同じ疾患だが解析単位が違う。LGPL 教学データ。
 
 ## 実行と成果物
 

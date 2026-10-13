@@ -107,3 +107,4 @@ HR / OR / 係数の forest は再実装した `plot_forest(..., layout="table")`
 - [ ] `tools/sync_example_assets.py` 経由で assets が `*_out/` と同一
 - [ ] 生 CSV / 完全 `*_out/` を commit していない
 - [ ] ギャラリーカードの主リンクが docs ページになっている
+- [ ] 関連する Learn の章にリンクし、理論の説明はそちらに任せる

@@ -1,6 +1,6 @@
 # 解析例ギャラリー
 
-[tableone](../tableone/overview.md)、[models](../models/overview.md)、[viz](../viz/overview.md)、[cea](../cea/overview.md) を、公開教学データで **入力 → 解析 → 図** まで通した例です。生データ CSV はリポジトリに入れていません。実行手順とコードの目次は [`examples/README.md`](https://github.com/mizuy/statract/blob/main/examples/README.md) です。
+[tableone](../tableone/overview.md)、[models](../models/overview.md)、[viz](../viz/overview.md)、[cea](../cea/overview.md) を、公開教学データで **入力 → 解析 → 図** まで通した例です。生データ CSV はリポジトリに入れていません。実行手順とコードの目次は [`examples/README.md`](https://github.com/mizuy/statract/blob/main/examples/README.md) です。統計の考え方の解説は [Learn](../learn/index.md) にあり、各例は理論を繰り返さず関係する章へリンクします（カードの「解説 →」）。
 
 方針の正本は [ギャラリー方針](https://github.com/mizuy/statract/blob/main/docs/examples/policy.md)。各カードの**主リンクは docs 内の単一ページ**です。読み順は **目的概説 → データと列 → CQ と方針 → flowchart / tableone → メイン解析 → 結果（図/表＋コードタブ）→ 解釈**（7 節。独立のライブラリコード節は置かない）。Results の図・表は **`examples/<stem>/<stem>_out/` が正本**で、選別コピーを `docs/examples/assets/<stem>/` に載せます（別経路で再描画しない）。同期は `uv run python tools/sync_example_assets.py`。完全な `*_out/` は gitignore のままローカル再生成用です。実行はリポジトリルートで `uv sync` のあと、`examples/` で `task <stem>:all`（手順は各 README）。
 
@@ -14,12 +14,12 @@
 
     ---
 
-    甘草うがいと術後咽頭痛（RCT、4 時点）
+    甘草うがいと術後咽頭痛（ランダム化比較試験［RCT］、4 時点）
 
     **データ** — `medicaldata::licorice_gargle`  
     **API** — `binom_test`, `prop_test`, `wilcox_test`, `t_test`, `mcnemar_test`, `p_adjust`, `plot_forest`
 
-    [ドキュメント →](htest_licorice.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/htest_licorice)
+    [ドキュメント →](htest_licorice.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/htest_licorice) · [解説 →](../learn/descriptive.md)
 
 </div>
 
@@ -36,29 +36,29 @@
     **データ** — R `survival::colon`（患者単位）  
     **API** — `plot_survival`（NAR 既定）、`cox_ph`, `proportional_hazards_test`, `write_cox_diagnostic_suite`, `plot_forest`（表一体）、`standardize_cox`（周辺生存曲線・RMST）
 
-    [ドキュメント →](surv_colon.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/surv_colon)
+    [ドキュメント →](surv_colon.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/surv_colon) · [解説 →](../learn/survival.md)
 
 -   __[競合リスク解析](cif_pbc.md)__ — `cif_pbc` · 競合リスク（CIF / Fine–Gray）
 
     ---
 
-    D-ペニシラミンと肝死の累積発生（移植は競合）
+    D-ペニシラミンと死亡の累積発生（移植は競合）
 
     **データ** — R `survival::pbc`（無作為化例）  
     **API** — `survival_curve(..., kind="aalen_johansen")`, `cumulative_incidence`（Gray 検定）, `fine_gray`, 重み付き `cox_ph`, `fine_gray_regression`（crr）, `plot_forest`
 
-    [ドキュメント →](cif_pbc.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/cif_pbc)
+    [ドキュメント →](cif_pbc.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/cif_pbc) · [解説 →](../learn/survival.md)
 
 -   __[PH 検定と AFT モデル](aft_rotterdam.md)__ — `aft_rotterdam` · Cox / PH 検定 / AFT
 
     ---
 
-    ホルモン療法と死亡時間（PH が怪しいときの AFT）
+    ホルモン療法と死亡時間（PH 検定と時間比で見る AFT）
 
     **データ** — R `survival::rotterdam`  
     **API** — `cox_ph`, `proportional_hazards_test`, `write_cox_diagnostic_suite`, `validate_cox`, `calibrate_cox`, `accelerated_failure`（Weibull）, `plot_forest`（表一体）
 
-    [ドキュメント →](aft_rotterdam.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/aft_rotterdam)
+    [ドキュメント →](aft_rotterdam.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/aft_rotterdam) · [解説 →](../learn/survival.md)
 
 -   __[クラスター頑健 Cox](cox_retinopathy.md)__ — `cox_retinopathy` · クラスター頑健 Cox（Lin–Wei）
 
@@ -69,7 +69,7 @@
     **データ** — R `survival::retinopathy`（眼単位、id クラスター）  
     **API** — `cox_ph(..., cluster=)` / `cluster(id)`、`plot_survival`（NAR）、`proportional_hazards_test`, `write_cox_diagnostic_suite`, `plot_forest`（表一体）、`tableone`
 
-    [ドキュメント →](cox_retinopathy.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/cox_retinopathy)
+    [ドキュメント →](cox_retinopathy.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/cox_retinopathy) · [解説 →](../learn/hierarchical.md)
 
 </div>
 
@@ -86,7 +86,7 @@
     **データ** — `medicaldata::indo_rct`  
     **API** — `fit_mixed` binomial, `median_odds_ratio`, `glmm_random_effects`, `plot_random_effects`, `plot_forest`, `fit_glm` binomial
 
-    [ドキュメント →](logit_indo.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/logit_indo)
+    [ドキュメント →](logit_indo.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/logit_indo) · [解説 →](../learn/hierarchical.md)
 
 -   __[反復測定の線形混合モデル](lmm_pbcseq.md)__ — `lmm_pbcseq` · ガウス LMM / クラスタ SE / GAM
 
@@ -97,7 +97,7 @@
     **データ** — R `survival::pbcseq`  
     **API** — `fit_mixed`, `cluster_covariance`, `gam`, `smooth`, `gamm`
 
-    [ドキュメント →](lmm_pbcseq.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/lmm_pbcseq)
+    [ドキュメント →](lmm_pbcseq.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/lmm_pbcseq) · [解説 →](../learn/hierarchical.md)
 
 -   __[てんかん RCT の計数 GLMM](glmm_epil.md)__ — `glmm_epil` · ポアソン / 負の二項 / ar1 / ゼロ過剰 GLMM
 
@@ -108,7 +108,7 @@
     **データ** — R `MASS::epil`（Thall & Vail 1990）。GPL。git 非収載  
     **API** — `fit_mixed(family="poisson" / "negative_binomial")`, `ar1(period + 0 | subject)`, `zero_inflation=True`, `glmm_random_effects`, `plot_random_effects`, `median_odds_ratio`, `plot_forest`, `fit_glm`
 
-    [ドキュメント →](glmm_epil.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/glmm_epil)
+    [ドキュメント →](glmm_epil.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/glmm_epil) · [解説 →](../learn/hierarchical.md)
 
 </div>
 
@@ -120,12 +120,12 @@
 
     ---
 
-    SUPPORT2 の 180 日死亡確率（train / hold-out）
+    SUPPORT2 の 180 日死亡確率（学習データ / 分割［ホールドアウト］による検証）
 
     **データ** — hbiostat SUPPORT2（fetch only）  
     **API** — `fit_glm` binomial, `conditional_tree`, `plot_tree`, `roc_curve`, `roc_test`, `plot_roc`, `validate_logistic`, `calibrate_logistic`, `plot_calibration_curve`, `write_probability_artifacts`, `plot_calibration`, `plot_dca`, `binary_perf`, `threshold_tradeoff`, `plot_forest`
 
-    [ドキュメント →](pred_support.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/pred_support)
+    [ドキュメント →](pred_support.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/pred_support) · [解説 →](../learn/overfitting.md)
 
 </div>
 
@@ -133,27 +133,27 @@
 
 <div class="grid cards" markdown>
 
--   __[傾向スコアマッチング](psm_rhc.md)__ — `psm_rhc` · PS 最近傍マッチ → ロジスティック
+-   __[傾向スコアマッチング](psm_rhc.md)__ — `psm_rhc` · 傾向スコア最近傍マッチ → ロジスティック
 
     ---
 
-    初日 RHC と 30 日死亡（ATT）
+    初日の右心カテーテル（RHC）と 30 日死亡（ATT）
 
     **データ** — Vanderbilt RHC（Connors JAMA 1996）。利用条件未確認・非再配布  
     **API** — `match_sample`, `balance` / `love_plot`, マッチ後 `fit_glm`, `plot_forest`
 
-    [ドキュメント →](psm_rhc.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/psm_rhc)
+    [ドキュメント →](psm_rhc.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/psm_rhc) · [解説 →](../learn/propensity-score-matching.md)
 
--   __[逆確率重み付け（IPTW）](iptw_nhefs.md)__ — `iptw_nhefs` · 安定化 IPTW（ATE）
+-   __[治療の逆確率による重み付け（IPTW）](iptw_nhefs.md)__ — `iptw_nhefs` · 安定化 IPTW（ATE）
 
     ---
 
     禁煙と追跡時体重変化
 
     **データ** — NHEFS（fetch only）  
-    **API** — PS `fit_glm`, 手計算の安定化重み, `fit_ols` + `hc_covariance`, `plot_forest`, `impute_chained` + `pool`（多重代入の感度分析。名前付き `iptw()` は無い）
+    **API** — 傾向スコアの `fit_glm`, 安定化重み（スクリプト内で計算。`propensity_weights` もある）, `fit_ols` + `hc_covariance`, `plot_forest`, `impute_chained` + `pool`（多重代入の感度分析）
 
-    [ドキュメント →](iptw_nhefs.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/iptw_nhefs)
+    [ドキュメント →](iptw_nhefs.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/iptw_nhefs) · [解説 →](../learn/iptw.md)
 
 </div>
 
@@ -189,7 +189,7 @@
 | 反復測定の線形混合モデル | [lmm_pbcseq](lmm_pbcseq.md) | [examples/lmm_pbcseq/](https://github.com/mizuy/statract/tree/main/examples/lmm_pbcseq) |
 | てんかん RCT の計数 GLMM | [glmm_epil](glmm_epil.md) | [examples/glmm_epil/](https://github.com/mizuy/statract/tree/main/examples/glmm_epil) |
 | 傾向スコアマッチング | [psm_rhc](psm_rhc.md) | [examples/psm_rhc/](https://github.com/mizuy/statract/tree/main/examples/psm_rhc) |
-| 逆確率重み付け（IPTW） | [iptw_nhefs](iptw_nhefs.md) | [examples/iptw_nhefs/](https://github.com/mizuy/statract/tree/main/examples/iptw_nhefs) |
+| 治療の逆確率による重み付け（IPTW） | [iptw_nhefs](iptw_nhefs.md) | [examples/iptw_nhefs/](https://github.com/mizuy/statract/tree/main/examples/iptw_nhefs) |
 | 予測モデルの較正と DCA | [pred_support](pred_support.md) | [examples/pred_support/](https://github.com/mizuy/statract/tree/main/examples/pred_support) |
 | Markov モデルの費用対効果分析 | [cea_sicksicker](cea_sicksicker.md) | [examples/cea_sicksicker/](https://github.com/mizuy/statract/tree/main/examples/cea_sicksicker) |
 
@@ -205,7 +205,8 @@
 | `cumulative_incidence`（cuminc / Gray 検定）/ `fine_gray_regression`（crr） | [`cif_pbc`](cif_pbc.md) |
 | `standardize_cox`（stdReg2 の周辺生存曲線・RMST） | [`surv_colon`](surv_colon.md) |
 | `validate_cox` / `calibrate_cox`（rms の bootstrap 内部検証） | [`aft_rotterdam`](aft_rotterdam.md) |
-| `proportional_hazards_test` / `accelerated_failure` | [`aft_rotterdam`](aft_rotterdam.md) |
+| `proportional_hazards_test` | [`aft_rotterdam`](aft_rotterdam.md)、[`surv_colon`](surv_colon.md)、[`cox_retinopathy`](cox_retinopathy.md) |
+| `accelerated_failure` | [`aft_rotterdam`](aft_rotterdam.md) |
 | 二項 GLMM / MOR / RE plot / `fit_mixed` | [`logit_indo`](logit_indo.md) |
 | `plot_forest`（HR / OR / OLS coef） | Cox・Fine–Gray・二項 GLM・IPTW OLS の各例 |
 | 較正 / DCA / Brier / `binary_perf` / `threshold_tradeoff` | [`pred_support`](pred_support.md) |
@@ -218,7 +219,7 @@
 | `gamm`（gamm4: 平滑項 + 変量切片） | [`lmm_pbcseq`](lmm_pbcseq.md) |
 | 計数 GLMM（ポアソン / 負の二項 / ゼロ過剰）/ `ar1()` | [`glmm_epil`](glmm_epil.md) |
 | `impute_chained` / `pool`（MICE + Rubin） | [`iptw_nhefs`](iptw_nhefs.md) |
-| `fit_ols` + `hc_covariance` / IPTW 手計算 | [`iptw_nhefs`](iptw_nhefs.md) |
+| `fit_ols` + `hc_covariance` / IPTW の重み（スクリプト内で計算） | [`iptw_nhefs`](iptw_nhefs.md) |
 | `simulate_cohort_markov` / `calculate_icers` / DSA / PSA | [`cea_sicksicker`](cea_sicksicker.md) |
 
 ## 使わないもの {#out-of-scope}
