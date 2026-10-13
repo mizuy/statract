@@ -218,7 +218,8 @@ def write_tableone_artifacts(
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     if style is None:
-        style = {"table_width": "920px", "font_size": "12px"}
+        # Fit columns to their content; a fixed width spreads them out on the docs pages.
+        style = {"table_width": "auto", "font_size": "12px", "data_row_padding": "3px"}
 
     if table is None:
         if df is None or params is None:
