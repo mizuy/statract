@@ -508,7 +508,7 @@ def _effect_plot(
 
 
 def _signed(v: int) -> str:
-    return "0" if v == 0 else f"{v:+d}"
+    return "0" if v == 0 else f"{v:+d}".replace("-", "−")
 
 
 def potential_table(po: pl.DataFrame, out: Path) -> None:

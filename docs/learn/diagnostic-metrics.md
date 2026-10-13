@@ -137,7 +137,7 @@ $$
 
 - **McNemar 検定**は、二つの検査の結果が**食い違った人**だけを使います [@Agresti2013-book]。出血した人のうち、七つの変数だけが陽性にした人は 452 人、簡単なモデルだけが陽性にした人は 94 人でした。感度は出血した人で、特異度は出血しなかった人で、別々に検定します。
 - 同じ閾値でも、七つの変数のモデルは感度が高く、特異度が低いという結果でした。閾値一つの比較は、閾値の位置に左右されます。
-- 閾値によらない比較が AUC です。同じ患者の ROC 曲線どうしは相関するので、それを考慮する **DeLong 法**で比べます（statract の `roc_test`）。差は 0.058 で、5 万人ではどの検定も p < 0.001 でした。
+- 閾値によらない比較が AUC です。同じ患者の ROC 曲線どうしは相関するので、それを考慮する **DeLong 法**で比べます（statract の `roc_test`）。差は 0.058 で、5 万人ではどの検定も $P < 0.001$ でした。
 
 ```python
 from statract import mcnemar_test, roc_curve, roc_test
@@ -170,7 +170,7 @@ roc_test(roc_curve(y_new, p_full), roc_curve(y_new, p_simple))   # 対応のあ�
 
 ## 17.8 何を報告するか {#report}
 
-診断精度研究の報告指針が **STARD**（Standards for Reporting of Diagnostic Accuracy Studies、診断精度研究の報告指針）です（ほかの報告指針は [付録 B](reporting-guidelines.md)）。主な項目は次のとおりです。
+診断精度研究の報告指針が **STARD**（Standards for Reporting of Diagnostic Accuracy Studies）です（ほかの報告指針は [付録 B](reporting-guidelines.md)）。主な項目は次のとおりです。
 
 - 患者の集め方（1 ゲートか 2 ゲートか、連続して集めたか）と、対象の場面
 - 検査と参照基準の内容、陽性の閾値を前もって決めたか
@@ -178,7 +178,7 @@ roc_test(roc_curve(y_new, p_full), roc_curve(y_new, p_simple))   # 対応のあ�
 - 2×2 表そのもの、患者の流れ図（除外された人、判定できなかった人）
 - 感度、特異度などと信頼区間
 
-予測モデルを閾値で分けて「検査」として使う場合は、第 10 章の TRIPOD [@Collins2024-qy] もあわせて参照します。
+予測モデルを閾値で分けて「検査」として使う場合は、第 10 章と[付録 B](reporting-guidelines.md#tripod) の TRIPOD+AI [@Collins2024-qy] もあわせて参照します。
 
 ## 文献 {#references}
 

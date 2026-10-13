@@ -53,7 +53,7 @@ $$
 === "コード"
 
     ```python
-    from statract import fit_glm, hc_covariance, match_sample, propensity_weights, standardize_glm
+    from statract import fit_glm, match_sample, propensity_weights, standardize_glm
 
     covs = ["age", "antithrombotic", "size_mm", "proximal"]
 
@@ -69,7 +69,7 @@ $$
     ipw = propensity_weights(df, "clip ~ " + " + ".join(covs), estimand="ATE")
     ```
 
-赤い点線は本当の ATE（この 3000 人での値、−2.1 ポイント。[第 3 章](causal-basics.md)）、赤い菱形は本当の値です。
+赤い点線は本当の ATE（この 3000 人での値、−2.1 ポイント。[第 3 章](causal-basics.md)）、赤い菱形は、それぞれの方法が推定する対象（ATT、絞った集団）での本当の値です。
 
 - 調整なしでは +0.8 で、向きが逆です。
 - 調整すると、どの方法でも出血を減らす向きになります。

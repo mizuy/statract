@@ -248,7 +248,7 @@ LOOCV の特徴は次のとおりです。
 ::: {#refs}
 :::
 
-statract での予測モデルの通しの例は、[予測モデルの較正と DCA](../examples/pred_support.md) にあります。DCA は決定曲線分析（decision curve analysis、DCA）で、第 10 章で扱います。
+statract での予測モデルの通しの例は、[予測モデルの較正と DCA](../examples/pred_support.md) にあります。DCA は決定曲線分析（decision curve analysis）で、第 10 章で扱います。
 
 ## まとめ
 
