@@ -24,6 +24,10 @@
   location: Boca Raton
   date: 2020
   isbn: 9781420076165
+  accept:
+    title: NDL has no record; Open Library drops the subtitle
+    date: Open Library gives 2019; the CRC edition is dated 2020
+    publisher: Open Library names the parent company
 
 - key: Iwasaki2015-book
   title: 統計的因果推論
@@ -110,6 +114,8 @@
   location: Cambridge
   date: 2020
   isbn: 9781107676510
+  accept:
+    date: first published 2020; NDL dates this paperback printing 2021
 
 - key: Pawitan2001-book
   title: 'In All Likelihood: Statistical Modelling and Inference Using Likelihood'
@@ -119,6 +125,8 @@
   location: Oxford
   date: 2001
   isbn: 9780198507659
+  accept:
+    publisher: Clarendon Press is an Oxford University Press imprint
 
 - key: Agresti2013-book
   title: Categorical Data Analysis
@@ -162,7 +170,7 @@
   isbn: 9783030163983
 
 - key: Harrell2015-book
-  title: Regression Modeling Strategies
+  title: 'Regression Modeling Strategies: With Applications to Linear Models, Logistic and Ordinal Regression, and Survival Analysis'
   author:
   - Harrell, Jr, Frank E
   edition: '2'
@@ -335,6 +343,8 @@
   date: 2024
   langid: japanese
   isbn: 9784627097032
+  accept:
+    edition: translation of the 3rd edition; NDL notes 原著第3版の翻訳
 
 - key: Collett2013-book-ja
   title: 医薬統計のための生存時間データ解析
@@ -455,12 +465,12 @@
   edition: 第 2 版
   publisher: 医学書院
   location: 東京
-  date: 2024
+  date: 2025
   langid: japanese
   isbn: 9784260057585
 
 - key: Fukuhara2017-book
-  title: 臨床研究の道標（上・下）
+  title: 臨床研究の道標：7つのステップで学ぶ研究デザイン（上・下）
   author:
   - 福原俊一
   edition: 第 2 版

@@ -261,9 +261,22 @@ def build(books: list[dict]) -> str:
 # ---------------------------------------------------------------- check
 
 def norm(s: object) -> str:
-    """Compare text loosely: width, case, spaces, punctuation, TeX braces."""
+    """Compare text loosely: width, case, accents, spaces, punctuation, braces."""
     s = unicodedata.normalize("NFKC", str(s)).lower()
+    s = re.sub(r"\band\b", "&", s)
+    # Drop accents (Hernán = Hernan) but keep kana voicing marks (ブ != フ).
+    s = "".join(
+        c for c in unicodedata.normalize("NFKD", s)
+        if not (unicodedata.combining(c) and ord(c) < 0x3000)
+    )
+    s = unicodedata.normalize("NFC", s)
     return "".join(c for c in s if unicodedata.category(c)[0] not in "PZS")
+
+
+def _family(name: str) -> str:
+    """"Rubin, Donald B" and "Donald B. Rubin" (Open Library) -> rubin."""
+    name = name.split(",")[0] if "," in name else (name.split() or [""])[-1]
+    return norm(name)
 
 
 def _year(s: str | None) -> str | None:
@@ -296,8 +309,7 @@ def _person_ok(name: str, records: list[dict]) -> bool | None:
         return None
     if _CJK.search(name):
         return any(norm("".join(c.split(",")[:2])) == norm(name) for c in creators)
-    family = norm(name.split(",")[0])
-    return any(norm(c.split(",")[0]) == family for c in creators)
+    return any(_family(c) == _family(name) for c in creators)
 
 
 def check_entry(entry: dict, lock: dict) -> list[str]:
@@ -336,7 +348,14 @@ def check_entry(entry: dict, lock: dict) -> list[str]:
     if len(vols) > 1:  # "書名（上・下）" covers both volumes
         title = re.sub(r"[（(][^（）()]*[）)]\s*$", "", title)
     titles = {norm(r["title"]) for r in records if r.get("title")}
-    if norm(title) not in titles:
+    # A volume in a set: OpenSearch gives the set title and volume number
+    # ("医学のための因果推論", "1") but not the volume title. Check those.
+    in_set = any(
+        norm(r.get("title", "")) == norm(entry.get("series", "-"))
+        and norm(r.get("volume", "")) == norm(entry.get("number", "-"))
+        for r in records
+    )
+    if norm(title) not in titles and not in_set:
         got = " | ".join(sorted({r["title"] for r in records if r.get("title")}))
         bad("title", f"{entry.get('title')!r} vs NDL {got!r}")
 
@@ -344,8 +363,10 @@ def check_entry(entry: dict, lock: dict) -> list[str]:
     if _year(str(entry.get("date"))) not in years:
         bad("date", f"{entry.get('date')} vs {sorted(y for y in years if y)}")
 
+    # "CRC Press" matches "CRC Press, an imprint of the Taylor & Francis Group".
     pubs = {norm(r["publisher"]) for r in records if r.get("publisher")}
-    if pubs and norm(entry.get("publisher", "")) not in pubs:
+    pub = norm(entry.get("publisher", ""))
+    if pubs and not (pub and any(pub in p for p in pubs)):
         got = " | ".join(sorted({r["publisher"] for r in records if r.get("publisher")}))
         bad("publisher", f"{entry.get('publisher')!r} vs {got!r}")
 
