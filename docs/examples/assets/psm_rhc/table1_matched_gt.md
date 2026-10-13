@@ -1,13 +1,13 @@
 <div id="tableone-table1_matched" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>
-#tableone-table1_matched table {
+ #tableone-table1_matched table {
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
           -webkit-font-smoothing: antialiased;
           -moz-osx-font-smoothing: grayscale;
         }
-#tableone-table1_matched thead, #tableone-table1_matched tbody, #tableone-table1_matched tfoot, #tableone-table1_matched tr, #tableone-table1_matched td, #tableone-table1_matched th { border-style: none; }
-#tableone-table1_matched tr { background-color: transparent; }
-#tableone-table1_matched p { margin: 0; padding: 0; }
+ #tableone-table1_matched thead, #tableone-table1_matched tbody, #tableone-table1_matched tfoot, #tableone-table1_matched tr, #tableone-table1_matched td, #tableone-table1_matched th { border-style: none; }
+ #tableone-table1_matched tr { background-color: transparent; }
+ #tableone-table1_matched p { margin: 0; padding: 0; }
  #tableone-table1_matched .gt_table { display: table; border-collapse: collapse; line-height: normal; margin-left: auto; margin-right: auto; color: #333333; font-size: 12px; font-weight: normal; font-style: normal; background-color: #FFFFFF; width: 920px; border-top-style: solid; border-top-width: 2px; border-top-color: #A8A8A8; border-right-style: none; border-right-width: 2px; border-right-color: #D3D3D3; border-bottom-style: solid; border-bottom-width: 2px; border-bottom-color: #A8A8A8; border-left-style: none; border-left-width: 2px; border-left-color: #D3D3D3; }
  #tableone-table1_matched .gt_caption { padding-top: 4px; padding-bottom: 4px; }
  #tableone-table1_matched .gt_title { color: #333333; font-size: 125%; font-weight: initial; padding-top: 4px; padding-bottom: 4px; padding-left: 5px; padding-right: 5px; border-bottom-color: #FFFFFF; border-bottom-width: 0; }

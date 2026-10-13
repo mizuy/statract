@@ -267,7 +267,10 @@ def _embeddable_gt_html(html: str, table_id: str) -> str:
     GT draws a random id each call and emits two rules that are not scoped to
     it (``tbody, tfoot, tr, td, th`` and a bare ``tr``), which would restyle
     every table on the host page. Use a fixed id and scope those rules. Blank
-    lines are dropped so Markdown keeps the fragment as one HTML block.
+    lines are dropped so Markdown keeps the fragment as one HTML block. CSS
+    lines that start with ``#`` get a leading space: when the fragment is
+    included in indented Markdown (a content tab), they would otherwise be
+    read as headings, which breaks the styles and the page's table of contents.
     """
     match = re.search(r'<div id="([^"]+)"', html)
     if match is None:
@@ -279,7 +282,8 @@ def _embeddable_gt_html(html: str, table_id: str) -> str:
         f"{tid} thead, {tid} tbody, {tid} tfoot, {tid} tr, {tid} td, {tid} th {{",
     )
     html = re.sub(r"^\s*tr \{", f"{tid} tr {{", html, flags=re.MULTILINE)
-    return "\n".join(line for line in html.splitlines() if line.strip()) + "\n"
+    lines = [line for line in html.splitlines() if line.strip()]
+    return "\n".join(f" {line}" if line.startswith("#") else line for line in lines) + "\n"
 
 
 def _normalize_column(column: str | pl.Expr) -> pl.Expr:

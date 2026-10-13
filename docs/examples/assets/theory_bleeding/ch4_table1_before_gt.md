@@ -1,13 +1,13 @@
 <div id="tableone-ch4_table1_before" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>
-#tableone-ch4_table1_before table {
+ #tableone-ch4_table1_before table {
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
           -webkit-font-smoothing: antialiased;
           -moz-osx-font-smoothing: grayscale;
         }
-#tableone-ch4_table1_before thead, #tableone-ch4_table1_before tbody, #tableone-ch4_table1_before tfoot, #tableone-ch4_table1_before tr, #tableone-ch4_table1_before td, #tableone-ch4_table1_before th { border-style: none; }
-#tableone-ch4_table1_before tr { background-color: transparent; }
-#tableone-ch4_table1_before p { margin: 0; padding: 0; }
+ #tableone-ch4_table1_before thead, #tableone-ch4_table1_before tbody, #tableone-ch4_table1_before tfoot, #tableone-ch4_table1_before tr, #tableone-ch4_table1_before td, #tableone-ch4_table1_before th { border-style: none; }
+ #tableone-ch4_table1_before tr { background-color: transparent; }
+ #tableone-ch4_table1_before p { margin: 0; padding: 0; }
  #tableone-ch4_table1_before .gt_table { display: table; border-collapse: collapse; line-height: normal; margin-left: auto; margin-right: auto; color: #333333; font-size: 12px; font-weight: normal; font-style: normal; background-color: #FFFFFF; width: 920px; border-top-style: solid; border-top-width: 2px; border-top-color: #A8A8A8; border-right-style: none; border-right-width: 2px; border-right-color: #D3D3D3; border-bottom-style: solid; border-bottom-width: 2px; border-bottom-color: #A8A8A8; border-left-style: none; border-left-width: 2px; border-left-color: #D3D3D3; }
  #tableone-ch4_table1_before .gt_caption { padding-top: 4px; padding-bottom: 4px; }
  #tableone-ch4_table1_before .gt_title { color: #333333; font-size: 125%; font-weight: initial; padding-top: 4px; padding-bottom: 4px; padding-left: 5px; padding-right: 5px; border-bottom-color: #FFFFFF; border-bottom-width: 0; }
