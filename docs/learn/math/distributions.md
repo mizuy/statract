@@ -95,7 +95,7 @@ $$
 - **Poisson 回帰に頑健分散**（サンドイッチ分散）を組み合わせます。率比は Poisson のまま、区間だけを直します。
 - **準 Poisson**（quasi-Poisson）。分散を $\phi\mu$ とし、$\phi$ をデータから推定して標準誤差を $\sqrt{\phi}$ 倍します。
 
-過分散があるかは、Poisson 回帰の Pearson の $\chi^2$ を自由度で割った値（1 に近ければ過分散なし）や、負の二項回帰の $\theta$ で確かめます。同じ患者を何度も数えたデータや、施設ごとに率が違うデータでは、ばらつきの一部を変量効果（第 15 章）で表すこともできます。statract では、`fit_glm(..., family="negative_binomial")` で負の二項回帰を、変量効果を入れた `fit_mixed(..., family="negative_binomial")` で負の二項 GLMM を当てはめられます（どちらも `fit.theta` が $\theta$）。
+過分散があるかは、Poisson 回帰の Pearson の $\chi^2$ を自由度で割った値（1 に近ければ過分散なし）や、負の二項回帰の $\theta$ で確かめます。同じ患者を何度も数えたデータや、施設ごとに率が違うデータでは、ばらつきの一部を変量効果（第 15 章）で表すこともできます。statract では、`fit_glm(..., family="negative_binomial")` で負の二項回帰を、変量効果を入れた `fit_mixed(..., family="negative_binomial")` で負の二項の一般化線形混合モデル（generalized linear mixed model、GLMM）を当てはめられます（どちらも `fit.theta` が $\theta$）。statract での負の二項 GLMM の通しの例は、[てんかんの発作回数の GLMM](../../examples/glmm_epil.md) にあります。
 
 ## 正規分布 {#normal}
 

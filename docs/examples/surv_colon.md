@@ -2,20 +2,20 @@
 
 `surv_colon` — KM / log-rank / Cox
 
-KM / log-rank / Cox の正本。`etype=1` で患者単位に畳み、`hue=rx` の Table 1 から KM（number-at-risk 付き）・Cox forest・Cox 標準化（周辺生存曲線）・PH 診断まで。
+Kaplan–Meier 法（Kaplan–Meier method、KM）、log-rank 検定、Cox 回帰の正本。`etype=1` で患者単位に畳み、`hue=rx` の Table 1 から、at risk 数（number at risk、NAR）の表を付けた KM、Cox forest、Cox 標準化（周辺生存曲線）、比例ハザード（proportional hazards、PH）の診断まで。
 
 [← ギャラリー](index.md) · [実行用ディレクトリと手順（GitHub）](https://github.com/mizuy/statract/tree/main/examples/surv_colon)
 
 ## 目的概説
 
-`statract` の生存 API（Kaplan–Meier + number-at-risk、log-rank、Cox、`proportional_hazards_test`、survminer 風診断、`plot_forest` 表一体型）を、公開 RCT の患者単位データで一連の文書に載せるための例です。単一イベント生存の正本であり、競合リスクや AFT は他例に任せます。
+`statract` の生存 API（Kaplan–Meier + NAR、log-rank、Cox、`proportional_hazards_test`、survminer 風診断、`plot_forest` 表一体型）を、公開されたランダム化比較試験（randomized controlled trial、RCT）の患者単位データで一連の文書に載せるための例です。単一イベント生存の正本であり、競合リスクや AFT は他例に任せます。
 
 ## データと列の説明
 
 | 項目 | 内容 |
 |------|------|
 | ソース | R `survival::colon`（Laurie's / Moertel adjuvant）。ライセンス LGPL (>= 2)。git 非収載 |
-| 取得 | `build.py`（R が使えれば `data(colon, package="survival")`、否则 Rdatasets CSV） |
+| 取得 | `build.py`（R が使えれば `data(colon, package="survival")`、なければ Rdatasets CSV） |
 | 単位 | 再発レコード（`etype=1`）に畳んだ患者 1 行（長表は再発+死亡の 2 行形式） |
 
 主な解析列:
@@ -36,10 +36,10 @@ KM / log-rank / Cox の正本。`etype=1` で患者単位に畳み、`hue=rx` �
 
 1. flowchart で再発レコード・時間・治療が揃ったコホートを確定する（Mermaid 化して docs に載せる）
 2. Table 1（`hue=rx`）でベースラインを記述する
-3. KM（**number-at-risk 表付き**）+ log-rank で群間の再発フリー生存を見る
-4. Cox（`rx + age + sex + nodes`）で調整 HR を推定し、`plot_forest(..., layout="table")` で可視化する
+3. KM（**NAR 表付き**）+ log-rank で群間の再発フリー生存を見る
+4. Cox（`rx + age + sex + nodes`）で調整したハザード比（hazard ratio、HR）を推定し、`plot_forest(..., layout="table")` で可視化する
 5. `proportional_hazards_test` と Schoenfeld / log-log / dfbeta / martingale / deviance 診断を併記する
-6. 同じ Cox を `standardize_cox` で回帰標準化し、共変量をコホートで平均した `rx` 別の生存曲線・時点差・5 年 RMST を出す
+6. 同じ Cox を `standardize_cox` で回帰標準化し、共変量をコホートで平均した `rx` 別の生存曲線・時点差・5 年の制限付き平均生存時間（restricted mean survival time、RMST）を出す
 
 競合リスク（再発 vs 死亡）は本カットの対象外（→ [`cif_pbc`](cif_pbc.md)）。
 
@@ -128,13 +128,15 @@ KM / log-rank / Cox の正本。`etype=1` で患者単位に畳み、`hue=rx` �
 
 ## メインの解析方法とそのコア
 
+解説は Learn の [第 16 章 16.2 Kaplan–Meier 法](../learn/survival.md#kaplan-meier) と [16.5 Cox 比例ハザードモデル](../learn/survival.md#cox) を参照してください。RMST は [16.9](../learn/survival.md#choose) で触れています。
+
 Kaplan–Meier 生存関数 $\hat S(t)$（群 = `rx`）。k 標本 log-rank（Mantel–Haenszel、$\rho=0$）。Cox:
 
 $$
 h(t \mid x) = h_0(t)\exp(\beta_{\mathrm{rx}} + \beta_{\mathrm{age}}\mathrm{age} + \beta_{\mathrm{sex}}\mathrm{sex} + \beta_{\mathrm{nodes}}\mathrm{nodes}).
 $$
 
-- KM / 図: `plot_survival`（既定で number-at-risk 表。論文用白黒は `style="bw"`）
+- KM / 図: `plot_survival`（既定で NAR 表。論文用白黒は `style="bw"`）
 - log-rank: `log_rank(..., by="rx")`
 - Cox: `cox_ph` → `tidy(exponentiate=True)` → `plot_forest(..., layout="table")`（論文用白黒は `style="bw"`）
 - PH: `proportional_hazards_test` + `write_cox_diagnostic_suite`（Schoenfeld / log-log / dfbeta / martingale / deviance）
@@ -144,14 +146,14 @@ $$
 \hat S_a(t) = \frac{1}{n}\sum_{i=1}^{n} \exp\!\left\{-\hat H_0(t)\exp(\hat\beta_{\mathrm{rx}=a} + \hat\beta^\top z_i)\right\}.
 $$
 
-  分散は共変量のばらつきも含むサンドイッチ（Sjölander 2016）。RMST は $\int_0^{t^*}\hat S_a(t)\,dt$（Chen–Tsiatis、群ごとの Cox）で、0/1 曝露しか取らないため Obs 対各群の 2 群ずつで出す
+  分散は共変量のばらつきも含むサンドイッチ分散（Sjölander 2016）。RMST は $\int_0^{t^*}\hat S_a(t)\,dt$（Chen–Tsiatis、群ごとの Cox）で、0/1 曝露しか取らないため Obs 対各群の 2 群ずつで出す
 
 
 ## 結果
 
 再発レコードに畳んだ **929 人**（Cox 完全例 911）。サイト掲載は `task surv_colon:all` 後の `surv_colon_out/` から `tools/sync_example_assets.py` でコピーした同一ファイルです。
 
-### Kaplan–Meier（`rx`、number-at-risk 付き）
+### Kaplan–Meier（`rx`、NAR 付き）
 
 === "図"
 
@@ -262,7 +264,7 @@ $$
 
     ![Standardized survival by rx](assets/surv_colon/std_surv_rx.png)
 
-    帯は各点の 95% CI。点線は 3 年（1095 日）と 5 年（1825 日）。
+    帯は各点の 95% 信頼区間（confidence interval、CI）。点線は 3 年（1095 日）と 5 年（1825 日）。
 
 === "表"
 
@@ -378,7 +380,7 @@ $$
 
 補助療法 `rx` は再発時間と関連する（log-rank 統計量 23.06、df=2、p≈9.8×10⁻⁶）。Cox（年齢・性別・陽性リンパ節調整）では **Lev+5FU 対 Obs の HR が約 0.58**（95% CI 約 0.46–0.74）。Lev 単独は Obs と大きく違わない（HR≈0.93）。`proportional_hazards_test` の全体 p≈0.50（`rx` 項 df=2 で p≈0.76） で、このモデルでは PH の強い破綻は示唆されない。
 
-Cox 標準化は同じモデルを絶対リスクの尺度に直したものです。年齢・性別・リンパ節数をこのコホートの分布で平均すると、5 年無再発生存は Obs 0.446 に対して Lev+5FU 0.620、差は **+0.173**（95% CI 0.101–0.246）で、3 年では +0.163 です。5 年までの RMST では Lev+5FU が約 **237 日**（130–344）長い。HR 0.58 は「同じ共変量の人どうしで瞬間ハザードが約 4 割低い」という条件付き・相対的な量で、時点や基準リスクによらず一定と仮定されます。一方、標準化生存の差は集団全体の平均的な絶対差で、基準の再発リスクが高いほど大きくなり、時点とともに変わります（1 年 +0.10 → 5 年 +0.17）。Cox の HR は非折りたたみ（non-collapsible）なので、標準化曲線から読める周辺的な効果と HR は一般に一致しません。Lev 単独は、どの時点でも差の CI が 0 をまたぎ、RMST の差も +12 日（−101 to 125）で、HR≈0.93 と同じく Obs との差ははっきりしない。RCT なので交絡調整というより、予後因子で精度を上げた絶対効果の要約として読むのが適切です。標準化も同じ比例ハザードの Cox に依存し、RMST は 2 群ずつ別に当てた群ごとの Cox による値です。
+Cox 標準化は同じモデルを絶対リスクの尺度に直したものです。年齢・性別・リンパ節数をこのコホートの分布で平均すると、5 年無再発生存は Obs 0.446 に対して Lev+5FU 0.620、差は **+0.173**（95% CI 0.101–0.246）で、3 年では +0.163 です。5 年までの RMST では Lev+5FU が約 **237 日**（130–344）長い。HR 0.58 は「同じ共変量の人どうしで瞬間ハザードが約 4 割低い」という条件付き・相対的な量で、時点や基準リスクによらず一定と仮定されます。一方、標準化生存の差は集団全体の平均的な絶対差で、基準の再発リスクが高いほど大きくなり、時点とともに変わります（1 年 +0.10 → 5 年 +0.17）。Cox の HR は非縮約（non-collapsible、[第 15 章 15.3](../learn/hierarchical.md#fixed-effects)）なので、標準化曲線から読める周辺的な効果と HR は一般に一致しません。Lev 単独は、どの時点でも差の CI が 0 をまたぎ、RMST の差も +12 日（−101–125）で、HR≈0.93 と同じく Obs との差ははっきりしない。RCT なので交絡調整というより、予後因子で精度を上げた絶対効果の要約として読むのが適切です。標準化も同じ比例ハザードの Cox に依存し、RMST は 2 群ずつ別に当てた群ごとの Cox による値です。
 
 限界:
 

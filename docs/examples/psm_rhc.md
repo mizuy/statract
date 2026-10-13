@@ -1,8 +1,8 @@
 # 傾向スコアマッチング
 
-`psm_rhc` — PS 最近傍マッチ → ロジスティック
+`psm_rhc` — 傾向スコア最近傍マッチ → ロジスティック
 
-1:1 最近傍マッチ（ATT）の正本。API は `match_sample`。マッチ後 OR の forest まで。
+1:1 最近傍マッチで処置群での平均処置効果（average treatment effect on the treated、ATT）を推定する例の正本。API は `match_sample`。マッチ後オッズ比（odds ratio、OR）の forest まで。
 
 [← ギャラリー](index.md) · [実行用ディレクトリと手順（GitHub）](https://github.com/mizuy/statract/tree/main/examples/psm_rhc)
 
@@ -10,11 +10,13 @@
 
 観察研究で交絡を減らす MatchIt 流の `match_sample` を、公開の重症患者教学データで示すための例です。推定対象は ATT、API は `match_sample` です。因果の確定主張はしません。
 
+解説は Learn の [第 5 章 傾向スコアマッチング](../learn/propensity-score-matching.md) を参照してください。
+
 ## データと列の説明
 
 | 項目 | 内容 |
 |------|------|
-| ソース | Vanderbilt RHC（Connors JAMA 1996 系）。**利用条件が未確認のため再配布しない** |
+| ソース | Vanderbilt の右心カテーテルデータ（Connors JAMA 1996 系）。**利用条件が未確認のため再配布しない** |
 | 取得 | `build.py` → `https://hbiostat.org/data/repo/rhc.csv` |
 | 単位 | 入院/患者 1 行 |
 
@@ -22,21 +24,21 @@
 
 | 列 | 意味 |
 |----|------|
-| `swang1` / `rhc` | 初日 RHC（Yes/No → 0/1） |
+| `swang1` / `rhc` | 初日の右心カテーテル（Yes/No → 0/1） |
 | `dth30` / `dth30_bin` | 30 日死亡 |
 | `age`, `sex`, `race`, `edu`, `cat1`, `ca`, … | マッチ共変量（protocol 列挙の完全例） |
 | `weights` | マッチ後ウェイト（キャリパー外は 0） |
 
 ## CQ と大まかな解析方針
 
-**CQ** — ICU 初日の肺動脈カテーテル（RHC）は、交絡を傾向スコア最近傍マッチで揃えたあと、30 日死亡と関連するか。
+**CQ** — 集中治療室（intensive care unit、ICU）入室初日の右心カテーテル（right heart catheterization、RHC。肺動脈カテーテル）は、交絡を傾向スコア最近傍マッチで揃えたあと、30 日死亡と関連するか。
 
 方針:
 
 1. 完全例コホートを確定（除外なしのため flowchart 省略）
-2. 未マッチ Table 1 → `match_sample`（nearest / logit / ATT / caliper 0.2）
+2. 未マッチ Table 1 → `match_sample`（nearest / logit / ATT / キャリパー 0.2、確率尺度）
 3. `balance` / `love_plot` とマッチ後 Table 1
-4. マッチ標本で `dth30_bin ~ rhc` の二項 GLM（OR）と `plot_forest(..., layout="table")`
+4. マッチ標本で `dth30_bin ~ rhc` の二項一般化線形モデル（generalized linear model、GLM）で OR を推定し、`plot_forest(..., layout="table")` で描く
 
 ## flowchart / tableone
 
@@ -89,7 +91,7 @@
 
 ## メインの解析方法とそのコア
 
-傾向スコア $e(x)=P(\mathrm{rhc}=1\mid x)$ をロジットで推定。最近傍 1:1、ATT、`order=data`、標準化キャリパー 0.2。Love plot はマッチ前後の標準化平均差。アウトカムモデル:
+傾向スコア $e(x)=P(\mathrm{rhc}=1\mid x)$ をロジスティック回帰で推定し、最近傍 1:1・非復元で ATT を推定します（組を作る順はデータの並び順、`order="data"`）。キャリパーは傾向スコア（確率尺度）の標準偏差の 0.2 倍です（MatchIt の既定と同じ）。[Learn 5.5](../learn/propensity-score-matching.md#matching) が勧めるロジット尺度とは違います。Love plot はマッチ前後の標準化差（standardized mean difference、SMD）です（[Learn 5.6](../learn/propensity-score-matching.md#balance)）。アウトカムモデル:
 
 $$
 \operatorname{logit}P(\mathrm{dth30}=1)=\beta_0+\beta_1\mathrm{rhc}
@@ -100,9 +102,9 @@ $$
 
 ## 結果
 
-完全例 5735 人、マッチ後（weights>0）3350 人（治療 1675）。サイト掲載は `assets/psm_rhc/`。
+完全例 5735 人（RHC あり 2184 人）、マッチ後（weights>0）3350 人（RHC あり 1675 人）。RHC あり 509 人（約 23%）はキャリパーで外れたので、推定値は「組ができた RHC あり患者」での効果です（[Learn 5.5 の注意](../learn/propensity-score-matching.md#matching)）。サイト掲載は `assets/psm_rhc/`。
 
-### Love plot（マッチ前後の標準化差）
+### Love plot（マッチ前後の SMD）
 
 === "図"
 
@@ -127,7 +129,7 @@ $$
     | meanbp1 | -0.4869 | 0.007307 | 5735 | 0.9878 |
     | pafi1 | -0.4566 | -0.01521 | 5735 | 1.023 |
 
-    抜粋。完全表: [CSV](assets/psm_rhc/balance.csv)。この表は分母を処置群の標準偏差とした旧版の既定で作りました。現在の既定（調整前の pooled SD）で作り直すと値が変わります。旧版に近い値は `balance(sd_denominator="treated")` です。
+    抜粋。完全表: [CSV](assets/psm_rhc/balance.csv)。この表は分母を処置群の標準偏差とした旧版の既定で作りました。現在の既定（調整前の両群をあわせた標準偏差）で作り直すと値が変わります（SMD の定義は [Learn 5.6](../learn/propensity-score-matching.md#balance)）。旧版に近い値は `balance(sd_denominator="treated")` です。
 
 === "コード"
 
@@ -186,9 +188,14 @@ $$
 
 ## 解釈と解説
 
-未マッチの 30 日死亡 OR は約 **1.39**、マッチ後は約 **1.34**（いずれも `rhc` の OR>1）。Love plot で SMD の縮小を確認できます。観察された交絡を nearest/logit で揃えても正の関連は残り、Connors JAMA 1996 の問題意識と方向は矛盾しません。教学用 ATT 近似であり、RHC 適応の根拠にはしません。
+未マッチの 30 日死亡 OR は約 **1.39**、マッチ後は約 **1.34**（いずれも `rhc` の OR>1）。Love plot で SMD の縮小を確認できます。観察された交絡を傾向スコアマッチで揃えても正の関連は残り、Connors JAMA 1996 の問題意識と方向は矛盾しません。教学用 ATT 近似であり、RHC 適応の根拠にはしません。
 
-限界: 未測定交絡、キャリパー 0.2 での除外、利用条件が未確認で再配布しない CSV。
+限界:
+
+- 未測定交絡（大きさの目安は [Learn 7.3 E-value](../learn/assumptions-sensitivity.md#e-value)）
+- キャリパーでの RHC あり 509 人の除外
+- 組を無視した標準誤差（組を考えた区間は [Learn 5.7](../learn/propensity-score-matching.md#matched-inference)）
+- 利用条件が未確認で再配布しない CSV
 
 ## 実行と成果物
 

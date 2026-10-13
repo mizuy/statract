@@ -197,7 +197,7 @@ $$
 ::: {#refs}
 :::
 
-statract でのマッチングの通しの例は、[傾向スコアマッチング（RHC）](../examples/psm_rhc.md) にあります。RHC は右心カテーテル（right heart catheterization、RHC）のデータです。
+statract でのマッチングの通しの例は、[傾向スコアマッチング（RHC）](../examples/psm_rhc.md) にあります。右心カテーテル（right heart catheterization、RHC）のデータです。
 
 ## まとめ
 

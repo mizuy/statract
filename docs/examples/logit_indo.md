@@ -2,27 +2,29 @@
 
 `logit_indo` — 施設 GLMM / MOR / 固定効果比較
 
-多施設 RCT。主解析は `site` 変量切片の二項 GLMM（`fit_mixed(..., family="binomial")`、エンジンは lme-python）。施設 BLUP・median odds ratio（MOR）と、固定効果二項 GLM の比較を載せます。効果推定の例なのでホールドアウト較正 / DCA は使いません。
+多施設のランダム化比較試験（randomized controlled trial、RCT）。主解析は `site` 変量切片の二項の一般化線形混合モデル（generalized linear mixed model、GLMM。`fit_mixed(..., family="binomial")`、エンジンは lme-python）。施設の最良線形不偏予測（best linear unbiased prediction、BLUP）・オッズ比の中央値（median odds ratio、MOR）と、固定効果の二項一般化線形モデル（generalized linear model、GLM）の比較を載せます。効果推定の例なのでホールドアウト較正 / 決定曲線分析（decision curve analysis、DCA）は使いません。
 
 [← ギャラリー](index.md) · [実行用ディレクトリと手順（GitHub）](https://github.com/mizuy/statract/tree/main/examples/logit_indo)
 
 ## 目的概説
 
-公開 RCT で、施設クラスタを変量切片に入れた二項 GLMM を主解析として見せるための例です。無作為化 RCT でも施設差の異質性を MOR と BLUP で要約し、同じ共変量の固定効果 GLM を比較対照に置きます。予測モデル向けのホールドアウト較正はこの例の対象外です。
+公開 RCT で、施設クラスタを変量切片に入れた二項 GLMM を主解析として見せるための例です。無作為化した試験でも施設差の異質性を MOR と BLUP で要約し、同じ共変量の固定効果 GLM を比較対照に置きます。予測モデル向けのホールドアウト較正はこの例の対象外です。
+
+解説は Learn の [第 2 章 「独立した危険因子」とは何か](../learn/independent-risk-factor.md#logistic)（ロジスティック回帰）と [第 15 章 階層モデル](../learn/hierarchical.md#adjusted)（GLMM と MOR）を参照してください。
 
 ## データと列の説明
 
 | 項目 | 内容 |
 |------|------|
 | ソース | `medicaldata::indo_rct`（MIT + Elmunzer NEJM 2012 引用）、n=602、4 施設 |
-| 取得 | `build.py`（R `medicaldata`、否则 Rdatasets CSV） |
+| 取得 | `build.py`（R `medicaldata`、なければ Rdatasets CSV） |
 | 単位 | 参加者 1 行。**除外なし（全例解析）** |
 
 主な解析列:
 
 | 列 | 意味 |
 |----|------|
-| `outcome` / `pep` | PEP（`0_no`/`1_yes` → 0/1） |
+| `outcome` / `pep` | 内視鏡的逆行性胆管膵管造影（endoscopic retrograde cholangiopancreatography、ERCP）後膵炎（post-ERCP pancreatitis、PEP）（`0_no`/`1_yes` → 0/1） |
 | `rx` / `indomethacin` | 割付（プラセボ / インドメタシン）。解析は 0/1 |
 | `age`, `risk` | 調整共変量 |
 | `sod_yes`, `pdstent_yes` | あれば調整に追加 |
@@ -30,7 +32,7 @@
 
 ## CQ と大まかな解析方針
 
-**CQ** — ERCP 時の直腸インドメタシン 100 mg は、プラセボと比べ post-ERCP pancreatitis（PEP）を減らすか。施設を変量切片にした GLMM では固定効果 OR はどうか。施設間異質性（MOR）はどの程度か。
+**CQ** — ERCP 時の直腸インドメタシン 100 mg は、プラセボと比べ PEP を減らすか。施設を変量切片にした GLMM では固定効果のオッズ比（odds ratio、OR）はどうか。施設間異質性（MOR）はどの程度か。
 
 方針:
 
@@ -76,15 +78,15 @@ $$
 \operatorname{logit}(\pi_{ij})=\beta_0+\beta_1\mathrm{indomethacin}_{ij}+\beta^\top z_{ij}+u_j,\quad u_j\sim N(0,\sigma^2)
 $$
 
-$z$ は年齢、リスクスコア、（あれば）SOD・膵管ステント。実装は `fit_mixed(..., family="binomial")`（lme-python `glmer`）。固定効果 OR は `plot_forest(..., layout="table")`（論文用白黒は `style="bw"`）。
+$z$ は年齢、リスクスコア、（あれば）Oddi 括約筋機能不全（sphincter of Oddi dysfunction、SOD）・膵管ステント。実装は `fit_mixed(..., family="binomial")`（lme-python `glmer`）。固定効果 OR は `plot_forest(..., layout="table")`（論文用白黒は `style="bw"`）。
 
-**Median odds ratio**（Larsen et al.）はクラスタ分散 $\sigma^2$ から
+**MOR**（Larsen et al.）はクラスタ分散 $\sigma^2$ から
 
 $$
 \mathrm{MOR}=\exp\bigl(\sqrt{2\sigma^2}\,\Phi^{-1}(0.75)\bigr)
 $$
 
-で求めます（ライブラリ関数 `median_odds_ratio`）。施設 BLUP は `glmm_random_effects` → `plot_random_effects`。
+で求めます（ライブラリ関数 `median_odds_ratio`。意味は [Learn 15.3](../learn/hierarchical.md#adjusted)）。施設 BLUP は `glmm_random_effects` → `plot_random_effects`。
 
 比較の固定効果モデル:
 
@@ -185,7 +187,7 @@ n=602（全例）。サイト掲載は `assets/logit_indo/`。表の数値は `t
     )
     ```
 
-### Median odds ratio（MOR）
+### オッズ比の中央値（MOR）
 
 === "表"
 
@@ -273,9 +275,9 @@ MOR はライブラリ API（`statract.median_odds_ratio`）です。例スク�
 
 ## 解釈と解説
 
-施設変量 GLMM（全例 n=602）ではインドメタシンの固定効果オッズ比は約 **0.47**（95% CI 約 0.28–0.78）。クラスタ分散は約 **0.30**、median odds ratio（MOR）は約 **1.68**。施設 BLUP は `1_UM` が正（PEP オッズが高い方向）、`2_IU` が負。同じ共変量の固定効果調整 GLM の OR は約 **0.47** で向きは一致します。
+施設変量 GLMM（全例 n=602）ではインドメタシンの固定効果オッズ比は約 **0.47**（95% 信頼区間（confidence interval、CI）約 0.28–0.78）。クラスタ分散は約 **0.30**、MOR は約 **1.68**。施設 BLUP は `1_UM` が正（PEP オッズが高い方向）、`2_IU` が負。同じ共変量の固定効果調整 GLM の OR は約 **0.47** で向きは一致します。GLMM の OR は施設の中で比べた条件付きの値で、施設を無視した GLM の OR とは別の量です（[Learn 15.3](../learn/hierarchical.md#fixed-effects)）。
 
-限界: lme-python の二項 GLMM は、R `glmer` との一致をテストで固定していない（許容差はガウス LMM より緩い）。教学パッケージデータです。較正 / DCA のホールドアウトは予測モデル向けであり、本例の効果推定には使いません。
+限界: lme-python の二項 GLMM は、R `glmer` との一致をテストで固定していない（許容差はガウスの線形混合モデル（linear mixed model、LMM）より緩い）。教学パッケージデータです。較正 / DCA のホールドアウトは予測モデル向けであり、本例の効果推定には使いません。
 
 ## 実行と成果物
 

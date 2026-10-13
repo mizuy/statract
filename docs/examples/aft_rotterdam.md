@@ -2,13 +2,13 @@
 
 `aft_rotterdam` — Cox / PH 検定 / AFT
 
-colon が PH を仮定した Cox だけなのに対し、PH 検定と AFT の正本。Cox forest まで。
+比例ハザード（proportional hazards、PH）の検定と加速故障時間モデル（accelerated failure time model、AFT モデル）の正本。colon では PH の検定で仮定が保たれていた（全体 p≈0.50）のに対し、ここでは PH の検定で仮定が崩れる（全体 p≈3.8×10⁻⁴）データを扱う。Cox forest まで。
 
 [← ギャラリー](index.md) · [実行用ディレクトリと手順（GitHub）](https://github.com/mizuy/statract/tree/main/examples/aft_rotterdam)
 
 ## 目的概説
 
-[`surv_colon`](surv_colon.md) は PH を仮定した Cox だけです。ここでは PH 診断（`proportional_hazards_test`）と、崩れたときの加速故障時間（Weibull AFT）を同じ公開コホートで見せるための例です。観察コホートであり因果の確定主張はしません。
+[`surv_colon`](surv_colon.md) でも PH の検定をしており、仮定は保たれていました（全体 p≈0.50）。ここでは PH の検定（`proportional_hazards_test`）で仮定が崩れるデータで、PH の診断と、同じ効果を時間比の尺度で表す Weibull AFT を、同じ公開コホートで見せるための例です。Weibull AFT は比例ハザードモデルでもあるので、PH の崩れを解決する方法ではありません。観察コホートであり因果の確定主張はしません。
 
 ## データと列の説明
 
@@ -29,12 +29,12 @@ colon が PH を仮定した Cox だけなのに対し、PH 検定と AFT の正
 
 ## CQ と大まかな解析方針
 
-**CQ** — ロッテルダム乳がんコホートで、ホルモン療法は死亡までの時間と関連するか。Cox の比例ハザードが疑わしいとき、Weibull AFT では時間比はどうか。
+**CQ** — ロッテルダム乳がんコホートで、ホルモン療法は死亡までの時間と関連するか。同じデータを Weibull AFT の時間比の尺度で見るとどうか（Weibull AFT も比例ハザードを仮定する）。
 
 方針:
 
 1. 全例コホートを確定（除外なしのため flowchart 省略）
-2. Table 1 → KM / log-rank
+2. Table 1 → Kaplan–Meier 法（Kaplan–Meier method、KM）/ log-rank
 3. Cox + `plot_forest(..., layout="table")` + `proportional_hazards_test`
 4. Cox 予後モデルの内部検証（bootstrap optimism: `validate_cox`、5 年較正: `calibrate_cox`）
 5. Weibull AFT（収束しないとき lognormal を併記）
@@ -71,13 +71,15 @@ colon が PH を仮定した Cox だけなのに対し、PH 検定と AFT の正
 
 ## メインの解析方法とそのコア
 
+解説は Learn の [第 16 章 16.7 加速故障時間モデル](../learn/survival.md#aft) と [16.5 Cox 比例ハザードモデル](../learn/survival.md#cox) を、比例ハザードが成り立たないときの選択肢は [16.9 どう使い分けるか](../learn/survival.md#choose) を参照してください。
+
 Cox:
 
 $$
 h(t \mid x)=h_0(t)\exp(\beta_{\mathrm{hormon}}\mathrm{hormon}+\beta_{\mathrm{age}}\mathrm{age}+\beta_{\mathrm{nodes}}\mathrm{nodes}+\beta_{\mathrm{size}}\mathrm{size}+\beta_{\mathrm{grade}}\mathrm{grade}).
 $$
 
-PH のスコア検定は時間変換 Kaplan–Meier（R の `km`）。Weibull AFT は log-time 上の線形予測子（`survreg` パラメータ化）。指数化係数は時間比。Cox forest は `plot_forest(..., layout="table")`（論文用白黒は `style="bw"`）。
+PH のスコア検定は時間変換 Kaplan–Meier（R の `km`）。Weibull AFT は log-time 上の線形予測子（`survreg` パラメータ化）。指数化係数は時間比。Weibull AFT は比例ハザードモデルでもあり、ハザード比は $\exp(-\beta/\sigma)$ で求まる（$\sigma$ は scale）。Cox forest は `plot_forest(..., layout="table")`（論文用白黒は `style="bw"`）。
 
 内部検証は rms の `validate.cph` / `calibrate.cph`（`cmethod="KM"`）相当。bootstrap 標本で当てはめ直したモデルを、その標本（training）と元データ（test）で評価し、差の平均を optimism として見かけの指標から引きます。B=200、seed 固定。
 
@@ -86,7 +88,7 @@ PH のスコア検定は時間変換 Kaplan–Meier（R の `km`）。Weibull AF
 
 n=2982。サイト掲載は `task aft_rotterdam:all` 後の `aft_rotterdam_out/` から `tools/sync_example_assets.py` でコピーした同一ファイルです。
 
-### Kaplan–Meier（`hormon`、number-at-risk 付き）
+### Kaplan–Meier（`hormon`、at risk 数付き）
 
 === "図"
 
@@ -312,6 +314,8 @@ Cox モデル（上と同じ式）を予後モデルとして見たときの過�
 
     [CSV](assets/aft_rotterdam/aft_weibull_tidy.csv)
 
+    `Log(scale)` 行の標準誤差 0 と幅 0 の信頼区間は、tidy 表の出力の不具合です。scale を固定したわけではなく、0.639（対数で −0.447）はデータから推定した値です。
+
 === "コード"
 
     ```python
@@ -325,11 +329,13 @@ Cox モデル（上と同じ式）を予後モデルとして見たときの過�
 
 ## 解釈と解説
 
-log-rank はホルモン療法群で差がある（統計量 23.7、p≈1.1×10⁻⁶）。調整 Cox の `hormon` HR は約 **0.95**（95% CI 約 0.80–1.13）で 1 と区別しにくい。節数・腫瘍径・グレード・年齢は HR>1。`proportional_hazards_test` の全体 p≈3.8×10⁻⁴（主に `age`）。未調整 KM と調整 Cox の向きの食い違いは交絡として読みます。zph 全体が有意なので単一 HR だけに頼らない、という読み方をします。
+log-rank はホルモン療法群で差がある（統計量 23.7、p≈1.1×10⁻⁶）。調整 Cox の `hormon` のハザード比（hazard ratio、HR）は約 **0.95**（95% 信頼区間（confidence interval、CI）約 0.80–1.13）で 1 と区別しにくい。節数・腫瘍径・グレード・年齢は HR>1。`proportional_hazards_test` の全体 p≈3.8×10⁻⁴（主に `age`）。未調整 KM と調整 Cox の向きの食い違いは交絡として読みます。zph 全体が有意なので単一 HR だけに頼らない、という読み方をします。
+
+Weibull AFT では `hormon` の時間比は 0.94（95% CI 0.88–1.00）で、死亡までの時間が約 6% 短い方向です。Weibull は比例ハザードモデルでもあるので、scale 0.639 からハザード比に直すと $\exp(0.0634/0.639) \approx 1.10$ となり、Cox の HR 0.95 とは向きが逆です。どちらも PH を仮定するモデルなのに向きが食い違うのは、PH が崩れたデータでは、ベースラインハザードの形（Cox は自由、Weibull は単調）の置き方で結果が変わることを示しています。時間比は分布の選び方に強く依存します（[第 16 章 16.8](../learn/survival.md#compare)）。PH が成り立たないときに検討するのは、PH を仮定しない対数正規・対数ロジスティック AFT、時間で区切ったハザード比、制限付き平均生存時間（restricted mean survival time、RMST）です（[16.9](../learn/survival.md#choose)）。
 
 予後モデルとしての内部検証では、見かけの Dxy 0.378（C≈0.689）に対し optimism は 0.003 で、補正後 Dxy 0.376（C≈0.688）。補正後の較正 slope は 0.986 で、縮小はほぼ不要です。n=2982・死亡約 1270 件に対し自由度 6 のモデルなので、過剰適合が小さいのは予想どおりです。5 年較正では 9 群の点がおおむね対角線上にあり、群ごとの optimism は 0.003 以下。予測 0.63 と 0.75 の群では KM が予測より 5–6 ポイント低く（0.75 の群は 95% CI 上端 0.74 で対角線にわずかに届かない）、中間リスク帯でやや楽観的です。識別は中程度（C≈0.69）なので、較正が良くても個人予測の精度は限られます。また内部検証なので、別コホートへの移植性（外部妥当性）は示しません。PH の崩れ（`age`）は較正点の評価時点を 5 年に固定していることで部分的に吸収されますが、他の時点では較正が異なりえます。
 
-限界: 再発は競合になりやすいので使っていない。AFT 分布は Weibull 第一選択。未測定交絡。LGPL 教学データ。
+限界: 再発は競合になりやすいので使っていない。AFT 分布は Weibull を第一選択にしたが、Weibull も PH を仮定するので、PH の崩れへの対処にはならない。未測定交絡。LGPL 教学データ。
 
 ## 実行と成果物
 
