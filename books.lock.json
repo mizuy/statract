@@ -1,0 +1,1265 @@
+{
+ "9780198507659": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "In all likelihood",
+    "series": "Oxford science publications",
+    "publisher": "Clarendon Press",
+    "creators": [
+     "Pawitan, Yudi"
+    ],
+    "responsibility": "Yudi Pawitan",
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000074-IALIS_QQ20169575"
+   },
+   {
+    "title": "In all likelihood : statistical modelling and inference using likelihood",
+    "publisher": "Clarendon Press",
+    "date": "2001",
+    "issued": "2001",
+    "creators": [
+     "Pawitan, Yudi"
+    ],
+    "responsibility": "Yudi Pawitan",
+    "ids": {
+     "NIIBibID": "BA54018998"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1971993809768319403"
+   }
+  ]
+ },
+ "9780367139919": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "Statistical rethinking : a Bayesian course with examples in R and Stan",
+    "volume": ": hbk",
+    "edition": "2nd ed",
+    "publisher": "CRC Press",
+    "date": "2020",
+    "issued": "2020",
+    "creators": [
+     "McElreath, Richard"
+    ],
+    "responsibility": "Richard McElreath",
+    "ids": {
+     "NIIBibID": "BB30097749"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1970023484951446022"
+   }
+  ]
+ },
+ "9780387310732": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "Pattern recognition and machine learning",
+    "publisher": "Springer",
+    "date": "2006",
+    "issued": "c2006",
+    "creators": [
+     "Bishop, Christopher M."
+    ],
+    "responsibility": "Christopher M. Bishop",
+    "ids": {
+     "NIIBibID": "BC04587362"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1971430859812928261"
+   },
+   {
+    "title": "Pattern recognition and machine learning",
+    "volume": ": pbk",
+    "publisher": "Springer",
+    "date": "2006",
+    "issued": "c2006",
+    "creators": [
+     "Bishop, Christopher M."
+    ],
+    "responsibility": "Christopher M. Bishop",
+    "ids": {
+     "NIIBibID": "BA78137415"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1971712334736622367"
+   }
+  ]
+ },
+ "9780387848570": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "The elements of statistical learning",
+    "volume": ": [hard]",
+    "edition": "2nd ed",
+    "series": "Springer series in statistics",
+    "publisher": "Springer",
+    "issued": "c2009",
+    "creators": [
+     "Hastie, T. J",
+     "Tibshirani, R. J.",
+     "Friedman, J. H. (Jerome H.)"
+    ],
+    "responsibility": "Trevor Hastie",
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000074-IALIS_QQ20343418"
+   },
+   {
+    "title": "The elements of statistical learning : data mining, inference, and prediction",
+    "volume": ": [hard]",
+    "edition": "2nd ed",
+    "publisher": "Springer",
+    "date": "2009",
+    "issued": "c2009",
+    "creators": [
+     "Hastie, T. J",
+     "Tibshirani, R. J.",
+     "Friedman, J. H. (Jerome H.)"
+    ],
+    "responsibility": "Trevor Hastie, Robert Tibshirani, Jerome Friedman",
+    "ids": {
+     "NIIBibID": "BA89336082"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1971993809814302384"
+   }
+  ]
+ },
+ "9780387987842": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "Modeling survival data : extending the cox model",
+    "publisher": "Springer",
+    "date": "2000",
+    "issued": "c2000",
+    "creators": [
+     "Therneau, Terry M.",
+     "Grambsch, Patricia M."
+    ],
+    "responsibility": "Terry M. Therneau, Patricia M. Grambsch",
+    "ids": {
+     "NIIBibID": "BA48476047"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1971712334741855545"
+   }
+  ]
+ },
+ "9780412317606": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "Generalized linear models",
+    "volume": ": hardcover",
+    "edition": "2nd ed",
+    "publisher": "Chapman and Hall",
+    "date": "1989",
+    "issued": "c1989",
+    "creators": [
+     "McCullagh, Peter",
+     "Nelder, John A."
+    ],
+    "responsibility": "P. McCullagh and J.A. Nelder",
+    "ids": {
+     "NIIBibID": "BD07756077"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1971149384831182479"
+   },
+   {
+    "title": "Generalized linear models",
+    "edition": "2nd ed",
+    "publisher": "Chapman & Hall/CRC",
+    "date": "1999",
+    "issued": "1999",
+    "creators": [
+     "McCullagh, Peter",
+     "Nelder, John A."
+    ],
+    "responsibility": "P. McCullagh and J.A. Nelder",
+    "ids": {
+     "NIIBibID": "BA65508321"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1971430859849399203"
+   },
+   {
+    "title": "Generalized linear models",
+    "edition": "2nd ed",
+    "publisher": "Chapman and Hall",
+    "date": "1989",
+    "issued": "1989",
+    "creators": [
+     "McCullagh, Peter",
+     "Nelder, John A."
+    ],
+    "responsibility": "P. McCullagh and J.A. Nelder",
+    "ids": {
+     "NIIBibID": "BA07288691"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1971712334836920234"
+   }
+  ]
+ },
+ "9780470463635": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "Categorical data analysis",
+    "volume": ": hardback",
+    "edition": "3rd ed",
+    "publisher": "Wiley",
+    "date": "2013",
+    "issued": "c2013.",
+    "creators": [
+     "Agresti, Alan"
+    ],
+    "responsibility": "Alan Agresti",
+    "ids": {
+     "NIIBibID": "BB10967779"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1970586434805166758"
+   }
+  ]
+ },
+ "9780471499756": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "Bayesian approaches to clinical trials and health-care evaluation",
+    "publisher": "John Wiley & Sons",
+    "date": "2004",
+    "issued": "c2004",
+    "creators": [
+     "Spiegelhalter, D. J.",
+     "Abrams, K. R. (...Keith R....)",
+     "Myles, Jonathan P"
+    ],
+    "responsibility": "David J. Spiegelhalter, Keith R. Abrams, Jonathan P. Myles",
+    "ids": {
+     "NIIBibID": "BA67933747"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1971712334725130143"
+   }
+  ]
+ },
+ "9780521686891": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "Data analysis using regression and multilevel/hierarchical models",
+    "volume": ": hbk",
+    "publisher": "Cambridge University Press",
+    "date": "2007",
+    "issued": "2007",
+    "creators": [
+     "Gelman, Andrew",
+     "Hill, Jennifer"
+    ],
+    "responsibility": "Andrew Gelman, Jennifer Hill",
+    "ids": {
+     "NIIBibID": "BA82103166"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1971712334695559969"
+   }
+  ]
+ },
+ "9780521885881": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "Causal inference for statistics, social, and biomedical sciences : an introduction",
+    "publisher": "Cambridge University Press",
+    "date": "2015",
+    "issued": "2015.",
+    "creators": [
+     "Imbens, Guido.",
+     "Rubin, Donald B."
+    ],
+    "responsibility": "Guido W. Imbens, Donald B. Rubin.",
+    "ids": {
+     "NDLBibID": "025436623"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I025436623"
+   },
+   {
+    "title": "Causal inference : for statistics, social, and biomedical sciences : an introduction",
+    "volume": ": hardback",
+    "publisher": "Cambridge University Press",
+    "date": "2015",
+    "issued": "2015",
+    "creators": [
+     "Imbens, Guido W.",
+     "Rubin, Donald B."
+    ],
+    "responsibility": "Guido W. Imbens, Donald B. Rubin",
+    "ids": {
+     "NIIBibID": "BB18688950"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1971149384795701170"
+   }
+  ]
+ },
+ "9780521895606": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "Causality",
+    "volume": ": hbk",
+    "edition": "2nd ed",
+    "publisher": "Cambridge University Press",
+    "date": "2009",
+    "issued": "2009",
+    "creators": [
+     "Pearl, Judea"
+    ],
+    "responsibility": "Judea Pearl",
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000074-IALIS_QQ20351818"
+   },
+   {
+    "title": "Causality : models, reasoning, and inference",
+    "volume": ": hbk",
+    "edition": "2nd ed",
+    "publisher": "Cambridge University Press",
+    "date": "2009",
+    "issued": "2009",
+    "creators": [
+     "Pearl, Judea"
+    ],
+    "responsibility": "Judea Pearl",
+    "ids": {
+     "NIIBibID": "BA91556558"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1971993809705975324"
+   }
+  ]
+ },
+ "9781032252858": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "Modelling survival data in medical research",
+    "volume": ": hardback",
+    "edition": "4th ed.",
+    "publisher": "CRC Press, an imprint of the Taylor & Francis Group",
+    "date": "2023",
+    "issued": "2023",
+    "creators": [
+     "Collett, David"
+    ],
+    "responsibility": "David Collett",
+    "ids": {
+     "NIIBibID": "BD06685053"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1971712334784187402"
+   }
+  ]
+ },
+ "9781107676510": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "Regression and other stories",
+    "volume": ": pbk",
+    "publisher": "Cambridge University Press",
+    "date": "2021",
+    "issued": "2021",
+    "creators": [
+     "Gelman, Andrew",
+     "Hill, Jennifer",
+     "Vehtari, Aki"
+    ],
+    "responsibility": "Andrew Gelman, Jennifer Hill, Aki Vehtari",
+    "ids": {
+     "NIIBibID": "BC01367235"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1970586434882571399"
+   }
+  ]
+ },
+ "9781420076165": {
+  "source": "openlibrary",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "Causal Inference",
+    "publisher": "Taylor & Francis Group, CRC Press",
+    "date": "2019",
+    "creators": [
+     "Miquel A. Hernan",
+     "James M. Robins"
+    ],
+    "url": "http://openlibrary.org/books/OL28745193M/Causal_Inference"
+   }
+  ]
+ },
+ "9781439840955": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "Bayesian data analysis",
+    "volume": ": hardback",
+    "edition": "3rd ed",
+    "series": "Texts in statistical science",
+    "publisher": "CRC Press",
+    "issued": "c2014",
+    "creators": [
+     "Gelman, Andrew",
+     "Carlin, John B.",
+     "Stern, Hal S.",
+     "Dunson, David B.",
+     "Vehtari, Aki",
+     "Rubin, Donald B."
+    ],
+    "responsibility": "Andrew Gelman ... [et al.]",
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000074-IALIS_QQ20524763"
+   },
+   {
+    "title": "Bayesian data analysis",
+    "volume": ": hardback",
+    "edition": "3rd ed",
+    "publisher": "CRC Press",
+    "date": "2014",
+    "issued": "c2014",
+    "creators": [
+     "Gelman, Andrew",
+     "Carlin, John B.",
+     "Stern, Hal S.",
+     "Dunson, David B.",
+     "Vehtari, Aki",
+     "Rubin, Donald B."
+    ],
+    "responsibility": "Andrew Gelman ... [et al.]",
+    "ids": {
+     "NIIBibID": "BB28490745"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1970304959894725652"
+   },
+   {
+    "title": "Bayesian data analysis",
+    "volume": ": hardback",
+    "edition": "3rd ed",
+    "publisher": "CRC Press",
+    "date": "2013",
+    "issued": "c2013",
+    "creators": [
+     "Gelman, Andrew",
+     "Carlin, John B.",
+     "Stern, Hal S.",
+     "Dunson, David B.",
+     "Vehtari, Aki",
+     "Rubin, Donald B."
+    ],
+    "responsibility": "Andrew Gelman ... [et al.]",
+    "ids": {
+     "NIIBibID": "BB19880920"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1970867909819348870"
+   }
+  ]
+ },
+ "9783030163983": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "Clinical prediction models : a practical approach to development, validation, and updating",
+    "edition": "2nd ed",
+    "publisher": "Springer",
+    "date": "2019",
+    "issued": "c2019",
+    "creators": [
+     "Steyerberg, Ewout W"
+    ],
+    "responsibility": "Ewout W. Steyerberg",
+    "ids": {
+     "NIIBibID": "BB29238005"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1970586434871589656"
+   }
+  ]
+ },
+ "9783319194240": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "Regression modeling strategies : with applications to linear models, logistic and ordinal regression, and survival analysis",
+    "volume": ": pbk",
+    "edition": "2nd ed",
+    "publisher": "Springer",
+    "date": "2015",
+    "issued": "c2015",
+    "creators": [
+     "Harrell, Jr., Frank E."
+    ],
+    "responsibility": "Frank E. Harrell, Jr",
+    "ids": {
+     "NIIBibID": "BB19450014"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1971712334845834914"
+   }
+  ]
+ },
+ "9784000058421": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "はじめての統計的因果推論",
+    "publisher": "岩波書店",
+    "date": "2024",
+    "issued": "2024.2",
+    "creators": [
+     "林, 岳彦, 1974-"
+    ],
+    "responsibility": "林岳彦 著",
+    "ids": {
+     "NDLBibID": "033277875"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I033277875"
+   }
+  ]
+ },
+ "9784000069724": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "調査観察データの統計科学 : 因果推論・選択バイアス・データ融合",
+    "series": "シリーズ確率と情報の科学",
+    "publisher": "岩波書店",
+    "date": "2009",
+    "issued": "2009.7",
+    "creators": [
+     "星野, 崇宏",
+     "甘利, 俊一, 1936-",
+     "麻生, 英樹, 1958-",
+     "伊庭, 幸人, 1959-"
+    ],
+    "responsibility": "星野崇宏 著",
+    "ids": {
+     "NDLBibID": "000010469910"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I000010469910"
+   }
+  ]
+ },
+ "9784000069731": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "データ解析のための統計モデリング入門 : 一般化線形モデル・階層ベイズモデル・MCMC",
+    "series": "確率と情報の科学",
+    "publisher": "岩波書店",
+    "date": "2012",
+    "issued": "2012.5",
+    "creators": [
+     "久保, 拓弥, 1969-",
+     "甘利, 俊一, 1936-",
+     "麻生, 英樹, 1958-",
+     "伊庭, 幸人, 1959-"
+    ],
+    "responsibility": "久保拓弥 著",
+    "ids": {
+     "NDLBibID": "023600627"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I023600627"
+   }
+  ]
+ },
+ "9784065337639": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "Pythonでスラスラわかるベイズ推論「超」入門",
+    "publisher": "講談社",
+    "date": "2023",
+    "issued": "2023.11",
+    "creators": [
+     "赤石, 雅典",
+     "須山, 敦志"
+    ],
+    "responsibility": "赤石雅典 著,須山敦志 監修",
+    "ids": {
+     "NDLBibID": "033163570"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I033163570"
+   }
+  ]
+ },
+ "9784130623223": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "生存時間解析 : SASによる生物統計",
+    "edition": "第2版",
+    "publisher": "東京大学出版会",
+    "date": "2022",
+    "issued": "2022.8",
+    "creators": [
+     "大橋, 靖雄, 1954-2021",
+     "浜田, 知久馬, 1965-2017",
+     "魚住, 龍史, 1986-"
+    ],
+    "responsibility": "大橋靖雄, 浜田知久馬, 魚住龍史 著",
+    "ids": {
+     "NDLBibID": "032326362"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I032326362"
+   }
+  ]
+ },
+ "9784163915968": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "因果推論の科学 : 「なぜ?」の問いにどう答えるか",
+    "publisher": "文藝春秋",
+    "date": "2022",
+    "issued": "2022.9",
+    "creators": [
+     "Pearl, Judea",
+     "Mackenzie, Dana",
+     "松尾, 豊, 1975-",
+     "夏目, 大, 1966-"
+    ],
+    "responsibility": "ジューディア・パール, ダナ・マッケンジー 著,松尾豊 監修・解説,夏目大 訳",
+    "ids": {
+     "NDLBibID": "032352969"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I032352969"
+   }
+  ]
+ },
+ "9784254122244": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "Rによる統計的学習入門",
+    "publisher": "朝倉書店",
+    "date": "2018",
+    "issued": "2018.7",
+    "creators": [
+     "James, Gareth Michael",
+     "Witten, Daniela",
+     "Hastie, Trevor",
+     "落海, 浩, 1966-",
+     "首藤, 信通, 1981-"
+    ],
+    "responsibility": "G.James, D.Witten, T.Hastie, R.Tibshirani [著],落海浩, 首藤信通 訳",
+    "ids": {
+     "NDLBibID": "029110928"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I029110928"
+   }
+  ]
+ },
+ "9784254122411": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "入門統計的因果推論",
+    "publisher": "朝倉書店",
+    "date": "2019",
+    "issued": "2019.8",
+    "creators": [
+     "Pearl, Judea",
+     "Glymour, Madelyn",
+     "Jewell, Nicholas P., 1952-",
+     "落海, 浩, 1966-"
+    ],
+    "responsibility": "Judea Pearl, Madelyn Glymour, Nicholas P.Jewell [著],落海浩 訳",
+    "ids": {
+     "NDLBibID": "029878391"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I029878391"
+   },
+   {
+    "title": "統計的因果推論 : 入門",
+    "publisher": "朝倉書店",
+    "date": "2019",
+    "issued": "2019.8",
+    "creators": [
+     "Pearl, Judea",
+     "Glymour, Madelyn",
+     "Jewell, Nicholas P.",
+     "落海, 浩"
+    ],
+    "responsibility": "Judea Pearl, Madelyn Glymour, Nicholas P. Jewell [著] ; 落海浩訳",
+    "ids": {
+     "NIIBibID": "BB28798886"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1971712334703839542"
+   }
+  ]
+ },
+ "9784254122701": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "医学のための因果推論",
+    "volume": "1",
+    "publisher": "朝倉書店",
+    "date": "2022",
+    "issued": "2022.9",
+    "creators": [
+     "田中, 司朗, 1979-"
+    ],
+    "responsibility": "田中司朗 著",
+    "ids": {
+     "NDLBibID": "032345680"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I032345680"
+   }
+  ]
+ },
+ "9784254122718": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "医学のための因果推論",
+    "volume": "2",
+    "publisher": "朝倉書店",
+    "date": "2022",
+    "issued": "2022.9",
+    "creators": [
+     "田中, 司朗, 1979-"
+    ],
+    "responsibility": "田中司朗 著",
+    "ids": {
+     "NDLBibID": "032345678"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I032345678"
+   }
+  ]
+ },
+ "9784254122770": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "臨床予測モデル : 開発・妥当性確認・更新の手引き",
+    "publisher": "朝倉書店",
+    "date": "2023",
+    "issued": "2023.11",
+    "creators": [
+     "Steyerberg, Ewout W",
+     "手良向, 聡, 1963-",
+     "大門, 貴志"
+    ],
+    "responsibility": "Ewout W.Steyerberg 著,手良向聡, 大門貴志 監訳",
+    "ids": {
+     "NDLBibID": "033105731"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I033105731"
+   }
+  ]
+ },
+ "9784254122916": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "インベンス・ルービン統計的因果推論",
+    "volume": "上",
+    "publisher": "朝倉書店",
+    "date": "2023",
+    "issued": "2023.7",
+    "creators": [
+     "Imbens, Guido",
+     "Rubin, Donald B",
+     "星野, 崇宏",
+     "繁桝, 算男, 1946-"
+    ],
+    "responsibility": "G.W.インベンス, D.B.ルービン 著,星野崇宏, 繁桝算男 監訳",
+    "ids": {
+     "NDLBibID": "032893356"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I032893356"
+   }
+  ]
+ },
+ "9784254122923": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "インベンス・ルービン統計的因果推論",
+    "volume": "下",
+    "publisher": "朝倉書店",
+    "date": "2023",
+    "issued": "2023.7",
+    "creators": [
+     "Imbens, Guido",
+     "Rubin, Donald B",
+     "星野, 崇宏",
+     "繁桝, 算男, 1946-"
+    ],
+    "responsibility": "G.W.インベンス, D.B.ルービン 著,星野崇宏, 繁桝算男 監訳",
+    "ids": {
+     "NDLBibID": "032893357"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I032893357"
+   }
+  ]
+ },
+ "9784254123067": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "ローゼンバウム因果推論とは何か",
+    "publisher": "朝倉書店",
+    "date": "2024",
+    "issued": "2024.10",
+    "creators": [
+     "Rosenbaum, Paul R",
+     "高田, 悠矢, 1985-",
+     "高橋, 耕史, 1984-"
+    ],
+    "responsibility": "ポール・R.ローゼンバウム 著,高田悠矢, 高橋耕史 監訳",
+    "ids": {
+     "NDLBibID": "033723489"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I033723489"
+   },
+   {
+    "title": "ローゼンバウム : 因果推論とは何か",
+    "publisher": "朝倉書店",
+    "date": "2024-11-01",
+    "issued": "2024-11-01",
+    "responsibility": "Paul R. Rosenbaum,高田悠矢,高橋耕史",
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000039-I14564796"
+   }
+  ]
+ },
+ "9784254128574": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "統計的因果推論",
+    "series": "統計解析スタンダード",
+    "publisher": "朝倉書店",
+    "date": "2015",
+    "issued": "2015.11",
+    "creators": [
+     "岩崎, 学, 1952-",
+     "国友, 直人, 1950-",
+     "竹村, 彰通, 1952-"
+    ],
+    "responsibility": "岩崎学 著",
+    "ids": {
+     "NDLBibID": "026828915"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I026828915"
+   }
+  ]
+ },
+ "9784254128840": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "Cox比例ハザードモデル",
+    "edition": "新版",
+    "series": "医学統計学シリーズ ; 3",
+    "publisher": "朝倉書店",
+    "date": "2018",
+    "issued": "2018.10",
+    "creators": [
+     "中村, 剛, 1947-",
+     "丹後, 俊郎, 1950-"
+    ],
+    "responsibility": "中村剛 著",
+    "ids": {
+     "NDLBibID": "029277619"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I029277619"
+   }
+  ]
+ },
+ "9784260057585": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "今日から使える医療統計",
+    "edition": "第2版",
+    "publisher": "医学書院",
+    "date": "2025",
+    "issued": "2025.1",
+    "creators": [
+     "新谷, 歩, 1968-"
+    ],
+    "responsibility": "新谷歩 著",
+    "ids": {
+     "NDLBibID": "033856565"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I033856565"
+   }
+  ]
+ },
+ "9784320018778": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "統計的因果推論 : モデル・推論・推測",
+    "publisher": "共立出版",
+    "date": "2009",
+    "issued": "2009.3",
+    "creators": [
+     "Pearl, Judea",
+     "黒木, 学, 統計科学"
+    ],
+    "responsibility": "Judea Pearl 著,黒木学 訳",
+    "ids": {
+     "NDLBibID": "000010056826"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I000010056826"
+   }
+  ]
+ },
+ "9784320110359": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "医薬統計のための生存時間データ解析",
+    "publisher": "共立出版",
+    "date": "2013",
+    "issued": "2013.5",
+    "creators": [
+     "Collett, D., 1952-",
+     "宮岡, 悦良, 1955-"
+    ],
+    "responsibility": "David Collett 著,宮岡悦良 監訳",
+    "ids": {
+     "NDLBibID": "024432983"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I024432983"
+   }
+  ]
+ },
+ "9784320112452": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "Wonderful R",
+    "volume": "5",
+    "publisher": "共立出版",
+    "date": "2022",
+    "issued": "2022.2",
+    "creators": [
+     "石田, 基広",
+     "市川, 太祐",
+     "高橋, 康介, 1978-",
+     "高柳, 慎一, 1981-",
+     "福島, 真太朗, 1981-",
+     "松浦, 健太郎, 1980-",
+     "高橋, 将宜"
+    ],
+    "responsibility": "石田基広 監修,市川太祐, 高橋康介, 高柳慎一, 福島真太朗, 松浦健太郎 編集",
+    "ids": {
+     "NDLBibID": "031945702"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I031945702"
+   }
+  ]
+ },
+ "9784320113374": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "Pythonによるベイズ統計モデリング : PyMCでのデータ分析実践ガイド",
+    "publisher": "共立出版",
+    "date": "2018",
+    "issued": "2018.6",
+    "creators": [
+     "Martin, Osvaldo",
+     "金子, 武久"
+    ],
+    "responsibility": "Osvaldo Martin 著,金子武久 訳",
+    "ids": {
+     "NDLBibID": "029031259"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I029031259"
+   }
+  ]
+ },
+ "9784320123625": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "統計的学習の基礎 : データマイニング・推論・予測",
+    "publisher": "共立出版",
+    "date": "2014",
+    "issued": "2014.6",
+    "creators": [
+     "Hastie, Trevor",
+     "Tibshirani, Robert",
+     "Friedman, Jerome H",
+     "杉山, 将",
+     "井手, 剛",
+     "神嶌, 敏弘",
+     "井尻, 善久"
+    ],
+    "responsibility": "Trevor Hastie, Robert Tibshirani, Jerome Friedman 著,杉山将, 井手剛, 神嶌敏弘, 栗田多喜夫, 前田英作 監訳,井尻善久 他訳",
+    "ids": {
+     "NDLBibID": "025510872"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I025510872"
+   }
+  ]
+ },
+ "9784339024623": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "ベイズ統計の理論と方法",
+    "publisher": "コロナ社",
+    "date": "2012",
+    "issued": "2012.4",
+    "creators": [
+     "渡辺, 澄夫, 1959-"
+    ],
+    "responsibility": "渡辺澄夫 著",
+    "ids": {
+     "NDLBibID": "023468075"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I023468075"
+   }
+  ]
+ },
+ "9784621061220": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "パターン認識と機械学習 : ベイズ理論による統計的予測",
+    "date": "2012",
+    "creators": [
+     "Bishop, Christopher M.",
+     "元田, 浩",
+     "栗田, 多喜夫",
+     "樋口, 知之",
+     "松本, 裕治",
+     "村田, 昇"
+    ],
+    "responsibility": "C. M. ビショップ著",
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000046-I1000160047"
+   },
+   {
+    "title": "パターン認識と機械学習 : ベイズ理論による統計的予測",
+    "volume": "上",
+    "publisher": "丸善出版",
+    "date": "2012",
+    "issued": "2012.1",
+    "creators": [
+     "Bishop, Christopher M.",
+     "元田, 浩",
+     "栗田, 多喜夫",
+     "樋口, 知之",
+     "松本, 裕治",
+     "村田, 昇"
+    ],
+    "responsibility": "C. M. ビショップ著",
+    "ids": {
+     "NIIBibID": "BC14097257"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1970304959940321984"
+   }
+  ]
+ },
+ "9784621061244": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "パターン認識と機械学習 : ベイズ理論による統計的予測",
+    "date": "2012",
+    "creators": [
+     "Bishop, Christopher M.",
+     "元田, 浩",
+     "栗田, 多喜夫",
+     "樋口, 知之",
+     "松本, 裕治",
+     "村田, 昇"
+    ],
+    "responsibility": "C. M. ビショップ著",
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000046-I1000160047"
+   },
+   {
+    "title": "パターン認識と機械学習 : ベイズ理論による統計的予測",
+    "volume": "下",
+    "publisher": "丸善出版",
+    "date": "2012",
+    "issued": "2012.1",
+    "creators": [
+     "Bishop, Christopher M.",
+     "元田, 浩",
+     "栗田, 多喜夫",
+     "樋口, 知之",
+     "松本, 裕治",
+     "村田, 昇"
+    ],
+    "responsibility": "C. M. ビショップ著",
+    "ids": {
+     "NIIBibID": "BC1409760X"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1970586434883864608"
+   }
+  ]
+ },
+ "9784627097032": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "ベイズデータ解析",
+    "publisher": "森北出版",
+    "date": "2024",
+    "issued": "2024.6",
+    "creators": [
+     "Gelman, Andrew",
+     "Carlin, John B",
+     "Stern, Hal Steven",
+     "Dunson, David B",
+     "Vehtari, Aki",
+     "Rubin, Donald B",
+     "菅澤, 翔之助, 1990-",
+     "小林, 弦矢",
+     "川久保, 友超",
+     "栗栖, 大輔, 1991-",
+     "玉江, 大将",
+     "Nospare"
+    ],
+    "responsibility": "Andrew Gelman [ほか] 著,菅澤翔之助 [ほか] 訳",
+    "ids": {
+     "NDLBibID": "033548711"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I033548711"
+   }
+  ]
+ },
+ "9784784959587": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "診断研究の方法論 : 診断学のエビデンスの読み方・作り方",
+    "publisher": "日本医事新報社",
+    "date": "2022",
+    "issued": "2022.6",
+    "creators": [
+     "高田, 俊彦, 診断推論"
+    ],
+    "responsibility": "高田俊彦 著",
+    "ids": {
+     "NDLBibID": "032168065"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I032168065"
+   }
+  ]
+ },
+ "9784903803265": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "臨床研究の道標 : 7つのステップで学ぶ研究デザイン",
+    "volume": "上巻",
+    "edition": "第2版",
+    "publisher": "健康医療評価研究機構",
+    "date": "2017",
+    "issued": "2017.7",
+    "creators": [
+     "福原, 俊一"
+    ],
+    "responsibility": "福原俊一 著",
+    "ids": {
+     "NDLBibID": "028377304"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I028377304"
+   },
+   {
+    "title": "臨床研究の道標 (みちしるべ) : 7つのステップで学ぶ研究デザイン",
+    "volume": "上巻",
+    "edition": "第2版",
+    "publisher": "健康医療評価研究機構",
+    "date": "2017",
+    "issued": "2017.7.",
+    "creators": [
+     "福原, 俊一",
+     "福間, 真悟"
+    ],
+    "responsibility": "福原俊一著",
+    "ids": {
+     "NIIBibID": "BB24117819"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1970304959893409572"
+   }
+  ]
+ },
+ "9784903803272": {
+  "source": "ndl",
+  "fetched": "2026-10-13",
+  "records": [
+   {
+    "title": "臨床研究の道標 : 7つのステップで学ぶ研究デザイン",
+    "volume": "下巻",
+    "edition": "第2版",
+    "publisher": "健康医療評価研究機構",
+    "date": "2017",
+    "issued": "2017.7",
+    "creators": [
+     "福原, 俊一"
+    ],
+    "responsibility": "福原俊一 著",
+    "ids": {
+     "NDLBibID": "028377305"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000002-I028377305"
+   },
+   {
+    "title": "臨床研究の道標 (みちしるべ) : 7つのステップで学ぶ研究デザイン",
+    "volume": "上巻",
+    "edition": "第2版",
+    "publisher": "健康医療評価研究機構",
+    "date": "2017",
+    "issued": "2017.7.",
+    "creators": [
+     "福原, 俊一",
+     "福間, 真悟"
+    ],
+    "responsibility": "福原俊一著",
+    "ids": {
+     "NIIBibID": "BB24117819"
+    },
+    "url": "https://ndlsearch.ndl.go.jp/books/R100000136-I1970304959893409572"
+   }
+  ]
+ }
+}

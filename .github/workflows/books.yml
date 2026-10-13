@@ -1,0 +1,55 @@
+name: Books
+
+# check: books.yaml, books.lock.json and manual_entries.bib agree (offline).
+# fetch: run by hand (Actions > Books > Run workflow) on a branch. It looks up
+# ISBNs missing from books.lock.json in NDL Search / openBD and commits the
+# lock to that branch. Use it where NDL is out of reach (cloud sessions).
+
+on:
+  push:
+    branches: [main]
+    paths: [books.yaml, books.lock.json, manual_entries.bib, tools/books.py, .github/workflows/books.yml]
+  pull_request:
+    paths: [books.yaml, books.lock.json, manual_entries.bib, tools/books.py, .github/workflows/books.yml]
+  workflow_dispatch:
+    inputs:
+      refresh:
+        description: Fetch every ISBN again, not only missing ones
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  fetch:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Fetch from NDL / openBD
+        run: uv run --no-project --with pyyaml python tools/books.py fetch ${{ inputs.refresh && '--refresh' || '' }}
+      - name: Commit books.lock.json
+        if: always()
+        run: |
+          git diff --quiet books.lock.json 2>/dev/null && git ls-files --error-unmatch books.lock.json >/dev/null 2>&1 && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add books.lock.json
+          git commit -m "Update books.lock.json from NDL"
+          git push
+
+  check:
+    needs: [fetch]
+    if: always() && needs.fetch.result != 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.ref || '' }}
+      - uses: astral-sh/setup-uv@v5
+      - name: Check books
+        run: uv run --no-project --with pyyaml python tools/books.py check
