@@ -94,7 +94,8 @@ nav:
       - Figures: viz/overview.md
       - Cost-effectiveness: cea/overview.md
   - Learn:
-      - 臨床の問いから始める統計: learn/index.md
+      - はじめに:
+          - 臨床の問いから始める統計: learn/index.md
       - 第 I 部 導入:
           - 1. 記述：まずデータを見る: learn/descriptive.md
           - 2. 「独立した危険因子」とは何か: learn/independent-risk-factor.md
