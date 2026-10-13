@@ -50,7 +50,7 @@
 
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
-| 1. [記述：まずデータを見る](descriptive.md) | 記述という問い、Table 1、割合と信頼区間、平均と中央値、$P$ 値と信頼区間、ASA 声明と NEJM の報告指針、Table 1 の $P$ 値 | 年齢と病変径の分布 | `write_tableone_artifacts`、`proportion_ci` |
+| 1. [記述：まずデータを見る](descriptive.md) | 記述という問い、Table 1、割合と信頼区間、平均と中央値、$P$ 値と信頼区間の要点、Table 1 の $P$ 値 | 年齢と病変径の分布 | `write_tableone_artifacts`、`proportion_ci` |
 | 2. [「独立した危険因子」とは何か](independent-risk-factor.md) | 慣習的な解析（単変量 → 多変量）、ロジスティック回帰の基本、因果か予測か | ロジスティック曲線、forest、層別の出血割合 | `fit_glm`、`write_tableone_artifacts`、`plot_forest` |
 
 ### 第 II 部 因果推論
@@ -102,6 +102,7 @@
 | A6. [ベクトルと行列](math/vectors-matrices.md) | 計画行列、情報行列と分散共分散行列、係数の組み合わせ、LOOCV の近道（第 9、14 章） |
 | A7. [確率分布](math/distributions.md) | ベルヌーイと二項、Poisson（二項とのつながり）、負の二項（過分散）、正規、指数と Weibull、ベータ、ガンマ、分布の選び方（第 13、14、16、17 章） |
 | A8. [情報量規準（AIC、WAIC）](math/information-criteria.md) | LOOCV の得点、AIC、WAIC と実効的なパラメータの数、正則なモデルと特異なモデル（第 9、11、14 章） |
+| A9. [P 値](math/p-value.md) | 統計モデルと検定統計量、モデル全体の合わなさとしての $P$ 値、よくある読み違い、ASA 声明、NEJM の報告指針（第 1 章） |
 
 ### 付録
 

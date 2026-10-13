@@ -125,6 +125,7 @@ nav:
           - A6. ベクトルと行列: learn/math/vectors-matrices.md
           - A7. 確率分布: learn/math/distributions.md
           - A8. 情報量規準（AIC、WAIC）: learn/math/information-criteria.md
+          - A9. P 値: learn/math/p-value.md
       - 付録:
           - B. 報告ガイドライン: learn/reporting-guidelines.md
           - C. P 値の書き方: learn/p-value-format.md
