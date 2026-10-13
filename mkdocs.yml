@@ -97,39 +97,39 @@ nav:
       - はじめに:
           - 臨床の問いから始める統計: learn/index.md
       - 第 I 部 導入:
-          - 1. 記述：まずデータを見る: learn/descriptive.md
-          - 2. 「独立した危険因子」とは何か: learn/independent-risk-factor.md
+          - 1. 記述：まずデータを見る: learn/01_descriptive.md
+          - 2. 「独立した危険因子」とは何か: learn/02_independent-risk-factor.md
       - 第 II 部 因果推論:
-          - 3. 因果推論の考え方: learn/causal-basics.md
-          - 4. 背景を調整する方法: learn/adjustment-methods.md
-          - 5. 傾向スコアマッチング: learn/propensity-score-matching.md
-          - 6. IPTW（発展）: learn/iptw.md
-          - 7. 仮定と感度分析（発展）: learn/assumptions-sensitivity.md
+          - 3. 因果推論の考え方: learn/03_causal-basics.md
+          - 4. 背景を調整する方法: learn/04_adjustment-methods.md
+          - 5. 傾向スコアマッチング: learn/05_propensity-score-matching.md
+          - 6. IPTW（発展）: learn/06_iptw.md
+          - 7. 仮定と感度分析（発展）: learn/07_assumptions-sensitivity.md
       - 第 III 部 予測:
-          - 8. 予測モデルとしてのロジスティック回帰: learn/prediction-model.md
-          - 9. 過学習と汎化: learn/overfitting.md
-          - 10. 識別と較正: learn/discrimination-calibration.md
-          - 11. 正則化（発展）: learn/regularization.md
-          - 12. 木、アンサンブル、ニューラルネットワーク（発展）: learn/trees-ensembles.md
+          - 8. 予測モデルとしてのロジスティック回帰: learn/08_prediction-model.md
+          - 9. 過学習と汎化: learn/09_overfitting.md
+          - 10. 識別と較正: learn/10_discrimination-calibration.md
+          - 11. 正則化（発展）: learn/11_regularization.md
+          - 12. 木、アンサンブル、ニューラルネットワーク（発展）: learn/12_trees-ensembles.md
       - 第 IV 部 統計モデリング:
-          - 13. 確率モデルとしてのロジスティック回帰: learn/probability-model.md
-          - 14. 尤度と二つの推定法：最尤法とベイズ: learn/likelihood.md
-          - 15. 階層モデル: learn/hierarchical.md
+          - 13. 確率モデルとしてのロジスティック回帰: learn/13_probability-model.md
+          - 14. 尤度と二つの推定法：最尤法とベイズ: learn/14_likelihood.md
+          - 15. 階層モデル: learn/15_hierarchical.md
       - 第 V 部 臨床でよく使う解析:
-          - 16. 生存時間解析: learn/survival.md
-          - 17. 診断の指標: learn/diagnostic-metrics.md
+          - 16. 生存時間解析: learn/16_survival.md
+          - 17. 診断の指標: learn/17_diagnostic-metrics.md
       - 数学補:
-          - A1. 確率と確率変数: learn/math/probability.md
-          - A2. オッズと対数: learn/math/odds-log.md
-          - A3. 条件付き確率とベイズの定理: learn/math/conditional-probability.md
-          - A4. 期待値と分散: learn/math/expectation-variance.md
-          - A5. 微分と最大化: learn/math/derivatives-maximization.md
-          - A6. ベクトルと行列: learn/math/vectors-matrices.md
-          - A7. 確率分布: learn/math/distributions.md
-          - A8. 情報量規準（AIC、WAIC）: learn/math/information-criteria.md
+          - A1. 確率と確率変数: learn/math/A1_probability.md
+          - A2. オッズと対数: learn/math/A2_odds-log.md
+          - A3. 条件付き確率とベイズの定理: learn/math/A3_conditional-probability.md
+          - A4. 期待値と分散: learn/math/A4_expectation-variance.md
+          - A5. 微分と最大化: learn/math/A5_derivatives-maximization.md
+          - A6. ベクトルと行列: learn/math/A6_vectors-matrices.md
+          - A7. 確率分布: learn/math/A7_distributions.md
+          - A8. 情報量規準（AIC、WAIC）: learn/math/A8_information-criteria.md
       - 付録:
-          - B. 報告ガイドライン: learn/reporting-guidelines.md
-          - C. P 値の読み方と書き方: learn/p-value.md
+          - B. 報告ガイドライン: learn/B_reporting-guidelines.md
+          - C. P 値の読み方と書き方: learn/C_p-value.md
   - Examples:
       - Gallery: examples/index.md
       - Basic tests:

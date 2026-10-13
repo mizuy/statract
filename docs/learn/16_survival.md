@@ -4,7 +4,7 @@
 
 中心になるのは Cox 比例ハザードモデルですが、ほかに Poisson 回帰による人年法と、加速故障時間モデルも紹介し、三つの違いを考えます。
 
-[← 目次](index.md) · [← 第 15 章](hierarchical.md)
+[← 目次](index.md) · [← 第 15 章](15_hierarchical.md)
 
 ## 16.1 打ち切りのあるデータ {#censoring}
 
@@ -68,7 +68,7 @@
 
 ## 16.4 Poisson 回帰 {#poisson}
 
-人年法を回帰モデルにしたものが **Poisson 回帰**です（第 13 章の一般化線形モデル（generalized linear model、GLM）で、分布を Poisson にしたもの）。出血の数 $D$ が、率 × 人日を平均とする Poisson 分布（[数学補 A7](math/distributions.md#poisson)）に従い、率の対数が線形予測子になる、と考えます。
+人年法を回帰モデルにしたものが **Poisson 回帰**です（第 13 章の一般化線形モデル（generalized linear model、GLM）で、分布を Poisson にしたもの）。出血の数 $D$ が、率 × 人日を平均とする Poisson 分布（[数学補 A7](math/A7_distributions.md#poisson)）に従い、率の対数が線形予測子になる、と考えます。
 
 $$
 \begin{aligned}
@@ -133,7 +133,7 @@ $$
 
 [CSV](../examples/assets/theory_bleeding/ch15_cox.csv) · [比例ハザードの検定 CSV](../examples/assets/theory_bleeding/ch15_ph_test.csv)
 
-種明かしをすると、このデータは、第 13 章の対数オッズの式（切片を除く）をそのまま対数ハザード比とし、ベースラインハザードを形 0.5 の Weibull 分布（はじめが高く、だんだん下がる。[数学補 A7](math/distributions.md#exponential-weibull)）にして作りました。16.3 の図の青い曲線が、その本当のハザードです。比例ハザードの仮定は本当に成り立っており、検定でも全体の $P = 0.35$ でした。
+種明かしをすると、このデータは、第 13 章の対数オッズの式（切片を除く）をそのまま対数ハザード比とし、ベースラインハザードを形 0.5 の Weibull 分布（はじめが高く、だんだん下がる。[数学補 A7](math/A7_distributions.md#exponential-weibull)）にして作りました。16.3 の図の青い曲線が、その本当のハザードです。比例ハザードの仮定は本当に成り立っており、検定でも全体の $P = 0.35$ でした。
 
 statract での比例ハザードの検定の通しの例は、[生存曲線と Cox 回帰（colon）](../examples/surv_colon.md)（仮定が保たれる例）と [比例ハザードの検定と加速故障時間モデル（rotterdam）](../examples/aft_rotterdam.md)（仮定が崩れる例）にあります。
 
@@ -327,4 +327,4 @@ statract では、群ごとの CIF は `survival_curve(..., kind="aalen_johansen
 - ハザード比はモデルによらず安定しています。効果の推定には Cox、集計データや時間の効果には Poisson、時間の予測や外挿には AFT が向いています。
 - 競合事象（出血の前の死亡など）があるときは、それを打ち切りにした 1 − Kaplan–Meier は累積発生割合を大きく見積もります。CIF を使い、原因別ハザード（病因）と部分分布ハザード（予測）を問いに合わせて使い分けます。
 
-**次へ：**[第 17 章 診断の指標](diagnostic-metrics.md)
+**次へ：**[第 17 章 診断の指標](17_diagnostic-metrics.md)

@@ -2,11 +2,11 @@
 
 `pred_support` — 二項 GLM / ctree / ROC / 較正 / ブートストラップ内部検証 / DCA
 
-重症予後の **予測（点）モデル**。180 日死亡確率を学習データ（train）の二項一般化線形モデル（generalized linear model、GLM。ここではロジスティック回帰）と条件付き推測木（conditional inference tree、ctree）で推定し、分割（ホールドアウト）で取り分けた検証データで較正・Brier スコア・曲線下面積（area under the curve、AUC。[C 統計量と同じ値](../learn/discrimination-calibration.md#discrimination)）・決定曲線分析（decision curve analysis、DCA）を比べます。効果推定の [`logit_indo`](logit_indo.md) とは役割が違います。
+重症予後の **予測（点）モデル**。180 日死亡確率を学習データ（train）の二項一般化線形モデル（generalized linear model、GLM。ここではロジスティック回帰）と条件付き推測木（conditional inference tree、ctree）で推定し、分割（ホールドアウト）で取り分けた検証データで較正・Brier スコア・曲線下面積（area under the curve、AUC。[C 統計量と同じ値](../learn/10_discrimination-calibration.md#discrimination)）・決定曲線分析（decision curve analysis、DCA）を比べます。効果推定の [`logit_indo`](logit_indo.md) とは役割が違います。
 
 [← ギャラリー](index.md) · [実行用ディレクトリと手順（GitHub）](https://github.com/mizuy/statract/tree/main/examples/pred_support)
 
-解説は Learn の [第 9 章 過学習](../learn/overfitting.md)（分割とブートストラップ）、[第 10 章 識別と較正](../learn/discrimination-calibration.md)（ROC 曲線、較正、Brier スコア、DCA）、[第 12 章](../learn/trees-ensembles.md#ctree)（条件付き推測木）を参照してください。予測モデルの報告は TRIPOD+AI（Transparent Reporting of a multivariable prediction model for Individual Prognosis Or Diagnosis + Artificial Intelligence、[付録 B](../learn/reporting-guidelines.md#tripod)）に従います。
+解説は Learn の [第 9 章 過学習](../learn/09_overfitting.md)（分割とブートストラップ）、[第 10 章 識別と較正](../learn/10_discrimination-calibration.md)（ROC 曲線、較正、Brier スコア、DCA）、[第 12 章](../learn/12_trees-ensembles.md#ctree)（条件付き推測木）を参照してください。予測モデルの報告は TRIPOD+AI（Transparent Reporting of a multivariable prediction model for Individual Prognosis Or Diagnosis + Artificial Intelligence、[付録 B](../learn/B_reporting-guidelines.md#tripod)）に従います。
 
 ## 目的概説
 
@@ -132,7 +132,7 @@
     # write_tableone_artifacts は *_out/ への CSV/HTML 書き出し。Table 1 の公開 API は tableone()。
     ```
 
-この Table 1 は結果（180 日死亡）で分けて P 値をつけています。この P 値は記述ではなく、変数を一つずつ比べた単変量の比較です（[Learn 1.6](../learn/descriptive.md#pvalue)）。
+この Table 1 は結果（180 日死亡）で分けて P 値をつけています。この P 値は記述ではなく、変数を一つずつ比べた単変量の比較です（[Learn 1.6](../learn/01_descriptive.md#pvalue)）。
 
 ## メインの解析方法とそのコア
 
@@ -148,13 +148,13 @@ $$
 \mathrm{NB}=\frac{\mathrm{TP}}{n}-\frac{\mathrm{FP}}{n}\cdot\frac{t}{1-t}.
 $$
 
-ctree は各ノードで変数ごとに並べ替え検定を行い、多重性を補正（Šidák の方法）した P 値が最も小さく alpha を下回る変数で二分し、下回らなければ止まります（[Learn 12.1](../learn/trees-ensembles.md#ctree)）。終端ノード（葉）の死亡割合がそのまま予測確率になるので、確率は葉の数だけの段階値です。
+ctree は各ノードで変数ごとに並べ替え検定を行い、多重性を補正（Šidák の方法）した P 値が最も小さく alpha を下回る変数で二分し、下回らなければ止まります（[Learn 12.1](../learn/12_trees-ensembles.md#ctree)）。終端ノード（葉）の死亡割合がそのまま予測確率になるので、確率は葉の数だけの段階値です。
 
 閾値 0.40 の `binary_perf` は教学用であり、臨床カットオフの提案ではありません。
 
-**ROC と DeLong。** AUC は $\Pr(\hat\pi_{\text{死亡}}>\hat\pi_{\text{生存}})$ に等しくなります（[Learn 10.1](../learn/discrimination-calibration.md#discrimination)）。DeLong 法は各患者の placement 値から AUC の分散を出し、2 モデルを同じ検証患者で比べるときは共分散まで入れた対応のある検定（`roc_test`、Z 統計量）になります（[Learn 17.6](../learn/diagnostic-metrics.md#compare)）。
+**ROC と DeLong。** AUC は $\Pr(\hat\pi_{\text{死亡}}>\hat\pi_{\text{生存}})$ に等しくなります（[Learn 10.1](../learn/10_discrimination-calibration.md#discrimination)）。DeLong 法は各患者の placement 値から AUC の分散を出し、2 モデルを同じ検証患者で比べるときは共分散まで入れた対応のある検定（`roc_test`、Z 統計量）になります（[Learn 17.6](../learn/17_diagnostic-metrics.md#compare)）。
 
-**ブートストラップ内部検証（rms の `validate` / `calibrate`）。** 復元抽出した標本で当てはめ直したモデルの、その標本での指標（表の training 列）と元の学習標本全体での指標（test 列）の差を $B$ 回平均したものが楽観度（optimism）で、見かけの指標から引いたものが楽観度補正後の値です（[Learn 9.9](../learn/overfitting.md#bootstrap)）。rms の test 列はブートストラップの元の学習標本での値で、分割で取り分けた検証データではありません。較正の傾き（slope）は 1 未満なら予測が極端すぎる（過学習）ことを示します。表の Intercept は傾きと同時に推定した切片で、傾きを 1 に固定して見る Learn の較正の切片（calibration-in-the-large、[10.2](../learn/discrimination-calibration.md#calibration)）とは別の量です。分割（[Learn 9.6](../learn/overfitting.md#split)）とブートストラップは同じ問い（新しい患者でどれだけ性能が落ちるか）に別の手段で答え、前者は 1 回の分け方によるばらつきと検証データの小ささを抱え、後者はモデル選択の手順まで再現しないと楽観度を過小評価します。
+**ブートストラップ内部検証（rms の `validate` / `calibrate`）。** 復元抽出した標本で当てはめ直したモデルの、その標本での指標（表の training 列）と元の学習標本全体での指標（test 列）の差を $B$ 回平均したものが楽観度（optimism）で、見かけの指標から引いたものが楽観度補正後の値です（[Learn 9.9](../learn/09_overfitting.md#bootstrap)）。rms の test 列はブートストラップの元の学習標本での値で、分割で取り分けた検証データではありません。較正の傾き（slope）は 1 未満なら予測が極端すぎる（過学習）ことを示します。表の Intercept は傾きと同時に推定した切片で、傾きを 1 に固定して見る Learn の較正の切片（calibration-in-the-large、[10.2](../learn/10_discrimination-calibration.md#calibration)）とは別の量です。分割（[Learn 9.6](../learn/09_overfitting.md#split)）とブートストラップは同じ問い（新しい患者でどれだけ性能が落ちるか）に別の手段で答え、前者は 1 回の分け方によるばらつきと検証データの小ささを抱え、後者はモデル選択の手順まで再現しないと楽観度を過小評価します。
 
 ## 結果
 
@@ -363,7 +363,7 @@ ctree は各ノードで変数ごとに並べ替え検定を行い、多重性�
 
     抜粋。完全表: [CSV](assets/pred_support/table_calibration.csv)
 
-    bin は予測確率を 0.1 刻みで区切った区間です（bin 3 は 0.2–0.3）。[Learn 10.2](../learn/discrimination-calibration.md#calibration) の人数が等しい 10 等分とは違い、予測確率の高い端の bin は人数が少なくなります。
+    bin は予測確率を 0.1 刻みで区切った区間です（bin 3 は 0.2–0.3）。[Learn 10.2](../learn/10_discrimination-calibration.md#calibration) の人数が等しい 10 等分とは違い、予測確率の高い端の bin は人数が少なくなります。
 
 === "コード"
 
@@ -491,17 +491,17 @@ ctree は各ノードで変数ごとに並べ替え検定を行い、多重性�
 
 ## 解釈と解説
 
-多変量 GLM の検証 Brier は約 **0.214**（null 0.249、年齢+性別 0.246）。較正ビンは対角線の近くに並び、高確率側でやや過大予測です。見かけ較正は同じモデルでもホールドアウトより甘く見える、というのが分割の教材です。この分割による検証では較正の切片と傾きを計算しておらず、[Learn 10.5](../learn/discrimination-calibration.md#report) が報告に挙げる二つは、下のブートストラップの Intercept と Slope（定義は上記のとおり少し違う）で見ています。
+多変量 GLM の検証 Brier は約 **0.214**（null 0.249、年齢+性別 0.246）。較正ビンは対角線の近くに並び、高確率側でやや過大予測です。見かけ較正は同じモデルでもホールドアウトより甘く見える、というのが分割の教材です。この分割による検証では較正の切片と傾きを計算しておらず、[Learn 10.5](../learn/10_discrimination-calibration.md#report) が報告に挙げる二つは、下のブートストラップの Intercept と Slope（定義は上記のとおり少し違う）で見ています。
 
 DCA では閾値 0.30–0.50 付近で多変量の正味の利益が全員治療（treat-all）と年齢+性別を上回ります。切片のみは（定数予測なので）閾値が有病率以下では treat-all と一致します。閾値 0.40 では感度約 0.72、特異度約 0.57です。
 
 **GLM と ctree。** ctree（葉 22 個）は AUC 0.705、Brier 0.2178 で、多変量 GLM（22 係数、AUC 0.716、Brier 0.2137）に近い精度ですが、どちらの指標も GLM がわずかに上です。平均予測は両者とも 0.464 で実測 0.467 に近く、較正ビンもどちらもおおむね対角線の近くにあります。DCA は閾値 0.40 以下ではほぼ重なり、0.45 以上では GLM が上です。木の予測は段階値なので、高い閾値で確率の細かな序列が要る場面では GLM が有利です。閾値 0.40 では ctree の方が感度が高く（0.753 対 0.722）、特異度は低くなります（0.531 対 0.567）。
 
-木が最初に分けるのは昏睡スコア `scoma`（37 以下とそれより上）で、その下で癌の有無、疾患クラス、年齢が繰り返し現れます。たとえば `scoma` > 61 かつ 62.9 歳を超えるノードは 180 日死亡 0.95、`scoma` 0・癌なし・65 歳以下の COPD/CHF/Cirrhosis でナトリウム > 131・呼吸数 41 以下のノードは 0.18 です。GLM は各変数の効果を全員に同じ大きさで足しますが、木は「どの部分集団で何が効くか」を直接示します。ただし木の分かれ目はデータが少し変わると動き、予測は段階値です。精度が近くても、木は危険の高い群を見てわかる形で示す補助として使い、主な予測モデルは GLM にするのが安全です（[Learn 12.6](../learn/trees-ensembles.md#choose)）。どちらも同じ 1 回の分割による検証であり、差の不確かさはブートストラップや交差検証で見るべきです。
+木が最初に分けるのは昏睡スコア `scoma`（37 以下とそれより上）で、その下で癌の有無、疾患クラス、年齢が繰り返し現れます。たとえば `scoma` > 61 かつ 62.9 歳を超えるノードは 180 日死亡 0.95、`scoma` 0・癌なし・65 歳以下の COPD/CHF/Cirrhosis でナトリウム > 131・呼吸数 41 以下のノードは 0.18 です。GLM は各変数の効果を全員に同じ大きさで足しますが、木は「どの部分集団で何が効くか」を直接示します。ただし木の分かれ目はデータが少し変わると動き、予測は段階値です。精度が近くても、木は危険の高い群を見てわかる形で示す補助として使い、主な予測モデルは GLM にするのが安全です（[Learn 12.6](../learn/12_trees-ensembles.md#choose)）。どちらも同じ 1 回の分割による検証であり、差の不確かさはブートストラップや交差検証で見るべきです。
 
 **ROC と DeLong 検定。** 検証標本の AUC は GLM 0.716（95% CI 0.697–0.735）、ctree 0.705（0.685–0.724）で、対応のある DeLong 検定の差は 0.011（95% CI −0.001–0.024、P=0.073）です。GLM がやや上の方向ですが、この標本の大きさ（検証 2699 人）では差は有意でなく、差があっても 0.024 程度までに収まります。年齢+性別に対しては多変量 GLM が明確に上です（差 0.156、P<0.001）。ROC 曲線は偽陽性率 0.4 未満の側で GLM が上、それより右ではほぼ重なり、DCA で高い閾値ほど GLM が上になるのと同じ形です。
 
-**ブートストラップ内部検証とホールドアウト。** 学習標本 6297 人・22 係数（1 変数あたりのイベント数［events per variable、EPV］は約 130。[Learn 9.4](../learn/overfitting.md#sample-size)）では楽観度は小さく、C は見かけ 0.725 から補正後 0.721、較正の傾きは 0.98（予測をわずか 2% 縮めればよい程度）です。補正後の C 0.721 は、実際のホールドアウト AUC 0.716（CI 0.697–0.735）の内側にあり、学習データだけの内部検証がホールドアウトの結果をよく予測しています。`calibrate_logistic` の補正後曲線もほぼ対角線上で（平均絶対誤差 0.003）、上の「見かけ vs 検証」の図でホールドアウトの高確率側に見えるずれ（予測 0.85–0.93 で実測 0.80–0.87）は、過学習よりも検証標本の高確率ビンの人数の少なさ（128 人、67 人）による揺れの寄与が大きいと読めます。rms 流の推奨は、データを分けずに全例で当てはめてブートストラップで楽観度を補正することです。ホールドアウトは 30% を学習に使わないぶん、モデルの精度も検証の精度も下がります。ただしここでのブートストラップは変数選択を含まない固定式の再当てはめなので、変数選択をしたなら選択手順ごとブートストラップする必要があります。
+**ブートストラップ内部検証とホールドアウト。** 学習標本 6297 人・22 係数（1 変数あたりのイベント数［events per variable、EPV］は約 130。[Learn 9.4](../learn/09_overfitting.md#sample-size)）では楽観度は小さく、C は見かけ 0.725 から補正後 0.721、較正の傾きは 0.98（予測をわずか 2% 縮めればよい程度）です。補正後の C 0.721 は、実際のホールドアウト AUC 0.716（CI 0.697–0.735）の内側にあり、学習データだけの内部検証がホールドアウトの結果をよく予測しています。`calibrate_logistic` の補正後曲線もほぼ対角線上で（平均絶対誤差 0.003）、上の「見かけ vs 検証」の図でホールドアウトの高確率側に見えるずれ（予測 0.85–0.93 で実測 0.80–0.87）は、過学習よりも検証標本の高確率ビンの人数の少なさ（128 人、67 人）による揺れの寄与が大きいと読めます。rms 流の推奨は、データを分けずに全例で当てはめてブートストラップで楽観度を補正することです。ホールドアウトは 30% を学習に使わないぶん、モデルの精度も検証の精度も下がります。ただしここでのブートストラップは変数選択を含まない固定式の再当てはめなので、変数選択をしたなら選択手順ごとブートストラップする必要があります。
 
 係数の向きは「ARF/MOSF と転移癌・昏睡・生理異常が重い」という記述と矛盾しません。糖尿病の OR が 1 を下回るなどは完全例の予測モデルであり、因果効果ではありません。外部検証ではなく、臨床用スコアでもありません。hbiostat 教学 CSV は **再配布せず fetch only** です。
 

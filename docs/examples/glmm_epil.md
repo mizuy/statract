@@ -73,7 +73,7 @@
 
 ## メインの解析方法とそのコア
 
-解説は Learn の [第 15 章 階層モデル](../learn/hierarchical.md)（GLMM と MOR は [15.3](../learn/hierarchical.md#adjusted)）と、[数学補 A7 負の二項分布](../learn/math/distributions.md#negative-binomial) を参照してください。
+解説は Learn の [第 15 章 階層モデル](../learn/15_hierarchical.md)（GLMM と MOR は [15.3](../learn/15_hierarchical.md#adjusted)）と、[数学補 A7 負の二項分布](../learn/math/A7_distributions.md#negative-binomial) を参照してください。
 
 患者 $i$、受診 $j$ の発作回数 $y_{ij}$。主解析は NB2 GLMM:
 
@@ -85,11 +85,11 @@ $$
 y_{ij}\mid u_i \sim \mathrm{NB}(\mu_{ij},\theta),\quad \mathrm{Var}=\mu+\mu^2/\theta
 $$
 
-$e^{\beta_1}$ が患者内（条件付き）の率比です。対数リンクで変量切片が正規分布に従うので、患者の分布で平均した周辺（集団平均）の率比も同じ値になり、周辺化で変わるのは切片だけです（$\sigma^2/2$ だけずれます）。ロジスティックモデルのオッズ比で起きる非縮約性（[第 15 章 15.3](../learn/hierarchical.md#fixed-effects)）は、ここでは起きません。Poisson 版は $\theta\to\infty$。`ar1` 版は $u_i$ の代わりに受診ごとの効果 $u_{ij}$ を置き、$\mathrm{Cov}(u_{ij},u_{ik})=\sigma^2\rho^{|j-k|}$ とします（glmmTMB の `ar1(period + 0 | subject)`）。ゼロ過剰版は確率 $\pi$（定数、logit）で構造的 0 を足します。
+$e^{\beta_1}$ が患者内（条件付き）の率比です。対数リンクで変量切片が正規分布に従うので、患者の分布で平均した周辺（集団平均）の率比も同じ値になり、周辺化で変わるのは切片だけです（$\sigma^2/2$ だけずれます）。ロジスティックモデルのオッズ比で起きる非縮約性（[第 15 章 15.3](../learn/15_hierarchical.md#fixed-effects)）は、ここでは起きません。Poisson 版は $\theta\to\infty$。`ar1` 版は $u_i$ の代わりに受診ごとの効果 $u_{ij}$ を置き、$\mathrm{Cov}(u_{ij},u_{ik})=\sigma^2\rho^{|j-k|}$ とします（glmmTMB の `ar1(period + 0 | subject)`）。ゼロ過剰版は確率 $\pi$（定数、logit）で構造的 0 を足します。
 
 推定は `fit_mixed(..., family="poisson" / "negative_binomial")` の Laplace 近似（glmmTMB と一致を確認済み、[R との対応](../models/vs-r.md)）。`MixedFit` に AIC は無いので、AIC は `log_likelihood` と自由度（固定効果 4 + 分散 1（ar1 は 2）+ `theta` + ゼロ部分）から計算します。
 
-患者間のばらつきは率比の中央値（median rate ratio、MRR、$\exp(\sqrt{2\sigma^2}\,\Phi^{-1}(0.75))$）で要約します。オッズ比の中央値（median odds ratio、MOR、[第 15 章 15.3](../learn/hierarchical.md#adjusted)）と同じ式なので `median_odds_ratio` をそのまま使います。
+患者間のばらつきは率比の中央値（median rate ratio、MRR、$\exp(\sqrt{2\sigma^2}\,\Phi^{-1}(0.75))$）で要約します。オッズ比の中央値（median odds ratio、MOR、[第 15 章 15.3](../learn/15_hierarchical.md#adjusted)）と同じ式なので `median_odds_ratio` をそのまま使います。
 
 ## 結果
 
@@ -267,7 +267,7 @@ $e^{\beta_1}$ が患者内（条件付き）の率比です。対数リンクで
 
 主解析の NB GLMM では、progabide の率比は **0.73**（95% 信頼区間（confidence interval、CI）0.54–0.98、p = 0.034）でした。同じ患者で比べて、2 週あたりの発作率が約 27% 低い、という条件付きの解釈です。対数リンクなので、集団平均の率比としても同じ値で読めます。Poisson、ar1、ゼロ過剰のどのモデルでも率比は 0.71–0.73 に収まり、変量効果の構造や分布の選び方には左右されませんでした。`log_base2wk` の係数は 1.03 で 1 に近く、追跡中の発作率はベースラインの率にほぼ比例します。
 
-適合度では、Poisson GLMM（患者切片）は NB より AIC が 85.8 大きく、過分散が明らかです（NB の $\theta$ = 7.2）。Poisson でも `ar1` で受診ごとの効果を入れると AIC は NB に近づき（ΔAIC 6.9）、受診間のばらつきが過分散の多くを説明します。NB に `ar1` を足しても対数尤度はほとんど変わらず（+0.2）、$\rho$ = 0.91 なので患者内の相関はほぼ一定、つまり変量切片で足ります。ゼロ過剰 NB は AIC が最小（NB より 5.6 小さい）でしたが、推定される構造的 0 の確率は約 3% と小さく、受診の 0 は 23 回だけです。治療効果も変わらないので、主解析は解釈しやすい NB GLMM にしました。ただし GLMM の AIC の比較は目安にとどめます。分散が 0 の境界にある、または近いモデルや、分散の推定が特異になったモデルでは、パラメータの数え方も、AIC の前提（正則なモデル）も成り立ちにくいからです（[数学補 A8 情報量規準](../learn/math/information-criteria.md)）。
+適合度では、Poisson GLMM（患者切片）は NB より AIC が 85.8 大きく、過分散が明らかです（NB の $\theta$ = 7.2）。Poisson でも `ar1` で受診ごとの効果を入れると AIC は NB に近づき（ΔAIC 6.9）、受診間のばらつきが過分散の多くを説明します。NB に `ar1` を足しても対数尤度はほとんど変わらず（+0.2）、$\rho$ = 0.91 なので患者内の相関はほぼ一定、つまり変量切片で足ります。ゼロ過剰 NB は AIC が最小（NB より 5.6 小さい）でしたが、推定される構造的 0 の確率は約 3% と小さく、受診の 0 は 23 回だけです。治療効果も変わらないので、主解析は解釈しやすい NB GLMM にしました。ただし GLMM の AIC の比較は目安にとどめます。分散が 0 の境界にある、または近いモデルや、分散の推定が特異になったモデルでは、パラメータの数え方も、AIC の前提（正則なモデル）も成り立ちにくいからです（[数学補 A8 情報量規準](../learn/math/A8_information-criteria.md)）。
 
 患者間のばらつきは大きく、同じ共変量の患者 2 人を比べた発作率の比の中央値（MRR）は約 1.58 です。患者効果を入れない Poisson GLM は率比 0.97（p = 0.53）で、GLMM と結論が逆になります。対数リンクなので、この食い違いは非縮約性によるものではありません。この GLM は受診を独立とみなすので標準誤差（standard error、SE）が小さすぎ、さらに発作回数の多い患者の重みが大きくなります。たとえば progabide 群の患者 49（ベースライン 151 回）だけで全発作数の約 15% を占めます。反復計数では患者効果を入れたモデルが必要です。
 

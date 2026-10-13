@@ -1,8 +1,8 @@
 # A8. 情報量規準（AIC、WAIC）
 
-[第 9 章](../overfitting.md)の一つ抜き交差検証（leave-one-out cross-validation、LOOCV）を、モデルを作り直さずに近似する方法です。対数尤度（[第 14 章](../likelihood.md)）とベイズ推論（第 14 章、[A3](conditional-probability.md)）を使います。
+[第 9 章](../09_overfitting.md)の一つ抜き交差検証（leave-one-out cross-validation、LOOCV）を、モデルを作り直さずに近似する方法です。対数尤度（[第 14 章](../14_likelihood.md)）とベイズ推論（第 14 章、[A3](A3_conditional-probability.md)）を使います。
 
-[← 目次](../index.md) · [第 9 章](../overfitting.md) · [第 11 章](../regularization.md) · [第 14 章](../likelihood.md)
+[← 目次](../index.md) · [第 9 章](../09_overfitting.md) · [第 11 章](../11_regularization.md) · [第 14 章](../14_likelihood.md)
 
 ## LOOCV の得点 {#loocv-score}
 
@@ -14,9 +14,9 @@ $$
 
 $P_{(-i)}(y_i)$ は、出血した人なら $p_{(-i)}$、出血しなかった人なら $1 - p_{(-i)}$ です。起きたことに高い確率をつけていれば小さくなります。$-2$ を掛けるのは、逸脱度（deviance）と同じ物差しにそろえるためです。小さいほど、新しい患者でよく当たるモデルです。
 
-LOOCV の得点は、確率の当たりで測った汎化誤差（[第 9 章](../overfitting.md#apparent)）の推定値です。この量を、モデルを $n$ 回作らずに近似するのが**情報量規準**です。どれも、経験誤差（モデルを作成するのに使ったデータでの $-2$ × 対数尤度）に、過学習のぶんの罰を足す形をしています。
+LOOCV の得点は、確率の当たりで測った汎化誤差（[第 9 章](../09_overfitting.md#apparent)）の推定値です。この量を、モデルを $n$ 回作らずに近似するのが**情報量規準**です。どれも、経験誤差（モデルを作成するのに使ったデータでの $-2$ × 対数尤度）に、過学習のぶんの罰を足す形をしています。
 
-- **AIC**（Akaike information criterion、赤池情報量規準）：$\text{AIC} = -2 \log L + 2k$。$\log L$ は全員で作ったモデルの対数尤度、$k$ はパラメータの数です。モデルを作成するのに使ったデータでの当たり（$-2 \log L$）は楽観的なので、パラメータ 1 個あたり 2 だけ罰を足します。例数が多くなると、AIC と LOOCV の得点は漸近的に同じものになります（漸近的に同等） [@Stone1977-lz]。尤度は[第 14 章](../likelihood.md)で扱います。
+- **AIC**（Akaike information criterion、赤池情報量規準）：$\text{AIC} = -2 \log L + 2k$。$\log L$ は全員で作ったモデルの対数尤度、$k$ はパラメータの数です。モデルを作成するのに使ったデータでの当たり（$-2 \log L$）は楽観的なので、パラメータ 1 個あたり 2 だけ罰を足します。例数が多くなると、AIC と LOOCV の得点は漸近的に同じものになります（漸近的に同等） [@Stone1977-lz]。尤度は[第 14 章](../14_likelihood.md)で扱います。
 - **WAIC**（widely applicable information criterion、広く使える情報量規準）：渡辺澄夫 [@Watanabe2010-qk] が示した、ベイズ推論（第 14 章）のための情報量規準です。
 
 WAIC は、パラメータの**事後分布**（データを見たあとの、パラメータのありそうな値の分布）から計算します。事後分布から引いたパラメータを $\theta_1, \dots, \theta_S$ とすると、
@@ -62,4 +62,4 @@ AIC は、日本語では久保 [@Kubo2012-book] の第 4 章がやさしく説�
 ::: {#refs}
 :::
 
-**次へ：**[付録 B 報告ガイドライン](../reporting-guidelines.md)
+**次へ：**[付録 B 報告ガイドライン](../B_reporting-guidelines.md)

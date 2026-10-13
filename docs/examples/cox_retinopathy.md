@@ -81,7 +81,7 @@
 
 ## メインの解析方法とそのコア
 
-解説は Learn の [第 15 章 階層モデル](../learn/hierarchical.md)（[15.3 固定効果はどう変わるか](../learn/hierarchical.md#fixed-effects)：クラスター内の相関と標準誤差）と [第 16 章 16.5 Cox 比例ハザードモデル](../learn/survival.md#cox) を参照してください。
+解説は Learn の [第 15 章 階層モデル](../learn/15_hierarchical.md)（[15.3 固定効果はどう変わるか](../learn/15_hierarchical.md#fixed-effects)：クラスター内の相関と標準誤差）と [第 16 章 16.5 Cox 比例ハザードモデル](../learn/16_survival.md#cox) を参照してください。
 
 Kaplan–Meier 生存関数 $\hat S(t)$（群 = `trt_label`）。2 標本 log-rank（Mantel–Haenszel、$\rho=0$）。Cox:
 
@@ -284,7 +284,7 @@ $$
 
 レーザー治療眼は対照眼より視力喪失ハザードが低い（log-rank 22.25、df=1、p≈2.4×10⁻⁶）。クラスター Cox では **treated 対 control の HR が約 0.46**（頑健分散による 95% 信頼区間（confidence interval、CI）約 0.34–0.62）。病型はほぼ中立、リスクスコアが高いほどハザードが高い。`proportional_hazards_test` の全体 p≈0.41 で、このモデルでは PH の強い破綻は示唆されない。
 
-頑健分散が必要な理由: 両眼は同じ患者の共有フレイルティ（患者ごとの変量効果、[第 15 章](../learn/hierarchical.md)）を持つ。患者内で治療を割付けているため、**治療項の頑健 SE はモデルベースより小さい**（比 ≈ 0.89）。患者単位の病型では比 > 1 になり、独立とみなすと SE を過小評価しうる（[第 15 章 15.3](../learn/hierarchical.md#fixed-effects) の、施設の単位で決まる変数と同じ構図）。これが `cluster(id)` を教えるデータである。
+頑健分散が必要な理由: 両眼は同じ患者の共有フレイルティ（患者ごとの変量効果、[第 15 章](../learn/15_hierarchical.md)）を持つ。患者内で治療を割付けているため、**治療項の頑健 SE はモデルベースより小さい**（比 ≈ 0.89）。患者単位の病型では比 > 1 になり、独立とみなすと SE を過小評価しうる（[第 15 章 15.3](../learn/15_hierarchical.md#fixed-effects) の、施設の単位で決まる変数と同じ構図）。これが `cluster(id)` を教えるデータである。
 
 限界:
 

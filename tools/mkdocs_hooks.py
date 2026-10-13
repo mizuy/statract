@@ -193,3 +193,18 @@ def on_post_page(output: str, *, page, config) -> str:
     src = get_relative_url(_MERMAID, page.url)
     tag = f'<script src="{src}"></script>'
     return output.replace("</head>", f"{tag}\n</head>", 1)
+
+
+# Learn source files carry their chapter number (01_descriptive.md,
+# math/A1_probability.md) so they sort in reading order. Drop the prefix from
+# the built path so page URLs stay /learn/descriptive/.
+_LEARN_PREFIX = re.compile(r"^(?:\d{2}|[A-Z]\d*)_")
+
+
+def on_files(files, *, config):
+    for f in files:
+        if f.src_uri.startswith(_LEARN) and f.src_uri.endswith(".md"):
+            new = "/".join(_LEARN_PREFIX.sub("", p) for p in f.dest_uri.split("/"))
+            if new != f.dest_uri:
+                f.dest_uri = new
+    return files

@@ -6,7 +6,7 @@
 
 [← ギャラリー](index.md) · [実行用ディレクトリと手順（GitHub）](https://github.com/mizuy/statract/tree/main/examples/htest_licorice)
 
-解説は Learn の [第 1 章 記述](../learn/descriptive.md)（割合の信頼区間、Table 1 の P 値）、[第 17 章 診断の指標](../learn/diagnostic-metrics.md)（Clopper–Pearson と McNemar 検定）、[付録 C P 値](../learn/p-value.md)（多重性と書き方）を参照してください。
+解説は Learn の [第 1 章 記述](../learn/01_descriptive.md)（割合の信頼区間、Table 1 の P 値）、[第 17 章 診断の指標](../learn/17_diagnostic-metrics.md)（Clopper–Pearson と McNemar 検定）、[付録 C P 値](../learn/C_p-value.md)（多重性と書き方）を参照してください。
 
 ## 目的概説
 
@@ -27,7 +27,7 @@
 | `treat` / `arm` | 挿管前のうがい。0 = 砂糖水（Sugar）、1 = 甘草（Licorice） |
 | `pain_<時点>` | 安静時の咽頭痛スコア 0–10。時点は麻酔後回復室（post-anesthesia care unit、PACU）での 30 分・90 分、術後 4 時間、術後 1 日（postoperative day 1、POD1）朝 |
 | `sore_<時点>` | 咽頭痛あり（スコア > 0） |
-| `age`, `bmi`, `sex`, `asa`, `mallampati`, `smoking`, `surgery_size` | Table 1 用の背景。`asa` は米国麻酔科学会（American Society of Anesthesiologists、ASA）の全身状態分類で、Learn の [付録 C](../learn/p-value.md#asa) の ASA（米国統計学会）とは別物 |
+| `age`, `bmi`, `sex`, `asa`, `mallampati`, `smoking`, `surgery_size` | Table 1 用の背景。`asa` は米国麻酔科学会（American Society of Anesthesiologists、ASA）の全身状態分類で、Learn の [付録 C](../learn/C_p-value.md#asa) の ASA（米国統計学会）とは別物 |
 
 ## CQ と大まかな解析方針
 
@@ -109,21 +109,21 @@
     gt = tableone(cohort, params, hue="arm", add_all=True, add_smd=True)
     ```
 
-RCT なので背景の群間検定は載せず、SMD だけを示します（[Learn 1.6](../learn/descriptive.md#pvalue)）。試験の報告は CONSORT（Consolidated Standards of Reporting Trials、[付録 B](../learn/reporting-guidelines.md#consort)）に従います。
+RCT なので背景の群間検定は載せず、SMD だけを示します（[Learn 1.6](../learn/01_descriptive.md#pvalue)）。試験の報告は CONSORT（Consolidated Standards of Reporting Trials、[付録 B](../learn/B_reporting-guidelines.md#consort)）に従います。
 
 ## メインの解析方法とそのコア
 
 時点 $t$ の咽頭痛の割合を群 $g$ で $p_{gt}$ とします。
 
-- **群ごとの区間**: 発生数 $x \sim \mathrm{Bin}(n, p)$ の Clopper–Pearson 区間。名目の水準を下回らないよう正確な二項分布を使う区間で、Wilson 法よりやや広めです（[Learn 17.5](../learn/diagnostic-metrics.md#ci)）。下限は $\mathrm{Beta}(\alpha/2;\,x,\,n-x+1)$、上限は $\mathrm{Beta}(1-\alpha/2;\,x+1,\,n-x)$ の分位点（`binom_test`）。
-- **リスク差**: $\hat p_{\mathrm{L}t} - \hat p_{\mathrm{S}t}$ と、連続性補正つきの Wald 区間。検定は 2 × 2 表の $\chi^2$（`prop_test`、R の `prop.test` と同じ）。連続性補正は R の既定に合わせて入れています（[Learn 1.5](../learn/descriptive.md#p-value) は手計算と合わせるため `correct=False`）。
-- **多重性**: 4 時点の P 値を Holm 法で補正（`p_adjust`）。多重性の考え方は [付録 C](../learn/p-value.md#nejm)。
+- **群ごとの区間**: 発生数 $x \sim \mathrm{Bin}(n, p)$ の Clopper–Pearson 区間。名目の水準を下回らないよう正確な二項分布を使う区間で、Wilson 法よりやや広めです（[Learn 17.5](../learn/17_diagnostic-metrics.md#ci)）。下限は $\mathrm{Beta}(\alpha/2;\,x,\,n-x+1)$、上限は $\mathrm{Beta}(1-\alpha/2;\,x+1,\,n-x)$ の分位点（`binom_test`）。
+- **リスク差**: $\hat p_{\mathrm{L}t} - \hat p_{\mathrm{S}t}$ と、連続性補正つきの Wald 区間。検定は 2 × 2 表の $\chi^2$（`prop_test`、R の `prop.test` と同じ）。連続性補正は R の既定に合わせて入れています（[Learn 1.5](../learn/01_descriptive.md#p-value) は手計算と合わせるため `correct=False`）。
+- **多重性**: 4 時点の P 値を Holm 法で補正（`p_adjust`）。多重性の考え方は [付録 C](../learn/C_p-value.md#nejm)。
 - **痛みスコア**: 0–10 の順序尺度なので Wilcoxon 順位和検定（同順位補正と連続性補正つきの正規近似）。7 割前後が 0 点のため、Hodges–Lehmann のずれは 0 に潰れます（R でも同じ）。効果の大きさは Welch の平均差で示します。
-- **群内の時点比較**: 同じ患者の 2 時点なので、有無は McNemar 検定（食い違った人だけを使う。[Learn 17.6](../learn/diagnostic-metrics.md#compare)）、スコアは対応のある Wilcoxon 符号付き順位検定。
+- **群内の時点比較**: 同じ患者の 2 時点なので、有無は McNemar 検定（食い違った人だけを使う。[Learn 17.6](../learn/17_diagnostic-metrics.md#compare)）、スコアは対応のある Wilcoxon 符号付き順位検定。
 
 ## 結果
 
-n=233（Sugar 116、Licorice 117）。サイト掲載は `assets/htest_licorice/`。表の数値は `task htest_licorice:all` の成果物と同一です。表の P 値は成果物の桁のまま載せ、本文では [付録 C](../learn/p-value.md#compare) に合わせて 0.001 より小さい値を P<0.001 と書きます。
+n=233（Sugar 116、Licorice 117）。サイト掲載は `assets/htest_licorice/`。表の数値は `task htest_licorice:all` の成果物と同一です。表の P 値は成果物の桁のまま載せ、本文では [付録 C](../learn/C_p-value.md#compare) に合わせて 0.001 より小さい値を P<0.001 と書きます。
 
 ### 発生割合（群ごと、Clopper–Pearson 95% CI）
 

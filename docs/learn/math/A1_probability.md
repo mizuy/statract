@@ -2,7 +2,7 @@
 
 本文で使う確率の考え方を、確率空間、確率変数、確率分布の順にまとめます。
 
-[← 目次](../index.md) · [第 2 章](../independent-risk-factor.md)
+[← 目次](../index.md) · [第 2 章](../02_independent-risk-factor.md)
 
 ## 確率空間 {#probability-space}
 
@@ -59,7 +59,7 @@ $$
 P(a \le X \le b) = \int_a^b f(x)\, dx
 $$
 
-いろいろな分布は [A7](distributions.md)、確率変数の平均（期待値）とばらつき（分散）は [A4](expectation-variance.md) で扱います。
+いろいろな分布は [A7](A7_distributions.md)、確率変数の平均（期待値）とばらつき（分散）は [A4](A4_expectation-variance.md) で扱います。
 
 ## 文献 {#references}
 
@@ -68,4 +68,4 @@ $$
 ::: {#refs}
 :::
 
-**次へ：**[数学補 A2 オッズと対数](odds-log.md)
+**次へ：**[数学補 A2 オッズと対数](A2_odds-log.md)
