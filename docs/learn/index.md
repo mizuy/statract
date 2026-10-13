@@ -87,7 +87,7 @@
 
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
-| 16. [生存時間解析](survival.md) | 打ち切り、Kaplan–Meier 法、ハザードと人年法、Poisson 回帰、Cox 比例ハザードモデル、セミパラメトリックの意味と部分尤度、加速故障時間（AFT）モデル、モデルの比較と使い分け | 累積出血割合、区間ごとのハザード、リスク集合の模式図 | `plot_survival`、`cox_ph`、`proportional_hazards_test`、`fit_glm`（poisson）、`accelerated_failure` |
+| 16. [生存時間解析](survival.md) | 打ち切り、Kaplan–Meier 法、ハザードと人年法、Poisson 回帰、Cox 比例ハザードモデル、セミパラメトリックの意味と部分尤度、加速故障時間（AFT）モデル、モデルの比較と使い分け、競合リスク（CIF、Fine–Gray） | 累積出血割合、区間ごとのハザード、リスク集合の模式図 | `plot_survival`、`cox_ph`、`proportional_hazards_test`、`fit_glm`（poisson）、`accelerated_failure`、`cumulative_incidence`、`fine_gray_regression` |
 | 17. [診断の指標](diagnostic-metrics.md) | 2×2 表、感度と特異度、陽性・陰性的中率と有病割合、尤度比と検査後確率、ROC と Youden 指数、信頼区間、同じ患者での二つの検査の比較、スペクトラムバイアスと検証バイアス、STARD | 有病割合と的中率、ROC 曲線、研究デザインごとの ROC | `threshold_tradeoff`、`roc_curve`、`roc_test`、`mcnemar_test`、`proportion_ci` |
 
 ### 数学補
@@ -130,6 +130,7 @@
 | AUC | area under the curve | 曲線下面積（ROC 曲線の下の面積） |
 | CART | classification and regression trees | 分類回帰木 |
 | CI | confidence interval | 信頼区間 |
+| CIF | cumulative incidence function | 累積発生関数 |
 | ctree | conditional inference tree | 条件付き推測木 |
 | CONSORT | Consolidated Standards of Reporting Trials | ランダム化比較試験の報告指針 |
 | CV | cross-validation | 交差検証 |
@@ -165,6 +166,7 @@
 | RR | risk ratio | リスク比 |
 | SD | standard deviation | 標準偏差 |
 | SE | standard error | 標準誤差 |
+| SHR | subdistribution hazard ratio | 部分分布ハザード比 |
 | SMD | standardized mean difference | 標準化差 |
 | SPIRIT | Standard Protocol Items: Recommendations for Interventional Trials | 試験計画書の報告指針 |
 | STARD | Standards for Reporting of Diagnostic Accuracy Studies | 診断精度研究の報告指針 |
