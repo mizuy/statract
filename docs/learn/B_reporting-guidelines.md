@@ -19,7 +19,7 @@
 | 診断精度の研究 | STARD 2015 | [第 17 章](17_diagnostic-metrics.md) |
 | 系統的レビューとメタ解析 | PRISMA 2020 | — |
 
-一つの研究に二つ以上が当てはまることもあります。たとえば、電子カルテのデータで治療効果を推定する研究なら、STROBE と RECORD、標的試験の形で設計したなら TARGET も見ます。
+一つの研究に二つ以上が当てはまることもあります。たとえば、電子カルテのデータで治療効果を推定する研究なら、STROBE と RECORD を見ます。標的試験の形で設計したなら、TARGET も見ます。
 
 ## B.2 ランダム化比較試験：CONSORT と SPIRIT {#consort}
 
@@ -35,7 +35,7 @@
 
 ## B.4 標的試験の模倣：TARGET {#target}
 
-**TARGET**（TrAnsparent ReportinG of observational studies Emulating a Target trial）は、観察データで「もし試験をしたら」を模倣する研究（標的試験の模倣、target trial emulation）の報告指針です。2025 年に発表されました [@Cashin2025-mp]。模倣したい試験の計画（対象、治療の定義、追跡の開始、アウトカム、推定したい量）を先に書き、観察データでそれをどう再現したかを書きます。第 7 章の一致性で見たように、「何を治療とするか」を先に決めることは、因果を推定する研究の土台です。
+**TARGET**（TrAnsparent ReportinG of observational studies Emulating a Target trial）は、観察データで「もし試験をしたら」を模倣する研究（標的試験の模倣、target trial emulation）の報告指針です。2025 年に発表されました [@Cashin2025-mp]。模倣したい試験の計画（対象、治療の定義、追跡の開始、アウトカム、推定したい量）をまず示し、観察データでそれをどう再現したかを書きます。第 7 章の一致性で見たように、「何を治療とするか」を先に決めることは、因果を推定する研究の土台です。
 
 ## B.5 予測モデル：TRIPOD+AI {#tripod}
 
