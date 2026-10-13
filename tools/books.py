@@ -49,8 +49,10 @@ NDL_URL = "https://ndlsearch.ndl.go.jp/api/opensearch?isbn={isbn}"
 OPENBD_URL = "https://api.openbd.jp/v1/get?isbn={isbn}"
 OPENLIBRARY_URL = "https://openlibrary.org/api/books?bibkeys=ISBN:{isbn}&format=json&jscmd=data"
 USER_AGENT = "statract-books/1 (+https://github.com/mizuy/statract)"
-# NDL answers 429 to bursts. One request at a time, with a pause.
-PAUSE = 2.0
+# NDL asks for no concurrent access (https://ndlsearch.ndl.go.jp/help/api).
+# Requests go one at a time, each PAUSE seconds after the last answer.
+PAUSE = 5.0
+_last_answer = 0.0
 
 FIELDS = (
     "title", "author", "translator", "edition", "series", "number",
@@ -99,8 +101,13 @@ def entry_isbns(entry: dict) -> list[tuple[str | None, str]]:
 # ---------------------------------------------------------------- sources
 
 def _get(url: str) -> bytes:
+    global _last_answer
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     for attempt in range(6):
+        # Wait PAUSE after the previous answer; longer after each failure.
+        wait = PAUSE * 2 ** attempt - (time.monotonic() - _last_answer)
+        if wait > 0:
+            time.sleep(wait)
         try:
             with urllib.request.urlopen(req, timeout=60) as r:
                 body = r.read()
@@ -110,10 +117,11 @@ def _get(url: str) -> bytes:
             body = b"<error><code>%d</code></error>" % e.code
         except (TimeoutError, urllib.error.URLError, ConnectionError):
             body = b"<error>timeout</error>"
+        finally:
+            _last_answer = time.monotonic()
         # NDL reports overload in the body with status 200.
         if not body.lstrip().startswith(b"<error>"):
             return body
-        time.sleep(PAUSE * 2 ** attempt)
     raise RuntimeError(f"giving up on {url}")
 
 
@@ -188,7 +196,6 @@ def fetch_isbn(isbn: str) -> dict:
     records = parse_ndl(_get(NDL_URL.format(isbn=isbn)))
     source = "ndl"
     if not records:
-        time.sleep(PAUSE)
         if isbn.startswith("9784"):
             source, url, parse = "openbd", OPENBD_URL, parse_openbd
         else:
@@ -406,9 +413,7 @@ def _fetch(isbns: list[str], lock: dict, refresh: bool) -> bool:
     """Fetch and save after each ISBN, so a later failure keeps the rest."""
     todo = [i for i in dict.fromkeys(isbns) if refresh or i not in lock]
     ok = True
-    for n, isbn in enumerate(todo):
-        if n:
-            time.sleep(PAUSE)
+    for isbn in todo:
         try:
             lock[isbn] = fetch_isbn(isbn)
         except Exception as e:  # noqa: BLE001 - report and go on

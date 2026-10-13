@@ -157,3 +157,39 @@ def test_repo_books_are_consistent():
     """The committed books.yaml, lock and bib agree (same as task books:check)."""
     problems = bk.check(bk.load_books(), bk.load_lock(), bk.BIB.read_text(encoding="utf-8"))
     assert problems == []
+
+
+def test_requests_wait_after_each_answer(monkeypatch):
+    """NDL: no concurrent access; next request PAUSE s after the last answer."""
+    clock = [1000.0]
+    calls = []
+
+    class Resp:
+        def __init__(self, body):
+            self.body = body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return self.body
+
+    answers = [b"<error><code>429</code></error>", b"<rss/>", b"<rss/>"]
+
+    def urlopen(req, timeout):
+        calls.append(clock[0])
+        clock[0] += 1.0  # the server takes 1 s to answer
+        return Resp(answers.pop(0))
+
+    monkeypatch.setattr(bk.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(bk.time, "sleep", lambda s: clock.__setitem__(0, clock[0] + s))
+    monkeypatch.setattr(bk.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(bk, "_last_answer", 0.0)
+    bk._get("https://example.org/a")  # 429, then retry
+    bk._get("https://example.org/b")
+    gaps = [b - a for a, b in zip(calls, calls[1:])]
+    # 1 s answer + 10 s back-off after the 429; 1 s answer + 5 s pause after.
+    assert gaps == [11.0, 6.0]
