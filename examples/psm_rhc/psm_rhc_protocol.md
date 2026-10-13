@@ -10,7 +10,7 @@
 
 ## 2. 対象コホート
 
-Vanderbilt hbiostat の RHC CSV（`https://hbiostat.org/data/repo/rhc.csv`）。Connors JAMA 1996 系の教学セット。単位は入院/患者 1 行。**リポジトリに CSV を置かない。再配布しない。**
+Vanderbilt hbiostat の RHC CSV（`https://hbiostat.org/data/repo/rhc.csv`）。Connors JAMA 1996 系の教学セット。単位は入院/患者 1 行。**利用条件が未確認のため、リポジトリに CSV を置かず再配布しない。**
 
 ## 3. Inclusion criteria
 

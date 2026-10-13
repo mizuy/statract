@@ -139,7 +139,7 @@
 
     初日 RHC と 30 日死亡（ATT）
 
-    **データ** — Vanderbilt RHC（Connors JAMA 1996）。教学・非再配布  
+    **データ** — Vanderbilt RHC（Connors JAMA 1996）。利用条件未確認・非再配布  
     **API** — `match_sample`, `balance` / `love_plot`, マッチ後 `fit_glm`, `plot_forest`
 
     [ドキュメント →](psm_rhc.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/psm_rhc)
