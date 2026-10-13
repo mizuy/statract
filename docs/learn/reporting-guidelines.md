@@ -75,4 +75,4 @@
 - 試験は CONSORT、観察研究は STROBE（診療データなら RECORD、標的試験の模倣なら TARGET）、予測モデルは TRIPOD+AI、診断精度は STARD、系統的レビューは PRISMA です。
 - 論文を読むときも、項目が書かれているかで研究の確からしさを判断できます。
 
-**最後のページです。**[目次に戻る](index.md)
+**次へ：**[付録 C P 値の書き方](p-value-format.md)

@@ -108,6 +108,7 @@
 | 項 | 内容 |
 |----|------|
 | B. [報告ガイドライン](reporting-guidelines.md) | CONSORT、SPIRIT、STROBE、RECORD、TARGET、TRIPOD+AI、STARD、PRISMA と日本語訳 |
+| C. [P 値の書き方](p-value-format.md) | NEJM、JAMA、Lancet、BMJ の書き方（大文字か小文字か、斜体、0 の有無、桁数）と共通の注意 |
 
 ## 文献 {#references}
 
