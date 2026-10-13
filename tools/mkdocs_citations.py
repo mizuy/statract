@@ -12,6 +12,10 @@ entries the docs cite, copied from Paperpile by bibliome::
     cd ~/lab/tools/bibliome
     task bib PAPER_DIR=~/lab/statract
 
+Books are not in Paperpile. They live in ``books.yaml``, checked against the
+National Diet Library by ``tools/books.py``, which writes
+``manual_entries.bib``; bibliome merges that file in.
+
 The reference list goes where the page has a ``::: {#refs}`` / ``:::`` pair,
 or at the end of the page. Works listed but not cited in the text go in the
 page front matter as ``nocite: "[@key1; @key2]"``.
