@@ -7,6 +7,7 @@ leaves flowcharts as source text on GitHub Pages. A synchronous script in
 """
 
 import os
+import re
 from pathlib import Path
 
 from mkdocs.utils import get_relative_url
@@ -151,7 +152,42 @@ def on_post_build(config) -> None:
         page.write_text(_redirect_html(href), encoding="utf-8")
 
 
+# The Learn pages are Japanese; the rest of the site is English. Search engines
+# read the language from <html lang> and the snippet from the meta description,
+# which otherwise is the English site_description on every page.
+_LEARN = "learn/"
+_DESCRIPTION_CHARS = 120
+
+
+def _first_paragraph(markdown: str) -> str:
+    """Plain text of the first prose paragraph after the title."""
+    body = re.sub(r"\A---\n.*?\n---\n", "", markdown, flags=re.DOTALL)
+    for block in re.split(r"\n\s*\n", body):
+        block = block.strip()
+        if not block or block[0] in "#[!|<:`-*=>" or block.startswith(("    ", "$$")):
+            continue
+        text = re.sub(r"\s*\[@[^\]]*\]", "", block)  # citations
+        text = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", text)  # links
+        text = re.sub(r"\$([^$]*)\$", r"\1", text)  # inline math
+        text = re.sub(r"[*_`]", "", text)
+        text = " ".join(text.split())
+        if len(text) > _DESCRIPTION_CHARS:
+            text = text[: _DESCRIPTION_CHARS - 1] + "…"
+        return text
+    return ""
+
+
+def on_page_markdown(markdown: str, *, page, config, files) -> str:
+    if page.file.src_uri.startswith(_LEARN) and not page.meta.get("description"):
+        description = _first_paragraph(markdown)
+        if description:
+            page.meta["description"] = description
+    return markdown
+
+
 def on_post_page(output: str, *, page, config) -> str:
+    if page.file.src_uri.startswith(_LEARN):
+        output = output.replace('<html lang="en"', '<html lang="ja"', 1)
     if 'class="mermaid"' not in output:
         return output
     src = get_relative_url(_MERMAID, page.url)
