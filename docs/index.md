@@ -30,13 +30,13 @@ flowchart LR
 
 ## 動作環境と依存ライブラリ
 
-**Python 3.13 以上**が必要です。
+**Python 3.13 以上**が必要です。PyPI には公開していないので、GitHub から入れます。
 
 ```bash
-pip install statract
+pip install "git+https://github.com/mizuy/statract"
 ```
 
-`pip install statract` で次が入ります。
+これで次が入ります。
 
 | ライブラリ | 用途 |
 |------------|------|
@@ -59,7 +59,7 @@ pip install statract
 | `statract[gpboost]` | gpboost、pandas | 実験的な `glmm_gpboost` |
 
 ```bash
-pip install "statract[r]"
+pip install "statract[r] @ git+https://github.com/mizuy/statract"
 ```
 
 pandas、statsmodels、lifelines、R は既定では使いません。`import statract` だけでは R も rpy2 も読み込みません。
