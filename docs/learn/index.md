@@ -21,9 +21,9 @@
 
 臨床家がまず区別できるようにしたいのは、取り違えやすい因果と予測です。本書の中心もこの二つです。統計モデリングは問いの種類ではなく、どの問いにも使う共通の言葉です。本書ではロジスティック回帰と確率モデルを通して、三つをつなげます（第 IV 部）。
 
-## 通しの例
+## 題材となる教材
 
-全章で同じ例を使います。**大腸内視鏡治療後の遅発性出血**と**予防的クリップ閉鎖**です。同じデータに、次の違う問いを繰り返し投げます。
+**大腸内視鏡治療後の遅発性出血**と**予防的クリップ閉鎖**の関係についての教材をもとに、下記の問いをくりかえし検討していきます。
 
 | 問い | 種類 | 扱う部 |
 |------|------|--------|
@@ -34,14 +34,12 @@
 | いつ出血するか | アウトカムが時間（記述、予測、因果のどれにも） | 第 V 部 |
 | 検査が陽性ならどのくらい確かか | 記述（検査の性能）と予測 | 第 V 部 |
 
-データは**シミュレーション**です。どの変数がどれに影響するかを表す有向非巡回グラフ（directed acyclic graph、DAG）をコードに書いて作っているので、各章で「推定した値」と「本当の値」を比べられます。データの中身は [第 1 章](descriptive.md)、作り方は [第 2 章](independent-risk-factor.md#simulation) と [`examples/theory_bleeding`](https://github.com/mizuy/statract/tree/main/examples/theory_bleeding) にあります。
+データは確率モデルで定義し、生成しています。そのため、各章で「推定した値」と「本当の値」を比べられます。データの中身は [第 1 章](descriptive.md)、作り方は [第 2 章](independent-risk-factor.md#simulation) と [`examples/theory_bleeding`](https://github.com/mizuy/statract/tree/main/examples/theory_bleeding) にあります。
 
 ## 読み方
 
-- 本文であつかう数学のうち高校数学を超える部分は [数学補](math/probability.md) にまとめ、一段ずつ説明します。
-- 本文では式の導出より、「その式が何を意味するか」「何をしているか」を重視します。
+- 本文では数式よりも「その式が何を意味するか」を紹介していきます。[数学補](math/probability.md) に補足説明をまとめていきます。
 - 図は statract で描き、コードを添えます。
-- 第 2 章以降の各章と数学補の多くのページに、スライダーやクリックで動かせる図があります。
 - 「発展」と書いた章（第 6、7、11、12 章）は、初めて読むときは飛ばしてかまいません。
 
 ## 目次
@@ -59,7 +57,7 @@
 
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
-| 3. [因果推論の考え方](causal-basics.md) | Rubin の反事実モデル、交換可能性、DAG とバックドア基準、文献 | 群ごとの潜在アウトカム、DAG | `prop_test` |
+| 3. [因果推論の考え方](causal-basics.md) | Rubin の反事実モデル、交換可能性、有向非巡回グラフ（directed acyclic graph、DAG）とバックドア基準、文献 | 群ごとの潜在アウトカム、DAG | `prop_test` |
 | 4. [背景を調整する方法](adjustment-methods.md) | 限定、層別化、回帰と標準化、マッチング、重み付けの比較 | 方法ごとの推定値と本当の値 | `fit_glm`、`standardize_glm`、`match_sample`、`propensity_weights` |
 | 5. [傾向スコアマッチング](propensity-score-matching.md) | バランシングスコア、傾向スコア、重なり、キャリパー、バランスの確認 | 傾向スコアの分布、Love plot、マッチ前後の Table 1 | `match_sample`、`plot_love`、`write_tableone_artifacts` |
 | 6. [IPTW](iptw.md)（発展） | 重みで仮の集団を作る、g-formula と同じ量になる理由、安定化、極端な重み、推定する対象 | 重みの分布、重み付きの Love plot、重みごとの推定値 | `propensity_weights`、`plot_love` |
