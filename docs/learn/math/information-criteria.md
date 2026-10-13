@@ -2,7 +2,7 @@
 
 [第 9 章](../overfitting.md)の一つ抜き交差検証（leave-one-out cross-validation、LOOCV）を、モデルを作り直さずに近似する方法です。対数尤度（[第 14 章](../likelihood.md)）とベイズ推論（第 14 章、[A3](conditional-probability.md)）を使います。
 
-[← 目次](../index.md) · [第 9 章](../overfitting.md) · [第 14 章](../likelihood.md)
+[← 目次](../index.md) · [第 9 章](../overfitting.md) · [第 11 章](../regularization.md) · [第 14 章](../likelihood.md)
 
 ## LOOCV の得点 {#loocv-score}
 

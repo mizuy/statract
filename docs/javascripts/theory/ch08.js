@@ -222,7 +222,7 @@
       run();
     }
 
-    const svg = newSvg(root, 660, 330, "変数の数と、作ったデータと新しい患者での成績");
+    const svg = newSvg(root, 660, 330, "変数の数と、モデル作成に使ったデータと新しい患者での成績");
     const A = panel(svg, {
       left: 50,
       top: 26,
@@ -251,7 +251,7 @@
       ylab: "較正の傾き（新しい患者）",
       ylabOffset: 34,
     });
-    legend(svg, 52, 312, [{ label: "作ったデータ（見かけ）", attrs: { stroke: COLOR.gray, "stroke-width": 2.2 } }]);
+    legend(svg, 52, 312, [{ label: "モデル作成に使ったデータ（見かけ）", attrs: { stroke: COLOR.gray, "stroke-width": 2.2 } }]);
     legend(svg, 230, 312, [{ label: "新しい患者 5 万人", attrs: { stroke: COLOR.blue, "stroke-width": 2.2 } }]);
     legend(svg, 400, 312, [{ label: `本当のモデル（${best.toFixed(2)}）`, attrs: { stroke: COLOR.red, "stroke-width": 1.5, "stroke-dasharray": "2 3" } }]);
     const table = readout(root);
@@ -293,9 +293,9 @@
       const p = 7 + k;
       const wait = "計算中";
       table([
-        ["作ったデータ", `${dev.n} 人（出血 ${dev.events} 人）`],
+        ["モデル作成に使ったデータ", `${dev.n} 人（出血 ${dev.events} 人）`],
         ["係数の数", `${p}（七つの変数 + 検査値 ${k} 個）、1 係数あたりの出血数 ${(dev.events / p).toFixed(1)}`],
-        ["C 統計量（作ったデータ）", r ? r.apparent.toFixed(2) : wait],
+        ["C 統計量（モデル作成に使ったデータ）", r ? r.apparent.toFixed(2) : wait],
         ["C 統計量（新しい患者）", r ? `${r.fresh.toFixed(2)}（本当のモデルでは ${best.toFixed(2)}）` : wait],
         ["較正の傾き（新しい患者）", r ? r.slope.toFixed(2) : wait],
       ]);

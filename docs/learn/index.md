@@ -41,7 +41,7 @@
 - 本文であつかう数学のうち高校数学を超える部分は [数学補](math/probability.md) にまとめ、一段ずつ説明します。
 - 本文では式の導出より、「その式が何を意味するか」「何をしているか」を重視します。
 - 図は statract で描き、コードを添えます。
-- 各章と数学補に、スライダーやクリックで動かせる図があります。
+- 第 2 章以降の各章と数学補の多くのページに、スライダーやクリックで動かせる図があります。
 - 「発展」と書いた章（第 6、7、11、12 章）は、初めて読むときは飛ばしてかまいません。
 
 ## 目次
@@ -60,7 +60,7 @@
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
 | 3. [因果推論の考え方](causal-basics.md) | Rubin の反事実モデル、交換可能性、DAG とバックドア基準、文献 | 群ごとの潜在アウトカム、DAG | `prop_test` |
-| 4. [背景を調整する方法](adjustment-methods.md) | 限定、層別化、回帰と標準化、マッチング、重み付けの比較 | 方法ごとの推定値と本当の値 | `fit_glm`、`hc_covariance`、`standardize_glm`、`match_sample`、`propensity_weights` |
+| 4. [背景を調整する方法](adjustment-methods.md) | 限定、層別化、回帰と標準化、マッチング、重み付けの比較 | 方法ごとの推定値と本当の値 | `fit_glm`、`standardize_glm`、`match_sample`、`propensity_weights` |
 | 5. [傾向スコアマッチング](propensity-score-matching.md) | バランシングスコア、傾向スコア、重なり、キャリパー、バランスの確認 | 傾向スコアの分布、Love plot、マッチ前後の Table 1 | `match_sample`、`plot_love`、`write_tableone_artifacts` |
 | 6. [IPTW](iptw.md)（発展） | 重みで仮の集団を作る、g-formula と同じ量になる理由、安定化、極端な重み、推定する対象 | 重みの分布、重み付きの Love plot、重みごとの推定値 | `propensity_weights`、`plot_love` |
 | 7. [仮定と感度分析](assumptions-sensitivity.md)（発展） | 正値性、未測定交絡、E-value、一致性、Bradford Hill の視点 | 未測定交絡の影響、E-value の図 | `standardize_glm` |
@@ -88,7 +88,7 @@
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
 | 16. [生存時間解析](survival.md) | 打ち切り、Kaplan–Meier 法、ハザードと人年法、Poisson 回帰、Cox 比例ハザードモデル、セミパラメトリックの意味と部分尤度、加速故障時間（AFT）モデル、モデルの比較と使い分け | 累積出血割合、区間ごとのハザード、リスク集合の模式図 | `plot_survival`、`cox_ph`、`proportional_hazards_test`、`fit_glm`（poisson）、`accelerated_failure` |
-| 17. [診断の指標](diagnostic-metrics.md) | 2×2 表、感度と特異度、陽性・陰性的中率と有病割合、尤度比と検査後確率、ROC と Youden 指数、信頼区間、同じ患者での二つの検査の比較、スペクトラムバイアスと検証バイアス、STARD | 有病割合と的中率、ROC 曲線、研究デザインごとの ROC | `binary_perf`、`roc_curve`、`roc_test`、`mcnemar_test`、`proportion_ci` |
+| 17. [診断の指標](diagnostic-metrics.md) | 2×2 表、感度と特異度、陽性・陰性的中率と有病割合、尤度比と検査後確率、ROC と Youden 指数、信頼区間、同じ患者での二つの検査の比較、スペクトラムバイアスと検証バイアス、STARD | 有病割合と的中率、ROC 曲線、研究デザインごとの ROC | `threshold_tradeoff`、`roc_curve`、`roc_test`、`mcnemar_test`、`proportion_ci` |
 
 ### 数学補
 
@@ -130,6 +130,7 @@
 | AUC | area under the curve | 曲線下面積（ROC 曲線の下の面積） |
 | CART | classification and regression trees | 分類回帰木 |
 | CI | confidence interval | 信頼区間 |
+| ctree | conditional inference tree | 条件付き推測木 |
 | CONSORT | Consolidated Standards of Reporting Trials | ランダム化比較試験の報告指針 |
 | CV | cross-validation | 交差検証 |
 | DAG | directed acyclic graph | 有向非巡回グラフ |
@@ -143,6 +144,7 @@
 | HR | hazard ratio | ハザード比 |
 | ICC | intraclass correlation coefficient | 級内相関係数 |
 | IPTW | inverse probability of treatment weighting | 治療の逆確率による重み付け |
+| IPW | inverse probability weighting | 逆確率重み付け |
 | IRLS | iteratively reweighted least squares | 反復重み付き最小 2 乗法 |
 | LASSO | least absolute shrinkage and selection operator | 係数の絶対値の和に罰をつける正則化 |
 | LOOCV | leave-one-out cross-validation | 一つ抜き交差検証 |
