@@ -1,13 +1,13 @@
 <div id="tableone-table1" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>
-#tableone-table1 table {
+ #tableone-table1 table {
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
           -webkit-font-smoothing: antialiased;
           -moz-osx-font-smoothing: grayscale;
         }
-#tableone-table1 thead, #tableone-table1 tbody, #tableone-table1 tfoot, #tableone-table1 tr, #tableone-table1 td, #tableone-table1 th { border-style: none; }
-#tableone-table1 tr { background-color: transparent; }
-#tableone-table1 p { margin: 0; padding: 0; }
+ #tableone-table1 thead, #tableone-table1 tbody, #tableone-table1 tfoot, #tableone-table1 tr, #tableone-table1 td, #tableone-table1 th { border-style: none; }
+ #tableone-table1 tr { background-color: transparent; }
+ #tableone-table1 p { margin: 0; padding: 0; }
  #tableone-table1 .gt_table { display: table; border-collapse: collapse; line-height: normal; margin-left: auto; margin-right: auto; color: #333333; font-size: 12px; font-weight: normal; font-style: normal; background-color: #FFFFFF; width: 920px; border-top-style: solid; border-top-width: 2px; border-top-color: #A8A8A8; border-right-style: none; border-right-width: 2px; border-right-color: #D3D3D3; border-bottom-style: solid; border-bottom-width: 2px; border-bottom-color: #A8A8A8; border-left-style: none; border-left-width: 2px; border-left-color: #D3D3D3; }
  #tableone-table1 .gt_caption { padding-top: 4px; padding-bottom: 4px; }
  #tableone-table1 .gt_title { color: #333333; font-size: 125%; font-weight: initial; padding-top: 4px; padding-bottom: 4px; padding-left: 5px; padding-right: 5px; border-bottom-color: #FFFFFF; border-bottom-width: 0; }

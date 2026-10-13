@@ -496,6 +496,8 @@ class TestTableOneGreatTables:
         text = texts[0]
         assert '<div id="tableone-t1"' in text
         assert "\n\n" not in text
+        # A line starting with "#" would become a Markdown heading inside a content tab.
+        assert not any(line.startswith("#") for line in text.splitlines())
         style = re.search(r"<style>(.*)</style>", text, flags=re.S).group(1)
         for selector in re.findall(r"([^{}]+)\{", style):
             for part in selector.split(","):
