@@ -11,7 +11,7 @@ Polars の表を渡して、結果の表と図を受け取る。ベースライ�
 
 ## インストール
 
-Python 3.13 以上が必要です。PyPI にはまだ公開していないので、GitHub から入れます。
+Python 3.13 以上が必要です。PyPI には公開していないので、GitHub から入れます。
 
 ```bash
 pip install "git+https://github.com/mizuy/statract"
