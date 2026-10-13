@@ -4,7 +4,7 @@
 
 ## CQ への答え
 
-死亡アウトカム、n=2982。log-rank はホルモン療法群で差がある（統計量 23.7、p≈1.1×10⁻⁶）。調整 Cox の `hormon` HR は約 0.95（95% CI 約 0.80–1.13）で 1 と区別しにくい。節数・腫瘍径・グレード・年齢は HR>1。`proportional_hazards_test` の全体 p≈3.8×10⁻⁴（主に `age`）。Weibull AFT は収束しなかった。収束した lognormal AFT を併記する。観察コホートの教学 reproductions であり、治療適応の更新を主張しない。
+死亡アウトカム、n=2982。log-rank はホルモン療法群で差がある（統計量 23.7、p≈1.1×10⁻⁶）。調整 Cox の `hormon` HR は約 0.95（95% CI 約 0.80–1.13）で 1 と区別しにくい。節数・腫瘍径・グレード・年齢は HR>1。`proportional_hazards_test` の全体 p≈3.8×10⁻⁴（主に `age`）。Weibull AFT の `hormon` の時間比は約 1.01（95% CI 約 0.89–1.15）で、こちらも 1 と区別しにくい。lognormal AFT を併記する。観察コホートの教学 reproductions であり、治療適応の更新を主張しない。
 
 ## 当たり外れ
 

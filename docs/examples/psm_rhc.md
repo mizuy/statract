@@ -36,7 +36,7 @@
 方針:
 
 1. 完全例コホートを確定（除外なしのため flowchart 省略）
-2. 未マッチ Table 1 → `match_sample`（nearest / logit / ATT / キャリパー 0.2、確率尺度）
+2. 未マッチ Table 1 → `match_sample`（nearest / logit / ATT / キャリパー 0.2、ロジット尺度）
 3. `balance` / `love_plot` とマッチ後 Table 1
 4. マッチ標本で `dth30_bin ~ rhc` の二項一般化線形モデル（generalized linear model、GLM）で OR を推定し、`plot_forest(..., layout="table")` で描く
 
@@ -91,7 +91,7 @@
 
 ## メインの解析方法とそのコア
 
-傾向スコア $e(x)=P(\mathrm{rhc}=1\mid x)$ をロジスティック回帰で推定し、最近傍 1:1・非復元で ATT を推定します（組を作る順はデータの並び順、`order="data"`）。キャリパーは傾向スコア（確率尺度）の標準偏差の 0.2 倍です（MatchIt の既定と同じ）。[Learn 5.5](../learn/propensity-score-matching.md#matching) が勧めるロジット尺度とは違います。Love plot はマッチ前後の標準化差（standardized mean difference、SMD）です（[Learn 5.6](../learn/propensity-score-matching.md#balance)）。アウトカムモデル:
+傾向スコア $e(x)=P(\mathrm{rhc}=1\mid x)$ をロジスティック回帰で推定し、最近傍 1:1・非復元で ATT を推定します（組を作る順はデータの並び順、`order="data"`）。距離とキャリパーは傾向スコアのロジット尺度で測り（`link="linear.logit"`）、キャリパーはロジットの標準偏差の 0.2 倍です（[Learn 5.5](../learn/propensity-score-matching.md#matching) が勧める尺度）。Love plot はマッチ前後の標準化差（standardized mean difference、SMD）です（[Learn 5.6](../learn/propensity-score-matching.md#balance)）。アウトカムモデル:
 
 $$
 \operatorname{logit}P(\mathrm{dth30}=1)=\beta_0+\beta_1\mathrm{rhc}
@@ -102,7 +102,7 @@ $$
 
 ## 結果
 
-完全例 5735 人（RHC あり 2184 人）、マッチ後（weights>0）3350 人（RHC あり 1675 人）。RHC あり 509 人（約 23%）はキャリパーで外れたので、推定値は「組ができた RHC あり患者」での効果です（[Learn 5.5 の注意](../learn/propensity-score-matching.md#matching)）。サイト掲載は `assets/psm_rhc/`。
+完全例 5735 人（RHC あり 2184 人）、マッチ後（weights>0）3374 人（RHC あり 1687 人）。RHC あり 497 人（約 23%）はキャリパーで外れたので、推定値は「組ができた RHC あり患者」での効果です（[Learn 5.5 の注意](../learn/propensity-score-matching.md#matching)）。サイト掲載は `assets/psm_rhc/`。
 
 ### Love plot（マッチ前後の SMD）
 
@@ -123,13 +123,13 @@ $$
 
     | term | smd_all | smd_matched | n_matched | pair_distance |
     | --- | --- | --- | --- | --- |
-    | distance | 1.008 | 0.01135 | 5735 | 0.01297 |
-    | age | -0.06469 | 0.01264 | 5735 | 1.185 |
-    | aps1 | 0.4837 | -0.009876 | 5735 | 0.9746 |
-    | meanbp1 | -0.4869 | 0.007307 | 5735 | 0.9878 |
-    | pafi1 | -0.4566 | -0.01521 | 5735 | 1.023 |
+    | distance | 1.027 | 0.01169 | 5735 | 0.01415 |
+    | age | -0.06135 | 0.0145 | 5735 | 1.119 |
+    | aps1 | 0.5014 | -0.00876 | 5735 | 1.012 |
+    | meanbp1 | -0.4551 | 0.002638 | 5735 | 0.9114 |
+    | pafi1 | -0.4332 | -0.0174 | 5735 | 0.9746 |
 
-    抜粋。完全表: [CSV](assets/psm_rhc/balance.csv)。この表は分母を処置群の標準偏差とした旧版の既定で作りました。現在の既定（調整前の両群をあわせた標準偏差）で作り直すと値が変わります（SMD の定義は [Learn 5.6](../learn/propensity-score-matching.md#balance)）。旧版に近い値は `balance(sd_denominator="treated")` です。
+    抜粋。完全表: [CSV](assets/psm_rhc/balance.csv)。`distance` 行はロジット尺度の傾向スコアです。SMD の分母は既定の、調整前の両群をあわせた標準偏差です（定義は [Learn 5.6](../learn/propensity-score-matching.md#balance)）。
 
 === "コード"
 
@@ -144,8 +144,8 @@ $$
 
     | term | estimate | std_error | statistic | p_value | conf_low | conf_high | exp_estimate | exp_conf_low | exp_conf_high |
     | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-    | (Intercept) | -0.8402 | 0.05324 | -15.78 | 0 | -0.9446 | -0.7358 | 0.4316 | 0.3889 | 0.4791 |
-    | rhc | 0.2907 | 0.07354 | 3.952 | 7.735e-05 | 0.1465 | 0.4348 | 1.337 | 1.158 | 1.545 |
+    | (Intercept) | -0.8363 | 0.05301 | -15.78 | 4.583e-56 | -0.9402 | -0.7324 | 0.4333 | 0.3905 | 0.4807 |
+    | rhc | 0.2883 | 0.07324 | 3.937 | 8.260e-05 | 0.1448 | 0.4319 | 1.334 | 1.156 | 1.54 |
 
     [CSV](assets/psm_rhc/glm_matched.csv)
 
@@ -188,12 +188,12 @@ $$
 
 ## 解釈と解説
 
-未マッチの 30 日死亡 OR は約 **1.39**、マッチ後は約 **1.34**（いずれも `rhc` の OR>1）。Love plot で SMD の縮小を確認できます。観察された交絡を傾向スコアマッチで揃えても正の関連は残り、Connors JAMA 1996 の問題意識と方向は矛盾しません。教学用 ATT 近似であり、RHC 適応の根拠にはしません。
+未マッチの 30 日死亡 OR は約 **1.39**、マッチ後は約 **1.33**（いずれも `rhc` の OR>1）。Love plot で SMD の縮小を確認できます。観察された交絡を傾向スコアマッチで揃えても正の関連は残り、Connors JAMA 1996 の問題意識と方向は矛盾しません。教学用 ATT 近似であり、RHC 適応の根拠にはしません。
 
 限界:
 
 - 未測定交絡（大きさの目安は [Learn 7.3 E-value](../learn/assumptions-sensitivity.md#e-value)）
-- キャリパーでの RHC あり 509 人の除外
+- キャリパーでの RHC あり 497 人の除外
 - 組を無視した標準誤差（組を考えた区間は [Learn 5.7](../learn/propensity-score-matching.md#matched-inference)）
 - 利用条件が未確認で再配布しない CSV
 

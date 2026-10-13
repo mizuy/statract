@@ -234,7 +234,7 @@ $\exp(\beta_1)$ は**時間比**（time ratio）で、「$x_1$ が 1 増える�
 
 Weibull モデルは、AFT モデルでもあり比例ハザードモデルでもある、ただ一つの分布です。ハザード比は $\exp(-\beta / \sigma)$ で求まります。形のパラメータは $1/\sigma$ で、このデータでは 0.45 と推定されました（本当は 0.5）。
 
-statract での AFT モデルの通しの例は、[比例ハザードの検定と加速故障時間モデル（rotterdam）](../examples/aft_rotterdam.md) にあります。比例ハザードが崩れたデータで、Weibull AFT の時間比から求めたハザード比と、Cox のハザード比の向きが食い違う例です。
+statract での AFT モデルの通しの例は、[比例ハザードの検定と加速故障時間モデル（rotterdam）](../examples/aft_rotterdam.md) にあります。比例ハザードが崩れたデータで、Weibull AFT の時間比をハザード比に直して Cox のハザード比と比べる例です。
 
 ## 16.8 モデルを比べる {#compare}
 

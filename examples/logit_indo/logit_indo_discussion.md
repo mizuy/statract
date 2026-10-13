@@ -4,7 +4,7 @@
 
 ## CQ への答え
 
-n=602 の全例で施設変量 `fit_mixed(..., family="binomial")` を主解析とした。インドメタシンの固定効果オッズ比は約 0.47（95% CI 約 0.28–0.78）。クラスタ分散は約 0.30、MOR は約 1.68（`median_odds_ratio`）。施設 BLUP（`plot_random_effects`）では `1_UM` が正、`2_IU` が負。同じ共変量の固定効果調整 GLM の OR は約 0.47 で向きは一致する。
+n=602 の全例で施設変量 `fit_mixed(..., family="binomial")` を主解析とした。インドメタシンの固定効果オッズ比は約 0.46（95% CI 約 0.28–0.77）。クラスタ分散は約 0.30、MOR は約 1.68（`median_odds_ratio`）。施設 BLUP（`plot_random_effects`）では `1_UM` が正、`2_IU` が負。同じ共変量の固定効果調整 GLM の OR は約 0.47 で向きは一致する。
 
 ## 当たり外れ
 

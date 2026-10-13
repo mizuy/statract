@@ -233,8 +233,8 @@ $$
 
     | term | statistic | df | p_value |
     | --- | --- | --- | --- |
-    | trt_labeltreated | 0.5759 | 1 | 0.4479 |
-    | typejuvenile | 0.6285 | 1 | 0.4279 |
+    | trt_label | 0.5759 | 1 | 0.4479 |
+    | type | 0.6285 | 1 | 0.4279 |
     | risk | 1.688 | 1 | 0.1938 |
     | global | 2.905 | 3 | 0.4065 |
 
