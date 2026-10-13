@@ -1,8 +1,8 @@
 # A2. オッズと対数
 
-第 1 章のロジスティック回帰で使う道具を、高校数学から順にまとめます。確率と確率変数は [A1](probability.md) で扱います。
+第 2 章のロジスティック回帰で使う道具を、高校数学から順にまとめます。確率と確率変数は [A1](probability.md) で扱います。
 
-[← 目次](../index.md) · [← A1](probability.md) · [第 1 章](../independent-risk-factor.md)
+[← 目次](../index.md) · [← A1](probability.md) · [第 2 章](../independent-risk-factor.md)
 
 ## オッズ
 
