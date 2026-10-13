@@ -6,7 +6,7 @@
 
 [← ギャラリー](index.md) · [実行用ディレクトリと手順（GitHub）](https://github.com/mizuy/statract/tree/main/examples/cea_sicksicker) · CEA 概要は [cea/overview](../cea/overview.md)
 
-Learn には費用対効果分析（cost-effectiveness analysis、CEA）の章がないため、解説は [CEA 概要](../cea/overview.md) を参照してください。報告は CHEERS 2022（Consolidated Health Economic Evaluation Reporting Standards）に従います（ほかの報告指針は [Learn 付録 B](../learn/reporting-guidelines.md)）。
+Learn には費用対効果分析（cost-effectiveness analysis、CEA）の章がないため、解説は [CEA 概要](../cea/overview.md) を参照してください。報告は CHEERS 2022（Consolidated Health Economic Evaluation Reporting Standards）に従います（ほかの報告指針は [Learn 付録 B](../learn/B_reporting-guidelines.md)）。
 
 ## 目的概説
 

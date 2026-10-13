@@ -1,8 +1,8 @@
 # 付録 C. P 値の読み方と書き方
 
-$P$ 値は臨床研究のどこにでも出てきますが、意味を取り違えやすい数字です。前半で $P$ 値が何を表すのかを、後半で主な 4 誌（New England Journal of Medicine［NEJM］、Journal of the American Medical Association［JAMA］、Lancet、British Medical Journal［BMJ］）の書き方をまとめます。例は [第 1 章](descriptive.md#p-value) の出血割合の差（0.8 ポイント、95% 信頼区間 −0.9–2.4 ポイント、$P = 0.34$）です。二項分布は [A7](math/distributions.md#binomial) にあります。
+$P$ 値は臨床研究のどこにでも出てきますが、意味を取り違えやすい数字です。前半で $P$ 値が何を表すのかを、後半で主な 4 誌（New England Journal of Medicine［NEJM］、Journal of the American Medical Association［JAMA］、Lancet、British Medical Journal［BMJ］）の書き方をまとめます。例は [第 1 章](01_descriptive.md#p-value) の出血割合の差（0.8 ポイント、95% 信頼区間 −0.9–2.4 ポイント、$P = 0.34$）です。二項分布は [A7](math/A7_distributions.md#binomial) にあります。
 
-[← 目次](index.md) · [← 付録 B](reporting-guidelines.md) · [第 1 章](descriptive.md#p-value)
+[← 目次](index.md) · [← 付録 B](B_reporting-guidelines.md) · [第 1 章](01_descriptive.md#p-value)
 
 ## C.1 統計モデルと P 値 {#model}
 

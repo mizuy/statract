@@ -10,7 +10,7 @@
 
 [`psm_rhc`](psm_rhc.md) は 1:1 最近傍で処置群での平均処置効果（average treatment effect on the treated、ATT）を推定します。ここでは連続アウトカムの **ATE の安定化 IPTW** を、公開 API（`fit_glm` + 手計算の重み列 + `fit_ols` + 頑健分散 + `plot_forest`）で示すための例です。
 
-解説は Learn の [第 6 章 IPTW](../learn/iptw.md) を参照してください。
+解説は Learn の [第 6 章 IPTW](../learn/06_iptw.md) を参照してください。
 
 ## データと列の説明
 
@@ -133,7 +133,7 @@ $$
 
 を使います。$W$ は 10 で頭打ちにします（患者は全員残す）。アウトカムモデル $E[Y\mid A]$ は重み付き OLS、分散は HC3 です。推定対象は ATE のみ（ATT ブランチは作らない）。係数 forest は `plot_forest(..., layout="table")`（論文用白黒は `style="bw"`）。
 
-重みはスクリプトで手計算していますが、`propensity_weights(cohort, PS_FORMULA, estimand="ATE", stabilize=True, trim=(0, 10))` でも同じ種類の重みを作れます。`trim` に数を一つだけ渡すと、1 未満は分位点、1 以上は「上位何個」の意味になるので、値での頭打ちは `(下限, 上限)` の組で渡します。重み、安定化、頭打ちの考え方は Learn の [6.3](../learn/iptw.md#weights)、[安定化](../learn/iptw.md#stabilize)、[頭打ち](../learn/iptw.md#trimming) を参照してください。
+重みはスクリプトで手計算していますが、`propensity_weights(cohort, PS_FORMULA, estimand="ATE", stabilize=True, trim=(0, 10))` でも同じ種類の重みを作れます。`trim` に数を一つだけ渡すと、1 未満は分位点、1 以上は「上位何個」の意味になるので、値での頭打ちは `(下限, 上限)` の組で渡します。重み、安定化、頭打ちの考え方は Learn の [6.3](../learn/06_iptw.md#weights)、[安定化](../learn/06_iptw.md#stabilize)、[頭打ち](../learn/06_iptw.md#trimming) を参照してください。
 
 
 ## 結果
@@ -291,9 +291,9 @@ $$
 
 - ATT は未推定
 - CEM はバランスの感度分析のみ（実装が ATT 風の重みなので、因果効果としては読みません）
-- 正値性（[Learn 7.1](../learn/assumptions-sensitivity.md#positivity)）、重みの頭打ち（患者は全員残す）、未測定交絡（[Learn 7.3 E-value](../learn/assumptions-sensitivity.md#e-value)）
-- HC3 の標準誤差は傾向スコアを既知の値として扱い、その推定の不確かさを含みません（[Learn 6.5](../learn/iptw.md#effect)）
-- 重み付け後のバランス表は未掲載。重み付け後のバランスの確かめ方は [Learn 6.4](../learn/iptw.md#balance)
+- 正値性（[Learn 7.1](../learn/07_assumptions-sensitivity.md#positivity)）、重みの頭打ち（患者は全員残す）、未測定交絡（[Learn 7.3 E-value](../learn/07_assumptions-sensitivity.md#e-value)）
+- HC3 の標準誤差は傾向スコアを既知の値として扱い、その推定の不確かさを含みません（[Learn 6.5](../learn/06_iptw.md#effect)）
+- 重み付け後のバランス表は未掲載。重み付け後のバランスの確かめ方は [Learn 6.4](../learn/06_iptw.md#balance)
 - fetch-only データ
 
 ## 実行と成果物

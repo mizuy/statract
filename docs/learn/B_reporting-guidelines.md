@@ -4,19 +4,19 @@
 
 読む側にも役に立ちます。論文を読むとき、ガイドラインの項目が書かれているかを見れば、どこに偏りが入りうるかがわかります。報告ガイドラインは EQUATOR Network（Enhancing the QUAlity and Transparency Of health Research）のサイトにまとまっています。
 
-[← 目次](index.md) · [← 数学補 A8](math/information-criteria.md)
+[← 目次](index.md) · [← 数学補 A8](math/A8_information-criteria.md)
 
 ## B.1 問いとデザインから選ぶ {#choose}
 
 | 研究 | ガイドライン | 本書の関連する章 |
 |------|--------------|------------------|
-| ランダム化比較試験 | CONSORT 2025 | [第 1 章](descriptive.md#pvalue) |
+| ランダム化比較試験 | CONSORT 2025 | [第 1 章](01_descriptive.md#pvalue) |
 | ランダム化比較試験の計画書 | SPIRIT 2025 | — |
 | 観察研究（コホート、症例対照、横断） | STROBE | 第 1–7 章 |
 | 診療データベースを使った観察研究 | RECORD | 第 2–7 章 |
-| 標的試験を模倣した観察研究 | TARGET | [第 3 章](causal-basics.md)、[第 7 章](assumptions-sensitivity.md#consistency) |
+| 標的試験を模倣した観察研究 | TARGET | [第 3 章](03_causal-basics.md)、[第 7 章](07_assumptions-sensitivity.md#consistency) |
 | 予測モデルの開発と検証 | TRIPOD+AI | 第 8–12 章 |
-| 診断精度の研究 | STARD 2015 | [第 17 章](diagnostic-metrics.md) |
+| 診断精度の研究 | STARD 2015 | [第 17 章](17_diagnostic-metrics.md) |
 | 系統的レビューとメタ解析 | PRISMA 2020 | — |
 
 一つの研究に二つ以上が当てはまることもあります。たとえば、電子カルテのデータで治療効果を推定する研究なら、STROBE と RECORD、標的試験の形で設計したなら TARGET も見ます。
@@ -43,7 +43,7 @@
 
 ## B.6 診断精度：STARD {#stard}
 
-**STARD**（Standards for Reporting of Diagnostic Accuracy Studies）は、診断精度研究の報告指針です [@Bossuyt2015-ea]。患者の集め方、参照基準、2×2 表、感度や特異度とその信頼区間を書きます。主な項目は[第 17 章](diagnostic-metrics.md)にまとめています。
+**STARD**（Standards for Reporting of Diagnostic Accuracy Studies）は、診断精度研究の報告指針です [@Bossuyt2015-ea]。患者の集め方、参照基準、2×2 表、感度や特異度とその信頼区間を書きます。主な項目は[第 17 章](17_diagnostic-metrics.md)にまとめています。
 
 ## B.7 系統的レビュー：PRISMA {#prisma}
 
@@ -75,4 +75,4 @@
 - 試験は CONSORT、観察研究は STROBE（診療データなら RECORD、標的試験の模倣なら TARGET）、予測モデルは TRIPOD+AI、診断精度は STARD、系統的レビューは PRISMA です。
 - 論文を読むときも、項目が書かれているかで研究の確からしさを判断できます。
 
-**次へ：**[付録 C P 値の読み方と書き方](p-value.md)
+**次へ：**[付録 C P 値の読み方と書き方](C_p-value.md)

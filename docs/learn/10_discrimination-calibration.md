@@ -6,7 +6,7 @@ nocite: "[@Steyerberg2010-pe; @Vickers2019-rs]"
 
 予測モデルの良さには、二つの別の面があります。出血する人としない人を**見分けられるか**（識別）と、予測確率が**実際の割合と合っているか**（較正）です。この章では二つを分けて測り、最後に「臨床で使って得をするか」を決定曲線で見ます。
 
-[← 目次](index.md) · [← 第 9 章](overfitting.md)
+[← 目次](index.md) · [← 第 9 章](09_overfitting.md)
 
 この章では、第 8 章の 3000 人で作ったモデルを、同じ仕組みで作った**新しい患者 5 万人**で確かめます（外部検証のまねです）。比べる相手として、年齢と抗血栓薬だけの簡単なモデルも作りました。
 
@@ -23,7 +23,7 @@ nocite: "[@Steyerberg2010-pe; @Vickers2019-rs]"
 
 [CSV](../examples/assets/theory_bleeding/ch9_thresholds.csv)
 
-陽性的中率は、感度、特異度と出血割合から、ベイズの定理で計算できます（[数学補 A3](math/conditional-probability.md#ppv)）。
+陽性的中率は、感度、特異度と出血割合から、ベイズの定理で計算できます（[数学補 A3](math/A3_conditional-probability.md#ppv)）。
 
 閾値を下から上へ動かしたときの（1 − 特異度、感度）をつないだものが **ROC 曲線**（receiver operating characteristic curve、受信者動作特性曲線）です。
 
@@ -155,7 +155,7 @@ DCA の読み方の要点は、**自分の閾値の範囲で**、モデルの曲
 - 臨床での有用性：使い方と閾値の範囲を決めたうえでの決定曲線
 - どのデータで測ったか（見かけ、内部検証、外部検証）
 
-予測モデルの報告指針 TRIPOD+AI は、[付録 B](reporting-guidelines.md#tripod) で紹介しています。
+予測モデルの報告指針 TRIPOD+AI は、[付録 B](B_reporting-guidelines.md#tripod) で紹介しています。
 
 ## 文献 {#references}
 
@@ -172,5 +172,5 @@ DCA の読み方の要点は、**自分の閾値の範囲で**、モデルの曲
 - Brier スコアは両方をまとめますが、まれなアウトカムでは値を読みにくい指標です。
 - 決定曲線は、閾値を決めて使ったときに得をするかを示します。
 
-**次へ：**[第 11 章 正則化](regularization.md)  
-**発展（第 11、12 章）を読み飛ばす場合：**[第 13 章 確率モデルとしてのロジスティック回帰](probability-model.md)
+**次へ：**[第 11 章 正則化](11_regularization.md)  
+**発展（第 11、12 章）を読み飛ばす場合：**[第 13 章 確率モデルとしてのロジスティック回帰](13_probability-model.md)

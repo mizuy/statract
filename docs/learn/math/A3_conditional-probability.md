@@ -2,7 +2,7 @@
 
 第 II 部の交換可能性、第 10 章と第 17 章の陽性的中率、第 14 章のベイズ推論で使う道具をまとめます。
 
-[← 目次](../index.md) · [第 3 章](../causal-basics.md) · [第 10 章](../discrimination-calibration.md) · [第 14 章](../likelihood.md) · [第 17 章](../diagnostic-metrics.md)
+[← 目次](../index.md) · [第 3 章](../03_causal-basics.md) · [第 10 章](../10_discrimination-calibration.md) · [第 14 章](../14_likelihood.md) · [第 17 章](../17_diagnostic-metrics.md)
 
 ## 条件付き確率
 
@@ -105,4 +105,4 @@ $$
 ::: {#refs}
 :::
 
-**次へ：**[数学補 A4 期待値と分散](expectation-variance.md)
+**次へ：**[数学補 A4 期待値と分散](A4_expectation-variance.md)

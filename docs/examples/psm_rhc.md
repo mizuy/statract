@@ -10,7 +10,7 @@
 
 観察研究で交絡を減らす MatchIt 流の `match_sample` を、公開の重症患者教学データで示すための例です。推定対象は ATT、API は `match_sample` です。因果の確定主張はしません。
 
-解説は Learn の [第 5 章 傾向スコアマッチング](../learn/propensity-score-matching.md) を参照してください。
+解説は Learn の [第 5 章 傾向スコアマッチング](../learn/05_propensity-score-matching.md) を参照してください。
 
 ## データと列の説明
 
@@ -91,7 +91,7 @@
 
 ## メインの解析方法とそのコア
 
-傾向スコア $e(x)=P(\mathrm{rhc}=1\mid x)$ をロジスティック回帰で推定し、最近傍 1:1・非復元で ATT を推定します（組を作る順はデータの並び順、`order="data"`）。距離とキャリパーは傾向スコアのロジット尺度で測り（`link="linear.logit"`）、キャリパーはロジットの標準偏差の 0.2 倍です（[Learn 5.5](../learn/propensity-score-matching.md#matching) が勧める尺度）。Love plot はマッチ前後の標準化差（standardized mean difference、SMD）です（[Learn 5.6](../learn/propensity-score-matching.md#balance)）。アウトカムモデル:
+傾向スコア $e(x)=P(\mathrm{rhc}=1\mid x)$ をロジスティック回帰で推定し、最近傍 1:1・非復元で ATT を推定します（組を作る順はデータの並び順、`order="data"`）。距離とキャリパーは傾向スコアのロジット尺度で測り（`link="linear.logit"`）、キャリパーはロジットの標準偏差の 0.2 倍です（[Learn 5.5](../learn/05_propensity-score-matching.md#matching) が勧める尺度）。Love plot はマッチ前後の標準化差（standardized mean difference、SMD）です（[Learn 5.6](../learn/05_propensity-score-matching.md#balance)）。アウトカムモデル:
 
 $$
 \operatorname{logit}P(\mathrm{dth30}=1)=\beta_0+\beta_1\mathrm{rhc}
@@ -102,7 +102,7 @@ $$
 
 ## 結果
 
-完全例 5735 人（RHC あり 2184 人）、マッチ後（weights>0）3374 人（RHC あり 1687 人）。RHC あり 497 人（約 23%）はキャリパーで外れたので、推定値は「組ができた RHC あり患者」での効果です（[Learn 5.5 の注意](../learn/propensity-score-matching.md#matching)）。サイト掲載は `assets/psm_rhc/`。
+完全例 5735 人（RHC あり 2184 人）、マッチ後（weights>0）3374 人（RHC あり 1687 人）。RHC あり 497 人（約 23%）はキャリパーで外れたので、推定値は「組ができた RHC あり患者」での効果です（[Learn 5.5 の注意](../learn/05_propensity-score-matching.md#matching)）。サイト掲載は `assets/psm_rhc/`。
 
 ### Love plot（マッチ前後の SMD）
 
@@ -129,7 +129,7 @@ $$
     | meanbp1 | -0.4551 | 0.002638 | 5735 | 0.9114 |
     | pafi1 | -0.4332 | -0.0174 | 5735 | 0.9746 |
 
-    抜粋。完全表: [CSV](assets/psm_rhc/balance.csv)。`distance` 行はロジット尺度の傾向スコアです。SMD の分母は既定の、調整前の両群をあわせた標準偏差です（定義は [Learn 5.6](../learn/propensity-score-matching.md#balance)）。
+    抜粋。完全表: [CSV](assets/psm_rhc/balance.csv)。`distance` 行はロジット尺度の傾向スコアです。SMD の分母は既定の、調整前の両群をあわせた標準偏差です（定義は [Learn 5.6](../learn/05_propensity-score-matching.md#balance)）。
 
 === "コード"
 
@@ -192,9 +192,9 @@ $$
 
 限界:
 
-- 未測定交絡（大きさの目安は [Learn 7.3 E-value](../learn/assumptions-sensitivity.md#e-value)）
+- 未測定交絡（大きさの目安は [Learn 7.3 E-value](../learn/07_assumptions-sensitivity.md#e-value)）
 - キャリパーでの RHC あり 497 人の除外
-- 組を無視した標準誤差（組を考えた区間は [Learn 5.7](../learn/propensity-score-matching.md#matched-inference)）
+- 組を無視した標準誤差（組を考えた区間は [Learn 5.7](../learn/05_propensity-score-matching.md#matched-inference)）
 - 利用条件が未確認で再配布しない CSV
 
 ## 実行と成果物

@@ -19,7 +19,7 @@
     **データ** — `medicaldata::licorice_gargle`  
     **API** — `binom_test`, `prop_test`, `wilcox_test`, `t_test`, `mcnemar_test`, `p_adjust`, `plot_forest`
 
-    [ドキュメント →](htest_licorice.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/htest_licorice) · [解説 →](../learn/descriptive.md)
+    [ドキュメント →](htest_licorice.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/htest_licorice) · [解説 →](../learn/01_descriptive.md)
 
 </div>
 
@@ -36,7 +36,7 @@
     **データ** — R `survival::colon`（患者単位）  
     **API** — `plot_survival`（NAR 既定）、`cox_ph`, `proportional_hazards_test`, `write_cox_diagnostic_suite`, `plot_forest`（表一体）、`standardize_cox`（周辺生存曲線・RMST）
 
-    [ドキュメント →](surv_colon.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/surv_colon) · [解説 →](../learn/survival.md)
+    [ドキュメント →](surv_colon.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/surv_colon) · [解説 →](../learn/16_survival.md)
 
 -   __[競合リスク解析](cif_pbc.md)__ — `cif_pbc` · 競合リスク（CIF / Fine–Gray）
 
@@ -47,7 +47,7 @@
     **データ** — R `survival::pbc`（無作為化例）  
     **API** — `survival_curve(..., kind="aalen_johansen")`, `cumulative_incidence`（Gray 検定）, `fine_gray`, 重み付き `cox_ph`, `fine_gray_regression`（crr）, `plot_forest`
 
-    [ドキュメント →](cif_pbc.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/cif_pbc) · [解説 →](../learn/survival.md)
+    [ドキュメント →](cif_pbc.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/cif_pbc) · [解説 →](../learn/16_survival.md)
 
 -   __[PH 検定と AFT モデル](aft_rotterdam.md)__ — `aft_rotterdam` · Cox / PH 検定 / AFT
 
@@ -58,7 +58,7 @@
     **データ** — R `survival::rotterdam`  
     **API** — `cox_ph`, `proportional_hazards_test`, `write_cox_diagnostic_suite`, `validate_cox`, `calibrate_cox`, `accelerated_failure`（Weibull）, `plot_forest`（表一体）
 
-    [ドキュメント →](aft_rotterdam.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/aft_rotterdam) · [解説 →](../learn/survival.md)
+    [ドキュメント →](aft_rotterdam.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/aft_rotterdam) · [解説 →](../learn/16_survival.md)
 
 -   __[クラスター頑健 Cox](cox_retinopathy.md)__ — `cox_retinopathy` · クラスター頑健 Cox（Lin–Wei）
 
@@ -69,7 +69,7 @@
     **データ** — R `survival::retinopathy`（眼単位、id クラスター）  
     **API** — `cox_ph(..., cluster=)` / `cluster(id)`、`plot_survival`（NAR）、`proportional_hazards_test`, `write_cox_diagnostic_suite`, `plot_forest`（表一体）、`tableone`
 
-    [ドキュメント →](cox_retinopathy.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/cox_retinopathy) · [解説 →](../learn/hierarchical.md)
+    [ドキュメント →](cox_retinopathy.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/cox_retinopathy) · [解説 →](../learn/15_hierarchical.md)
 
 </div>
 
@@ -86,7 +86,7 @@
     **データ** — `medicaldata::indo_rct`  
     **API** — `fit_mixed` binomial, `median_odds_ratio`, `glmm_random_effects`, `plot_random_effects`, `plot_forest`, `fit_glm` binomial
 
-    [ドキュメント →](logit_indo.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/logit_indo) · [解説 →](../learn/hierarchical.md)
+    [ドキュメント →](logit_indo.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/logit_indo) · [解説 →](../learn/15_hierarchical.md)
 
 -   __[反復測定の線形混合モデル](lmm_pbcseq.md)__ — `lmm_pbcseq` · ガウス LMM / クラスタ SE / GAM
 
@@ -97,7 +97,7 @@
     **データ** — R `survival::pbcseq`  
     **API** — `fit_mixed`, `cluster_covariance`, `gam`, `smooth`, `gamm`
 
-    [ドキュメント →](lmm_pbcseq.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/lmm_pbcseq) · [解説 →](../learn/hierarchical.md)
+    [ドキュメント →](lmm_pbcseq.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/lmm_pbcseq) · [解説 →](../learn/15_hierarchical.md)
 
 -   __[てんかん RCT の計数 GLMM](glmm_epil.md)__ — `glmm_epil` · ポアソン / 負の二項 / ar1 / ゼロ過剰 GLMM
 
@@ -108,7 +108,7 @@
     **データ** — R `MASS::epil`（Thall & Vail 1990）。GPL。git 非収載  
     **API** — `fit_mixed(family="poisson" / "negative_binomial")`, `ar1(period + 0 | subject)`, `zero_inflation=True`, `glmm_random_effects`, `plot_random_effects`, `median_odds_ratio`, `plot_forest`, `fit_glm`
 
-    [ドキュメント →](glmm_epil.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/glmm_epil) · [解説 →](../learn/hierarchical.md)
+    [ドキュメント →](glmm_epil.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/glmm_epil) · [解説 →](../learn/15_hierarchical.md)
 
 </div>
 
@@ -125,7 +125,7 @@
     **データ** — hbiostat SUPPORT2（fetch only）  
     **API** — `fit_glm` binomial, `conditional_tree`, `plot_tree`, `roc_curve`, `roc_test`, `plot_roc`, `validate_logistic`, `calibrate_logistic`, `plot_calibration_curve`, `write_probability_artifacts`, `plot_calibration`, `plot_dca`, `binary_perf`, `threshold_tradeoff`, `plot_forest`
 
-    [ドキュメント →](pred_support.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/pred_support) · [解説 →](../learn/overfitting.md)
+    [ドキュメント →](pred_support.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/pred_support) · [解説 →](../learn/09_overfitting.md)
 
 </div>
 
@@ -142,7 +142,7 @@
     **データ** — Vanderbilt RHC（Connors JAMA 1996）。利用条件未確認・非再配布  
     **API** — `match_sample`, `balance` / `love_plot`, マッチ後 `fit_glm`, `plot_forest`
 
-    [ドキュメント →](psm_rhc.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/psm_rhc) · [解説 →](../learn/propensity-score-matching.md)
+    [ドキュメント →](psm_rhc.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/psm_rhc) · [解説 →](../learn/05_propensity-score-matching.md)
 
 -   __[治療の逆確率による重み付け（IPTW）](iptw_nhefs.md)__ — `iptw_nhefs` · 安定化 IPTW（ATE）
 
@@ -153,7 +153,7 @@
     **データ** — NHEFS（fetch only）  
     **API** — 傾向スコアの `fit_glm`, 安定化重み（スクリプト内で計算。`propensity_weights` もある）, `fit_ols` + `hc_covariance`, `plot_forest`, `impute_chained` + `pool`（多重代入の感度分析）
 
-    [ドキュメント →](iptw_nhefs.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/iptw_nhefs) · [解説 →](../learn/iptw.md)
+    [ドキュメント →](iptw_nhefs.md) · [コード](https://github.com/mizuy/statract/tree/main/examples/iptw_nhefs) · [解説 →](../learn/06_iptw.md)
 
 </div>
 

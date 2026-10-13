@@ -10,7 +10,7 @@
 
 公開 RCT で、施設クラスタを変量切片に入れた二項 GLMM を主解析として見せるための例です。無作為化した試験でも施設差の異質性を MOR と BLUP で要約し、同じ共変量の固定効果 GLM を比較対照に置きます。予測モデル向けのホールドアウト較正はこの例の対象外です。
 
-解説は Learn の [第 2 章 「独立した危険因子」とは何か](../learn/independent-risk-factor.md#logistic)（ロジスティック回帰）と [第 15 章 階層モデル](../learn/hierarchical.md#adjusted)（GLMM と MOR）を参照してください。
+解説は Learn の [第 2 章 「独立した危険因子」とは何か](../learn/02_independent-risk-factor.md#logistic)（ロジスティック回帰）と [第 15 章 階層モデル](../learn/15_hierarchical.md#adjusted)（GLMM と MOR）を参照してください。
 
 ## データと列の説明
 
@@ -86,7 +86,7 @@ $$
 \mathrm{MOR}=\exp\bigl(\sqrt{2\sigma^2}\,\Phi^{-1}(0.75)\bigr)
 $$
 
-で求めます（ライブラリ関数 `median_odds_ratio`。意味は [Learn 15.3](../learn/hierarchical.md#adjusted)）。施設 BLUP は `glmm_random_effects` → `plot_random_effects`。
+で求めます（ライブラリ関数 `median_odds_ratio`。意味は [Learn 15.3](../learn/15_hierarchical.md#adjusted)）。施設 BLUP は `glmm_random_effects` → `plot_random_effects`。
 
 比較の固定効果モデル:
 
@@ -275,7 +275,7 @@ MOR はライブラリ API（`statract.median_odds_ratio`）です。例スク�
 
 ## 解釈と解説
 
-施設変量 GLMM（全例 n=602）ではインドメタシンの固定効果オッズ比は約 **0.46**（95% 信頼区間（confidence interval、CI）約 0.28–0.77）。クラスタ分散は約 **0.30**、MOR は約 **1.68**。施設 BLUP は `1_UM` が正（PEP オッズが高い方向）、`2_IU` が負。同じ共変量の固定効果調整 GLM の OR は約 **0.47** で向きは一致します。GLMM の OR は施設の中で比べた条件付きの値で、施設を無視した GLM の OR とは別の量です（[Learn 15.3](../learn/hierarchical.md#fixed-effects)）。
+施設変量 GLMM（全例 n=602）ではインドメタシンの固定効果オッズ比は約 **0.46**（95% 信頼区間（confidence interval、CI）約 0.28–0.77）。クラスタ分散は約 **0.30**、MOR は約 **1.68**。施設 BLUP は `1_UM` が正（PEP オッズが高い方向）、`2_IU` が負。同じ共変量の固定効果調整 GLM の OR は約 **0.47** で向きは一致します。GLMM の OR は施設の中で比べた条件付きの値で、施設を無視した GLM の OR とは別の量です（[Learn 15.3](../learn/15_hierarchical.md#fixed-effects)）。
 
 限界: lme-python の二項 GLMM は、R `glmer` との一致をテストで固定していない（許容差はガウスの線形混合モデル（linear mixed model、LMM）より緩い）。教学パッケージデータです。較正 / DCA のホールドアウトは予測モデル向けであり、本例の効果推定には使いません。
 
