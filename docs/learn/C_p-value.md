@@ -1,6 +1,6 @@
 # 付録 C. P 値の読み方と書き方
 
-$P$ 値は臨床研究のどこにでも出てきますが、意味を取り違えやすい数字です。前半で $P$ 値が何を表すのかを、後半で主な 4 誌（New England Journal of Medicine［NEJM］、Journal of the American Medical Association［JAMA］、Lancet、British Medical Journal［BMJ］）の書き方をまとめます。例は [第 1 章](01_descriptive.md#p-value) の出血割合の差（0.8 ポイント、95% 信頼区間 −0.9–2.4 ポイント、$P = 0.34$）です。二項分布は [A7](math/A7_distributions.md#binomial) にあります。
+$P$ 値は臨床研究のどこにでも出てきますが、意味を取り違えやすい数字です。前半では $P$ 値が何を表すのかを見ます。後半では主な 4 誌（New England Journal of Medicine［NEJM］、Journal of the American Medical Association［JAMA］、Lancet、British Medical Journal［BMJ］）の書き方をまとめます。例は [第 1 章](01_descriptive.md#p-value) の出血割合の差（0.8 ポイント、95% 信頼区間 −0.9–2.4 ポイント、$P = 0.34$）です。二項分布は [A7](math/A7_distributions.md#binomial) にあります。
 
 [← 目次](index.md) · [← 付録 B](B_reporting-guidelines.md) · [第 1 章](01_descriptive.md#p-value)
 
@@ -71,13 +71,13 @@ NEJM の投稿規定（Statistical Reporting Requirements）は、次のよう�
 
 ## C.6 JAMA {#jama}
 
-JAMA の投稿規定（Instructions for Authors）は、0.001 より小さければ P<.001、.001 から .01 の間は小数 3 桁、.01 以上は小数 2 桁、.99 より大きければ P>.99 と決めています。$P$ 値は、比べているデータと一緒に示し、単独では書きません。
+JAMA の投稿規定（Instructions for Authors）は、桁数を次のように決めています。0.001 より小さければ P<.001、.001 から .01 の間は小数 3 桁、.01 以上は小数 2 桁、.99 より大きければ P>.99 です。$P$ 値は、比べているデータと一緒に示し、単独では書きません。
 
 文字の書き方は、JAMA などが使う米国医師会（American Medical Association、AMA）の AMA Manual of Style に従います。$P$ は大文字の斜体で、小数点の前の 0 は書きません（*P*=.03）。$P$ 値は 1 を超えないので、0 を省いても誤解がないという考え方です。
 
 ## C.7 Lancet {#lancet}
 
-Lancet の論文の書式ガイドは、$P$ 値を有効数字 2 桁（小数第 4 位まで）で書き、それより小さければ p<0·0001 とする、と決めています。p は小文字で、斜体にしません。小数点は、行の中ほどに置く中点（·）です（0·03）。数値すべてに使う Lancet の書き方で、$P$ 値に限りません。
+Lancet の論文の書式ガイドは、$P$ 値を有効数字 2 桁（小数第 4 位まで）で書き、それより小さければ p<0·0001 とする、と決めています。p は小文字で、斜体にしません。小数点は、行の中ほどに置く中点（·）です（0·03）。これは Lancet が数値すべてに使う書き方で、$P$ 値に限りません。
 
 ## C.8 BMJ {#bmj}
 
