@@ -95,27 +95,27 @@ nav:
   - Learn:
       - 臨床の問いから始める統計: learn/index.md
       - 第 I 部 導入:
-          - 0. 記述：まずデータを見る: learn/descriptive.md
-          - 1. 「独立した危険因子」とは何か: learn/independent-risk-factor.md
+          - 1. 記述：まずデータを見る: learn/descriptive.md
+          - 2. 「独立した危険因子」とは何か: learn/independent-risk-factor.md
       - 第 II 部 因果推論:
-          - 2. 因果推論の考え方: learn/causal-basics.md
-          - 3. 背景を調整する方法: learn/adjustment-methods.md
-          - 4. 傾向スコアマッチング: learn/propensity-score-matching.md
-          - 5. IPTW（発展）: learn/iptw.md
-          - 6. 仮定と感度分析（発展）: learn/assumptions-sensitivity.md
+          - 3. 因果推論の考え方: learn/causal-basics.md
+          - 4. 背景を調整する方法: learn/adjustment-methods.md
+          - 5. 傾向スコアマッチング: learn/propensity-score-matching.md
+          - 6. IPTW（発展）: learn/iptw.md
+          - 7. 仮定と感度分析（発展）: learn/assumptions-sensitivity.md
       - 第 III 部 予測:
-          - 7. 予測モデルとしてのロジスティック回帰: learn/prediction-model.md
-          - 8. 過学習と汎化: learn/overfitting.md
-          - 9. 識別と較正: learn/discrimination-calibration.md
-          - 10. 正則化（発展）: learn/regularization.md
-          - 11. 木、アンサンブル、ニューラルネットワーク（発展）: learn/trees-ensembles.md
+          - 8. 予測モデルとしてのロジスティック回帰: learn/prediction-model.md
+          - 9. 過学習と汎化: learn/overfitting.md
+          - 10. 識別と較正: learn/discrimination-calibration.md
+          - 11. 正則化（発展）: learn/regularization.md
+          - 12. 木、アンサンブル、ニューラルネットワーク（発展）: learn/trees-ensembles.md
       - 第 IV 部 統計モデリング:
-          - 12. 確率モデルとしてのロジスティック回帰: learn/probability-model.md
-          - 13. 尤度と二つの推定法：最尤法とベイズ: learn/likelihood.md
-          - 14. 階層モデル: learn/hierarchical.md
+          - 13. 確率モデルとしてのロジスティック回帰: learn/probability-model.md
+          - 14. 尤度と二つの推定法：最尤法とベイズ: learn/likelihood.md
+          - 15. 階層モデル: learn/hierarchical.md
       - 第 V 部 臨床でよく使う解析:
-          - 15. 生存時間解析: learn/survival.md
-          - 16. 診断の指標: learn/diagnostic-metrics.md
+          - 16. 生存時間解析: learn/survival.md
+          - 17. 診断の指標: learn/diagnostic-metrics.md
       - 数学補:
           - A1. 確率と確率変数: learn/math/probability.md
           - A2. オッズと対数: learn/math/odds-log.md

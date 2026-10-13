@@ -261,7 +261,7 @@
         ],
         ["抗血栓薬のオッズ比", enough ? `中央値 ${or2(quant(ors, 0.5))}、95% の範囲 ${or2(quant(ors, 0.025))}–${or2(quant(ors, 0.975))}` : "40 回以上で表示します"],
         ["本（5000 回）の出血の人数", `平均 ${Math.round(ref.expected)} 人、95% の範囲 ${ref.sim_low}–${ref.sim_high} 人`],
-        ["本当のオッズ比と第 7 章の推定", `本当は ${or2(trueOr)}。第 7 章では ${or2(ch7.exp_estimate)}（95% 信頼区間 ${or2(ch7.exp_conf_low)}–${or2(ch7.exp_conf_high)}）`],
+        ["本当のオッズ比と第 8 章の推定", `本当は ${or2(trueOr)}。第 8 章では ${or2(ch7.exp_estimate)}（95% 信頼区間 ${or2(ch7.exp_conf_low)}–${or2(ch7.exp_conf_high)}）`],
       ]);
     }
     draw();
