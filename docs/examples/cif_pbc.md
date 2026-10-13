@@ -119,7 +119,7 @@
 
 ## メインの解析方法とそのコア
 
-解説は Learn の [第 16 章 16.9 どう使い分けるか](../learn/survival.md#choose)（競合リスク）を参照してください。
+解説は Learn の [第 16 章 16.10 競合リスク](../learn/survival.md#competing-risks)を参照してください。
 
 原因 $k=2$（死亡）。Aalen–Johansen 累積発生 $\hat F_2(t)$。誤用として移植を打ち切りにした Kaplan–Meier を対比。Fine–Gray の部分分布ハザード（subdistribution hazard）:
 
