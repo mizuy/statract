@@ -40,7 +40,7 @@ Vanderbilt hbiostat の RHC CSV（`https://hbiostat.org/data/repo/rhc.csv`）。
 concept §9。共変量（存在する列のみ）: `age`, `sex`, `race`, `edu`, `cat1`, `ca`, `aps1`, `scoma1`, `meanbp1`, `hrt1`, `resp1`, `temp1`, `pafi1`, `alb1`, `hema1`, `bili1`, `crea1`, `sod1`, `cardiohx`, `chfhx`, `chrpulhx`, `dnr1`。
 
 - 未マッチ Table 1: `tableone(..., hue="rhc", add_pvalue=True)`
-- `match_sample(..., method="nearest", distance="logit", order="data", estimand="ATT", caliper=0.2)`
+- `match_sample(..., method="nearest", distance="logit", link="linear.logit", order="data", estimand="ATT", caliper=0.2)`
 - `balance()` / `love_plot()`
 - マッチ後 Table 1（`weights>0`）も `tableone`。CSV/HTML/md の書き出しは `write_tableone_artifacts`（`*_out/` 同期用）
 - `fit_glm("dth30_bin ~ rhc", family="binomial", weights="weights")`

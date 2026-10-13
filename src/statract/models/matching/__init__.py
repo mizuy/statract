@@ -25,6 +25,7 @@ from .flow import full_match_edges
 
 _METHODS = {"nearest", "exact", "subclass", "cem", "optimal", "full"}
 _DISTANCES = {"logit", "probit", "mahalanobis", "robust_mahalanobis", "euclidean", "scaled_euclidean"}
+_LINKS = {"logit", "probit", "linear.logit", "linear.probit"}
 _SD_DENOMS = {"pooled", "treated", "control"}
 _BINARY = {"raw", "std"}
 
@@ -168,6 +169,10 @@ def match_sample(
     or ``full``. ``distance`` is ``logit``, ``probit``, ``mahalanobis``,
     ``robust_mahalanobis``, ``euclidean``, ``scaled_euclidean``, or a numeric
     vector already aligned with ``data``. Omitting it uses the logit propensity.
+    ``link="linear.logit"`` (or ``"linear.probit"``) uses the linear predictor
+    instead of the probability, so ``caliper`` is in SDs of the logit of the
+    propensity score (Austin 2011). The default ``"logit"`` matches MatchIt's
+    default and measures the caliper on the probability scale.
     Exact and CEM do not need that score for their weights, so the fit waits
     until ``frame``, ``pairs``, or ``balance`` reads the distance.
     """
@@ -903,10 +908,20 @@ def _distance_vector(data, treatment, covariates, distance, link):
     if distance not in _DISTANCES:
         raise ValueError(f"distance must be one of {sorted(_DISTANCES)} or a numeric vector")
     if distance in {"logit", "probit"}:
-        family_link = distance if link == "logit" else link
+        if link not in _LINKS:
+            raise ValueError(f"link must be one of {sorted(_LINKS)}")
+        # "linear.<link>" keeps the linear predictor, as MatchIt does, so a
+        # caliper is measured on the logit (or probit) scale.
+        linear = link.startswith("linear.")
+        base = link.removeprefix("linear.")
+        family_link = distance if base == "logit" else base
         if family_link == "logit":
             fit = fit_glm(data, treatment, covariates, family="binomial")
-            return fit.predict(kind="response"), fit.row_index
+            return fit.predict(kind="link" if linear else "response"), fit.row_index
+        if linear:
+            design = design_matrix(data, covariates, extra=[treatment])
+            y = np.asarray(column_series(data, treatment).gather(design.row_index.tolist()).to_numpy(), dtype=float)
+            return design.x @ _probit_coefficients(y, design.x), design.row_index
         return _probit_probability(data, treatment, covariates)
     # Mahalanobis uses every factor level, divided by sqrt(2). The other
     # matrix distances keep treatment-contrast dummies.
