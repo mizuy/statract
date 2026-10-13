@@ -465,9 +465,11 @@
   edition: 第 2 版
   publisher: 医学書院
   location: 東京
-  date: 2025
+  date: 2024
   langid: japanese
   isbn: 9784260057585
+  accept:
+    date: colophon says 2024-12; NDL records 2025.1
 
 - key: Fukuhara2017-book
   title: 臨床研究の道標：7つのステップで学ぶ研究デザイン（上・下）
