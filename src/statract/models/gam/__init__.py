@@ -105,15 +105,25 @@ class GamFit:
             }
         )
 
-    def predict(self, data: pl.DataFrame | None = None, *, kind: str = "response") -> np.ndarray:
+    def predict(
+        self,
+        data: pl.DataFrame | None = None,
+        *,
+        kind: str = "response",
+        se: bool = False,
+    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+        """Predicted mean. ``se=True`` also returns the pointwise standard error."""
         if kind not in {"link", "response"}:
             raise ValueError("kind must be link or response")
         if data is None:
-            eta = self.x @ self.coefficients
+            design = self.x
         else:
-            built = _model_matrix(data, self._smooth, self._knots, self._q2, self._column)
-            eta = built @ self.coefficients
-        return eta
+            design = _model_matrix(data, self._smooth, self._knots, self._q2, self._column)
+        eta = design @ self.coefficients
+        if not se:
+            return eta
+        var = np.sum((design @ self.covariance) * design, axis=1)
+        return eta, np.sqrt(np.clip(var, 0, None))
 
 
 def compare_gams(*fits):

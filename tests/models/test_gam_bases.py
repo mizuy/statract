@@ -116,6 +116,27 @@ def test_cc_is_periodic_and_penalty_is_curvature() -> None:
     np.testing.assert_allclose(beta @ penalty @ beta, rough, rtol=1e-3)
 
 
+def test_binomial_predict_returns_link_and_response_se() -> None:
+    rng = np.random.default_rng(4)
+    x = rng.uniform(0, 10, 80)
+    y = (x + rng.normal(0, 2, 80) > 5).astype(float)
+    data = pl.DataFrame({"x": x, "y": y})
+    fit = gam(data, "y", [smooth("x", k=6, basis="tp")], family="binomial")
+    link = np.asarray(fit.predict(data, kind="link"))
+    link_se, se = fit.predict(data, kind="link", se=True)
+    np.testing.assert_allclose(link_se, link)
+    assert np.all(se > 0)
+    mu, se_mu = fit.predict(data, kind="response", se=True)
+    np.testing.assert_allclose(np.asarray(mu), 1 / (1 + np.exp(-link)))
+    np.testing.assert_allclose(se_mu, se * mu * (1 - mu))
+    try:
+        fit.predict(data, kind="terms", se=True)
+    except ValueError as exc:
+        assert "se is only available" in str(exc)
+    else:
+        raise AssertionError("terms with se should fail")
+
+
 def test_gam_fits_ps_and_cc_smooths() -> None:
     rng = np.random.default_rng(3)
     n = 400

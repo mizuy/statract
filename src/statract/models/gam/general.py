@@ -98,9 +98,22 @@ class GeneralFit:
             }
         )
 
-    def predict(self, data: pl.DataFrame | None = None, *, kind: str = "response") -> np.ndarray | pl.DataFrame:
+    def predict(
+        self,
+        data: pl.DataFrame | None = None,
+        *,
+        kind: str = "response",
+        se: bool = False,
+    ) -> np.ndarray | pl.DataFrame | tuple[np.ndarray, np.ndarray]:
+        """Predicted mean. ``se=True`` also returns the pointwise standard error.
+
+        ``kind="link"`` is the linear predictor. ``kind="response"`` is the mean.
+        The standard error is on that same scale (delta method for non-identity links).
+        """
         if kind not in {"link", "response", "terms"}:
             raise ValueError("kind must be link, response, or terms")
+        if se and kind == "terms":
+            raise ValueError("se is only available for link and response")
         design = self.x if data is None else _design_from_blocks(
             _columns(data, self.kept.keys()), self.blocks, self.parametric
         )
@@ -108,9 +121,14 @@ class GeneralFit:
             return _term_frame(design, self.coefficients, self.names, self.blocks)
         eta = design @ self.coefficients
         eta = eta + _offset_vector(self, data, eta.shape[0])
+        point = eta if kind == "link" or self.family == "gaussian" else _mean(self.family, eta)
+        if not se:
+            return point
+        var = np.sum((design @ self.covariance) * design, axis=1)
+        se_link = np.sqrt(np.clip(var, 0, None))
         if kind == "link" or self.family == "gaussian":
-            return eta
-        return _mean(self.family, eta)
+            return point, se_link
+        return point, se_link * np.abs(_dmean(self.family, eta))
 
     def partial_effect(self, term: str, *, n: int = 100) -> pl.DataFrame:
         """Smooth contribution and pointwise standard error on a grid or at the data."""
@@ -487,6 +505,20 @@ def _mean(family: str, eta: np.ndarray) -> np.ndarray:
         return np.exp(np.clip(eta, -20, 20))
     if family == "gamma":
         return 1 / np.clip(eta, 1e-6, None)
+    raise ValueError(family)
+
+
+def _dmean(family: str, eta: np.ndarray) -> np.ndarray:
+    """Derivative of the mean with respect to the linear predictor."""
+    mu = _mean(family, eta)
+    if family == "gaussian":
+        return np.ones_like(mu)
+    if family == "binomial":
+        return mu * (1 - mu)
+    if family == "poisson":
+        return mu
+    if family == "gamma":
+        return -(mu**2)
     raise ValueError(family)
 
 
