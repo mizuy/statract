@@ -39,6 +39,7 @@ from theory_bleeding import (
     CACHE,
     GRAY,
     PRED_FORMULA,
+    PRED_VARS,
     RED,
     _expit,
     _test_set,
@@ -51,6 +52,7 @@ from statract import (
     binary_perf,
     fit_glm,
     mcnemar_test,
+    multinomial_regression,
     proportion_ci,
     roc_curve,
     roc_test,
@@ -409,6 +411,168 @@ def diagnostic_metrics(out: Path) -> None:
     ax.grid(alpha=0.3)
     fig.tight_layout()
     fig.savefig(out / "figures" / "ch16_designs.png", dpi=180)
+    plt.close(fig)
+
+    multiclass_metrics(out)
+
+
+# 16.7: three classes. Bleeders are split into minor bleeding and bleeding that
+# needs endoscopic treatment; antithrombotics and large lesions make it worse.
+SEVERITY = ["none", "minor", "major"]
+SEVERITY_LABELS = {"none": "No bleeding", "minor": "Minor", "major": "Needs treatment"}
+
+
+def _with_severity(df: pl.DataFrame, seed: int) -> pl.DataFrame:
+    rng = np.random.default_rng(seed)
+    a = df["antithrombotic"].to_numpy()
+    size = df["size_mm"].to_numpy()
+    p_major = _expit(-0.6 + 1.6 * a + 0.6 * (size - 15) / 10)
+    major = rng.uniform(size=df.height) < p_major
+    bleed = df["bleed"].to_numpy() == 1
+    label = np.where(~bleed, "none", np.where(major, "major", "minor"))
+    return df.with_columns(pl.Series("severity", label).cast(pl.Enum(SEVERITY)))
+
+
+def _confusion(y: np.ndarray, pred: np.ndarray, k: int) -> np.ndarray:
+    """Rows are the predicted class, columns the true class (as in the 2x2 table)."""
+    c = np.zeros((k, k), dtype=int)
+    np.add.at(c, (pred, y), 1)
+    return c
+
+
+def _kappa(c: np.ndarray, weights: np.ndarray) -> float:
+    n = c.sum()
+    po = (weights * c).sum() / n
+    pe = (weights * np.outer(c.sum(1), c.sum(0))).sum() / n**2
+    return float((po - pe) / (1 - pe))
+
+
+def _auc_pair(score: np.ndarray, y: np.ndarray, i: int, j: int) -> float:
+    """P(score of a class-i patient > score of a class-j patient), ties count 1/2."""
+    a, b = score[y == i], score[y == j]
+    r = stats.rankdata(np.r_[a, b])
+    return float((r[: a.size].sum() - a.size * (a.size + 1) / 2) / (a.size * b.size))
+
+
+def multiclass_metrics(out: Path) -> None:
+    """Write ch16_multiclass_*.csv and figures/ch16_multiclass_roc.png into ``out``."""
+    out = Path(out)
+    k = len(SEVERITY)
+    train = _with_severity(load_data(CACHE), seed=17)
+    test = _with_severity(_test_set(), seed=18)
+    formula = "severity ~ " + " + ".join(PRED_VARS)
+    fit = multinomial_regression(train, formula)
+    probs = fit.predict(test)
+    y = test["severity"].to_physical().to_numpy()
+    prior = np.bincount(train["severity"].to_physical().to_numpy(), minlength=k)
+    prior = prior / prior.sum()
+
+    rules = {
+        "Most probable class": probs.argmax(axis=1),
+        "Largest probability / proportion": (probs / prior).argmax(axis=1),
+    }
+    linear = 1 - np.abs(np.subtract.outer(np.arange(k), np.arange(k))) / (k - 1)
+    cells, per_class, summary = [], [], []
+    for rule, pred in rules.items():
+        c = _confusion(y, pred, k)
+        for i in range(k):
+            for j in range(k):
+                cells.append(
+                    {
+                        "rule": rule,
+                        "predicted": SEVERITY[i],
+                        "true": SEVERITY[j],
+                        "n": int(c[i, j]),
+                    }
+                )
+        sens = np.diag(c) / c.sum(axis=0)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            ppv = np.diag(c) / c.sum(axis=1)
+        for i in range(k):
+            per_class.append(
+                {
+                    "rule": rule,
+                    "class": SEVERITY[i],
+                    "n_true": int(c[:, i].sum()),
+                    "n_predicted": int(c[i].sum()),
+                    "sensitivity": float(sens[i]),
+                    "ppv": float(ppv[i]) if c[i].sum() else None,
+                }
+            )
+        summary.append(
+            {
+                "rule": rule,
+                "accuracy": float(np.trace(c) / c.sum()),
+                "balanced_accuracy": float(sens.mean()),
+                "macro_ppv": float(np.nanmean(np.where(c.sum(1) > 0, ppv, 0.0))),
+                "kappa": _kappa(c, np.eye(k)),
+                "kappa_linear": _kappa(c, linear),
+            }
+        )
+    _write_csv(out, "ch16_multiclass_confusion", pl.DataFrame(cells))
+    _write_csv(out, "ch16_multiclass_class", pl.DataFrame(per_class))
+    _write_csv(out, "ch16_multiclass_summary", pl.DataFrame(summary))
+
+    # AUC: one class against the rest, and Hand and Till's average over pairs.
+    auc_rows = []
+    rocs = []
+    for i in range(k):
+        r = roc_curve((y == i).astype(int), probs[:, i])
+        rocs.append(r)
+        auc_rows.append(
+            {"kind": "one-vs-rest", "classes": SEVERITY[i], "auc": float(r.auc)}
+        )
+    pairs = []
+    for i in range(k):
+        for j in range(i + 1, k):
+            a_ij = _auc_pair(probs[:, i], y, i, j)
+            a_ji = _auc_pair(probs[:, j], y, j, i)
+            pairs.append((a_ij + a_ji) / 2)
+            auc_rows.append(
+                {
+                    "kind": "pair",
+                    "classes": f"{SEVERITY[i]} vs {SEVERITY[j]}",
+                    "auc": (a_ij + a_ji) / 2,
+                }
+            )
+    auc_rows.append(
+        {
+            "kind": "macro one-vs-rest",
+            "classes": "all",
+            "auc": float(np.mean([r["auc"] for r in auc_rows[:k]])),
+        }
+    )
+    auc_rows.append(
+        {"kind": "Hand-Till", "classes": "all", "auc": float(np.mean(pairs))}
+    )
+    any_bleed = roc_curve((y > 0).astype(int), probs[:, 1] + probs[:, 2])
+    auc_rows.append(
+        {
+            "kind": "bleeding vs none",
+            "classes": "minor+major",
+            "auc": float(any_bleed.auc),
+        }
+    )
+    _write_csv(out, "ch16_multiclass_auc", pl.DataFrame(auc_rows))
+
+    fig, ax = plt.subplots(figsize=(5.4, 5.0))
+    ax.plot([0, 1], [0, 1], color=GRAY, linestyle="--", lw=1)
+    for r, level, color in zip(rocs, SEVERITY, [GRAY, BLUE, RED]):
+        ax.plot(
+            1 - r.specificities,
+            r.sensitivities,
+            color=color,
+            label=f"{SEVERITY_LABELS[level]} vs rest (AUC {r.auc:.2f})",
+        )
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_xlabel("1 - Specificity")
+    ax.set_ylabel("Sensitivity")
+    ax.set_title("One-vs-rest ROC curves")
+    ax.legend(frameon=False, loc="lower right")
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch16_multiclass_roc.png", dpi=180)
     plt.close(fig)
 
 

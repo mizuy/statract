@@ -1,0 +1,7 @@
+rule,class,n_true,n_predicted,sensitivity,ppv
+Most probable class,none,47792,49979,0.9997070639437563,0.9559615038316093
+Most probable class,minor,1039,0,0.0,
+Most probable class,major,1169,21,0.005988023952095809,0.3333333333333333
+Largest probability / proportion,none,47792,17847,0.36416136591898224,0.9751779010477951
+Largest probability / proportion,minor,1039,21577,0.5332050048123196,0.025675487787922325
+Largest probability / proportion,major,1169,10576,0.564585115483319,0.062405446293494704

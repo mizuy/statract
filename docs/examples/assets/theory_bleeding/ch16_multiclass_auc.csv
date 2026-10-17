@@ -1,0 +1,10 @@
+kind,classes,auc
+one-vs-rest,none,0.6630513342388271
+one-vs-rest,minor,0.5667581191834266
+one-vs-rest,major,0.7509355559324309
+pair,none vs minor,0.5703701643599648
+pair,none vs major,0.7470789177539512
+pair,minor vs major,0.6356901212012933
+macro one-vs-rest,all,0.6602483364515616
+Hand-Till,all,0.6510464011050697
+bleeding vs none,minor+major,0.6630513342388271
