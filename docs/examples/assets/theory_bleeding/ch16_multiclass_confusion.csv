@@ -1,19 +1,17 @@
-rule,predicted,true,n
-Most probable class,none,none,47778
-Most probable class,none,minor,1039
-Most probable class,none,major,1162
-Most probable class,minor,none,0
-Most probable class,minor,minor,0
-Most probable class,minor,major,0
-Most probable class,major,none,14
-Most probable class,major,minor,0
-Most probable class,major,major,7
-Largest probability / proportion,none,none,17404
-Largest probability / proportion,none,minor,263
-Largest probability / proportion,none,major,180
-Largest probability / proportion,minor,none,20694
-Largest probability / proportion,minor,minor,554
-Largest probability / proportion,minor,major,329
-Largest probability / proportion,major,none,9694
-Largest probability / proportion,major,minor,222
-Largest probability / proportion,major,major,660
+call,pathology,n
+hyperplastic,hyperplastic,613
+hyperplastic,adenoma,289
+hyperplastic,tis_t1a,2
+hyperplastic,t1b,0
+adenoma,hyperplastic,152
+adenoma,adenoma,1036
+adenoma,tis_t1a,67
+adenoma,t1b,0
+tis_t1a,hyperplastic,0
+tis_t1a,adenoma,318
+tis_t1a,tis_t1a,278
+tis_t1a,t1b,28
+t1b,hyperplastic,0
+t1b,adenoma,1
+t1b,tis_t1a,79
+t1b,t1b,137

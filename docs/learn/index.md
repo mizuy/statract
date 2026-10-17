@@ -32,7 +32,9 @@
 | 予防的クリップは出血を減らすか | 因果 | 第 II 部 |
 | この患者は出血するか | 予測 | 第 III 部 |
 | いつ出血するか | アウトカムが時間（記述、予測、因果のどれにも） | 第 V 部 |
-| 検査が陽性ならどのくらい確かか | 記述（検査の性能）と予測 | 第 V 部 |
+| 便潜血検査が陽性なら、大腸がんはどのくらい確かか | 記述（検査の性能） | 第 V 部 |
+
+第 V 部は、アウトカムが「あり／なし」でない解析を扱うので、章ごとにそのアウトカムに合った例を使います（第 17 章は便潜血検査と内視鏡診断）。
 
 データは確率モデルで定義し、生成しています。そのため、各章で「推定した値」と「本当の値」を比べられます。データの中身は [第 1 章](01_descriptive.md)、作り方は [第 2 章](02_independent-risk-factor.md#simulation) と [`examples/theory_bleeding`](https://github.com/mizuy/statract/tree/main/examples/theory_bleeding) にあります。
 
@@ -86,7 +88,7 @@
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
 | 16. [生存時間解析](16_survival.md) | 打ち切り、Kaplan–Meier 法、ハザードと人年法、Poisson 回帰、Cox 比例ハザードモデル、セミパラメトリックの意味と部分尤度、加速故障時間（AFT）モデル、モデルの比較と使い分け、競合リスク（CIF、Fine–Gray） | 累積出血割合、区間ごとのハザード、リスク集合の模式図 | `plot_survival`、`cox_ph`、`proportional_hazards_test`、`fit_glm`（poisson）、`accelerated_failure`、`cumulative_incidence`、`fine_gray_regression` |
-| 17. [診断の指標](17_diagnostic-metrics.md) | 2×2 表、感度と特異度、陽性・陰性的中率と有病割合、尤度比と検査後確率、ROC と Youden 指数、信頼区間、同じ患者での二つの検査の比較、スペクトラムバイアスと検証バイアス、多クラス分類（混同行列、マクロ平均、κ 係数、多クラスの AUC）、STARD | 有病割合と的中率、ROC 曲線、研究デザインごとの ROC、one-vs-rest の ROC | `threshold_tradeoff`、`roc_curve`、`roc_test`、`mcnemar_test`、`proportion_ci`、`multinomial_regression` |
+| 17. [診断の指標](17_diagnostic-metrics.md) | 2×2 表、感度と特異度、陽性・陰性的中率と有病割合、尤度比と検査後確率、ROC と Youden 指数、信頼区間、同じ患者での二つの検査の比較、スペクトラムバイアスと検証バイアス、多クラス分類（混同行列、マクロ平均、κ 係数、多クラスの AUC、PR 曲線）、STARD | 有病割合と的中率、FIT の ROC 曲線、研究デザインごとの ROC、one-vs-rest の ROC と PR 曲線 | `threshold_tradeoff`、`roc_curve`、`roc_test`、`mcnemar_test`、`proportion_ci` |
 
 ### 数学補
 

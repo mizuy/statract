@@ -343,6 +343,7 @@ CURATED: dict[str, list[str]] = {
         "figures/ch16_roc.png",
         "figures/ch16_designs.png",
         "figures/ch16_multiclass_roc.png",
+        "figures/ch16_multiclass_pr.png",
     ],
     "cea_sicksicker": [
         "figures/trace_soc.png",

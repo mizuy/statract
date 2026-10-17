@@ -1,17 +1,21 @@
-"""Chapter 16 of the theory text: metrics for diagnosis.
+"""Chapter 17 of the theory text: metrics for diagnosis.
 
-The "test" is the chapter 9 rule: the seven-predictor model fitted on the 3000
-patients, applied to 50,000 new simulated patients, positive when the
-predicted risk is 5% or more. Everything else (another hospital, a small
-study, a two-gate design, partial verification) is built from the same new
-patients.
+Part V uses its own examples instead of the bleeding data of chapters 1-15.
+
+- Two classes: a fecal immunochemical test (FIT, hemoglobin in ng/mL) for
+  colorectal cancer in 50,000 screening participants, all of whom have a
+  colonoscopy as the reference standard. A guaiac test (gFOBT) is done on the
+  same people for comparison.
+- Several classes: an endoscopist's magnifying-endoscopy call (four grades like
+  the JNET classification) and an AI system's class probabilities, against the
+  pathology of 3000 resected lesions.
+
+Both are simulated, so the truth is known. Asset names keep the old chapter
+number (``ch16_*``).
 
 Run from the repo root::
 
-    uv run python -c "from pathlib import Path; import sys; \
-sys.path.insert(0, 'examples/theory_bleeding'); \
-from diagnostic import diagnostic_metrics; \
-diagnostic_metrics(Path('examples/theory_bleeding/theory_bleeding_out'))"
+    uv run python examples/theory_bleeding/diagnostic.py
 """
 
 from __future__ import annotations
@@ -34,33 +38,102 @@ import polars as pl
 from scipy import stats
 
 # theory_bleeding runs its pipeline only under ``__main__``; importing it is safe.
-from theory_bleeding import (
-    BLUE,
-    CACHE,
-    GRAY,
-    PRED_FORMULA,
-    PRED_VARS,
-    RED,
-    _expit,
-    _test_set,
-    _write_csv,
-    bleed_logit,
-    load_data,
-)
+from theory_bleeding import BLUE, GRAY, RED, _expit, _write_csv
 
 from statract import (
     binary_perf,
-    fit_glm,
     mcnemar_test,
-    multinomial_regression,
     proportion_ci,
     roc_curve,
     roc_test,
     threshold_tradeoff,
 )
 
-THRESHOLD = 0.05
+CUTOFF = 100  # ng/mL, positive when f-Hb >= CUTOFF
 Z = float(stats.norm.ppf(0.975))
+GREEN = "#3B8C4A"
+
+
+# ---------------------------------------------------------------- simulation
+
+
+def simulate_fit(n: int, seed: int, cancer_shift: float = 0.0) -> pl.DataFrame:
+    """Screening participants with FIT, gFOBT and the true colonoscopy finding.
+
+    ``cancer_shift`` raises the log odds of cancer (a symptomatic clinic).
+    Cancer stage and side change how much the tumour bleeds; right-sided cancers
+    bleed less and are also missed more often by colonoscopy.
+    """
+    rng = np.random.default_rng(seed)
+    age = rng.integers(50, 80, n)
+    male = rng.binomial(1, 0.5, n)
+    cancer = rng.uniform(size=n) < _expit(
+        -5.5 + cancer_shift + 0.06 * (age - 65) + 0.3 * male
+    )
+    adenoma = ~cancer & (
+        rng.uniform(size=n) < _expit(-2.8 + 0.04 * (age - 65) + 0.4 * male)
+    )
+    stage = np.where(cancer, rng.choice([1, 2, 3], n, p=[0.5, 0.25, 0.25]), 0)
+    right = cancer & (rng.uniform(size=n) < 0.35)
+    # Log hemoglobin in the stool: none < advanced adenoma < cancer.
+    mu = np.where(
+        cancer,
+        5.3 + 0.8 * (stage >= 2) + 0.4 * (stage == 3) - 0.8 * right,
+        np.where(adenoma, 3.0, 2.0),
+    )
+    sd = np.where(cancer, 1.4, 1.5)
+    latent = mu + sd * rng.normal(size=n)
+    fhb = np.minimum(np.round(np.exp(latent)), 1000.0)  # assay upper limit
+    # gFOBT reacts only to more bleeding, plus dietary false positives.
+    gfobt = (latent + rng.normal(0, 0.8, n) > 6.0) | (rng.uniform(size=n) < 0.02)
+    # Colonoscopy misses 2% of left-sided and 10% of right-sided cancers.
+    miss = cancer & (rng.uniform(size=n) < np.where(right, 0.10, 0.02))
+    return pl.DataFrame(
+        {
+            "age": age,
+            "male": male,
+            "cancer": cancer.astype(int),
+            "adenoma": adenoma.astype(int),
+            "stage": stage,
+            "right": right.astype(int),
+            "fhb": fhb,
+            "gfobt": gfobt.astype(int),
+            "colonoscopy": (cancer & ~miss).astype(int),
+        }
+    )
+
+
+PATHOLOGY = ["hyperplastic", "adenoma", "tis_t1a", "t1b"]
+PATHOLOGY_LABELS = {
+    "hyperplastic": "Hyperplastic",
+    "adenoma": "Adenoma",
+    "tis_t1a": "Tis/T1a cancer",
+    "t1b": "T1b cancer",
+}
+
+
+def simulate_lesions(n: int = 3000, seed: int = 5) -> dict[str, np.ndarray]:
+    """Pathology, two endoscopists' calls and an AI system's probabilities.
+
+    Each lesion has an appearance score near its pathology grade (0-3). Each
+    endoscopist reads it with some noise and calls the nearest grade. The AI
+    sees the same appearance with its own noise and gives probabilities.
+    """
+    rng = np.random.default_rng(seed)
+    prior = np.array([0.25, 0.55, 0.15, 0.05])
+    y = rng.choice(4, n, p=prior)
+    look = y + rng.normal(0, 0.45, n)
+    cuts = [0.5, 1.5, 2.5]
+    reader1 = np.digitize(look + rng.normal(0, 0.3, n), cuts)
+    reader2 = np.digitize(look + rng.normal(0, 0.3, n), cuts)
+    seen = look + rng.normal(0, 0.35, n)
+    logits = -((seen[:, None] - np.arange(4)) ** 2) / (2 * 0.6**2) + np.log(prior)
+    probs = np.exp(logits - logits.max(axis=1, keepdims=True))
+    probs /= probs.sum(axis=1, keepdims=True)
+    return {"y": y, "reader1": reader1, "reader2": reader2, "probs": probs}
+
+
+# ---------------------------------------------------------------- helpers
 
 
 def _wilson(hits: int, total: int) -> tuple[float, float]:
@@ -118,76 +191,75 @@ def _ppv_npv(
     return ppv, npv
 
 
+def _roc_axes(ax, title: str) -> None:
+    ax.plot([0, 1], [0, 1], color=GRAY, linestyle="--", lw=1)
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_xlabel("1 - Specificity")
+    ax.set_ylabel("Sensitivity")
+    ax.set_title(title)
+    ax.legend(frameon=False, loc="lower right")
+    ax.grid(alpha=0.3)
+
+
+# ---------------------------------------------------------------- two classes
+
+
 def diagnostic_metrics(out: Path) -> None:
     """Write ch16_*.csv and figures/ch16_*.png into ``out``."""
     out = Path(out)
     (out / "figures").mkdir(parents=True, exist_ok=True)
-    df = load_data(CACHE)
-    test = _test_set()
-    y = test["bleed"].to_numpy()
-    full = fit_glm(df, PRED_FORMULA, family="binomial")
-    simple = fit_glm(df, "bleed ~ age + antithrombotic", family="binomial")
-    p = np.asarray(full.predict(test, kind="response"))
-    p_simple = np.asarray(simple.predict(test, kind="response"))
-    pos = p >= THRESHOLD
+    screen = simulate_fit(50_000, seed=1)
+    clinic = simulate_fit(5_000, seed=2, cancer_shift=1.7)
+    y = screen["cancer"].to_numpy()
+    fhb = screen["fhb"].to_numpy()
+    pos = fhb >= CUTOFF
 
-    # 16.1-16.2: the 2x2 table on 50,000 patients and on a study of 1000.
+    # 17.1-17.3 and 17.5: the 2x2 table on 50,000 people, on the first 5000,
+    # and in a clinic for people with symptoms.
     rows = [
-        _metrics(y, pos, "50,000 new patients"),
-        _metrics(y[:1000], pos[:1000], "Study of 1000 patients"),
+        _metrics(y, pos, "50,000 screening participants"),
+        _metrics(y[:5000], pos[:5000], "First 5000 participants"),
+        _metrics(
+            clinic["cancer"].to_numpy(),
+            clinic["fhb"].to_numpy() >= CUTOFF,
+            "Symptomatic clinic",
+        ),
     ]
-
-    # Another hospital: same patients and effects, baseline odds x exp(0.8)
-    # (the same draw as chapter 9's calibration example).
-    rng = np.random.default_rng(9)
-    lp_true = bleed_logit(
-        *[
-            test[c].to_numpy()
-            for c in ["age", "antithrombotic", "size_mm", "proximal", "clip"]
-        ]
-    )
-    y_other = rng.binomial(1, _expit(lp_true + 0.8))
-    rows.append(_metrics(y_other, pos, "Hospital with higher risk"))
     table = pl.DataFrame(rows)
     base = rows[0]
     ppv_bayes, npv_bayes = _ppv_npv(
         base["sensitivity"], base["specificity"], np.array([rows[2]["prevalence"]])
     )
     table = table.with_columns(
-        pl.Series(
-            "ppv_bayes",
-            [base["ppv"], base["ppv"], float(ppv_bayes[0])],
-        ),
-        pl.Series(
-            "npv_bayes",
-            [base["npv"], base["npv"], float(npv_bayes[0])],
-        ),
+        pl.Series("ppv_bayes", [base["ppv"], base["ppv"], float(ppv_bayes[0])]),
+        pl.Series("npv_bayes", [base["npv"], base["npv"], float(npv_bayes[0])]),
     )
     _write_csv(out, "ch16_table", table)
 
-    # Likelihood ratios for bands of predicted risk.
+    # Likelihood ratios for bands of f-Hb.
     bands = [
-        (0.0, 0.02, "< 2%"),
-        (0.02, 0.05, "2-5%"),
-        (0.05, 0.10, "5-10%"),
-        (0.10, 1.01, ">= 10%"),
+        (0, 20, "< 20"),
+        (20, 100, "20-99"),
+        (100, 400, "100-399"),
+        (400, 1e9, ">= 400"),
     ]
     n1, n0 = int((y == 1).sum()), int((y == 0).sum())
     band_rows = []
     for lo, hi, label in bands:
-        m = (p >= lo) & (p < hi)
+        m = (fhb >= lo) & (fhb < hi)
         a, b = int((m & (y == 1)).sum()), int((m & (y == 0)).sum())
         lr, lr_lo, lr_hi = _lr_ci(a, n1, b, n0)
         band_rows.append(
             {
                 "band": label,
-                "lower": lo,
-                "upper": min(hi, 1.0),
+                "lower": float(lo),
+                "upper": float(min(hi, 1000)),
                 "n": int(m.sum()),
-                "bleed": a,
-                "no_bleed": b,
-                "share_of_bleed": a / n1,
-                "share_of_no_bleed": b / n0,
+                "cancer": a,
+                "no_cancer": b,
+                "share_of_cancer": a / n1,
+                "share_of_no_cancer": b / n0,
                 "lr": lr,
                 "lr_lo": lr_lo,
                 "lr_hi": lr_hi,
@@ -196,11 +268,13 @@ def diagnostic_metrics(out: Path) -> None:
         )
     _write_csv(out, "ch16_bands", pl.DataFrame(band_rows))
 
-    # 16.3: ROC curve, thresholds and the Youden index.
-    roc = roc_curve(y, p)
+    # 17.4: ROC curve, cut-offs and the Youden index.
+    roc = roc_curve(y, fhb)
     auc_lo, auc, auc_hi = roc.ci_auc()
     best = roc.coords("best", ret=["threshold", "sensitivity", "specificity"])
-    trade = threshold_tradeoff(y, p, thresholds=np.array([0.02, 0.05, 0.10, 0.20]))
+    trade = threshold_tradeoff(
+        y, fhb, thresholds=np.array([20.0, 50.0, 100.0, 150.0, 400.0])
+    )
     points = pl.concat(
         [
             trade.select(
@@ -208,13 +282,14 @@ def diagnostic_metrics(out: Path) -> None:
                 "threshold",
                 "sensitivity",
                 "specificity",
+                "ppv",
             ),
             best.select(
                 pl.lit("youden").alias("kind"),
                 "threshold",
                 "sensitivity",
                 "specificity",
-            ),
+            ).with_columns(pl.lit(None, dtype=pl.Float64).alias("ppv")),
         ]
     ).with_columns(
         (pl.col("sensitivity") + pl.col("specificity") - 1).alias("youden_j"),
@@ -222,15 +297,17 @@ def diagnostic_metrics(out: Path) -> None:
         pl.lit(auc_lo).alias("auc_lo"),
         pl.lit(auc_hi).alias("auc_hi"),
     )
+    # Share of people sent to colonoscopy at each cut-off.
+    pos_rate = [float(np.mean(fhb >= t)) for t in points["threshold"].to_list()]
+    points = points.with_columns(pl.Series("positive_rate", pos_rate))
     _write_csv(out, "ch16_roc_points", points)
 
     fig, ax = plt.subplots(figsize=(5.4, 5.0))
-    ax.plot([0, 1], [0, 1], color=GRAY, linestyle="--", lw=1)
     ax.plot(
         1 - roc.specificities,
         roc.sensitivities,
         color=BLUE,
-        label=f"Seven predictors (AUC {auc:.3f})",
+        label=f"FIT (AUC {auc:.3f})",
     )
     fixed = points.filter(pl.col("kind") == "fixed")
     ax.scatter(
@@ -239,12 +316,11 @@ def diagnostic_metrics(out: Path) -> None:
     for t, se, sp in fixed.select(
         "threshold", "sensitivity", "specificity"
     ).iter_rows():
-        offset = (8, 2) if t >= 0.2 else (6, -12)
         ax.annotate(
-            f"{t:.0%}",
+            f"{t:.0f}",
             (1 - sp, se),
             textcoords="offset points",
-            xytext=offset,
+            xytext=(6, -12),
             fontsize=9,
         )
     yb = points.filter(pl.col("kind") == "youden").row(0, named=True)
@@ -256,64 +332,50 @@ def diagnostic_metrics(out: Path) -> None:
         color=RED,
         zorder=4,
         s=30,
-        label=f"Largest Youden index ({yb['threshold']:.1%})",
+        label=f"Largest Youden index ({yb['threshold']:.0f} ng/mL)",
     )
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
-    ax.set_xlabel("1 - Specificity")
-    ax.set_ylabel("Sensitivity")
-    ax.set_title("ROC curve and thresholds")
-    ax.legend(frameon=False, loc="lower right")
-    ax.grid(alpha=0.3)
+    _roc_axes(ax, "ROC curve of FIT (labels: cut-off in ng/mL)")
     fig.tight_layout()
     fig.savefig(out / "figures" / "ch16_roc.png", dpi=180)
     plt.close(fig)
 
     # PPV and NPV against prevalence, with sensitivity and specificity fixed.
-    prev = np.linspace(0.001, 0.5, 500)
+    prev = np.linspace(0.001, 0.2, 500)
     ppv, npv = _ppv_npv(base["sensitivity"], base["specificity"], prev)
     fig, ax = plt.subplots(figsize=(6.0, 4.2))
     ax.plot(prev, ppv, color=RED, label="Positive predictive value")
     ax.plot(prev, npv, color=BLUE, label="Negative predictive value")
     for pr, ls in [(base["prevalence"], "--"), (rows[2]["prevalence"], ":")]:
         ax.axvline(pr, color=GRAY, linestyle=ls, lw=1)
-    ax.annotate(
-        f"{base['prevalence']:.1%}",
-        (base["prevalence"], 0.5),
-        xytext=(4, 0),
-        textcoords="offset points",
-        fontsize=9,
-        color=GRAY,
-    )
-    ax.annotate(
-        f"{rows[2]['prevalence']:.1%}",
-        (rows[2]["prevalence"], 0.4),
-        xytext=(4, 0),
-        textcoords="offset points",
-        fontsize=9,
-        color=GRAY,
-    )
-    ax.set_xlim(0, 0.5)
+        ax.annotate(
+            f"{pr:.1%}",
+            (pr, 0.5),
+            xytext=(4, 0),
+            textcoords="offset points",
+            fontsize=9,
+            color=GRAY,
+        )
+    ax.set_xlim(0, 0.2)
     ax.set_ylim(0, 1)
     ax.xaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
     ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
-    ax.set_xlabel("Prevalence (proportion who bleed)")
+    ax.set_xlabel("Prevalence of colorectal cancer")
     ax.set_ylabel("Predictive value")
     ax.set_title(
-        f"Same test (sensitivity {base['sensitivity']:.0%}, specificity {base['specificity']:.0%})"
+        f"Same test (sensitivity {base['sensitivity']:.0%}, specificity {base['specificity']:.1%})"
     )
-    ax.legend(frameon=False, loc="upper right")
+    ax.legend(frameon=False, loc="center right")
     ax.grid(alpha=0.3)
     fig.tight_layout()
     fig.savefig(out / "figures" / "ch16_prevalence.png", dpi=180)
     plt.close(fig)
 
-    # 16.5: two tests on the same patients.
-    pos2 = p_simple >= THRESHOLD
+    # 17.6: FIT and gFOBT on the same people.
+    g = screen["gfobt"].to_numpy() == 1
     cmp_rows = []
-    for group, label in [(1, "sensitivity (bleed)"), (0, "specificity (no bleed)")]:
+    for group, label in [(1, "sensitivity (cancer)"), (0, "specificity (no cancer)")]:
         m = y == group
-        a, b = pos[m], pos2[m]
+        a, b = pos[m], g[m]
         if group == 0:
             a, b = ~a, ~b  # count correct negatives
         tab = np.array(
@@ -324,11 +386,11 @@ def diagnostic_metrics(out: Path) -> None:
             {
                 "measure": label,
                 "n": int(m.sum()),
-                "seven_predictors": float(a.mean()),
-                "age_antithrombotic": float(b.mean()),
+                "fit": float(a.mean()),
+                "gfobt": float(b.mean()),
                 "both_correct": int(tab[0, 0]),
-                "only_seven": int(tab[0, 1]),
-                "only_simple": int(tab[1, 0]),
+                "only_fit": int(tab[0, 1]),
+                "only_gfobt": int(tab[1, 0]),
                 "both_wrong": int(tab[1, 1]),
                 "test": "McNemar (continuity correction)",
                 "statistic": res.statistic,
@@ -337,17 +399,17 @@ def diagnostic_metrics(out: Path) -> None:
                 "diff_hi": None,
             }
         )
-    roc2 = roc_curve(y, p_simple)
-    rt = roc_test(roc, roc2)
+    roc_g = roc_curve(y, g.astype(float))
+    rt = roc_test(roc, roc_g)
     cmp_rows.append(
         {
             "measure": "AUC",
             "n": int(y.size),
-            "seven_predictors": rt.auc1,
-            "age_antithrombotic": rt.auc2,
+            "fit": rt.auc1,
+            "gfobt": rt.auc2,
             "both_correct": None,
-            "only_seven": None,
-            "only_simple": None,
+            "only_fit": None,
+            "only_gfobt": None,
             "both_wrong": None,
             "test": "DeLong (paired)",
             "statistic": rt.statistic,
@@ -358,57 +420,61 @@ def diagnostic_metrics(out: Path) -> None:
     )
     _write_csv(out, "ch16_compare", pl.DataFrame(cmp_rows))
 
-    # 16.6: pitfalls. Spectrum, two-gate design, partial verification.
-    size = test["size_mm"].to_numpy()
-    cases = (y == 1) & (size >= 20)
-    controls = (y == 0) & (size < 15)
-    two_gate = cases | controls
+    # 17.7: pitfalls. Spectrum, two-gate design, partial verification, and an
+    # imperfect reference standard.
+    stage = screen["stage"].to_numpy()
+    right = screen["right"].to_numpy() == 1
+    adenoma = screen["adenoma"].to_numpy() == 1
+    hospital_cases = (y == 1) & (stage >= 2)
+    healthy = (y == 0) & ~adenoma
+    two_gate = hospital_cases | healthy
     verify_rng = np.random.default_rng(16)
     verified = pos | (verify_rng.uniform(size=y.size) < 0.10)
+    no_early = (y == 0) | (stage >= 2)
+    no_late = (y == 0) | (stage == 1)
+    no_left = (y == 0) | right
     designs = [
-        ("All 50,000 patients", np.ones(y.size, dtype=bool)),
-        ("Lesions < 20 mm", size < 20),
-        ("Lesions >= 20 mm", size >= 20),
-        ("Two-gate: bleeders >= 20 mm vs non-bleeders < 15 mm", two_gate),
-        ("Verified only: all positives, 10% of negatives", verified),
+        ("All 50,000 participants", np.ones(y.size, dtype=bool), y),
+        ("Stage I cancers only", no_late, y),
+        ("Stage II-IV cancers only", no_early, y),
+        ("Right-sided cancers only", no_left, y),
+        ("Two-gate: stage II-IV patients vs healthy volunteers", two_gate, y),
+        ("Verified only: all positives, 10% of negatives", verified, y),
+        (
+            "Reference = colonoscopy finding (misses some cancers)",
+            np.ones(y.size, dtype=bool),
+            screen["colonoscopy"].to_numpy(),
+        ),
     ]
     pit_rows = []
     rocs = {}
-    for name, m in designs:
-        r = _metrics(y[m], pos[m], name)
-        rc = roc_curve(y[m], p[m])
+    for name, m, ref in designs:
+        r = _metrics(ref[m], pos[m], name)
+        rc = roc_curve(ref[m], fhb[m])
         rocs[name] = rc
         r["auc"] = rc.auc
         pit_rows.append(r)
     _write_csv(out, "ch16_pitfalls", pl.DataFrame(pit_rows))
 
     fig, ax = plt.subplots(figsize=(5.4, 5.0))
-    ax.plot([0, 1], [0, 1], color=GRAY, linestyle="--", lw=1)
     styles = [
-        (designs[0][0], "All patients", BLUE, "-"),
-        (designs[3][0], "Two-gate design", RED, "-"),
-        (designs[4][0], "Verified patients only", GRAY, "-"),
+        (designs[0][0], "All participants", BLUE),
+        (designs[1][0], "Stage I cancers only", GREEN),
+        (designs[4][0], "Two-gate design", RED),
     ]
-    for key, label, color, ls in styles:
+    for key, label, color in styles:
         rc = rocs[key]
         ax.plot(
             1 - rc.specificities,
             rc.sensitivities,
             color=color,
-            linestyle=ls,
             label=f"{label} (AUC {rc.auc:.2f})",
         )
         r = next(row for row in pit_rows if row["setting"] == key)
         ax.scatter(
             [1 - r["specificity"]], [r["sensitivity"]], color=color, zorder=3, s=26
         )
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
-    ax.set_xlabel("1 - Specificity")
-    ax.set_ylabel("Sensitivity")
-    ax.set_title("Same test, different study designs\n(dots: threshold 5%)")
-    ax.legend(frameon=False, loc="lower right")
-    ax.grid(alpha=0.3)
+    _roc_axes(ax, f"Same test, different study designs\n(dots: cut-off {CUTOFF} ng/mL)")
     fig.tight_layout()
     fig.savefig(out / "figures" / "ch16_designs.png", dpi=180)
     plt.close(fig)
@@ -416,27 +482,13 @@ def diagnostic_metrics(out: Path) -> None:
     multiclass_metrics(out)
 
 
-# 16.7: three classes. Bleeders are split into minor bleeding and bleeding that
-# needs endoscopic treatment; antithrombotics and large lesions make it worse.
-SEVERITY = ["none", "minor", "major"]
-SEVERITY_LABELS = {"none": "No bleeding", "minor": "Minor", "major": "Needs treatment"}
+# ---------------------------------------------------------------- several classes
 
 
-def _with_severity(df: pl.DataFrame, seed: int) -> pl.DataFrame:
-    rng = np.random.default_rng(seed)
-    a = df["antithrombotic"].to_numpy()
-    size = df["size_mm"].to_numpy()
-    p_major = _expit(-0.6 + 1.6 * a + 0.6 * (size - 15) / 10)
-    major = rng.uniform(size=df.height) < p_major
-    bleed = df["bleed"].to_numpy() == 1
-    label = np.where(~bleed, "none", np.where(major, "major", "minor"))
-    return df.with_columns(pl.Series("severity", label).cast(pl.Enum(SEVERITY)))
-
-
-def _confusion(y: np.ndarray, pred: np.ndarray, k: int) -> np.ndarray:
-    """Rows are the predicted class, columns the true class (as in the 2x2 table)."""
+def _confusion(truth: np.ndarray, call: np.ndarray, k: int) -> np.ndarray:
+    """Rows are the call, columns the truth (as in the 2x2 table)."""
     c = np.zeros((k, k), dtype=int)
-    np.add.at(c, (pred, y), 1)
+    np.add.at(c, (call, truth), 1)
     return c
 
 
@@ -448,131 +500,177 @@ def _kappa(c: np.ndarray, weights: np.ndarray) -> float:
 
 
 def _auc_pair(score: np.ndarray, y: np.ndarray, i: int, j: int) -> float:
-    """P(score of a class-i patient > score of a class-j patient), ties count 1/2."""
+    """P(score of a class-i lesion > score of a class-j lesion), ties count 1/2."""
     a, b = score[y == i], score[y == j]
     r = stats.rankdata(np.r_[a, b])
     return float((r[: a.size].sum() - a.size * (a.size + 1) / 2) / (a.size * b.size))
 
 
-def multiclass_metrics(out: Path) -> None:
-    """Write ch16_multiclass_*.csv and figures/ch16_multiclass_roc.png into ``out``."""
-    out = Path(out)
-    k = len(SEVERITY)
-    train = _with_severity(load_data(CACHE), seed=17)
-    test = _with_severity(_test_set(), seed=18)
-    formula = "severity ~ " + " + ".join(PRED_VARS)
-    fit = multinomial_regression(train, formula)
-    probs = fit.predict(test)
-    y = test["severity"].to_physical().to_numpy()
-    prior = np.bincount(train["severity"].to_physical().to_numpy(), minlength=k)
-    prior = prior / prior.sum()
+def _pr_curve(r, prevalence: float) -> tuple[np.ndarray, np.ndarray]:
+    """Recall and precision from an ROC curve and the prevalence."""
+    tpr = np.asarray(r.sensitivities)
+    fpr = 1 - np.asarray(r.specificities)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        precision = tpr * prevalence / (tpr * prevalence + fpr * (1 - prevalence))
+    keep = tpr > 0
+    return tpr[keep], precision[keep]
 
-    rules = {
-        "Most probable class": probs.argmax(axis=1),
-        "Largest probability / proportion": (probs / prior).argmax(axis=1),
-    }
+
+def _average_precision(score: np.ndarray, truth: np.ndarray) -> float:
+    """Mean precision over the positives, ranked by score (area under the PR curve)."""
+    order = np.argsort(-score, kind="stable")
+    hits = truth[order]
+    precision = np.cumsum(hits) / np.arange(1, hits.size + 1)
+    return float(precision[hits == 1].mean())
+
+
+def multiclass_metrics(out: Path) -> None:
+    """Write ch16_multiclass_*.csv and their figures into ``out``."""
+    out = Path(out)
+    k = len(PATHOLOGY)
+    d = simulate_lesions()
+    y, r1, r2, probs = d["y"], d["reader1"], d["reader2"], d["probs"]
     linear = 1 - np.abs(np.subtract.outer(np.arange(k), np.arange(k))) / (k - 1)
-    cells, per_class, summary = [], [], []
-    for rule, pred in rules.items():
-        c = _confusion(y, pred, k)
-        for i in range(k):
-            for j in range(k):
-                cells.append(
-                    {
-                        "rule": rule,
-                        "predicted": SEVERITY[i],
-                        "true": SEVERITY[j],
-                        "n": int(c[i, j]),
-                    }
-                )
-        sens = np.diag(c) / c.sum(axis=0)
-        with np.errstate(invalid="ignore", divide="ignore"):
-            ppv = np.diag(c) / c.sum(axis=1)
-        for i in range(k):
-            per_class.append(
-                {
-                    "rule": rule,
-                    "class": SEVERITY[i],
-                    "n_true": int(c[:, i].sum()),
-                    "n_predicted": int(c[i].sum()),
-                    "sensitivity": float(sens[i]),
-                    "ppv": float(ppv[i]) if c[i].sum() else None,
-                }
-            )
-        summary.append(
-            {
-                "rule": rule,
-                "accuracy": float(np.trace(c) / c.sum()),
-                "balanced_accuracy": float(sens.mean()),
-                "macro_ppv": float(np.nanmean(np.where(c.sum(1) > 0, ppv, 0.0))),
-                "kappa": _kappa(c, np.eye(k)),
-                "kappa_linear": _kappa(c, linear),
-            }
-        )
+
+    c = _confusion(y, r1, k)
+    cells = [
+        {"call": PATHOLOGY[i], "pathology": PATHOLOGY[j], "n": int(c[i, j])}
+        for i in range(k)
+        for j in range(k)
+    ]
     _write_csv(out, "ch16_multiclass_confusion", pl.DataFrame(cells))
+
+    sens = np.diag(c) / c.sum(axis=0)
+    ppv = np.diag(c) / c.sum(axis=1)
+    per_class = [
+        {
+            "class": PATHOLOGY[i],
+            "n_true": int(c[:, i].sum()),
+            "n_called": int(c[i].sum()),
+            "sensitivity": float(sens[i]),
+            "ppv": float(ppv[i]),
+        }
+        for i in range(k)
+    ]
     _write_csv(out, "ch16_multiclass_class", pl.DataFrame(per_class))
+
+    all_adenoma = _confusion(y, np.ones_like(y), k)
+    between = _confusion(r2, r1, k)
+    summary = [
+        {
+            "comparison": "Endoscopist 1 vs pathology",
+            "accuracy": float(np.trace(c) / c.sum()),
+            "balanced_accuracy": float(sens.mean()),
+            "macro_ppv": float(ppv.mean()),
+            "kappa": _kappa(c, np.eye(k)),
+            "kappa_linear": _kappa(c, linear),
+        },
+        {
+            "comparison": "Call everything adenoma",
+            "accuracy": float(np.trace(all_adenoma) / all_adenoma.sum()),
+            "balanced_accuracy": 1 / k,
+            "macro_ppv": None,
+            "kappa": _kappa(all_adenoma, np.eye(k)),
+            "kappa_linear": _kappa(all_adenoma, linear),
+        },
+        {
+            "comparison": "Endoscopist 1 vs endoscopist 2",
+            "accuracy": float(np.trace(between) / between.sum()),
+            "balanced_accuracy": None,
+            "macro_ppv": None,
+            "kappa": _kappa(between, np.eye(k)),
+            "kappa_linear": _kappa(between, linear),
+        },
+    ]
     _write_csv(out, "ch16_multiclass_summary", pl.DataFrame(summary))
 
-    # AUC: one class against the rest, and Hand and Till's average over pairs.
+    # AI probabilities: one class against the rest, Hand and Till's pairs,
+    # and the precision-recall view.
     auc_rows = []
     rocs = []
     for i in range(k):
-        r = roc_curve((y == i).astype(int), probs[:, i])
+        truth = (y == i).astype(int)
+        r = roc_curve(truth, probs[:, i])
         rocs.append(r)
         auc_rows.append(
-            {"kind": "one-vs-rest", "classes": SEVERITY[i], "auc": float(r.auc)}
+            {
+                "kind": "one-vs-rest",
+                "classes": PATHOLOGY[i],
+                "prevalence": float(truth.mean()),
+                "auc": float(r.auc),
+                "average_precision": _average_precision(probs[:, i], truth),
+            }
         )
     pairs = []
     for i in range(k):
         for j in range(i + 1, k):
-            a_ij = _auc_pair(probs[:, i], y, i, j)
-            a_ji = _auc_pair(probs[:, j], y, j, i)
-            pairs.append((a_ij + a_ji) / 2)
+            a = (_auc_pair(probs[:, i], y, i, j) + _auc_pair(probs[:, j], y, j, i)) / 2
+            pairs.append(a)
             auc_rows.append(
                 {
                     "kind": "pair",
-                    "classes": f"{SEVERITY[i]} vs {SEVERITY[j]}",
-                    "auc": (a_ij + a_ji) / 2,
+                    "classes": f"{PATHOLOGY[i]} vs {PATHOLOGY[j]}",
+                    "prevalence": None,
+                    "auc": a,
+                    "average_precision": None,
                 }
             )
     auc_rows.append(
         {
             "kind": "macro one-vs-rest",
             "classes": "all",
+            "prevalence": None,
             "auc": float(np.mean([r["auc"] for r in auc_rows[:k]])),
+            "average_precision": float(
+                np.mean([r["average_precision"] for r in auc_rows[:k]])
+            ),
         }
     )
     auc_rows.append(
-        {"kind": "Hand-Till", "classes": "all", "auc": float(np.mean(pairs))}
-    )
-    any_bleed = roc_curve((y > 0).astype(int), probs[:, 1] + probs[:, 2])
-    auc_rows.append(
         {
-            "kind": "bleeding vs none",
-            "classes": "minor+major",
-            "auc": float(any_bleed.auc),
+            "kind": "Hand-Till",
+            "classes": "all",
+            "prevalence": None,
+            "auc": float(np.mean(pairs)),
+            "average_precision": None,
         }
     )
     _write_csv(out, "ch16_multiclass_auc", pl.DataFrame(auc_rows))
 
+    colors = [GRAY, BLUE, GREEN, RED]
     fig, ax = plt.subplots(figsize=(5.4, 5.0))
-    ax.plot([0, 1], [0, 1], color=GRAY, linestyle="--", lw=1)
-    for r, level, color in zip(rocs, SEVERITY, [GRAY, BLUE, RED]):
+    for r, level, color in zip(rocs, PATHOLOGY, colors):
         ax.plot(
             1 - r.specificities,
             r.sensitivities,
             color=color,
-            label=f"{SEVERITY_LABELS[level]} vs rest (AUC {r.auc:.2f})",
+            label=f"{PATHOLOGY_LABELS[level]} (AUC {r.auc:.2f})",
         )
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
-    ax.set_xlabel("1 - Specificity")
-    ax.set_ylabel("Sensitivity")
-    ax.set_title("One-vs-rest ROC curves")
-    ax.legend(frameon=False, loc="lower right")
-    ax.grid(alpha=0.3)
+    _roc_axes(ax, "AI system: one-vs-rest ROC curves")
     fig.tight_layout()
     fig.savefig(out / "figures" / "ch16_multiclass_roc.png", dpi=180)
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(5.4, 5.0))
+    for i, (r, level, color) in enumerate(zip(rocs, PATHOLOGY, colors)):
+        prev = auc_rows[i]["prevalence"]
+        rec, prec = _pr_curve(r, prev)
+        ax.plot(
+            rec,
+            prec,
+            color=color,
+            label=f"{PATHOLOGY_LABELS[level]} (AP {auc_rows[i]['average_precision']:.2f})",
+        )
+        ax.axhline(prev, color=color, linestyle=":", lw=1)
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1.02)
+    ax.set_xlabel("Recall (sensitivity)")
+    ax.set_ylabel("Precision (positive predictive value)")
+    ax.set_title("AI system: one-vs-rest precision-recall curves\n(dotted: prevalence)")
+    ax.legend(frameon=False, loc="center left", bbox_to_anchor=(0.0, 0.42))
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch16_multiclass_pr.png", dpi=180)
     plt.close(fig)
 
 
