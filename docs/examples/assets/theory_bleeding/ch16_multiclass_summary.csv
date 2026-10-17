@@ -1,0 +1,4 @@
+comparison,accuracy,balanced_accuracy,macro_ppv,kappa,kappa_linear
+Endoscopist 1 vs pathology,0.688,0.7285906739429076,0.6451111447859113,0.5275583397309808,0.6478841550119699
+Call everything adenoma,0.548,0.25,,0.0,0.0
+Endoscopist 1 vs endoscopist 2,0.7126666666666667,,,0.5801741546702703,0.6975689976552607

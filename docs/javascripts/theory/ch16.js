@@ -3,7 +3,7 @@
   "use strict";
   const { COLOR, svgEl, pct, expit, logit, loadCsv, controls, slider, buttons, readout, newSvg, register } = window.SX;
 
-  // ---------- 16.2 Fagan nomogram: pre-test probability x likelihood ratio ----------
+  // ---------- 17.3 Fagan nomogram: pre-test probability x likelihood ratio ----------
 
   const PROB_TICKS = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 0.8, 0.9, 0.95, 0.98, 0.99, 0.995, 0.999];
   const LR_TICKS = [0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200];
@@ -26,7 +26,7 @@
     const rows = await loadCsv("ch16_table.csv");
     const bands = await loadCsv("ch16_bands.csv");
     const here = rows.find((r) => String(r.setting).indexOf("50,000") >= 0);
-    const other = rows.find((r) => String(r.setting).indexOf("higher risk") >= 0);
+    const other = rows.find((r) => String(r.setting).indexOf("Symptomatic") >= 0);
     const state = { pre: here.prevalence, lr: here.lr_pos };
 
     // Slider positions: 0-4000 on the logit scale (pre-test) and on the log scale (LR).
@@ -75,8 +75,8 @@
       draw();
     };
     const prePick = buttons(ctl, "検査前確率を", [
-      { label: `この集団（${pct(here.prevalence)}）`, onClick: () => setPre(here.prevalence) },
-      { label: `リスクの高い病院（${pct(other.prevalence)}）`, onClick: () => setPre(other.prevalence) },
+      { label: `検診（${pct(here.prevalence)}）`, onClick: () => setPre(here.prevalence) },
+      { label: `症状のある人の外来（${pct(other.prevalence)}）`, onClick: () => setPre(other.prevalence) },
       { label: "30%", onClick: () => setPre(0.3) },
     ]);
     const lowBand = bands[0];
@@ -84,8 +84,8 @@
     const lrPick = buttons(ctl, "尤度比を", [
       { label: `陽性 LR+ ${here.lr_pos.toFixed(2)}`, onClick: () => setLr(here.lr_pos) },
       { label: `陰性 LR− ${here.lr_neg.toFixed(2)}`, onClick: () => setLr(here.lr_neg) },
-      { label: `予測 ${pct(lowBand.upper, 0)} 未満 ${lowBand.lr.toFixed(2)}`, onClick: () => setLr(lowBand.lr) },
-      { label: `予測 ${pct(highBand.lower, 0)} 以上 ${highBand.lr.toFixed(2)}`, onClick: () => setLr(highBand.lr) },
+      { label: `FIT ${lowBand.upper.toFixed(0)} 未満 ${lowBand.lr.toFixed(2)}`, onClick: () => setLr(lowBand.lr) },
+      { label: `FIT ${highBand.lower.toFixed(0)} 以上 ${highBand.lr.toFixed(1)}`, onClick: () => setLr(highBand.lr) },
       { label: "10", onClick: () => setLr(10) },
       { label: "0.1", onClick: () => setLr(0.1) },
     ]);

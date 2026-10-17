@@ -1,0 +1,13 @@
+kind,classes,prevalence,auc,average_precision
+one-vs-rest,hyperplastic,0.255,0.9172686464593294,0.7958500935653865
+one-vs-rest,adenoma,0.548,0.8319023677769882,0.8191629749403581
+one-vs-rest,tis_t1a,0.142,0.899211508366438,0.5487175647371642
+one-vs-rest,t1b,0.055,0.9802276735610069,0.7609601645457807
+pair,hyperplastic vs adenoma,,0.8561010129923827,
+pair,hyperplastic vs tis_t1a,,0.9945457056061862,
+pair,hyperplastic vs t1b,,1.0,
+pair,adenoma vs tis_t1a,,0.8384186913859475,
+pair,adenoma vs t1b,,0.990099904150999,
+pair,tis_t1a vs t1b,,0.7243633518281405,
+macro one-vs-rest,all,,0.9071525490409407,0.7311726994471723
+Hand-Till,all,,0.9005881109939425,
