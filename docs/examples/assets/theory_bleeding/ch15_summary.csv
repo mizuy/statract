@@ -1,2 +1,2 @@
-n,bleeds,lost,median_day_of_bleed,bleeds_by_day3
-3000,116,333,3.80437376572507,49
+n,recurrences,deaths_without_recurrence,censored_before_5y,median_years_to_recurrence,recurrences_by_2y,chemo_stage2,chemo_stage3
+2000,554,199,938,1.360721962282444,353,0.22773279352226722,0.7549407114624506

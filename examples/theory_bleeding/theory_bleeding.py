@@ -16,7 +16,6 @@ Part IV (chapters 12-15): probability models, likelihood, hierarchical models, s
 """
 
 
-import itertools
 import shutil
 from pathlib import Path
 
@@ -33,7 +32,6 @@ from scipy import stats
 from support import ProjectPath, load_data
 
 from statract import (
-    accelerated_failure,
     agg_category,
     agg_mean_sd,
     agg_median_iqr,
@@ -41,7 +39,6 @@ from statract import (
     cluster_covariance,
     conditional_logit,
     conditional_tree,
-    cox_ph,
     decision_curve_table,
     fit_glm,
     fit_mixed,
@@ -51,12 +48,10 @@ from statract import (
     match_sample,
     plot_forest,
     plot_love,
-    plot_survival,
     plot_tree,
     prop_test,
     propensity_weights,
     proportion_ci,
-    proportional_hazards_test,
     roc_curve,
     spline_test,
     standardize_glm,
@@ -3259,259 +3254,6 @@ def hierarchical(out: Path) -> None:
     )
 
 
-SHAPE = 0.5  # Weibull shape of the true baseline hazard: high at first, then falling
-FOLLOW_UP = 30.0
-CUTS = [0.0, 1.0, 3.0, 7.0, 14.0, 30.0]
-SURV_FORMULA = "Surv(time, event) ~ " + " + ".join(PRED_VARS)
-
-
-def _survival_data(
-    df: pl.DataFrame, seed: int = 15
-) -> tuple[pl.DataFrame, float, float]:
-    """Days to delayed bleeding, with loss to follow-up and the end of follow-up at day 30."""
-    rng = np.random.default_rng(seed)
-    args = [
-        df[c].to_numpy()
-        for c in ["age", "antithrombotic", "size_mm", "proximal", "clip"]
-    ]
-    lp = bleed_logit(*args) - TRUE_BLEED["intercept"]
-    mean_risk = float(np.mean(np.exp(lp)))
-    lam = 0.05 / (FOLLOW_UP**SHAPE * mean_risk)
-    t_bleed = (rng.exponential(1.0, df.height) / (lam * np.exp(lp))) ** (1 / SHAPE)
-    t_loss = rng.exponential(1 / 0.004, df.height)
-    time = np.minimum.reduce([t_bleed, t_loss, np.full(df.height, FOLLOW_UP)])
-    d = df.drop("bleed").with_columns(
-        pl.Series("time", np.maximum(time, 0.01)),
-        pl.Series("event", (t_bleed <= np.minimum(t_loss, FOLLOW_UP)).astype(int)),
-    )
-    return d, lam, mean_risk
-
-
-def _split(d: pl.DataFrame) -> pl.DataFrame:
-    """One row per patient and interval: person-days and whether bleeding happened in it."""
-    parts = []
-    for a, b in itertools.pairwise(CUTS):
-        part = d.filter(pl.col("time") > a).with_columns(
-            (pl.min_horizontal(pl.col("time"), pl.lit(b)) - a).alias("days"),
-            ((pl.col("event") == 1) & (pl.col("time") <= b))
-            .cast(pl.Int64)
-            .alias("event"),
-            pl.lit(f"{a:g}-{b:g} d").alias("interval"),
-        )
-        parts.append(part)
-    return pl.concat(parts).with_columns(pl.col("days").log().alias("log_days"))
-
-
-def _risk_set_schematic(path: Path) -> None:
-    """Partial likelihood: at each bleed, who was still at risk?"""
-    times = [3, 6, 9, 11, 14, 17, 21, 25]
-    status = [1, 0, 1, 0, 0, 1, 0, 0]
-    fig, ax = plt.subplots(figsize=(7, 3))
-    t_event = 9
-    for i, (t, e) in enumerate(zip(times, status, strict=True)):
-        at_risk = t >= t_event
-        ax.plot(
-            [0, t], [i, i], color=BLUE if at_risk else GRAY, lw=2.5 if at_risk else 1.5
-        )
-        ax.plot(
-            t,
-            i,
-            "x" if e else "o",
-            color=RED if e else GRAY,
-            ms=8,
-            mfc="none" if not e else None,
-        )
-    ax.axvline(t_event, color=RED, ls=":", lw=1)
-    ax.text(t_event + 0.3, len(times) - 1.5, "a bleed on day 9", color=RED, fontsize=8)
-    ax.set_yticks(
-        range(len(times)), [f"Patient {i + 1}" for i in range(len(times))], fontsize=8
-    )
-    ax.set_xlabel("Days after resection")
-    ax.set_xlim(0, 27)
-    ax.set_title(
-        "blue: still at risk on day 9    x: bleed    o: censored",
-        fontsize=8,
-        color=GRAY,
-        loc="left",
-    )
-    ax.grid(alpha=0.3, axis="x")
-    fig.tight_layout()
-    fig.savefig(path, dpi=180)
-    plt.close(fig)
-
-
-def survival(df: pl.DataFrame, out: Path) -> None:
-    """Chapter 15: censoring, hazards, Cox, Poisson person-time, and AFT models."""
-    d, lam, mean_risk = _survival_data(df)
-    _write_csv(
-        out,
-        "ch15_summary",
-        pl.DataFrame(
-            {
-                "n": [d.height],
-                "bleeds": [int(d["event"].sum())],
-                "lost": [int(((d["event"] == 0) & (d["time"] < FOLLOW_UP)).sum())],
-                "median_day_of_bleed": [
-                    float(d.filter(pl.col("event") == 1)["time"].median())
-                ],
-                "bleeds_by_day3": [int(((d["event"] == 1) & (d["time"] <= 3)).sum())],
-            }
-        ),
-    )
-
-    # Kaplan-Meier: cumulative incidence by clip.
-    km_data = d.with_columns(
-        pl.col("clip").replace_strict({0: "No clip", 1: "Clip"}).alias("group")
-    )
-    ax = plot_survival(
-        km_data,
-        time="time",
-        status="event",
-        hue="group",
-        cdf=True,
-        show_censors=False,
-    )
-    ax.set_ylim(0, 0.08)
-    ax.set_yticks(np.arange(0, 0.081, 0.02))
-    ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
-    ax.set_xlabel("Days after resection")
-    ax.set_ylabel("Cumulative incidence of bleeding")
-    # plot_survival colours groups in order of appearance (blue, then yellow);
-    # use the house colours instead: clip blue, no clip gray.
-    km_palette = ["#0073C2", "#EFC000"]
-    first = km_data["group"].unique(maintain_order=True).to_list()
-    house = {"Clip": BLUE, "No clip": GRAY}
-    _recolor(
-        ax.figure,
-        {km_palette[i]: house[g] for i, g in enumerate(first)},
-    )
-    ax.figure.savefig(
-        out / "figures" / "ch15_km.png", dpi=180, bbox_inches="tight", pad_inches=0.1
-    )
-    plt.close(ax.figure)
-
-    # Person-time: the classic rate.
-    rates = (
-        d.group_by("clip")
-        .agg(
-            pl.col("event").sum().alias("events"),
-            pl.col("time").sum().alias("person_days"),
-        )
-        .with_columns(
-            (1000 * pl.col("events") / pl.col("person_days")).alias("per_1000_days")
-        )
-        .sort("clip")
-    )
-    _write_csv(out, "ch15_rates", rates)
-
-    # The hazard over time: piecewise rates, Weibull, constant.
-    split = _split(d)
-    piece = (
-        split.group_by("interval", maintain_order=True)
-        .agg(
-            pl.col("event").sum().alias("events"),
-            pl.col("days").sum().alias("person_days"),
-        )
-        .with_columns(
-            (1000 * pl.col("events") / pl.col("person_days")).alias("per_1000_days")
-        )
-    )
-    _write_csv(out, "ch15_piecewise", piece)
-    weibull = accelerated_failure(d, SURV_FORMULA, distribution="weibull")
-    expo = accelerated_failure(d, SURV_FORMULA, distribution="exponential")
-    fig, ax = plt.subplots(figsize=(6, 3.6))
-    for (a, b), r in zip(itertools.pairwise(CUTS), piece["per_1000_days"], strict=True):
-        ax.plot([a, b], [r, r], color=RED, lw=2.5)
-    ax.plot([], [], color=RED, lw=2.5, label="Observed rate in each interval (Poisson)")
-    t = np.linspace(0.2, FOLLOW_UP, 300)
-    # Hazard of the average patient: h(t) = shape * lam * t^(shape - 1) * mean(exp(lp)).
-    true_h = 1000 * SHAPE * lam * t ** (SHAPE - 1) * mean_risk
-    ax.plot(t, true_h, color=BLUE, label="True hazard (Weibull, shape 0.5)")
-    overall = 1000 * d["event"].sum() / d["time"].sum()
-    ax.axhline(overall, color=GRAY, ls="--", label="Constant hazard (exponential)")
-    ax.set_ylim(0, max(true_h[5], float(piece["per_1000_days"].max())) * 1.1)
-    ax.set_xlabel("Days after resection")
-    ax.set_ylabel("Bleeds per 1000 patient-days")
-    ax.legend(frameon=False, fontsize=8)
-    ax.grid(alpha=0.3)
-    fig.tight_layout()
-    fig.savefig(out / "figures" / "ch15_hazard.png", dpi=180)
-    plt.close(fig)
-
-    _risk_set_schematic(out / "figures" / "ch15_risk_set.png")
-
-    # Cox, and Cox on the ranks of time.
-    cox = cox_ph(d, SURV_FORMULA)
-    ranked = d.with_columns(
-        pl.col("time").rank("ordinal").cast(pl.Float64).alias("time")
-    )
-    cox_rank = cox_ph(ranked, SURV_FORMULA)
-    squared = d.with_columns((pl.col("time") ** 2).alias("time"))
-    cox_sq = cox_ph(squared, SURV_FORMULA)
-
-    pois_const = fit_glm(
-        d.with_columns(pl.col("time").log().alias("log_days")),
-        "event ~ " + " + ".join(PRED_VARS),
-        family="poisson",
-        offset="log_days",
-    )
-    pois_piece = fit_glm(
-        split,
-        "event ~ interval + " + " + ".join(PRED_VARS),
-        family="poisson",
-        offset="log_days",
-    )
-    lognormal = accelerated_failure(d, SURV_FORMULA, distribution="lognormal")
-
-    def clip_row(model: str, fit, scale: str, transform=None) -> dict:
-        t = fit.tidy().filter(pl.col("term") == "clip")
-        b, se = float(t["estimate"][0]), float(t["std_error"][0])
-        f = transform or (lambda v: v)
-        lo, hi = sorted([f(b - 1.96 * se), f(b + 1.96 * se)])
-        return {
-            "model": model,
-            "scale": scale,
-            "estimate": float(np.exp(f(b))),
-            "conf_low": float(np.exp(lo)),
-            "conf_high": float(np.exp(hi)),
-        }
-
-    rows = [
-        clip_row("Cox", cox, "hazard ratio"),
-        clip_row("Cox, time replaced by its rank", cox_rank, "hazard ratio"),
-        clip_row("Cox, time squared", cox_sq, "hazard ratio"),
-        clip_row("Poisson, constant hazard", pois_const, "hazard ratio"),
-        clip_row("Poisson, 5 intervals", pois_piece, "hazard ratio"),
-        clip_row(
-            "Weibull, as hazard ratio",
-            weibull,
-            "hazard ratio",
-            lambda v: -v / weibull.scale,
-        ),
-        clip_row("Weibull AFT", weibull, "time ratio"),
-        clip_row("Log-normal AFT", lognormal, "time ratio"),
-        clip_row("Exponential AFT", expo, "time ratio"),
-    ]
-    _write_csv(out, "ch15_models", pl.DataFrame(rows))
-    _write_csv(
-        out,
-        "ch15_fit",
-        pl.DataFrame(
-            {
-                "model": ["Exponential", "Weibull", "Log-normal"],
-                "log_likelihood": [
-                    expo.log_likelihood,
-                    weibull.log_likelihood,
-                    lognormal.log_likelihood,
-                ],
-                "scale": [expo.scale, weibull.scale, lognormal.scale],
-            }
-        ),
-    )
-    _write_csv(out, "ch15_cox", cox.tidy(exponentiate=True))
-    _write_csv(out, "ch15_ph_test", proportional_hazards_test(cox))
-
-
 def _expit(x: np.ndarray) -> np.ndarray:
     return 1.0 / (1.0 + np.exp(-x))
 
@@ -3545,10 +3287,11 @@ def main() -> None:
     probability_model(df, out)
     likelihood(df, out)
     hierarchical(out)
-    survival(df, out)
-    # Imported here: diagnostic.py reuses helpers from this module.
+    # Imported here: survival.py and diagnostic.py reuse helpers from this module.
     from diagnostic import diagnostic_metrics
+    from survival import survival
 
+    survival(out)
     diagnostic_metrics(out)
     n = df.height
     events = int(df["bleed"].sum())
