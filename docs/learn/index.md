@@ -107,6 +107,7 @@
 |----|------|
 | B. [報告ガイドライン](B_reporting-guidelines.md) | CONSORT、SPIRIT、STROBE、RECORD、TARGET、TRIPOD+AI、STARD、PRISMA と日本語訳 |
 | C. [P 値の読み方と書き方](C_p-value.md) | 統計モデルと検定統計量、モデル全体の合わなさとしての $P$ 値、よくある読み違い、ASA 声明、NEJM の報告指針、NEJM、JAMA、Lancet、BMJ の書き方（大文字か小文字か、斜体、0 の有無、桁数） |
+| D. [解析のためのデータの準備](D_tidy-data.md) | 整然データ（tidy data）、検査一覧と所見一覧のプライマリーキー、CSV を編集するときのチェックリスト、表の結合、患者ごとの時系列の集計（ESD のあとの EBD）、`exclude` 列による除外 |
 
 ## 文献 {#references}
 
