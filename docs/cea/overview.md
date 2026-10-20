@@ -1,25 +1,25 @@
 # Cost-effectiveness
 
-疾患非依存の **費用対効果分析（CEA）** ユーティリティです。R の生態系に倣い、**モデル構築**と**結果の要約**を分けています。
+Disease-agnostic utilities for **cost-effectiveness analysis (CEA)**. Following the R ecosystem, they keep **model building** and **result summaries** separate.
 
-| 層 | モジュール | R での近いもの |
+| Layer | Module | Closest in R |
 |----|------------|----------------|
-| cohort Markov | `statract.cea.markov` | heemod（核だけ） |
-| ICER / 支配 | `statract.cea.summarize` | dampack `calculate_icers` |
-| DSA / PSA 後段 | `statract.cea.sensitivity` | dampack / BCEA |
+| Cohort Markov | `statract.cea.markov` | heemod (core only) |
+| ICER / dominance | `statract.cea.summarize` | dampack `calculate_icers` |
+| DSA / PSA post-processing | `statract.cea.sensitivity` | dampack / BCEA |
 
-**R・rpy2・heemod / dampack / BCEA / hesim には依存しません。** 実装は NumPy と Polars です。
+**No dependency on R, rpy2, heemod / dampack / BCEA, or hesim.** The implementation uses NumPy and Polars.
 
-病態・費用表・校正済み自然史は、ライブラリの外（利用者のモデル側）に置きます。
+Disease states, cost tables, and calibrated natural history live outside the library (in the user's model).
 
-## 設計方針
+## Design
 
 ```mermaid
 flowchart LR
-  subgraph project [利用者のモデル]
-    NH[自然史校正]
-    Disease[病態と介入]
-    Params[費用・効用・生命表]
+  subgraph project [User's model]
+    NH[Natural history calibration]
+    Disease[Disease states and interventions]
+    Params[Costs, utilities, life tables]
   end
   subgraph cea [statract.cea]
     Markov[markov]
@@ -33,43 +33,43 @@ flowchart LR
   Markov --> SA
 ```
 
-- **入れるもの**: 名前付き状態の cohort STM、割引、イベント用 `on_cycle`、ICER 表（強支配 / 延長支配）、NMB、one-way DSA、PSA → CE plane / CEAC / EVPI
-- **入れないもの（V1）**: 半サイクル補正、個体シミュレーション、partitioned survival、EVPPI、TreeAge 連携、疾患固有の校正（GAM 等）
+- **In scope**: cohort STM with named states, discounting, `on_cycle` for events, ICER table (strong / extended dominance), NMB, one-way DSA, PSA → CE plane / CEAC / EVPI
+- **Out of scope (V1)**: half-cycle correction, individual-level simulation, partitioned survival, EVPPI, TreeAge integration, disease-specific calibration (GAM and so on)
 
-## モジュール一覧
+## Modules
 
-### `markov` — cohort 核
+### `markov` — cohort core
 
-`simulate_cohort_markov(...)` が 1 年（または任意）サイクルの状態分布を進め、割引済み費用・QALY・LY を返します。検査・切除などの介入は `on_cycle(age, mass) -> (mass, extra_cost, extra_qaly)` に閉じます（`extra_*` は**未割引**。割引は核が掛ける）。
+`simulate_cohort_markov(...)` steps the state distribution forward in 1-year (or any length) cycles. It returns discounted costs, QALYs, and LYs. Interventions such as tests or resections go inside `on_cycle(age, mass) -> (mass, extra_cost, extra_qaly)` (`extra_*` are **undiscounted**. The core applies discounting).
 
-初期分布は、有限で非負かつ合計が正のとき 1 に正規化します。負の mass、合計が正でない初期分布、非有限または負の `discount_rate` は `ValueError` です。推移行列の各行は非負で和が 1、callable や `on_cycle` が返す mass はコホートの合計を保つ必要があります。負の mass を 0 に切り詰めて計算は続けません。
+The initial distribution is normalized to 1 when it is finite, non-negative, and has a positive sum. A negative mass, an initial distribution whose sum is not positive, or a non-finite or negative `discount_rate` raises `ValueError`. Each row of the transition matrix must be non-negative and sum to 1. The mass returned by a callable or by `on_cycle` must keep the cohort total. The core does not clip negative mass to 0 and carry on.
 
-### `summarize` — ICER 表
+### `summarize` — ICER table
 
-`calculate_icers(cost, effect, strategies)` はモデルを知りません。戦略ごとの費用・効果だけから frontier を作り、`status` に次を付けます。
+`calculate_icers(cost, effect, strategies)` knows nothing about the model. It builds the frontier from each strategy's cost and effect only, and sets `status` to one of the following.
 
-| status | 意味 |
+| status | Meaning |
 |--------|------|
-| `ND` | 非支配（frontier 上） |
-| `D` | 強支配 |
-| `ED` | 延長支配 |
+| `ND` | Not dominated (on the frontier) |
+| `D` | Strongly dominated |
+| `ED` | Extendedly dominated |
 
-`net_monetary_benefit(cost, effect, wtp=...)` は NMB = effect × WTP − cost です。
+`net_monetary_benefit(cost, effect, wtp=...)` gives NMB = effect × WTP − cost.
 
-### `sensitivity` — 感度分析の後段
+### `sensitivity` — sensitivity analysis post-processing
 
-呼び出し側が「パラメータ dict → `(costs, effects)`」を渡します。
+The caller passes a function "parameter dict → `(costs, effects)`".
 
 - `one_way_dsa` / `tornado_table`
 - `run_psa` → `ce_plane` / `ceac` / `evpi`
 
-`ceac` は費用か効果が非有限の draw を確率から外します。有限な draw が無いとき `prob_ce` は NaN で、先頭の戦略を最良とは数えません。
+`ceac` drops draws with a non-finite cost or effect from the probability. When no draw is finite, `prob_ce` is NaN, and the first strategy is not counted as the best.
 
-パラメータ分布（例: 費用の Gamma）は利用者側で引きます。
+Draw parameter distributions (for example, Gamma for costs) on the user side.
 
 ## Quickstart
 
-依存は Python のみです（`numpy`, `polars`）。R は不要です。
+The only dependencies are Python packages (`numpy`, `polars`). You do not need R.
 
 ```python
 from statract.cea import (
@@ -82,15 +82,15 @@ from statract.cea import (
 )
 ```
 
-### 1. 3 状態 cohort Markov
+### 1. Three-state cohort Markov
 
-Healthy → Sick → Dead の教科書型です。
+The textbook Healthy → Sick → Dead model.
 
 ```python
 import numpy as np
 from statract.cea import simulate_cohort_markov
 
-# 行=from, 列=to
+# rows = from, columns = to
 P = np.array(
     [
         [0.94, 0.05, 0.01],  # Healthy
@@ -113,16 +113,16 @@ print(res.cost, res.qaly, res.ly)
 print(res.trace.head())
 ```
 
-#### 介入を `on_cycle` に載せる
+#### Put interventions in `on_cycle`
 
-検査・切除など、状態報酬だけでは表せないイベントはフックに書きます。返す費用・QALY は**未割引**です。
+Write events that state rewards alone cannot express, such as tests or resections, in the hook. The costs and QALYs it returns are **undiscounted**.
 
 ```python
 def on_cycle(age: int, mass: np.ndarray):
     if age != 55:
         return mass, 0.0, 0.0
     m = mass.copy()
-    # 例: Healthy の 10% を「検診」で費用だけ計上
+    # Example: record only the cost of "screening" for 10% of Healthy
     return m, 5000.0 * float(m[0]), 0.0
 
 res = simulate_cohort_markov(
@@ -136,7 +136,7 @@ res = simulate_cohort_markov(
 )
 ```
 
-年齢依存遷移は callable か `dict[age, matrix]` で渡せます。初期分布は合計が正なら 1 に正規化します。負の mass、行和が 1 でない推移、質量を落とす `on_cycle` は `ValueError` になります。
+You can pass age-dependent transitions as a callable or as a `dict[age, matrix]`. The initial distribution is normalized to 1 if its sum is positive. A negative mass, a transition whose rows do not sum to 1, or an `on_cycle` that loses mass raises `ValueError`.
 
 ```python
 def transition(age: int, mass: np.ndarray) -> np.ndarray:
@@ -147,7 +147,7 @@ def transition(age: int, mass: np.ndarray) -> np.ndarray:
     return mass @ P_age
 ```
 
-### 2. ICER 表（モデル非依存）
+### 2. ICER table (model-agnostic)
 
 ```python
 from statract.cea import calculate_icers, net_monetary_benefit
@@ -166,9 +166,9 @@ nmb = net_monetary_benefit(
 )
 ```
 
-`status` が `ND` / `D` / `ED` です。延長支配の例は単体テスト `tests/test_cea_summarize.py` を参照してください。
+`status` is `ND` / `D` / `ED`. For an example of extended dominance, see the unit test `tests/test_cea_summarize.py`.
 
-### 3. One-way DSA と PSA
+### 3. One-way DSA and PSA
 
 ```python
 import numpy as np
@@ -176,7 +176,7 @@ from statract.cea import one_way_dsa, run_psa, ce_plane, ceac, evpi
 
 
 def evaluate(params: dict[str, float]):
-    # SOC vs INT（例）
+    # SOC vs INT (example)
     c0, e0 = 1000.0, 10.0
     c1 = params["c_int"]
     e1 = 10.0 + params["delta_e"]
@@ -192,7 +192,7 @@ dsa = one_way_dsa(
     comparator="SOC",
     wtp=50_000.0,
 )
-print(dsa)  # spread 降順 → tornado 用
+print(dsa)  # sorted by spread, descending → for the tornado plot
 
 rng = np.random.default_rng(0)
 draws = {
@@ -205,10 +205,10 @@ ac = ceac(psa, wtp=[0, 1e4, 5e4, 1e5])
 voi = evpi(psa, wtp=[0, 1e4, 5e4, 1e5])
 ```
 
-`ceac` の確率は、費用と効果が有限な draw だけで計算します。全部が非有限なら `prob_ce` は NaN です。
+`ceac` computes probabilities only from draws with finite cost and effect. If all draws are non-finite, `prob_ce` is NaN.
 
-## 次に読む
+## Next steps
 
-- [公開教学例 cea_sicksicker](../examples/cea_sicksicker.md) — DARTH Sick-Sicker（Markov / ICER / DSA / PSA）
-- [R パッケージとの対応](vs-r.md)
+- [Public teaching example cea_sicksicker](../examples/cea_sicksicker.md) — DARTH Sick-Sicker (Markov / ICER / DSA / PSA)
+- [Mapping to R packages](vs-r.md)
 - API: [markov](../api/cea/markov.md) · [summarize](../api/cea/summarize.md) · [sensitivity](../api/cea/sensitivity.md)

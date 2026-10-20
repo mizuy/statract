@@ -1,19 +1,19 @@
-# viz — 概要
+# viz — Overview
 
-推定結果の図です。係数・OR・HR の forest、Kaplan–Meier、較正と決定曲線、Plotly の補助です。数値の推定は [models](../models/overview.md) です。
+Figures for estimation results: forest plots of coefficients, ORs, and HRs, Kaplan–Meier curves, calibration and decision curves, and Plotly helpers. For numeric estimation, see [models](../models/overview.md).
 
-| 図 | 入口 | モジュール |
+| Figure | Entry point | Module |
 |----|------|------------|
-| 係数 / OR / HR | `plot_forest(..., layout="table")` | `statract.viz.forest` |
+| Coefficients / OR / HR | `plot_forest(..., layout="table")` | `statract.viz.forest` |
 | Kaplan–Meier | `plot_survival` | `statract.viz.km` |
-| 条件付き推論木 | `plot_tree` | `statract.viz.tree` |
-| 変量効果 | `plot_random_effects` | `statract.models.glmm_extras` |
-| 較正 / DCA | `plot_calibration`、`plot_dca` | `statract.models.probability` |
-| Love plot | `plot_love`、`PropensityWeights.love_plot`、`MatchedSample.love_plot` | `statract.viz.balance`、`statract.models.matching` |
-| funnel / 画像の連結 | `funnel_plot`、`concat_images` | `statract.viz.misc` |
+| Conditional inference tree | `plot_tree` | `statract.viz.tree` |
+| Random effects | `plot_random_effects` | `statract.models.glmm_extras` |
+| Calibration / DCA | `plot_calibration`, `plot_dca` | `statract.models.probability` |
+| Love plot | `plot_love`, `PropensityWeights.love_plot`, `MatchedSample.love_plot` | `statract.viz.balance`, `statract.models.matching` |
+| Funnel / image concatenation | `funnel_plot`, `concat_images` | `statract.viz.misc` |
 
-論文の白黒は forest と Kaplan–Meier とも `style="bw"` です。係数図は `layout="table"` の forest を使います。
+For black-and-white figures in a paper, use `style="bw"` for both forest and Kaplan–Meier plots. For coefficient plots, use the forest plot with `layout="table"`.
 
-生存曲線の数値（`survival_curve`、Cox、AFT、Fine–Gray）は `statract.surv` です。`statract.viz.km` は図だけです。
+The numbers behind survival curves (`survival_curve`, Cox, AFT, Fine–Gray) are in `statract.surv`. `statract.viz.km` only draws the figures.
 
-API は [forest](../api/viz/forest.md)、[km](../api/viz/km.md)、[tree](../api/viz/tree.md)、[balance](../api/viz/balance.md)、[misc](../api/viz/misc.md) です。通しの図は [解析例](../examples/index.md) にあります。
+The API pages are [forest](../api/viz/forest.md), [km](../api/viz/km.md), [tree](../api/viz/tree.md), [balance](../api/viz/balance.md), and [misc](../api/viz/misc.md). Full worked figures are in the [examples](../examples/index.md).

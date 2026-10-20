@@ -1,5 +1,5 @@
 # task_io
 
-解析タスクの出力フォルダを用意します。
+Sets up the output folder for an analysis task.
 
 ::: statract.report.task_io

@@ -1,12 +1,12 @@
 # risk
 
-二値の結果のリスク比です。`method="poisson"` は Zou (2004) の修正ポアソン回帰で、0/1 の結果にポアソン GLM を当て、HC0 のサンドイッチ分散を使います。`glm(family = poisson)` と `sandwich::vcovHC(type = "HC0")` に合わせています。`cluster=` は `vcovCL(type = "HC0")` です。`method="log-binomial"` は `glm(family = binomial(link = "log"))` です。反復は反復重み付き最小二乗法（McCullagh & Nelder 1989）で、`0 < mu < 1` を外れた一歩は前の係数に向けて半分にします。最初の一歩が外れたら、R と同じく `start=` を求めて止まります。
+Risk ratios for binary outcomes. `method="poisson"` is the modified Poisson regression of Zou (2004). It fits a Poisson GLM to the 0/1 outcome and uses the HC0 sandwich variance. It matches `glm(family = poisson)` and `sandwich::vcovHC(type = "HC0")`. `cluster=` gives `vcovCL(type = "HC0")`. `method="log-binomial"` is `glm(family = binomial(link = "log"))`. Fitting uses iteratively reweighted least squares (McCullagh & Nelder 1989). A step that leaves `0 < mu < 1` is halved toward the previous coefficients. If the first step leaves the range, it stops and asks for `start=`, as R does.
 
 ```python
 from statract import fit_risk_ratio
 
-rr = fit_risk_ratio(df, "event ~ arm + age + sex")  # 修正ポアソン、HC0
-rr.tidy()                                           # estimate と区間はリスク比
+rr = fit_risk_ratio(df, "event ~ arm + age + sex")  # modified Poisson, HC0
+rr.tidy()                                           # estimate and interval as risk ratios
 fit_risk_ratio(df, "event ~ arm + age", cluster="site")
 fit_risk_ratio(df, "event ~ arm + age", method="log-binomial", start=[-1.0, 0.0, 0.0])
 ```

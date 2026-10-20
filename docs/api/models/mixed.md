@@ -1,5 +1,5 @@
 # mixed
 
-線形混合モデル（ガウス LMM）と一般化線形混合モデル（二項などの GLMM）です。`y ~ x + (1 | g)` のように Wilkinson 式でも書けます。ガウスとガンマは lme-python（lme-rs）を呼びます。`family="binomial"`（logit）、`"poisson"`、`"negative_binomial"` は自前の Laplace / 適応的 Gauss–Hermite で、`offset` を受けます。ポアソンと負の二項は `zero_inflation=` でゼロ過剰、`hurdle=True` でハードルになります。この 3 族は `(1 | a) + (1 | b)` の交差と `ar1(time + 0 | g)` も受けます。lme-python は呼び出されたときに import します。使い方は [Models](../../models/overview.md) です。
+Linear mixed models (Gaussian LMM) and generalized linear mixed models (binomial and other GLMMs). You can also use Wilkinson formulas such as `y ~ x + (1 | g)`. Gaussian and gamma call lme-python (lme-rs). `family="binomial"` (logit), `"poisson"`, and `"negative_binomial"` use our own Laplace / adaptive Gauss–Hermite code and accept `offset`. Poisson and negative binomial become zero-inflated with `zero_inflation=` and hurdle models with `hurdle=True`. These 3 families also accept crossed effects `(1 | a) + (1 | b)` and `ar1(time + 0 | g)`. lme-python is imported when first called. For usage, see [Models](../../models/overview.md).
 
 ::: statract.models.mixed

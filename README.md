@@ -4,22 +4,24 @@
 
 # statract
 
-Python で臨床研究のデータを解析し、論文に載せる表と図まで作るライブラリです。データは Polars の表で渡します。
+A Python library for clinical research: analyze your data and make the tables and figures for your paper. Data go in as Polars data frames.
 
-- 核は pandas、statsmodels、lifelines に依存しません。Kaplan–Meier は同梱の `survival_curve` です。
-- R ブリッジ `statract.r` は extra `r` で入ります。`import statract` だけでは R も rpy2 も読み込みません。
+[日本語](README.ja.md)
 
-## インストール
+- The core does not depend on pandas, statsmodels, or lifelines. Kaplan–Meier uses the bundled `survival_curve`.
+- The R bridge `statract.r` comes with the extra `r`. `import statract` alone loads neither R nor rpy2.
 
-Python 3.13 以上が必要です。PyPI には公開していないので、GitHub から入れます。
+## Installation
+
+Requires Python 3.13 or later. The package is not on PyPI, so install it from GitHub.
 
 ```bash
 pip install "git+https://github.com/mizuy/statract"
-# R ブリッジも使う場合
+# To also use the R bridge
 pip install "statract[r] @ git+https://github.com/mizuy/statract"
 ```
 
-## 最小の例
+## Minimal example
 
 ```python
 import polars as pl
@@ -38,18 +40,18 @@ survival_curve(frame, "time", "event")
 cox_ph(frame, "Surv(time, event) ~ x")
 ```
 
-## ドキュメント
+## Documentation
 
 [https://mizuy.github.io/statract/](https://mizuy.github.io/statract/)
 
-| セクション | 内容 |
+| Section | Contents |
 |------------|------|
-| [Guide](https://mizuy.github.io/statract/) | 手法の選び方、Table One、Models、Figures、Cost-effectiveness |
-| [Learn](https://mizuy.github.io/statract/learn/) | 臨床の問いから始める統計（因果推論、予測、統計モデリング、生存時間） |
-| [Examples](https://mizuy.github.io/statract/examples/) | 公開データを使った通しの解析例 |
-| [Benchmarks](https://mizuy.github.io/statract/models/benchmarks/) | 速度と、R との数値の一致 |
+| [Guide](https://mizuy.github.io/statract/) | Choosing a method, Table One, Models, Figures, Cost-effectiveness |
+| [Learn](https://mizuy.github.io/statract/learn/) | Statistics starting from clinical questions (causal inference, prediction, statistical modeling, survival analysis), in Japanese |
+| [Examples](https://mizuy.github.io/statract/examples/) | Full worked analyses on public data |
+| [Benchmarks](https://mizuy.github.io/statract/models/benchmarks/) | Speed, and numeric agreement with R |
 | [Reference](https://mizuy.github.io/statract/api/models/fit/) | API |
 
-## ライセンス
+## License
 
-MIT License（[LICENSE](LICENSE)）。ドキュメントのビルドに使う第三者のファイルは [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) を参照してください。
+MIT License ([LICENSE](LICENSE)). For third-party files used to build the docs, see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

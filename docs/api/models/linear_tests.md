@@ -1,7 +1,7 @@
 # linear_tests
 
-係数の Wald、入れ子モデルの Wald と尤度比、OLS の診断、`check_collinearity`（GVIF）です。
+Wald tests of coefficients, Wald and likelihood ratio tests of nested models, OLS diagnostics, and `check_collinearity` (GVIF).
 
-`profile_interval(fit, level=0.95)` は `fit_glm` の係数のプロファイル尤度区間です。R の `confint()`（`MASS::confint.glm`、R 4.4 からは `stats::confint.glm`）にあたります。係数を固定してほかを当て直した逸脱度の差を分散パラメータで割り、その平方根が正規分位点になる点を Brent 法で直接解きます。二項とポアソンの分散パラメータは 1、ガウスとガンマは `summary.glm` の値です。R は格子点の上にスプラインを引いて読むので、R とは標準誤差の 1e-3 倍以内（fixture では最大 2.5e-4 倍）で一致します。根そのものとは 1e-7 で一致します。分離で逸脱度が頭打ちになる側は無限大です（R は `NA`）。
+`profile_interval(fit, level=0.95)` gives profile likelihood intervals for the coefficients of `fit_glm`. It is the counterpart of R's `confint()` (`MASS::confint.glm`, and `stats::confint.glm` from R 4.4). It fixes a coefficient, refits the rest, divides the difference in deviance by the dispersion parameter, and solves directly with Brent's method for the point where the square root equals the normal quantile. The dispersion parameter is 1 for binomial and Poisson, and the `summary.glm` value for Gaussian and gamma. R fits a spline over a grid and reads the limits from it, so results agree with R within 1e-3 times the standard error (at most 2.5e-4 times in the fixtures). They agree with the exact roots to 1e-7. On a side where the deviance levels off due to separation, the limit is infinite (R gives `NA`).
 
 ::: statract.models.linear_tests

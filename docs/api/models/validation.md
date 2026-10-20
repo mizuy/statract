@@ -1,6 +1,6 @@
 # validation
 
-ブートストラップによる内的妥当性と較正です。`validate_logistic` は `rms::validate.lrm`、`calibrate_logistic` は `rms::calibrate`（`lrm`）、`validate_cox` は `rms::validate.cph`、`calibrate_cox` は `rms::calibrate.cph(cmethod="KM")` に対応します。式は `fit_glm` と `cox_ph` と同じく `"y ~ age + sex"` や `"Surv(time, status) ~ age + sex"` を受けます。R の再標本を `indices=`（B 行 n 列、欠測を除いた行の 0 始まり番号）で渡すと rms と同じ値になります。R との数値対応は [vs R](../../models/vs-r.md) です。
+Bootstrap internal validation and calibration. `validate_logistic` corresponds to `rms::validate.lrm`, `calibrate_logistic` to `rms::calibrate` (`lrm`), `validate_cox` to `rms::validate.cph`, and `calibrate_cox` to `rms::calibrate.cph(cmethod="KM")`. Formulas take `"y ~ age + sex"` or `"Surv(time, status) ~ age + sex"`, the same as `fit_glm` and `cox_ph`. If you pass R's resamples as `indices=` (B rows by n columns, 0-based row numbers after dropping missing values), you get the same values as rms. For numerical agreement with R, see [vs R](../../models/vs-r.md).
 
 ```python
 from statract import calibrate_logistic, plot_calibration_curve, validate_logistic

@@ -75,6 +75,25 @@ markdown_extensions:
 
 plugins:
   - search
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: true
+      reconfigure_material: true
+      reconfigure_search: true
+      languages:
+        - locale: en
+          name: English
+          default: true
+          build: true
+        - locale: ja
+          name: 日本語
+          build: true
+          site_description: Python で臨床研究のデータを解析し、論文に載せる表と図まで作るライブラリ
+          nav_translations:
+            Choosing a method: 手法の選び方
+  # The ja build repeats the API pages; link each reference to its own language.
+  - autorefs:
+      resolve_closest: true
   - mkdocstrings:
       handlers:
         python:
@@ -87,7 +106,7 @@ plugins:
 nav:
   - Guide:
       - Home: index.md
-      - 手法の選び方: guide/methods.md
+      - Choosing a method: guide/methods.md
       - Table One: tableone/overview.md
       - Models:
           - Overview: models/overview.md

@@ -1,5 +1,5 @@
 # cea.sensitivity
 
-One-way DSA と PSA 後段（CE plane / CEAC / EVPI）。呼び出し側がパラメータ引きと `evaluate(params) -> (costs, effects)` を提供します。
+One-way DSA and the PSA back end (CE plane / CEAC / EVPI). The caller supplies the parameter draws and `evaluate(params) -> (costs, effects)`.
 
 ::: statract.cea.sensitivity

@@ -1,71 +1,71 @@
-# 手法の選び方
+# Choosing a method
 
-statract にある統計解析を、「どういう時に」「どれを」「どう使うか」でまとめたページです。細かい引数は [API](../api/models/fit.md)、実データの通しの流れは [解析例ギャラリー](../examples/index.md) を見てください。
+This page sums up the statistical methods in statract: when to use each one, which one to pick, and how to call it. For argument details, see the [API](../api/models/fit.md). For full worked analyses on real data, see the [example gallery](../examples/index.md).
 
-## まず決めること
+## Decide these first
 
-手法は、ほぼ次の 3 つで決まります。
+Three things mostly decide the method.
 
-1. **アウトカムの型**: 連続、二値、順序、カテゴリ（3 水準以上）、計数、時間（打ち切りあり）
-2. **データの構造**: 独立、対応あり（前後・ペア）、クラスター（施設・患者内の反復）
-3. **目的**: 群の比較、関連の推定、因果効果の推定、予測
+1. **Outcome type**: continuous, binary, ordinal, categorical (3 or more levels), count, or time to event (with censoring)
+2. **Data structure**: independent, paired (before/after, matched pairs), or clustered (sites, repeated measures within patients)
+3. **Goal**: compare groups, estimate an association, estimate a causal effect, or predict
 
 ```mermaid
 flowchart TD
-  Q["アウトカムは？"] --> C["連続"]
-  Q --> B["二値"]
-  Q --> N["計数・率"]
-  Q --> T["時間（打ち切りあり）"]
-  Q --> O["順序・カテゴリ"]
-  C --> C1["2 群: t_test / wilcox_test<br/>調整: fit_ols"]
-  B --> B1["2 群: prop_test / binom_test<br/>調整: fit_glm binomial / fit_risk_ratio"]
-  N --> N1["fit_glm poisson<br/>過分散: fit_mixed negative_binomial"]
-  T --> T1["survival_curve / log_rank / RMST<br/>調整: cox_ph"]
+  Q["What is the outcome?"] --> C["Continuous"]
+  Q --> B["Binary"]
+  Q --> N["Count or rate"]
+  Q --> T["Time (censored)"]
+  Q --> O["Ordinal or categorical"]
+  C --> C1["2 groups: t_test / wilcox_test<br/>Adjusted: fit_ols"]
+  B --> B1["2 groups: prop_test / binom_test<br/>Adjusted: fit_glm binomial / fit_risk_ratio"]
+  N --> N1["fit_glm poisson<br/>Overdispersion: fit_mixed negative_binomial"]
+  T --> T1["survival_curve / log_rank / RMST<br/>Adjusted: cox_ph"]
   O --> O1["ordinal_regression<br/>multinomial_regression"]
-  C1 --> R{"クラスターや反復がある？"}
+  C1 --> R{"Clusters or repeated measures?"}
   B1 --> R
   N1 --> R
   T1 --> R
-  R -- "はい" --> R1["fit_mixed / gamm<br/>cluster_covariance / cox_ph(cluster=)"]
-  R -- "いいえ" --> R2["そのまま"]
+  R -- "Yes" --> R1["fit_mixed / gamm<br/>cluster_covariance / cox_ph(cluster=)"]
+  R -- "No" --> R2["Use as is"]
 ```
 
-## 早見表
+## Quick reference
 
-| 目的 | アウトカム | 手法 | 関数 |
-|------|------------|------|------|
-| 背景因子を並べる | 何でも | Table 1、SMD | `tableone` |
-| 2 群の平均を比べる | 連続 | t 検定 | `t_test` |
-| 2 群の分布を比べる | 連続・順序 | Wilcoxon（Mann–Whitney） | `wilcox_test` |
-| 割合を比べる | 二値 | 比率の検定、正確二項 | `prop_test`、`binom_test` |
-| 対応のある二値を比べる | 二値 | McNemar | `mcnemar_test` |
-| 多重比較を調整する | P 値 | Holm、BH など | `p_adjust` |
-| 調整した関連を推定する | 連続 | 線形回帰 | `fit_ols` |
-| 調整した関連を推定する | 二値・計数・正の連続 | GLM | `fit_glm` |
-| リスク比を推定する | 二値 | 修正ポアソン、log-binomial | `fit_risk_ratio` |
-| 調整したリスク差・リスク比 | 二値・計数 | GLM の回帰標準化 | `standardize_glm` |
-| 順序のある結果 | 順序 | 比例オッズモデル | `ordinal_regression`、`brant_test` |
-| 順序のない結果 | カテゴリ | 多項ロジスティック | `multinomial_regression` |
-| 非線形の関連を見る | 連続・二値・時間 | スプライン | 式に `rcs(age, 4)`、`spline_effect` |
-| 非線形の関連を見る（罰則つき） | 連続・二値・計数 | 加法モデル | `gam` |
-| 施設や反復を考える | 連続・二値・計数 | 混合モデル | `fit_mixed`、`gamm` |
-| 生存曲線を描く・比べる | 時間 | Kaplan–Meier、log-rank | `survival_curve`、`log_rank` |
-| ハザード比を推定する | 時間 | Cox | `cox_ph` |
-| 平均の生存時間で比べる | 時間 | RMST | `restricted_mean_survival` |
-| PH が成り立たない | 時間 | AFT | `accelerated_failure` |
-| 競合する事象がある | 時間 | CIF、Gray 検定、Fine–Gray | `cumulative_incidence`、`fine_gray_regression` |
-| マッチしたセット | 二値 | 条件付きロジスティック | `conditional_logit` |
-| 処置の効果（観察研究） | 何でも | マッチング、IPTW、標準化 | `match_sample`、`propensity_weights`、`standardize_glm`、`standardize_cox` |
-| 予測モデルを評価する | 二値・時間 | ROC、内部検証、較正、DCA | `roc_curve`、`validate_logistic`、`calibrate_logistic`、`decision_curve_table` |
-| 欠損を埋める | 何でも | 多重代入 | `impute_chained`、`pool` |
-| 分岐のルールを探す | 連続 | 条件付き推論木 | `conditional_tree` |
-| 費用対効果を出す | 費用・QALY | Markov、ICER | `statract.cea` |
+| Goal | Outcome | Method | Function |
+|------|---------|--------|----------|
+| Summarize baseline characteristics | Any | Table 1, SMD | `tableone` |
+| Compare means of 2 groups | Continuous | t test | `t_test` |
+| Compare distributions of 2 groups | Continuous, ordinal | Wilcoxon (Mann–Whitney) | `wilcox_test` |
+| Compare proportions | Binary | Test of proportions, exact binomial | `prop_test`, `binom_test` |
+| Compare paired binary data | Binary | McNemar | `mcnemar_test` |
+| Adjust for multiple comparisons | P values | Holm, BH, and others | `p_adjust` |
+| Estimate an adjusted association | Continuous | Linear regression | `fit_ols` |
+| Estimate an adjusted association | Binary, count, positive continuous | GLM | `fit_glm` |
+| Estimate a risk ratio | Binary | Modified Poisson, log-binomial | `fit_risk_ratio` |
+| Adjusted risk difference or risk ratio | Binary, count | Regression standardization with GLM | `standardize_glm` |
+| Ordered outcome | Ordinal | Proportional odds model | `ordinal_regression`, `brant_test` |
+| Unordered outcome | Categorical | Multinomial logistic | `multinomial_regression` |
+| Model a nonlinear association | Continuous, binary, time | Splines | `rcs(age, 4)` in the formula, `spline_effect` |
+| Model a nonlinear association (penalized) | Continuous, binary, count | Additive model | `gam` |
+| Account for sites or repeated measures | Continuous, binary, count | Mixed model | `fit_mixed`, `gamm` |
+| Plot and compare survival curves | Time | Kaplan–Meier, log-rank | `survival_curve`, `log_rank` |
+| Estimate a hazard ratio | Time | Cox | `cox_ph` |
+| Compare by mean survival time | Time | RMST | `restricted_mean_survival` |
+| PH does not hold | Time | AFT | `accelerated_failure` |
+| Competing events | Time | CIF, Gray's test, Fine–Gray | `cumulative_incidence`, `fine_gray_regression` |
+| Matched sets | Binary | Conditional logistic | `conditional_logit` |
+| Treatment effect (observational study) | Any | Matching, IPTW, standardization | `match_sample`, `propensity_weights`, `standardize_glm`, `standardize_cox` |
+| Evaluate a prediction model | Binary, time | ROC, internal validation, calibration, DCA | `roc_curve`, `validate_logistic`, `calibrate_logistic`, `decision_curve_table` |
+| Handle missing data | Any | Multiple imputation | `impute_chained`, `pool` |
+| Find splitting rules | Continuous | Conditional inference tree | `conditional_tree` |
+| Run a cost-effectiveness analysis | Cost, QALY | Markov, ICER | `statract.cea` |
 
-## 記述: Table 1
+## Description: Table 1
 
-**いつ**: 論文の最初の表。群ごとの背景因子を並べるとき。
+**When**: The first table of a paper. You want baseline characteristics by group.
 
-**どう**: `tableone` に列と集計関数の対応を渡します。`hue` が群です。`add_pvalue=True` で群間の P 値、`add_smd=True` で標準化差（SMD）を足します。
+**How**: Pass `tableone` a mapping from columns to summary functions. `hue` is the group. `add_pvalue=True` adds P values between groups. `add_smd=True` adds standardized mean differences (SMD).
 
 ```python
 from statract import agg_category_np, agg_mean_sd, agg_median_iqr, tableone
@@ -73,115 +73,115 @@ from statract import agg_category_np, agg_mean_sd, agg_median_iqr, tableone
 tableone(
     frame,
     {
-        "年齢": ("age", agg_mean_sd),
-        "入院日数": ("los", agg_median_iqr),
-        "性別": ("sex", agg_category_np),
+        "Age": ("age", agg_mean_sd),
+        "Length of stay": ("los", agg_median_iqr),
+        "Sex": ("sex", agg_category_np),
     },
     hue="arm",
     add_smd=True,
 )
 ```
 
-**注意**: RCT の Table 1 に P 値は勧められません。偏りの大きさを見るなら SMD を使います。観察研究で 0.1 を超える SMD は、調整が必要な目安です。
+**Note**: P values are not recommended in Table 1 of an RCT. Use SMD to see the size of imbalance. In observational studies, an SMD above 0.1 is a rough sign that adjustment is needed.
 
-詳しくは [Table One](../tableone/overview.md) です。
+See [Table One](../tableone/overview.md) for details.
 
-## 2 群の比較: 基本の検定
+## Comparing 2 groups: basic tests
 
-**いつ**: 調整なしで 2 群を比べるとき。RCT の主解析や、記述の補助です。
+**When**: You compare 2 groups without adjustment. This is common for the primary analysis of an RCT, or as support for descriptive results.
 
-| データ | 手法 | 呼び方 |
-|--------|------|--------|
-| 連続、ほぼ正規 | Welch の t 検定（既定） | `t_test(x, y)` |
-| 連続、外れ値や歪み | Wilcoxon 順位和 | `wilcox_test(x, y, conf_int=True)` |
-| 前後の連続 | 対応のある t / 符号付き順位 | `t_test(x, y, paired=True)`、`wilcox_test(x, y, paired=True)` |
-| 2 群の割合 | 比率の差 | `prop_test([x1, x2], [n1, n2])` |
-| 1 群の割合と区間 | 正確二項（Clopper–Pearson） | `binom_test(x, n)` |
-| 前後の二値 | McNemar | `mcnemar_test(x, y)` |
+| Data | Method | Call |
+|------|--------|------|
+| Continuous, roughly normal | Welch's t test (default) | `t_test(x, y)` |
+| Continuous, outliers or skew | Wilcoxon rank sum | `wilcox_test(x, y, conf_int=True)` |
+| Continuous, before and after | Paired t / signed rank | `t_test(x, y, paired=True)`, `wilcox_test(x, y, paired=True)` |
+| Proportions in 2 groups | Difference in proportions | `prop_test([x1, x2], [n1, n2])` |
+| Proportion and interval in 1 group | Exact binomial (Clopper–Pearson) | `binom_test(x, n)` |
+| Binary, before and after | McNemar | `mcnemar_test(x, y)` |
 
-複数の時点やアウトカムを検定したら、`p_adjust(pvalues, "holm")` で調整します。FDR なら `"BH"` です。
+If you test several time points or outcomes, adjust with `p_adjust(pvalues, "holm")`. For FDR, use `"BH"`.
 
-**注意**: 交絡の調整が要るなら回帰に進みます。値は R の `t.test`、`wilcox.test` などに合わせています。
+**Note**: If you need to adjust for confounding, move on to regression. Results match R functions such as `t.test` and `wilcox.test`.
 
-例: [2 群 RCT の基本検定](../examples/htest_licorice.md)
+Example: [Basic tests for a 2-arm RCT](../examples/htest_licorice.md)
 
-## 回帰: 調整した関連
+## Regression: adjusted associations
 
-### アウトカムで選ぶ
+### Choose by outcome
 
-| アウトカム | モデル | 呼び方 | 係数の読み方 |
-|------------|--------|--------|--------------|
-| 連続 | 線形回帰 | `fit_ols(frame, "y ~ x + age")` | 平均の差 |
-| 二値 | ロジスティック | `fit_glm(frame, "y ~ x", family="binomial")` | `exp` でオッズ比 |
-| 計数・率 | ポアソン | `fit_glm(frame, "n ~ x", family="poisson", offset="log_years")` | `exp` で率比 |
-| 正の連続で右に歪む | ガンマ | `fit_glm(frame, "cost ~ x", family="gamma")` | 逆数リンク |
-| 二値でリスク比がほしい | 修正ポアソン | `fit_risk_ratio(frame, "y ~ x + age")` | リスク比 |
-| 順序（重症度など） | 比例オッズ | `ordinal_regression(frame, "grade ~ x", levels=["none", "mild", "severe"])` | `exp` で累積オッズ比 |
-| 3 水準以上で順序なし | 多項ロジスティック | `multinomial_regression(frame, "subtype ~ x + age")` | `exp` で基準水準に対する相対リスク比 |
+| Outcome | Model | Call | How to read the coefficient |
+|---------|-------|------|-----------------------------|
+| Continuous | Linear regression | `fit_ols(frame, "y ~ x + age")` | Difference in means |
+| Binary | Logistic | `fit_glm(frame, "y ~ x", family="binomial")` | `exp` gives the odds ratio |
+| Count or rate | Poisson | `fit_glm(frame, "n ~ x", family="poisson", offset="log_years")` | `exp` gives the rate ratio |
+| Positive continuous, right-skewed | Gamma | `fit_glm(frame, "cost ~ x", family="gamma")` | Inverse link |
+| Binary, risk ratio wanted | Modified Poisson | `fit_risk_ratio(frame, "y ~ x + age")` | Risk ratio |
+| Ordinal (such as severity) | Proportional odds | `ordinal_regression(frame, "grade ~ x", levels=["none", "mild", "severe"])` | `exp` gives the cumulative odds ratio |
+| 3 or more unordered levels | Multinomial logistic | `multinomial_regression(frame, "subtype ~ x + age")` | `exp` gives the relative risk ratio versus the reference level |
 
-式の書き方は [Wilkinson 式](../models/formula.md) です。カテゴリの最初の水準が参照になります。係数表は `fit.tidy()` です。
+See [Wilkinson formulas](../models/formula.md) for formula syntax. The first level of a categorical variable is the reference. Get the coefficient table with `fit.tidy()`.
 
-### 効果の尺度を選ぶ
+### Choose the effect measure
 
-ロジスティック回帰のオッズ比は、結果がよく起きる（目安 10% 以上）とリスク比より大きく出ます。読み手に伝わりやすい尺度を選びます。
+When the outcome is common (roughly 10% or more), the odds ratio from logistic regression is larger than the risk ratio. Pick the measure your readers will understand best.
 
-| 出したいもの | 呼び方 |
-|--------------|--------|
-| 調整したオッズ比 | `fit_glm(..., family="binomial")` |
-| 調整したリスク比 | `fit_risk_ratio(frame, "y ~ arm + age")`。既定は修正ポアソン（HC0）、`method="log-binomial"` も選べる |
-| 調整したリスク差、リスク比、オッズ比（周辺） | `standardize_glm(frame, "y ~ arm * age + sex", values={"arm": [0, 1]})` のあと `.tidy(contrast="difference", reference=0)` |
+| What you want | Call |
+|---------------|------|
+| Adjusted odds ratio | `fit_glm(..., family="binomial")` |
+| Adjusted risk ratio | `fit_risk_ratio(frame, "y ~ arm + age")`. The default is modified Poisson (HC0). `method="log-binomial"` is also available |
+| Adjusted (marginal) risk difference, risk ratio, odds ratio | `standardize_glm(frame, "y ~ arm * age + sex", values={"arm": [0, 1]})` then `.tidy(contrast="difference", reference=0)` |
 
-`standardize_glm` は全員の処置を 0 と 1 に置き換えて予測確率を平均します。交互作用を入れても、一つの数で要約できます。
+`standardize_glm` sets everyone's treatment to 0 and then to 1, and averages the predicted probabilities. Even with interactions in the model, you get one summary number.
 
-**注意**: 順序ロジスティックは比例オッズの仮定を `brant_test(fit)` で確かめます。崩れていれば多項ロジスティックを考えます。
+**Note**: For ordinal logistic regression, check the proportional odds assumption with `brant_test(fit)`. If it fails, consider multinomial logistic regression.
 
-### 標準誤差を選ぶ
+### Choose the standard errors
 
-モデルの仮定が怪しいときは、係数はそのままで分散だけ差し替えます。
+If you doubt the model assumptions, keep the coefficients and replace only the variance.
 
-| 状況 | 共分散 | 呼び方 |
-|------|--------|--------|
-| 分散が一定でない | ロバスト（HC） | `hc_covariance(fit, kind="HC3")` |
-| 施設や患者で相関がある | クラスター頑健 | `cluster_covariance(fit, "site", data=frame)` |
-| 時系列で自己相関がある | Newey–West | `newey_west_covariance(fit, lags=4)` |
-| 解析的な式を信じたくない | ブートストラップ | `bootstrap_covariance(fit, n=2000, seed=1)` |
+| Situation | Covariance | Call |
+|-----------|------------|------|
+| Variance is not constant | Robust (HC) | `hc_covariance(fit, kind="HC3")` |
+| Correlation within sites or patients | Cluster-robust | `cluster_covariance(fit, "site", data=frame)` |
+| Autocorrelation in a time series | Newey–West | `newey_west_covariance(fit, lags=4)` |
+| You do not want to rely on analytic formulas | Bootstrap | `bootstrap_covariance(fit, n=2000, seed=1)` |
 
-差し替えた分散で係数表を作るときは `coefficient_test(fit, cov)` です。
+To build a coefficient table with the replaced variance, use `coefficient_test(fit, cov)`.
 
-### モデルを確かめる・比べる
+### Check and compare models
 
-| 確かめたいこと | 関数 |
-|----------------|------|
-| 入れ子のモデルを比べる | `likelihood_ratio_test(full, reduced)`、`wald_test(full, reduced)` |
-| 多重共線性 | `check_collinearity(fit)`（VIF） |
-| 分散の不均一 | `breusch_pagan_test(fit)` |
-| 自己相関 | `durbin_watson_test(fit)`、`breusch_godfrey_test(fit)` |
-| 関数形の誤り | `ramsey_reset_test(fit)` |
+| What to check | Function |
+|---------------|----------|
+| Compare nested models | `likelihood_ratio_test(full, reduced)`, `wald_test(full, reduced)` |
+| Multicollinearity | `check_collinearity(fit)` (VIF) |
+| Heteroscedasticity | `breusch_pagan_test(fit)` |
+| Autocorrelation | `durbin_watson_test(fit)`, `breusch_godfrey_test(fit)` |
+| Misspecified functional form | `ramsey_reset_test(fit)` |
 
-## 非線形の関連: スプラインと加法モデル
+## Nonlinear associations: splines and additive models
 
-**いつ**: 年齢や検査値の効果が直線でなさそうなとき。カットオフを決め打ちしたくないとき。
+**When**: The effect of age or a lab value may not be linear. You do not want to fix a cutoff in advance.
 
-### スプライン
+### Splines
 
-**どう**: 式に `rcs(age, 4)`（制限付き 3 次スプライン、節点 4 個）と書きます。`fit_glm`、`fit_ols`、`cox_ph` で使えます。`ns(age, df = 3)` と `bs(age, df = 5)` も書けます。
+**How**: Write `rcs(age, 4)` (restricted cubic spline with 4 knots) in the formula. It works with `fit_glm`, `fit_ols`, and `cox_ph`. You can also write `ns(age, df = 3)` and `bs(age, df = 5)`.
 
 ```python
 from statract import fit_glm, plot_spline_effect, spline_effect, spline_test
 
 fit = fit_glm(frame, "death ~ rcs(age, 4) + sex", family="binomial")
-print(spline_test(fit, "rcs(age, 4)"))  # 全体と非線形部分の検定
+print(spline_test(fit, "rcs(age, 4)"))  # tests for the overall and nonlinear parts
 curve = spline_effect(fit, frame, "age", at=range(40, 86), reference=60, exponentiate=True)
-plot_spline_effect(curve)  # 60 歳を基準にした OR の曲線
+plot_spline_effect(curve)  # OR curve with age 60 as the reference
 ```
 
-**注意**: 節点は 3 から 5 個で足ります。非線形部分の P 値が大きければ、直線のモデルで構いません。書き方は [Wilkinson 式](../models/formula.md#スプライン) です。
+**Note**: 3 to 5 knots are enough. If the P value for the nonlinear part is large, a linear model is fine. See [Wilkinson formulas](../models/formula.md#splines) for the syntax.
 
-### 加法モデル
+### Additive models
 
-**いつ**: 滑らかさをデータから決めたいとき。平滑を 2 本以上や、2 変数の曲面を入れたいとき。
+**When**: You want the data to decide the smoothness. You want 2 or more smooths, or a smooth surface over 2 variables.
 
-**どう**: `gam` に平滑項 `smooth` を渡します。平滑の滑らかさは REML で自動に決まります。
+**How**: Pass smooth terms (`smooth`) to `gam`. REML picks the smoothness automatically.
 
 ```python
 from statract import gam, smooth
@@ -190,48 +190,48 @@ fit = gam(frame, "y", [smooth("age")], predictors=["arm"], family="binomial")
 print(fit.smooth_table())
 ```
 
-**注意**: 平滑を入れたモデルと直線のモデルは `compare_gams` で AIC を比べます。平滑の `edf` が 1 に近ければ、直線で足ります。
+**Note**: Compare the AIC of the model with smooths and the linear model using `compare_gams`. If a smooth's `edf` is close to 1, a straight line is enough.
 
-## クラスターと反復: 混合モデル
+## Clusters and repeated measures: mixed models
 
-**いつ**: 多施設のデータ、同じ患者の反復測定、検査医ごとのばらつきがあるとき。
+**When**: You have multicenter data, repeated measures on the same patients, or variation between raters.
 
-**どう**: 変量効果を式に書きます。
+**How**: Write the random effects in the formula.
 
-| データ | 呼び方 |
-|--------|--------|
-| 連続、施設の変量切片 | `fit_mixed(frame, "y ~ x + (1 | site)")` |
-| 反復測定で傾きも個人差 | `fit_mixed(frame, "y ~ time + (1 + time | id)")` |
-| 二値 | `fit_mixed(frame, "y ~ x + (1 | site)", family="binomial")` |
-| 計数で過分散 | `fit_mixed(frame, "n ~ x + offset(log(years)) + (1 | site)", family="negative_binomial")` |
-| ゼロが多い計数 | `zero_inflation=True` または `hurdle=True` |
-| 非線形と変量効果 | `gamm(frame, "y", [smooth("x")], random="(1 | site)", family="binomial")` |
+| Data | Call |
+|------|------|
+| Continuous, random intercept for site | `fit_mixed(frame, "y ~ x + (1 | site)")` |
+| Repeated measures, slopes also vary by person | `fit_mixed(frame, "y ~ time + (1 + time | id)")` |
+| Binary | `fit_mixed(frame, "y ~ x + (1 | site)", family="binomial")` |
+| Overdispersed counts | `fit_mixed(frame, "n ~ x + offset(log(years)) + (1 | site)", family="negative_binomial")` |
+| Counts with many zeros | `zero_inflation=True` or `hurdle=True` |
+| Nonlinear terms and random effects | `gamm(frame, "y", [smooth("x")], random="(1 | site)", family="binomial")` |
 
-施設差の大きさは `fit.variance_table()` で見ます。ロジスティックなら `median_odds_ratio` でオッズ比の尺度にできます。
+Check the size of between-site variation with `fit.variance_table()`. For logistic models, `median_odds_ratio` puts it on the odds ratio scale.
 
-**注意**: 「施設をまたいだ平均の効果」が知りたいだけなら、`fit_glm` と `cluster_covariance` でも足ります。施設のばらつきそのものが知りたいときに混合モデルを使います。
+**Note**: If you only want the average effect across sites, `fit_glm` with `cluster_covariance` is enough. Use a mixed model when the variation between sites is itself of interest.
 
-例: [多施設 RCT の混合ロジスティック](../examples/logit_indo.md)、[てんかん RCT の計数 GLMM](../examples/glmm_epil.md)、[反復測定の線形混合モデル](../examples/lmm_pbcseq.md)
+Examples: [Mixed logistic model for a multicenter RCT](../examples/logit_indo.md), [Count GLMM for an epilepsy RCT](../examples/glmm_epil.md), [Linear mixed model for repeated measures](../examples/lmm_pbcseq.md)
 
-## 生存時間
+## Survival analysis
 
-### 曲線と検定
+### Curves and tests
 
-**いつ**: 打ち切りのある時間のアウトカム（死亡、再発）。
+**When**: Time-to-event outcomes with censoring (death, recurrence).
 
 ```python
 from statract import log_rank, plot_survival, survival_curve
 
 curve = survival_curve(frame, "time", "event", by="arm")
-print(curve.at([1, 3, 5]))       # 時点の生存割合
+print(curve.at([1, 3, 5]))       # survival proportion at each time point
 print(log_rank(frame, "time", "event", by="arm"))
 ```
 
-図は `plot_survival` です。リスク集合の人数（number at risk）も付きます。
+Plot with `plot_survival`. It also shows the number at risk.
 
-### Cox 回帰
+### Cox regression
 
-**いつ**: 共変量を調整したハザード比を出すとき。
+**When**: You want a hazard ratio adjusted for covariates.
 
 ```python
 from statract import cox_ph, proportional_hazards_test
@@ -241,88 +241,88 @@ print(fit.tidy())
 print(proportional_hazards_test(fit))
 ```
 
-| 状況 | 使い方 |
-|------|--------|
-| 層ごとに基準ハザードが違う | `strata(center)` を式に入れる |
-| 同じ患者の複数の眼など | `cluster(id)` か `cluster=`（Lin–Wei のロバスト分散） |
-| 時間で変わる共変量・効果 | `split_follow_up` で追跡を区切り、`entry` を渡す |
-| 遅れて観察に入る | `entry=` |
+| Situation | How |
+|-----------|-----|
+| Baseline hazard differs by stratum | Add `strata(center)` to the formula |
+| Several eyes from the same patient, and similar | `cluster(id)` or `cluster=` (Lin–Wei robust variance) |
+| Time-varying covariates or effects | Split follow-up with `split_follow_up` and pass `entry` |
+| Delayed entry | `entry=` |
 
-**注意**: `proportional_hazards_test` で PH（比例ハザード）を確かめます。P 値が小さい共変量は、層にするか、時間で区切るか、AFT を考えます。診断図をまとめて出すときは `write_cox_diagnostic_suite` です。
+**Note**: Check PH (proportional hazards) with `proportional_hazards_test`. For covariates with small P values, stratify, split by time, or consider AFT. To output a full set of diagnostic plots, use `write_cox_diagnostic_suite`.
 
-### RMST: 平均の生存時間で比べる
+### RMST: compare by mean survival time
 
-**いつ**: PH が崩れていてハザード比が一つの数にまとまらないとき。「5 年のうち平均で何か月長く生きるか」で伝えたいとき。
+**When**: PH does not hold, so the hazard ratio cannot be summarized as one number. You want to say "how many more months people live on average within 5 years."
 
-`restricted_mean_survival(frame, "time", "event", by="arm", tau=5)` です。`.arms` が群ごとの RMST、`.contrasts` が差と比です。`tau` は両群に十分な追跡がある時点にします。共変量で調整した RMST は `standardize_cox(..., measure="rmean")` です。
+Use `restricted_mean_survival(frame, "time", "event", by="arm", tau=5)`. `.arms` holds the RMST for each group, and `.contrasts` holds the difference and ratio. Set `tau` to a time point with enough follow-up in both groups. For covariate-adjusted RMST, use `standardize_cox(..., measure="rmean")`.
 
-### PH が成り立たないとき: AFT
+### When PH does not hold: AFT
 
-`accelerated_failure(frame, "Surv(time, event) ~ arm", distribution="weibull")` です。係数は「時間が何倍に延びるか」で読みます。分布は `weibull`、`exponential`、`lognormal`、`loglogistic` などです。
+Use `accelerated_failure(frame, "Surv(time, event) ~ arm", distribution="weibull")`. Read the coefficients as "how many times longer the time becomes." Distributions include `weibull`, `exponential`, `lognormal`, and `loglogistic`.
 
-### 競合リスク
+### Competing risks
 
-**いつ**: 関心の事象（例: 肝死）の前に、別の事象（例: 移植）で観察が終わるとき。KM で 1 − 生存を描くと、発生を過大に見積もります。
+**When**: Before the event of interest (for example, liver death), another event (for example, transplant) ends observation. Plotting 1 − survival from KM overestimates the incidence.
 
-| 知りたいこと | 呼び方 |
-|--------------|--------|
-| 累積発生（CIF）と Gray 検定 | `cumulative_incidence(frame, "time", "status", by="arm")` |
-| CIF の図の数値 | `survival_curve(..., kind="aalen_johansen")` |
-| 部分分布ハザード比 | `fine_gray_regression(frame, "Surv(time, status) ~ arm + age", cause=1)` |
-| 原因別ハザード比 | 他の原因を打ち切りにして `cox_ph` |
+| What you want | Call |
+|---------------|------|
+| Cumulative incidence (CIF) and Gray's test | `cumulative_incidence(frame, "time", "status", by="arm")` |
+| Values for the CIF plot | `survival_curve(..., kind="aalen_johansen")` |
+| Subdistribution hazard ratio | `fine_gray_regression(frame, "Surv(time, status) ~ arm + age", cause=1)` |
+| Cause-specific hazard ratio | `cox_ph` with other causes treated as censored |
 
-`status` は 0 が打ち切り、1 以上が原因です。病因を調べるなら原因別ハザード、予後の予測なら Fine–Gray が向いています。
+In `status`, 0 is censored and 1 or more is a cause. Cause-specific hazards suit etiologic questions. Fine–Gray suits prognostic prediction.
 
-### マッチしたセット
+### Matched sets
 
-ケース・コントロールの 1:k マッチや、マッチしたペアの二値アウトカムは `conditional_logit(frame, "y ~ x + strata(set)")` です。
+For 1:k matched case-control data or binary outcomes in matched pairs, use `conditional_logit(frame, "y ~ x + strata(set)")`.
 
-例: [生存曲線と Cox 回帰](../examples/surv_colon.md)、[競合リスク解析](../examples/cif_pbc.md)、[PH 検定と AFT モデル](../examples/aft_rotterdam.md)、[クラスター頑健 Cox](../examples/cox_retinopathy.md)
+Examples: [Survival curves and Cox regression](../examples/surv_colon.md), [Competing risks analysis](../examples/cif_pbc.md), [PH tests and AFT models](../examples/aft_rotterdam.md), [Cluster-robust Cox](../examples/cox_retinopathy.md)
 
-## 因果推論: 観察研究の処置効果
+## Causal inference: treatment effects in observational studies
 
-**いつ**: 処置が無作為でなく、背景の違う群を比べるとき。どの方法も「測った交絡因子で説明がつく」ことが前提です。
+**When**: Treatment was not randomized, and you compare groups with different backgrounds. Every method assumes that measured confounders explain the difference.
 
-| 方法 | 推定するもの | 呼び方 |
-|------|--------------|--------|
-| 傾向スコアマッチング | ATT（処置群での効果） | `match_sample(frame, "treat", covs, method="nearest", distance="logit", caliper=0.2)` |
-| IPTW | ATE、ATT、ATO | `propensity_weights(frame, "treat ~ age + sex + stage", estimand="ATE", stabilize=True, trim=0.99)` |
-| GLM の回帰標準化 | 周辺のリスク差・リスク比 | `standardize_glm(frame, "y ~ treat * age + sex", values={"treat": [0, 1]})` |
-| Cox の回帰標準化 | 周辺の生存曲線、その差、RMST | `standardize_cox(frame, "Surv(time, status) ~ treat * age + sex", values={"treat": [0, 1]}, times=[1, 3, 5])` |
+| Method | What it estimates | Call |
+|--------|-------------------|------|
+| Propensity score matching | ATT (effect in the treated) | `match_sample(frame, "treat", covs, method="nearest", distance="logit", caliper=0.2)` |
+| IPTW | ATE, ATT, ATO | `propensity_weights(frame, "treat ~ age + sex + stage", estimand="ATE", stabilize=True, trim=0.99)` |
+| Regression standardization with GLM | Marginal risk difference and risk ratio | `standardize_glm(frame, "y ~ treat * age + sex", values={"treat": [0, 1]})` |
+| Regression standardization with Cox | Marginal survival curves, their difference, RMST | `standardize_cox(frame, "Surv(time, status) ~ treat * age + sex", values={"treat": [0, 1]}, times=[1, 3, 5])` |
 
-マッチングのあとは `matched.balance()` と `matched.love_plot()` で SMD を確かめます。
+After matching, check SMD with `matched.balance()` and `matched.love_plot()`.
 
-IPTW は次の順で進めます。
+For IPTW, follow these steps.
 
-1. `ipw = propensity_weights(...)` で重みを作る。
-2. `ipw.balance(threshold=0.1)` と `ipw.love_plot("love.png")` で重みづけ後の SMD を確かめる。`ipw.effective_sample_size()` が小さすぎないかも見る。
-3. `ipw.frame()` の `weights` 列を、`fit_glm`、`fit_risk_ratio`、`cox_ph` の `weights=` に渡す。
-4. 分散はロバスト分散（`hc_covariance(fit, "HC0")`）にする。
+1. Build weights with `ipw = propensity_weights(...)`.
+2. Check SMD after weighting with `ipw.balance(threshold=0.1)` and `ipw.love_plot("love.png")`. Also check that `ipw.effective_sample_size()` is not too small.
+3. Pass the `weights` column of `ipw.frame()` to `weights=` in `fit_glm`, `fit_risk_ratio`, or `cox_ph`.
+4. Use robust variance (`hc_covariance(fit, "HC0")`).
 
-**注意**: 極端な重みは `trim` で切り詰めます。それでもバランスが悪ければ、傾向スコアのモデルを見直します。
+**Note**: Trim extreme weights with `trim`. If balance is still poor, revise the propensity score model.
 
-例: [傾向スコアマッチング](../examples/psm_rhc.md)、[逆確率重み付け（IPTW）](../examples/iptw_nhefs.md)
+Examples: [Propensity score matching](../examples/psm_rhc.md), [Inverse probability of treatment weighting (IPTW)](../examples/iptw_nhefs.md)
 
-## 予測モデルの評価
+## Evaluating prediction models
 
-**いつ**: リスクスコアや予測モデルを作り、その性能を報告するとき。
+**When**: You build a risk score or prediction model and report its performance.
 
-| 見るもの | 意味 | 呼び方 |
-|----------|------|--------|
-| 識別 | 高リスクの人を高く並べられるか | `roc_curve(truth, score)`、2 つの AUC は `roc_test(roc1, roc2)` |
-| 楽観の補正 | 同じデータで評価した甘さを除く | `validate_logistic(frame, "y", preds, B=200)`、`validate_cox(...)` |
-| 較正 | 予測の確率が実際と合うか | `calibrate_logistic(...)`、`calibrate_cox(..., u=5)`、`calibration_table` |
-| 総合 | 確率の当たりの良さ | `brier_score(y, prob)` |
-| 臨床の有用性 | 閾値ごとの正味の利益 | `decision_curve_table(y, prob)`、図は `plot_dca` |
-| 閾値の決め方 | 感度と特異度の兼ね合い | `threshold_tradeoff(y, prob)` |
+| What to check | Meaning | Call |
+|---------------|---------|------|
+| Discrimination | Does it rank high-risk people higher? | `roc_curve(truth, score)`. Compare 2 AUCs with `roc_test(roc1, roc2)` |
+| Optimism correction | Removes the optimism from evaluating on the same data | `validate_logistic(frame, "y", preds, B=200)`, `validate_cox(...)` |
+| Calibration | Do predicted probabilities match observed ones? | `calibrate_logistic(...)`, `calibrate_cox(..., u=5)`, `calibration_table` |
+| Overall | How accurate the probabilities are | `brier_score(y, prob)` |
+| Clinical usefulness | Net benefit at each threshold | `decision_curve_table(y, prob)`. Plot with `plot_dca` |
+| Choosing a threshold | Trade-off between sensitivity and specificity | `threshold_tradeoff(y, prob)` |
 
-**注意**: AUC だけでは足りません。較正と決定曲線もあわせて報告します（TRIPOD の考え方）。
+**Note**: AUC alone is not enough. Report calibration and decision curves too (the TRIPOD approach).
 
-例: [予測モデルの較正と DCA](../examples/pred_support.md)
+Example: [Calibration and DCA for prediction models](../examples/pred_support.md)
 
-## 欠損: 多重代入
+## Missing data: multiple imputation
 
-**いつ**: 共変量の欠損が多く、完全例だけでは偏りや精度の損失が心配なとき。
+**When**: Many covariates are missing, and you worry that complete-case analysis will be biased or lose precision.
 
 ```python
 from statract import fit_glm, impute_chained
@@ -331,25 +331,25 @@ mi = impute_chained(frame, m=20, n_iter=10, seed=1)
 table = mi.pool(lambda d: fit_glm(d, "y ~ x + age", family="binomial"))
 ```
 
-各データでモデルを当て、Rubin のルールでまとめます。代入のモデルにはアウトカムも入れます。
+The model is fitted to each imputed dataset, and results are combined with Rubin's rules. Include the outcome in the imputation model.
 
-## 探索: 条件付き推論木
+## Exploration: conditional inference trees
 
-**いつ**: 連続のアウトカムを、どの変数のどこで分けると差が出るかを探すとき。分岐は検定で選ぶので、木を刈り込む必要がありません。
+**When**: You want to find which variables, split at which values, separate a continuous outcome. Splits are chosen by tests, so the tree does not need pruning.
 
-`conditional_tree(frame, "y", ["age", "bmi", "stage"])` で木を作り、`plot_tree` で描きます。結果は仮説を作るためのもので、確認の解析には回帰を使います。
+Build the tree with `conditional_tree(frame, "y", ["age", "bmi", "stage"])` and plot it with `plot_tree`. The results are for generating hypotheses. Use regression for confirmatory analysis.
 
-## 費用対効果分析
+## Cost-effectiveness analysis
 
-**いつ**: 治療ごとの費用と QALY を比べて ICER を出すとき。
+**When**: You compare costs and QALYs across treatments and compute the ICER.
 
-cohort Markov で状態の推移を回し（`simulate_cohort_markov`）、ICER 表を作り（`calculate_icers`）、一元感度分析と確率的感度分析で頑健さを見ます。手順は [Cost-effectiveness](../cea/overview.md) です。
+Run state transitions with a cohort Markov model (`simulate_cohort_markov`), build the ICER table (`calculate_icers`), and check robustness with one-way and probabilistic sensitivity analyses. See [Cost-effectiveness](../cea/overview.md) for the steps.
 
-例: [Markov モデルの費用対効果分析](../examples/cea_sicksicker.md)
+Example: [Cost-effectiveness analysis with a Markov model](../examples/cea_sicksicker.md)
 
-## 次に読む
+## Read next
 
-- [Models](../models/overview.md): 回帰、生存時間、混合、GAM の Quickstart
-- [Wilkinson 式](../models/formula.md): 式の文法
-- [Figures](../viz/overview.md): forest、KM、較正、DCA の図
-- [Models vs R](../models/vs-r.md): R との数値の対応
+- [Models](../models/overview.md): Quickstart for regression, survival, mixed models, and GAM
+- [Wilkinson formulas](../models/formula.md): Formula syntax
+- [Figures](../viz/overview.md): Forest, KM, calibration, and DCA plots
+- [Models vs R](../models/vs-r.md): How the numbers match R

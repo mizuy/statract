@@ -1,5 +1,5 @@
 # balance
 
-Love plot です。`cobalt::love.plot` に合わせて、縦軸に共変量、横軸に平均差を置きます。重み付け前（Unadjusted）と後（Adjusted）を点で並べ、0.1 に破線を引きます。表は [`PropensityWeights.balance()`](../models/weighting.md) か `balance_table` です。
+Love plots. Following `cobalt::love.plot`, covariates go on the vertical axis and mean differences on the horizontal axis. Points before weighting (Unadjusted) and after (Adjusted) are shown side by side, with a dashed line at 0.1. The table comes from [`PropensityWeights.balance()`](../models/weighting.md) or `balance_table`.
 
 ::: statract.viz.balance

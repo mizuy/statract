@@ -103,12 +103,12 @@ def tableone_gt_from_frame(
     source_df: pl.DataFrame | None = None,
     hue: str | pl.Expr | list[pl.Expr] | list[str] | None = None,
 ) -> GT:
-    """`tableone_raw` 相当の DataFrame を styled `great_tables.GT` にする。
+    """Turn a DataFrame like `tableone_raw` output into a styled `great_tables.GT`.
 
-    ``source_df`` + ``hue`` を渡すと、列見出しに n を付与する（`tableone` と同じ）。
+    If ``source_df`` + ``hue`` are given, n is added to the column headers (same as `tableone`).
 
-    列順は ``column_order`` で DataFrame を並べ替えてから GT 化する。
-    ``cols_move_to_start`` は stub（``name``）を右端へ押し出すため使わない。
+    The column order is set by reordering the DataFrame with ``column_order`` before building the GT.
+    ``cols_move_to_start`` is not used because it pushes the stub (``name``) to the right edge.
     """
     if "name" not in table.columns:
         raise InvalidParameterError("table must have a 'name' column")
@@ -200,18 +200,18 @@ def write_tableone_artifacts(
     group_labels: dict[str, str] | None = None,
     column_order: Sequence[str] | None = None,
 ) -> list[Path]:
-    """Table One を CSV / companion / GT HTML / GT Markdown 断片として書き出す。
+    """Write a Table One as CSV / companion / GT HTML / GT Markdown fragment.
 
     Parameters
     ----------
     stem:
-        ファイル名ステム（例: ``table_baseline_method`` →
-        ``.csv`` / ``_csv.md`` / ``.html`` / ``_gt.md``）。
+        File name stem (for example ``table_baseline_method`` →
+        ``.csv`` / ``_csv.md`` / ``.html`` / ``_gt.md``).
     df, params:
-        ``tableone_raw`` / ``tableone`` に渡す入力。``table`` 未指定時は必須。
+        Inputs passed to ``tableone_raw`` / ``tableone``. Required when ``table`` is not given.
     table:
-        すでに組み立てた Table One DataFrame（Pre/Post 横並び等）。
-        指定時は ``df``/``params`` は不要。
+        A Table One DataFrame that is already built (such as Pre/Post side by side).
+        When given, ``df``/``params`` are not needed.
     """
     from ..report.artifacts import write_csv_companion
 

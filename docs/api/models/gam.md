@@ -1,5 +1,5 @@
 # gam
 
-加法モデルです。基底は cubic regression、thin plate、cyclic cubic、P-spline、random effect で、テンソル積、テンソル交互作用、因子の `by` も使えます。分布は gaussian、binomial、poisson、gamma です。`weights` と `offset` は列名です。
+Additive models. Bases are cubic regression, thin plate, cyclic cubic, P-spline, and random effect. Tensor products, tensor interactions, and factor `by` are also supported. Families are gaussian, binomial, poisson, and gamma. `weights` and `offset` are column names.
 
 ::: statract.models.gam
