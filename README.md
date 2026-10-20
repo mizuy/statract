@@ -4,7 +4,7 @@
 
 # statract
 
-Polars の表を渡して、結果の表と図を受け取る。ベースライン表、回帰、生存時間、統計図、費用効果分析（CEA）を、一つのライブラリでつなぎます。
+Python で臨床研究のデータを解析し、論文に載せる表と図まで作るライブラリです。データは Polars の表で渡します。
 
 - 核は pandas、statsmodels、lifelines に依存しません。Kaplan–Meier は同梱の `survival_curve` です。
 - R ブリッジ `statract.r` は extra `r` で入ります。`import statract` だけでは R も rpy2 も読み込みません。

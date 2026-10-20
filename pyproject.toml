@@ -1,7 +1,7 @@
 [project]
 name = "statract"
 version = "0.1.0"
-description = "Estimation, statistical figures, and cost-effectiveness analysis on Polars"
+description = "Clinical research statistics in Python, from data to publication-ready tables and figures"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "MIZUGUCHI Yasuhiko", email = "mizugy@gmail.com" }]
