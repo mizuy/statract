@@ -1,6 +1,6 @@
 # roc
 
-ROC 曲線、AUC、DeLong の分散と信頼区間、2 本の AUC の DeLong 検定です。R の pROC 1.18.5 と同じ既定（水準は 1 つ目が対照、2 つ目が症例、向きは中央値で自動、閾値は一意な値の中点と ±Inf、欠測は除く）です。R との数値対応は [vs R](../../models/vs-r.md) です。
+ROC curves, AUC, DeLong variance and confidence intervals, and the DeLong test for 2 AUCs. Defaults are the same as R's pROC 1.18.5 (first level is controls, second level is cases, direction set automatically by the medians, thresholds at midpoints of unique values plus ±Inf, missing values dropped). For numerical agreement with R, see [vs R](../../models/vs-r.md).
 
 ```python
 from statract import roc_curve, roc_test
@@ -8,7 +8,7 @@ from statract import roc_curve, roc_test
 r1 = roc_curve(df["y"], df["score1"])
 r1.auc, r1.ci_auc(), r1.var_auc()
 r1.coords("best", best_method="youden", ret=["threshold", "specificity", "sensitivity"])
-roc_test(r1, roc_curve(df["y"], df["score2"]))  # 同じ応答なので対応ありの DeLong
+roc_test(r1, roc_curve(df["y"], df["score2"]))  # same response, so paired DeLong
 ```
 
 ::: statract.models.roc

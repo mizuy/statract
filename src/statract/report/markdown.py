@@ -62,7 +62,7 @@ def github_markdown_table_from_polars(
     max_rows: int | None = 200,
     float_sigfigs: int | None = _DEFAULT_FLOAT_SIGFIGS,
 ) -> str:
-    """Polars DataFrame を GFM 風のパイプ表 (ヘッダ + 区切り行 + 本体) にする。"""
+    """Turn a Polars DataFrame into a GFM-style pipe table (header + separator row + body)."""
     import polars as pl  # noqa: PLC0415
 
     if not isinstance(df, pl.DataFrame):
@@ -88,7 +88,7 @@ def github_markdown_table_from_csv(
     max_rows: int | None = 200,
     float_sigfigs: int | None = _DEFAULT_FLOAT_SIGFIGS,
 ) -> str:
-    """CSV を読み、`github_markdown_table_from_polars` と同じ形式の Markdown を返す。"""
+    """Read a CSV and return Markdown in the same format as `github_markdown_table_from_polars`."""
     import polars as pl  # noqa: PLC0415
 
     df = pl.read_csv(Path(path))

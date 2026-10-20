@@ -1,5 +1,5 @@
 # gamm
 
-平滑と変量効果を一つの GLMM にした加法混合モデルです。`gamm4` に合わせています。使い方は [Models](../../models/overview.md#加法モデル) です。
+Additive mixed models that combine smooths and random effects into one GLMM. It matches `gamm4`. For usage, see [Models](../../models/overview.md#additive-models).
 
 ::: statract.models.gamm

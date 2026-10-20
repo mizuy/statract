@@ -248,7 +248,7 @@ def write_table(
     skip_if_empty: bool = True,
     skip_empty_except: tuple[str, ...] = (),
 ) -> None:
-    """``out_dir/{stem}.csv`` と Markdown companion を書き、``written`` に追記する。"""
+    """Write ``out_dir/{stem}.csv`` and its Markdown companion, and append them to ``written``."""
     if skip_if_empty and df.is_empty() and stem not in skip_empty_except:
         return
     write_csv_artifact(df, Path(out_dir) / f"{stem}.csv", written=written)

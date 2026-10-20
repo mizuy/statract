@@ -1,5 +1,5 @@
 # impute
 
-連鎖方程式による多重代入（`impute_chained`）と、Rubin のルールによる統合（`pool`）です。`mice` の既定（pmm / logreg / polyreg）と `mice::pool` に合わせています。使い方は [Models](../../models/overview.md#多重代入) です。
+Multiple imputation by chained equations (`impute_chained`) and pooling with Rubin's rules (`pool`). It matches the `mice` defaults (pmm / logreg / polyreg) and `mice::pool`. For usage, see [Models](../../models/overview.md#multiple-imputation).
 
 ::: statract.models.impute

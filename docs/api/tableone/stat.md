@@ -1,12 +1,12 @@
 # stat
 
-## 実装メモ: SMD
+## Implementation notes: SMD { #smd }
 
-`standardized_difference`（`tableone(..., add_smd=True)` の SMD 列）は R の tableone と同じ式です。数値は $|\bar x_1 - \bar x_0| / \sqrt{(s_1^2 + s_0^2)/2}$ で、分散は標本分散です。カテゴリは Yang と Dalton (2012) の多項版で、2 水準では割合 $p$ の分散 $p(1-p)$ を使う式になります（Austin 2009）。
+`standardized_difference` (the SMD column of `tableone(..., add_smd=True)`) uses the same formula as R's tableone. For numeric variables it is $|\bar x_1 - \bar x_0| / \sqrt{(s_1^2 + s_0^2)/2}$, with sample variances. For categorical variables it is the multinomial version of Yang and Dalton (2012). With 2 levels, this reduces to the formula using the variance $p(1-p)$ of the proportion $p$ (Austin 2009).
 
-分母は渡された表の中で毎回計算します。調整前の標本なら、`match_sample(...).balance()` の `smd_all` や `propensity_weights(...).balance()` の `diff_unadjusted` と一致します（符号は除きます）。マッチ後の標本で作った Table 1 は分母をマッチ後の分散で計算し直すので、分母を調整前に固定するバランス表の `smd_matched` / `diff_adjusted` と一致しないことがあります。バランスの確認にはバランス表を使ってください。理由は [weighting の実装メモ](../models/weighting.md#smd) にあります。
+The denominator is computed each time within the table you pass. For the sample before adjustment, it matches `smd_all` from `match_sample(...).balance()` and `diff_unadjusted` from `propensity_weights(...).balance()` (except for the sign). A Table 1 built from the matched sample recomputes the denominator with the matched variances. So it may not match `smd_matched` / `diff_adjusted` in the balance table, which fixes the denominator before adjustment. Use the balance table to check balance. The reasons are in the [weighting implementation notes](../models/weighting.md#smd).
 
-0/1 の数値の列は集計関数で扱いが決まります。平均などの数値の集計では連続変数として標本分散（`ddof=1`）を使います。R の tableone で `factorVars` に入れない場合と同じです。カテゴリの集計（`agg_category_n` など）か `categorical=True` では $p(1-p)$ を使い、バランス表の 2 値と一致します。2 つの分散の違いは各群の $n/(n-1)$ の因子だけです。
+For numeric 0/1 columns, the summary function decides how they are handled. Numeric summaries such as the mean treat them as continuous and use the sample variance (`ddof=1`). This is the same as leaving them out of `factorVars` in R's tableone. Categorical summaries (such as `agg_category_n`) or `categorical=True` use $p(1-p)$, which matches the binary rows of the balance table. The two variances differ only by a factor of $n/(n-1)$ in each group.
 
 ::: statract.tableone.stat
 

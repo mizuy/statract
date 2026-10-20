@@ -1,5 +1,5 @@
 # tree
 
-数値応答の条件付き推論木です。変数選択は二次形式の線形統計量で、ノード内の共変量数で Šidák 調整します。分割点はその変数の二標本統計量を最大にします。
+Conditional inference trees for numeric responses. Variable selection uses a quadratic-form linear statistic, with a Šidák adjustment for the number of covariates in the node. The split point maximizes the two-sample statistic for that variable.
 
 ::: statract.models.tree

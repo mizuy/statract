@@ -1,11 +1,11 @@
 # matching
 
-傾向スコアと距離に基づくマッチングです。公開名は `match_sample` です。`total_distance` はマッチした辺の距離の和で、full matching の重みは MatchIt の `normalize=TRUE` に合わせています。
+Matching on propensity scores and distances. The public name is `match_sample`. `total_distance` is the sum of the distances of the matched edges. Weights for full matching follow MatchIt's `normalize=TRUE`.
 
-## 実装メモ: SMD
+## Implementation notes: SMD { #smd }
 
-`balance()` の `smd_all` と `smd_matched` は、重み付けのバランス表と同じ SMD です。既定の分母は、マッチング前の全標本の pooled SD $\sqrt{(s_1^2 + s_0^2)/2}$ で、マッチ前とマッチ後で同じ値を使います。分母を固定するので、SMD の変化は平均の差の変化を表します。2 値の変数は分散 $p(1-p)$ で標準化します（Austin 2009）。`pair_distance` も同じ分母で割ります。`distance` の行は常に標準化します。
+`smd_all` and `smd_matched` in `balance()` are the same SMD as in the weighting balance table. The default denominator is the pooled SD of the full sample before matching, $\sqrt{(s_1^2 + s_0^2)/2}$, and the same value is used before and after matching. Since the denominator is fixed, a change in SMD reflects a change in the mean difference. Binary variables are standardized with the variance $p(1-p)$ (Austin 2009). `pair_distance` is divided by the same denominator. The `distance` row is always standardized.
 
-MatchIt は ATT の分母に処置群の標準偏差を使います。ATT のマッチングでは処置群がほぼそのまま残るので、目標集団の単位の固定した尺度になるためです。これは `balance(sd_denominator="treated")`（ATC は `"control"`）で再現できます。cobalt のように 2 値を割合の差のまま出すには `binary="raw"` です。tableone はマッチ後の表の中で pooled SD を計算し直すので、マッチ後の Table 1 の SMD は `smd_matched` と一致しないことがあります。理由と対応表は [weighting の実装メモ](weighting.md#smd) にあります。
+MatchIt uses the SD of the treated group as the denominator for ATT. In ATT matching the treated group stays almost intact, so this gives a fixed scale in the units of the target population. You can reproduce it with `balance(sd_denominator="treated")` (`"control"` for ATC). To report binary variables as raw differences in proportions, as cobalt does, use `binary="raw"`. tableone recomputes the pooled SD within the matched table, so the SMD in a Table 1 after matching may not match `smd_matched`. The reasons and a mapping table are in the [weighting implementation notes](weighting.md#smd).
 
 ::: statract.models.matching

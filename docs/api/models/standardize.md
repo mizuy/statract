@@ -1,5 +1,5 @@
 # standardize
 
-GLM のあとの回帰標準化（g-computation）です。曝露を各値に置き換えて全員の予測を平均し、調整したリスク差、リスク比、オッズ比を出します。分散は共変量を固定した delta 法（`marginaleffects::avg_comparisons`）か、共変量のばらつきも含むサンドイッチ（`stdReg2::standardize_glm` の推定量）です。使い方は [Models](../../models/overview.md)、R との数値対応は [vs R](../../models/vs-r.md) です。Cox モデルの標準化は [surv](../surv/surv.md) の `standardize_cox` です。
+Regression standardization (g-computation) after a GLM. It sets the exposure to each value, averages the predictions over everyone, and gives the adjusted risk difference, risk ratio, and odds ratio. The variance is either the delta method with covariates held fixed (`marginaleffects::avg_comparisons`), or a sandwich that also includes covariate variability (the estimator of `stdReg2::standardize_glm`). For usage, see [Models](../../models/overview.md). For numerical agreement with R, see [vs R](../../models/vs-r.md). Standardization for Cox models is `standardize_cox` in [surv](../surv/surv.md).
 
 ::: statract.models.standardize

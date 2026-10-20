@@ -1,5 +1,5 @@
 # cea.summarize
 
-ICER 表・支配判定・NMB（モデル非依存）。dampack の `calculate_icers` に相当します。
+ICER table, dominance checks, and NMB (model-agnostic). This is the counterpart of dampack's `calculate_icers`.
 
 ::: statract.cea.summarize

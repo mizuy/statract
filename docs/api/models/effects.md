@@ -1,5 +1,5 @@
 # effects
 
-スプライン項の Wald 検定（`anova.rms`）と効果曲線（`rms::contrast`）です。
+Wald tests for spline terms (`anova.rms`) and effect curves (`rms::contrast`).
 
 ::: statract.models.effects

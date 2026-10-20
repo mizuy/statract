@@ -1,7 +1,7 @@
 # cea.markov
 
-Cohort discrete-time Markov kernel（疾患非依存）。
+Cohort discrete-time Markov kernel (disease-agnostic).
 
-介入イベントは `on_cycle` に閉じ、状態報酬は `utility` / `cost` で与えます。詳しい使い方は [CEA](../../cea/overview.md) を参照してください。
+Intervention events stay inside `on_cycle`. State rewards come from `utility` / `cost`. See [CEA](../../cea/overview.md) for how to use it.
 
 ::: statract.cea.markov

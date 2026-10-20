@@ -89,6 +89,8 @@ plugins:
           name: 日本語
           build: true
           site_description: Python で臨床研究のデータを解析し、論文に載せる表と図まで作るライブラリ
+          nav_translations:
+            Choosing a method: 手法の選び方
   # The ja build repeats the API pages; link each reference to its own language.
   - autorefs:
       resolve_closest: true
@@ -104,7 +106,7 @@ plugins:
 nav:
   - Guide:
       - Home: index.md
-      - 手法の選び方: guide/methods.md
+      - Choosing a method: guide/methods.md
       - Table One: tableone/overview.md
       - Models:
           - Overview: models/overview.md

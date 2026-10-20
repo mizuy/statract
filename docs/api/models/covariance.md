@@ -1,5 +1,5 @@
 # covariance
 
-HC、クラスタ、Newey–West、ブートストラップの共分散です。使い方は [Models](../../models/overview.md) です。
+HC, cluster, Newey–West, and bootstrap covariance. For usage, see [Models](../../models/overview.md).
 
 ::: statract.models.covariance

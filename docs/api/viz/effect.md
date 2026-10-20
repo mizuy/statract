@@ -1,5 +1,5 @@
 # effect
 
-`spline_effect` の曲線を描きます。
+Plots the curves from `spline_effect`.
 
 ::: statract.viz.effect

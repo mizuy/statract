@@ -1,40 +1,40 @@
 # Models
 
-推定です。データは Polars の `DataFrame`、結果の表も Polars です。依存は Python 側の数値ライブラリで、`import statract` は R を起動しません。
+This part covers estimation. Data is a Polars `DataFrame`, and result tables are Polars too. The dependencies are Python numerical libraries. `import statract` does not start R.
 
-## 何ができるか
+## What it covers
 
-| 層 | モジュール | R での近いもの |
+| Layer | Module | Closest in R |
 |----|------------|----------------|
-| 設計行列 | `statract.models.design`、`model_matrix` | `model.matrix` の treatment contrast |
-| 線形モデル | `statract.models.fit` | `lm` / `glm` |
-| リスク比 | `statract.models.risk` | 修正ポアソン（`glm` + `sandwich`）、log-binomial |
-| 順序ロジスティック | `statract.models.ordinal` | `MASS::polr`、`ordinal::clm`、Brant 検定 |
-| 多項ロジスティック | `statract.models.multinom` | `nnet::multinom` |
-| 共分散 | `statract.models.covariance` | sandwich |
-| GLM の回帰標準化 | `statract.models.standardize` | `marginaleffects::avg_comparisons`、`stdReg2::standardize_glm` |
-| 線形の検定 | `statract.models.linear_tests` | lmtest |
-| 基本の検定と区間 | `statract.models.htest` | `t.test`、`wilcox.test`、`mcnemar.test`、`binom.test`、`prop.test`、`p.adjust` |
-| 生存時間 | `statract.surv` | survival。RMST の 2 群比較は `survRM2::rmst2` |
-| マッチング | `statract.models.matching` | MatchIt |
-| 逆確率重み付け | `statract.models.weighting`、`statract.models.weighting_outcome` | WeightIt（`method="glm"`、`glm_weightit`）、cobalt の `bal.tab` と `love.plot` |
-| 加法モデル | `statract.models.gam` | mgcv。gaussian / binomial / poisson / gamma、`cr` / `tp` / `cc` / `ps` / `re`、テンソル、`ti`、`by`、重み、offset |
-| 条件付き推論木 | `statract.models.tree` | `partykit::ctree`。数値の応答、二次形式、Šidák 調整 |
-| 線形・一般化線形混合 | `statract.models.mixed` | `lmer` / `glmer` / `glmmTMB`。ガウスとガンマは lme-python（lme-rs）、二項・ポアソン・負の二項は自前の Laplace。ゼロ過剰とハードルも |
-| 加法混合 | `statract.models.gamm` | `gamm4`。平滑と変量切片を一つの GLMM で |
-| 多重代入 | `statract.models.impute` | `mice`（pmm / logreg / polyreg）と `pool` |
-| 予測の評価 | `statract.models.binary`、`statract.models.probability` | 較正、Brier、決定曲線、閾値。図は [Figures](../viz/overview.md) |
+| Design matrix | `statract.models.design`, `model_matrix` | treatment contrasts in `model.matrix` |
+| Linear models | `statract.models.fit` | `lm` / `glm` |
+| Risk ratio | `statract.models.risk` | modified Poisson (`glm` + `sandwich`), log-binomial |
+| Ordinal logistic | `statract.models.ordinal` | `MASS::polr`, `ordinal::clm`, Brant test |
+| Multinomial logistic | `statract.models.multinom` | `nnet::multinom` |
+| Covariance | `statract.models.covariance` | sandwich |
+| Regression standardization for GLMs | `statract.models.standardize` | `marginaleffects::avg_comparisons`, `stdReg2::standardize_glm` |
+| Linear tests | `statract.models.linear_tests` | lmtest |
+| Basic tests and intervals | `statract.models.htest` | `t.test`, `wilcox.test`, `mcnemar.test`, `binom.test`, `prop.test`, `p.adjust` |
+| Survival | `statract.surv` | survival. Two-group RMST comparison is `survRM2::rmst2` |
+| Matching | `statract.models.matching` | MatchIt |
+| Inverse probability weighting | `statract.models.weighting`, `statract.models.weighting_outcome` | WeightIt (`method="glm"`, `glm_weightit`), `bal.tab` and `love.plot` from cobalt |
+| Additive models | `statract.models.gam` | mgcv. gaussian / binomial / poisson / gamma, `cr` / `tp` / `cc` / `ps` / `re`, tensors, `ti`, `by`, weights, offset |
+| Conditional inference trees | `statract.models.tree` | `partykit::ctree`. Numeric response, quadratic form, Šidák adjustment |
+| Linear and generalized linear mixed models | `statract.models.mixed` | `lmer` / `glmer` / `glmmTMB`. Gaussian and gamma use lme-python (lme-rs). Binomial, Poisson, and negative binomial use our own Laplace. Zero-inflated and hurdle models too |
+| Additive mixed models | `statract.models.gamm` | `gamm4`. Smooths and random intercepts in one GLMM |
+| Multiple imputation | `statract.models.impute` | `mice` (pmm / logreg / polyreg) and `pool` |
+| Prediction performance | `statract.models.binary`, `statract.models.probability` | Calibration, Brier, decision curves, thresholds. Figures are in [Figures](../viz/overview.md) |
 
-公開名は `statract` からまとめて import できます。数値の対応は [R パッケージとの対応](vs-r.md)、速度と差の一覧は [Benchmarks](benchmarks.md)、実データの一連の流れは [解析例](../examples/index.md) です。
+You can import all public names from `statract`. For numerical agreement with R, see [Mapping to R packages](vs-r.md). For speed and differences, see [Benchmarks](benchmarks.md). For full workflows on real data, see [Examples](../examples/index.md).
 
-## 共通の呼び方
+## Common conventions
 
-- 第 1 引数はデータ。説明変数は列名のリストか、結果を左辺に置いた Wilkinson 式です。
-- `fit_ols`、`fit_glm`、`fit_mixed` は `y ~ x * stage`、`y ~ x + (1 | g)` を受けます。`cox_ph`、`accelerated_failure`、`fine_gray` は `Surv(time, status) ~ age + sex`、`conditional_logit` は `y ~ x + strata(set)` を受けます。文法は [Wilkinson 式](formula.md) です。
-- カテゴリの最初の水準が参照です。文字列はソート順、`pl.Enum` は定義順です。論理値は `FALSE` / `TRUE` です。ダミー名は `列名 + 水準` で、切片は `(Intercept)` です。交互作用は `:` でつなぎます。
-- 欠損がある行は、そのモデルが使う列についてまとめて落とします。
-- 係数表 `tidy()` の列は `term`, `estimate`, `std_error`, `statistic`, `p_value`, `conf_low`, `conf_high` です。
-- 予測の種類は `kind` です。グループは `by` です。
+- The first argument is the data. Predictors are a list of column names, or a Wilkinson formula with the outcome on the left side.
+- `fit_ols`, `fit_glm`, and `fit_mixed` accept `y ~ x * stage` and `y ~ x + (1 | g)`. `cox_ph`, `accelerated_failure`, and `fine_gray` accept `Surv(time, status) ~ age + sex`. `conditional_logit` accepts `y ~ x + strata(set)`. The grammar is in [Wilkinson formula](formula.md).
+- The first level of a categorical variable is the reference. Strings use sorted order. `pl.Enum` uses its defined order. Booleans are `FALSE` / `TRUE`. Dummy names are `column name + level`, and the intercept is `(Intercept)`. Interactions are joined with `:`.
+- Rows with missing values in any column the model uses are dropped together.
+- The columns of the coefficient table `tidy()` are `term`, `estimate`, `std_error`, `statistic`, `p_value`, `conf_low`, `conf_high`.
+- The type of prediction is `kind`. Groups are `by`.
 
 ## Quickstart
 
@@ -52,7 +52,7 @@ from statract import (
 )
 ```
 
-### 線形モデル
+### Linear models
 
 ```python
 frame = pl.DataFrame(
@@ -66,24 +66,24 @@ fit = fit_ols(frame, "y", ["x", "stage"])
 print(fit.tidy())
 print(hc_covariance(fit, kind="HC1"))
 
-# 同じモデルを Wilkinson 式でも書けます。* は主効果と交互作用です。
+# You can write the same model as a Wilkinson formula. * means main effects plus interaction.
 same = fit_ols(frame, "y ~ x * stage")
 print(same.tidy())
 ```
 
-`stage` は文字列なので水準は I, II, III の順になり、参照は I です。係数名は `stageII` と `stageIII` です。式の展開は R の `model.matrix` に合わせています。演算子、切片、対比、`offset()`、変量効果の列名は [Wilkinson 式](formula.md) です。`model_matrix` が設計行列そのものを返します。
+`stage` is a string, so the levels are in the order I, II, III, and the reference is I. The coefficient names are `stageII` and `stageIII`. Formula expansion matches R's `model.matrix`. Operators, the intercept, contrasts, `offset()`, and random-effect column names are in [Wilkinson formula](formula.md). `model_matrix` returns the design matrix itself.
 
-二値の結果は `fit_glm(..., family="binomial")` です。`predict(kind="response")` は成功確率、`kind="link"` はロジットです。ポアソンは `family="poisson"`、ガンマは `family="gamma"`（リンクは逆数）です。過分散のある件数は `family="negative_binomial"`（NB2、分散 `mu + mu^2 / theta`、対数リンク）で、`MASS::glm.nb` と同じ手順で `theta` も推定します。推定値は `fit.theta`、その SE は `fit.theta_std_error` です。`offset(log(years))` も使えます。
+For a binary outcome, use `fit_glm(..., family="binomial")`. `predict(kind="response")` gives the probability of success, and `kind="link"` gives the logit. Poisson is `family="poisson"`. Gamma is `family="gamma"` (inverse link). For overdispersed counts, use `family="negative_binomial"` (NB2, variance `mu + mu^2 / theta`, log link). It also estimates `theta` with the same procedure as `MASS::glm.nb`. The estimate is `fit.theta`, and its SE is `fit.theta_std_error`. `offset(log(years))` also works.
 
-GLM での回帰標準化は `standardize_glm(frame, "y ~ trt * age + sex", values={"trt": [0, 1]})` です。曝露を各値に置き換えて全員の予測確率を平均します。`.tidy()` が調整リスク、`.tidy(contrast="difference", reference=0)` がリスク差です。`contrast="ratio"` はリスク比、`"odds_ratio"` はオッズ比で、`ci="log"` で対数スケールの区間になります。既定の分散は共変量を固定した delta 法で、`marginaleffects::avg_comparisons` と同じ値です。`vcov="HC3"` や `cluster="site"` で係数の分散をサンドイッチにします。`covariates="sampled"` は共変量のばらつきも含む `stdReg2::standardize_glm` 型のサンドイッチです。`weights=` は GLM の重みで、平均にも使います。ポアソンは `family="poisson"` で、`offset(log(years))` を含められます。
+Regression standardization with a GLM is `standardize_glm(frame, "y ~ trt * age + sex", values={"trt": [0, 1]})`. It sets the exposure to each value and averages the predicted probabilities over everyone. `.tidy()` gives the adjusted risks, and `.tidy(contrast="difference", reference=0)` gives the risk difference. `contrast="ratio"` gives the risk ratio and `"odds_ratio"` gives the odds ratio. `ci="log"` gives intervals on the log scale. The default variance is the delta method with covariates held fixed. It matches `marginaleffects::avg_comparisons`. `vcov="HC3"` or `cluster="site"` uses a sandwich for the coefficient variance. `covariates="sampled"` is a sandwich in the style of `stdReg2::standardize_glm` that also includes the variability of the covariates. `weights=` are GLM weights and are also used in the average. Poisson is `family="poisson"`, and you can include `offset(log(years))`.
 
-リスク比は `fit_risk_ratio(frame, "event ~ arm + age")` です。既定は修正ポアソン（Zou 2004）で、SE は HC0 のサンドイッチです。施設などのクラスタは `cluster="site"` です。log-binomial は `method="log-binomial"` で、収束しないときは `start=` を渡します。`tidy()` の推定値と区間はリスク比です。
+The risk ratio is `fit_risk_ratio(frame, "event ~ arm + age")`. The default is modified Poisson (Zou 2004), with an HC0 sandwich SE. For clusters such as sites, use `cluster="site"`. Log-binomial is `method="log-binomial"`. If it does not converge, pass `start=`. The estimates and intervals in `tidy()` are risk ratios.
 
-事象が少ない、または分離がある二値の結果は `fit_firth(frame, "event ~ arm + age")` です（`logistf`）。既定の `tidy()` はプロファイル罰則付き尤度の区間と尤度比の p 値です。`fit_glm` の係数のプロファイル尤度区間は `profile_interval(fit)` です（`confint.glm`）。
+For binary outcomes with few events or with separation, use `fit_firth(frame, "event ~ arm + age")` (`logistf`). The default `tidy()` gives profile penalized likelihood intervals and likelihood ratio p-values. Profile likelihood intervals for `fit_glm` coefficients are `profile_interval(fit)` (`confint.glm`).
 
-順序のある結果（重症度など）は `ordinal_regression(frame, "grade ~ age + stage", levels=["none", "mild", "severe"])` です。`polr` と `clm` の比例オッズモデルで、`tidy(exponentiate=True)` が累積オッズ比です。比例オッズの仮定は `brant_test(fit)` で調べます。順序のない 3 水準以上の結果は `multinomial_regression(frame, "subtype ~ age + sex")` です（`nnet::multinom`）。最初の水準が基準で、`tidy(exponentiate=True)` が相対リスク比です。両方とも `probabilities()` が水準ごとの予測確率を返します。
+For ordered outcomes (such as severity), use `ordinal_regression(frame, "grade ~ age + stage", levels=["none", "mild", "severe"])`. It is the proportional odds model of `polr` and `clm`. `tidy(exponentiate=True)` gives cumulative odds ratios. Check the proportional odds assumption with `brant_test(fit)`. For unordered outcomes with 3 or more levels, use `multinomial_regression(frame, "subtype ~ age + sex")` (`nnet::multinom`). The first level is the baseline, and `tidy(exponentiate=True)` gives relative risk ratios. In both, `probabilities()` returns the predicted probability of each level.
 
-### 生存時間
+### Survival
 
 ```python
 frame = pl.DataFrame(
@@ -98,23 +98,23 @@ curve = survival_curve(frame, "time", "event", by="arm")
 print(curve.at([1.0]))
 model = cox_ph(frame, "Surv(time, event) ~ x + arm")
 print(model.tidy())
-# 列名でも同じモデルです。
+# The same model with column names.
 # cox_ph(frame, "time", "event", ["x", "arm"])
 ```
 
-患者と検査医のような交差する二元クラスタは `cluster_covariance(fit, ["id_patient", "e_examiner"], data=frame)` です。`sandwich::vcovCL(fit, cluster = ~ id_patient + e_examiner)` と同じ値で、係数が 1 個でも使えます。係数表は `coefficient_test(fit, cov)` です。`cox_ph(cluster=)` は 1 列の Lin–Wei（`coxph` と同じ）で、`cluster_covariance` の 1 列とは `G / (G - 1)` だけ違います。
+For crossed two-way clusters, such as patient and examiner, use `cluster_covariance(fit, ["id_patient", "e_examiner"], data=frame)`. It gives the same values as `sandwich::vcovCL(fit, cluster = ~ id_patient + e_examiner)`, and it works even with a single coefficient. The coefficient table is `coefficient_test(fit, cov)`. `cox_ph(cluster=)` is the one-column Lin–Wei estimator (same as `coxph`). It differs from one-column `cluster_covariance` by a factor of `G / (G - 1)`.
 
-`survival_curve` の既定は Kaplan–Meier で、信頼区間は log です。Nelson–Aalen は `kind="nelson_aalen"` です。Cox の同順位は既定で Efron、`ties="breslow"` も選べます。層は `strata(arm)` か `strata=`、重みは `weights=` です。加速故障時間は `accelerated_failure(frame, "Surv(time, event) ~ x")`、Fine–Gray の展開は `fine_gray(frame, "Surv(time, status) ~ x", cause=1)` です。
+The default for `survival_curve` is Kaplan–Meier with log confidence intervals. Nelson–Aalen is `kind="nelson_aalen"`. Cox ties default to Efron, and `ties="breslow"` is also available. Strata are `strata(arm)` or `strata=`, and weights are `weights=`. Accelerated failure time is `accelerated_failure(frame, "Surv(time, event) ~ x")`. The Fine–Gray expansion is `fine_gray(frame, "Surv(time, status) ~ x", cause=1)`.
 
-競合リスクの累積発生と Gray 検定は `cumulative_incidence(frame, "time", "status", by="arm")` です（`cmprsk::cuminc`）。`.tests` が原因ごとの検定、`.at([1, 3])` が時点の値です。`crr` と同じ Fine–Gray 回帰は `fine_gray_regression(frame, "Surv(time, status) ~ x + arm", cause=1)` で、SE は打ち切り分布の推定を含むサンドイッチです。`.predict(new)` が共変量ごとの CIF を返します。
+Cumulative incidence for competing risks and Gray's test are `cumulative_incidence(frame, "time", "status", by="arm")` (`cmprsk::cuminc`). `.tests` gives the test for each cause, and `.at([1, 3])` gives values at time points. Fine–Gray regression matching `crr` is `fine_gray_regression(frame, "Surv(time, status) ~ x + arm", cause=1)`. Its SE is a sandwich that includes the estimation of the censoring distribution. `.predict(new)` returns the CIF for each covariate pattern.
 
-連続変数の非線形は、式に `rcs(age, 4)`（`rms::rcs`）、`ns(age, df = 3)`、`bs(age, df = 5)` と書きます。`spline_test(fit, "rcs(age, 4)")` が非線形の検定、`spline_effect(fit, data, "age", at=..., reference=60, exponentiate=True)` が基準値に対する OR や HR の曲線、`plot_spline_effect` がその図です。詳しくは [Wilkinson 式](formula.md#スプライン) です。
+For nonlinear effects of continuous variables, write `rcs(age, 4)` (`rms::rcs`), `ns(age, df = 3)`, or `bs(age, df = 5)` in the formula. `spline_test(fit, "rcs(age, 4)")` tests nonlinearity. `spline_effect(fit, data, "age", at=..., reference=60, exponentiate=True)` gives the OR or HR curve against a reference value, and `plot_spline_effect` draws it. See [Wilkinson formula](formula.md#splines) for details.
 
-制限付き平均生存時間（RMST）の 2 群比較は `restricted_mean_survival(frame, "time", "event", by="arm", tau=5)` です（`survRM2::rmst2`）。`.arms` が群ごとの RMST と RMTL、`.contrasts` が差、RMST 比、RMTL 比です。
+Two-group comparison of restricted mean survival time (RMST) is `restricted_mean_survival(frame, "time", "event", by="arm", tau=5)` (`survRM2::rmst2`). `.arms` gives RMST and RMTL for each group. `.contrasts` gives the difference, the RMST ratio, and the RMTL ratio.
 
-Cox モデルでの回帰標準化は `standardize_cox(frame, "Surv(time, status) ~ ope * age + sex", values={"ope": [0, 1]}, times=[1, 3, 5])` です（`stdReg2::standardize_coxph`）。曝露を各値に置き換えた生存の標本平均で、分散は共変量のばらつきを含むサンドイッチです。`.tidy()` が曲線、`.tidy(contrast="difference", reference=0)` が差です。`measure="rmean"` は 0/1 の曝露での制限付き平均生存時間です。R との違いは [vs R](vs-r.md) の「stdReg2 と違うところ」 にあります。
+Regression standardization with a Cox model is `standardize_cox(frame, "Surv(time, status) ~ ope * age + sex", values={"ope": [0, 1]}, times=[1, 3, 5])` (`stdReg2::standardize_coxph`). It is the sample average of survival with the exposure set to each value. The variance is a sandwich that includes the variability of the covariates. `.tidy()` gives the curves, and `.tidy(contrast="difference", reference=0)` gives the differences. `measure="rmean"` gives the restricted mean survival time for a 0/1 exposure. Differences from stdReg2 are covered in [vs R](vs-r.md) (in Japanese).
 
-### マッチング
+### Matching
 
 ```python
 frame = pl.DataFrame(
@@ -126,44 +126,44 @@ frame = pl.DataFrame(
 )
 matched = match_sample(frame, "treat", ["x1", "x2"], method="nearest", distance="logit", order="data")
 print(matched.pairs())
-print(matched.balance())  # 行は distance と各共変量
+print(matched.balance())  # rows are distance and each covariate
 ```
 
-距離は `logit` のほか `mahalanobis`、`euclidean`、`scaled_euclidean`、`robust_mahalanobis` です。完全一致は `method="exact"`、粗化完全一致は `method="cem"` です。
+Besides `logit`, the distances are `mahalanobis`, `euclidean`, `scaled_euclidean`, and `robust_mahalanobis`. Exact matching is `method="exact"`, and coarsened exact matching is `method="cem"`.
 
-### 逆確率重み付け
+### Inverse probability weighting
 
-`propensity_weights` は二値の処置の IPTW です（`WeightIt::weightit(method = "glm")`）。傾向スコアは `fit_glm` のロジスティック回帰です。`estimand` は `ATE`、`ATT`、`ATC`、`ATO` です。
+`propensity_weights` gives IPTW for a binary treatment (`WeightIt::weightit(method = "glm")`). The propensity score comes from logistic regression with `fit_glm`. `estimand` is `ATE`, `ATT`, `ATC`, or `ATO`.
 
 ```python
 from statract import cox_ph, propensity_weights, weighted_glm
 
 ipw = propensity_weights(frame, "treat ~ age + sex + stage", estimand="ATE", stabilize=True, trim=0.99)
-print(ipw.balance(threshold=0.1))  # cobalt::bal.tab と同じ行と列
-print(ipw.effective_sample_size())  # Kish の有効標本サイズ
+print(ipw.balance(threshold=0.1))  # same rows and columns as cobalt::bal.tab
+print(ipw.effective_sample_size())  # Kish's effective sample size
 ipw.love_plot("love.png")  # cobalt::love.plot
 ```
 
-- 重み: ATE は処置群 `1/e`、対照群 `1/(1-e)`。ATT は処置群 1、対照群 `e/(1-e)`。ATC は処置群 `(1-e)/e`、対照群 1。ATO は処置群 `1-e`、対照群 `e`。
-- `stabilize=True` は自分の群の割合を掛けます。WeightIt と同じく ATE だけです。
-- `trim` は `WeightIt::trim` です。1 未満は分位点で、上側だけを切ります。1 以上の整数は切る個数です。`trim_lower=True` で下側も切ります。ATT は処置群、ATC は対照群の重みを動かしません。`(low, high)` は固定の上下限で、これは WeightIt にありません。
-- `balance()` の差は SMD です。分母は重み付け前の pooled SD `sqrt((s1² + s0²) / 2)` で、推定対象によらず、重み付け前と後で同じ値です。2 値も分散 `p(1-p)` で標準化します。cobalt の既定（2 値は割合の差、ATT は処置群の SD など）は `binary="raw"` と `sd_denominator=` で再現できます（[実装メモ](../api/models/weighting.md#smd)）。3 水準以上の因子は全水準を出します。マッチングの `matched.balance()` も同じ定義です。
-- 任意の重み（マッチングの重みなど）の表は `balance_table(frame, "treat ~ ...", weights="w")` です。
+- Weights: ATE is `1/e` for treated and `1/(1-e)` for controls. ATT is 1 for treated and `e/(1-e)` for controls. ATC is `(1-e)/e` for treated and 1 for controls. ATO is `1-e` for treated and `e` for controls.
+- `stabilize=True` multiplies by the proportion of the unit's own group. As in WeightIt, it applies to ATE only.
+- `trim` is `WeightIt::trim`. A value below 1 is a quantile, and only the upper tail is trimmed. An integer of 1 or more is the number of weights to trim. `trim_lower=True` also trims the lower tail. ATT leaves treated weights unchanged, and ATC leaves control weights unchanged. `(low, high)` sets fixed lower and upper bounds. WeightIt does not have this.
+- The differences in `balance()` are SMDs. The denominator is the pooled SD before weighting, `sqrt((s1² + s0²) / 2)`. It does not depend on the estimand and is the same before and after weighting. Binary variables are also standardized, with variance `p(1-p)`. You can reproduce cobalt's defaults (raw difference in proportions for binary variables, treated-group SD for ATT, and so on) with `binary="raw"` and `sd_denominator=` ([implementation notes](../api/models/weighting.md#smd)). Factors with 3 or more levels show all levels. `matched.balance()` for matching uses the same definition.
+- For a table with arbitrary weights (such as matching weights), use `balance_table(frame, "treat ~ ...", weights="w")`.
 
-アウトカムのモデルは `weighted_glm`（`WeightIt::glm_weightit`）と `effect()` です。既定の `vcov="asympt"` は傾向スコアの推定を分散に含めます（M 推定）。`"HC0"` は重みを既知とみなし、ATE では保守的です。`"bootstrap"` は毎回傾向スコアを推定し直します。切り詰めた重みでは `"asympt"` を使えません。詳しくは [weighting の API](../api/models/weighting.md) です。
+Outcome models use `weighted_glm` (`WeightIt::glm_weightit`) and `effect()`. The default `vcov="asympt"` includes the propensity score estimation in the variance (M-estimation). `"HC0"` treats the weights as known and is conservative for ATE. `"bootstrap"` re-estimates the propensity score each time. You cannot use `"asympt"` with trimmed weights. See the [weighting API](../api/models/weighting.md) for details.
 
 ```python
 ipw = propensity_weights(frame, "treat ~ age + sex + stage", estimand="ATE")
-ipw.effect("death", measure=["difference", "ratio"])  # 重み付きの群平均と差、比
+ipw.effect("death", measure=["difference", "ratio"])  # weighted group means, difference, and ratio
 fit = weighted_glm(ipw, "death ~ treat + age", family="binomial", cluster="site")
 fit.tidy()
-frame = ipw.frame()  # ps と weights の列。式で落ちた行は null
-cox = cox_ph(frame, "Surv(time, status) ~ treat", weights="weights")  # 整数でない重みは頑健分散
+frame = ipw.frame()  # ps and weights columns. Rows dropped by the formula are null
+cox = cox_ph(frame, "Surv(time, status) ~ treat", weights="weights")  # non-integer weights give a robust variance
 ```
 
-`sampling_weights=` は WeightIt の `s.weights` です。傾向スコアのモデルと表に入ります。`weights` 列には入りません。`weighted_glm` と `effect()` は積を使います。`cox_ph` には積を渡します。
+`sampling_weights=` is `s.weights` in WeightIt. They enter the propensity score model and the tables. They are not included in the `weights` column. `weighted_glm` and `effect()` use the product. Pass the product to `cox_ph`.
 
-### 加法モデル
+### Additive models {#additive-models}
 
 ```python
 frame = pl.DataFrame(
@@ -172,15 +172,15 @@ frame = pl.DataFrame(
         "y": [0.1, 0.8, 0.2, -0.4, 0.0],
     }
 )
-# k は一意な x の個数以下にする
+# k must be at most the number of unique x values
 fitted = gam(frame, "y", [smooth("x", k=4)])
 print(fitted.smooth_table())
 print(fitted.predict())
 ```
 
-この版が合わせるのは、ガウス分布、`basis="cr"`、`method="reml"`、平滑 1 本です。
+This version matches the Gaussian family, `basis="cr"`, `method="reml"`, and a single smooth.
 
-平滑と変量切片を一つのモデルにするときは `gamm` です。`gamm4(y ~ s(pre_size_mm), random = ~(1 | examiner), family = binomial)` に当たります。
+To put smooths and random intercepts in one model, use `gamm`. It corresponds to `gamm4(y ~ s(pre_size_mm), random = ~(1 | examiner), family = binomial)`.
 
 ```python
 from statract import gamm, median_odds_ratio, smooth
@@ -191,17 +191,17 @@ print(median_odds_ratio(fit.variance_table()["variance"][0]))
 print(fit.partial_effect("pre_size_mm", [10, 20, 30]))
 ```
 
-平滑を固定の零空間と iid の変量効果に分け（`mgcv::smooth2random`）、ほかの変量効果と一緒に Laplace の最尤で解きます。`gam(..., smooth("examiner", basis="re"))` は mgcv の `bs = "re"`（REML）と一致しますが、これは gamm4 とは別の近似で、合成データでは MOR が 1.8% ずれました。混合モデル形は基底の座標に依存するので、thin plate は mgcv と同じ座標（共変量の中心化、固有値で割った基底、列の二乗平均を 1）で作ります。基底は `tp`（一意な値 2000 個まで）と `cr`、分布は binomial と poisson です。
+It splits each smooth into a fixed null space and iid random effects (`mgcv::smooth2random`), then solves it together with the other random effects by Laplace maximum likelihood. `gam(..., smooth("examiner", basis="re"))` matches mgcv's `bs = "re"` (REML). That is a different approximation from gamm4, and on synthetic data the MOR differed by 1.8%. The mixed model form depends on the basis coordinates, so thin plate splines use the same coordinates as mgcv (centered covariates, basis divided by eigenvalues, column mean squares of 1). The bases are `tp` (up to 2000 unique values) and `cr`. The families are binomial and poisson.
 
-### 線形混合モデル
+### Linear mixed models
 
-`fit_mixed` は変量切片（と数値の変量傾き）の混合モデルの公開入口です。ガウスは `lmer(y ~ x + (1 | g))` に相当し、推定は lme-python（lme-rs）です。ガンマは `family=` で `glmer` 相当です。lme-python は `fit_mixed` を呼んだときに読みます。
+`fit_mixed` is the public entry point for mixed models with random intercepts (and numeric random slopes). Gaussian corresponds to `lmer(y ~ x + (1 | g))` and is estimated with lme-python (lme-rs). Gamma via `family=` corresponds to `glmer`. lme-python is loaded when you call `fit_mixed`.
 
-二項（logit リンク）、ポアソン、負の二項（`family="negative_binomial"`、分散 `mu + mu^2 / theta`）は自前の Laplace 近似で推定します（`engine="laplace"`、既定）。`glmmTMB(..., family=binomial / poisson / nbinom2)` と `glmer(..., nAGQ=)` に合わせています。二項の probit などは lme-python に回ります。率のモデルは `y ~ arm + offset(log(years)) + (1 | site)`、列で書くときは `offset="log_years"` です。変量切片 1 本なら `n_agq=9` などで適応的 Gauss–Hermite 求積になります。固定効果の分散は、全パラメータの Hessian の逆行列から取ります（glmmTMB と同じ）。負の二項の `theta` は `fit.theta` です。
+Binomial (logit link), Poisson, and negative binomial (`family="negative_binomial"`, variance `mu + mu^2 / theta`) are estimated with our own Laplace approximation (`engine="laplace"`, the default). They match `glmmTMB(..., family=binomial / poisson / nbinom2)` and `glmer(..., nAGQ=)`. Binomial with probit and other links goes to lme-python. A rate model is `y ~ arm + offset(log(years)) + (1 | site)`. With column names, use `offset="log_years"`. With a single random intercept, `n_agq=9` and similar values give adaptive Gauss–Hermite quadrature. The variance of the fixed effects comes from the inverse Hessian of all parameters (same as glmmTMB). The negative binomial `theta` is `fit.theta`.
 
-交差する変量切片は `y ~ x + (1 | id_patient) + (1 | e_examiner)` です。検査医ごとの年次変動は `ar1(year + 0 | e_examiner)` で、分散 `sigma^2 rho^|i - j|` の AR(1) になります（glmmTMB と同じ書き方）。複数の項では条件付きモードを疎な Newton 法でまとめて解き、一番大きい項（患者など）を消去してから残りを密に分解します。`fit.variance_table()` は項ごとの分散と ar1 の `rho`、`fit.random_effects()` は `group`、`level`、`term`、`blup` の縦長の表です。`fit.group_covariance` は最初の項の分散です。
+Crossed random intercepts are `y ~ x + (1 | id_patient) + (1 | e_examiner)`. Year-to-year variation within each examiner is `ar1(year + 0 | e_examiner)`, an AR(1) with variance `sigma^2 rho^|i - j|` (same syntax as glmmTMB). With multiple terms, the conditional modes are solved together by sparse Newton. The largest term (such as patients) is eliminated first, and the rest is factorized densely. `fit.variance_table()` gives the variance of each term and the ar1 `rho`. `fit.random_effects()` is a long table with `group`, `level`, `term`, and `blup`. `fit.group_covariance` is the variance of the first term.
 
-ゼロ過剰は `zero_inflation=True`（ゼロの確率が定数）か `zero_inflation=["z"]`（列の logit モデル）です。`glmmTMB(..., ziformula = ~z)` に当たります。`hurdle=True` にするとハードル（ゼロかどうかを logit、正の値を切断ポアソンか切断負の二項）になり、`family=truncated_poisson` / `truncated_nbinom2` と `ziformula` の組に当たります。ゼロ部分の係数は `fit.zero_table()` です。`predict()` はゼロ部分を込めた応答の平均を返します。ゼロ部分は固定効果だけで、変量効果は付けられません。
+Zero inflation is `zero_inflation=True` (constant zero probability) or `zero_inflation=["z"]` (a logit model on columns). It corresponds to `glmmTMB(..., ziformula = ~z)`. `hurdle=True` gives a hurdle model (logit for zero or not, and truncated Poisson or truncated negative binomial for positive values). It corresponds to `family=truncated_poisson` / `truncated_nbinom2` with `ziformula`. The zero-part coefficients are `fit.zero_table()`. `predict()` returns the mean response including the zero part. The zero part has fixed effects only. It cannot have random effects.
 
 ```python
 from statract import fit_mixed
@@ -224,11 +224,11 @@ rate = fit_mixed(counts, "n ~ x + offset(log(years)) + (1 | g)", family="negativ
 print(rate.tidy(exponentiate=True), rate.theta)
 ```
 
-列で書くときは `fit_mixed(frame, "y", ["x"], groups="g")` です。変量傾きは `y ~ x + (1 + x | g)`、または `slopes=["x"]` です。`x` は固定効果にも入ります。ガウスを最尤にするときは `method="ml"`（既定は `"reml"`）です。`(x || g)` の無相関な傾きは受け付けません。`glmm_gpboost` は optional extra の実験実装で、GLMM の本体ではありません。glmmTMB の分散モデル、`nbinom1`、ゼロ部分の変量効果は対象外です。
+With column names, use `fit_mixed(frame, "y", ["x"], groups="g")`. Random slopes are `y ~ x + (1 + x | g)` or `slopes=["x"]`. `x` also enters the fixed effects. For maximum likelihood with Gaussian, use `method="ml"` (the default is `"reml"`). Uncorrelated slopes `(x || g)` are not accepted. `glmm_gpboost` is an experimental implementation in an optional extra. It is not the main GLMM implementation. glmmTMB dispersion models, `nbinom1`, and random effects in the zero part are out of scope.
 
-### 多重代入
+### Multiple imputation {#multiple-imputation}
 
-`impute_chained` は連鎖方程式（MICE）で欠損を `m` 回埋めます。既定の方法は `mice` と同じで、数値は予測平均マッチング（`pmm`、ドナー 5）、2 水準は Bayes ロジスティック（`logreg`）、3 水準以上は多項ロジスティック（`polyreg`）です。各列を他の全列から `n_iter` 回まわして埋めます。論理値と `pl.Enum` は型を保ちます。`pool` は各データで当てたモデルを Rubin のルールでまとめ、自由度は Barnard–Rubin です。`mice::pool` と `summary(pool(...), conf.int = TRUE)` に合わせています。
+`impute_chained` fills missing values `m` times with chained equations (MICE). The default methods are the same as `mice`: predictive mean matching for numeric columns (`pmm`, 5 donors), Bayesian logistic regression for 2 levels (`logreg`), and multinomial logistic regression for 3 or more levels (`polyreg`). Each column is imputed from all other columns, cycling `n_iter` times. Booleans and `pl.Enum` keep their types. `pool` combines the models fitted to each dataset with Rubin's rules, with Barnard–Rubin degrees of freedom. It matches `mice::pool` and `summary(pool(...), conf.int = TRUE)`.
 
 ```python
 from statract import fit_ols, impute_chained
@@ -238,14 +238,14 @@ table = mi.pool(lambda d: fit_ols(d, "y ~ x1 + x2 + g"))
 print(table.select("term", "estimate", "std_error", "df", "fmi", "conf_low", "conf_high"))
 ```
 
-`pool` は `names`、`coefficients`、`covariance` を持つどのモデルでも使えます（`fit_glm`、`cox_ph`、`fit_mixed` など）。完全データの自由度 `dfcom` は、線形モデルと GLM が残差自由度、Cox がイベント数 − 係数の数、それ以外が n − 係数の数です（`mice` と同じ）。乱数生成器が R と違うので、埋めた値は `mice` と分布として同じで、桁までは一致しません。
+`pool` works with any model that has `names`, `coefficients`, and `covariance` (`fit_glm`, `cox_ph`, `fit_mixed`, and so on). The complete-data degrees of freedom `dfcom` are the residual degrees of freedom for linear models and GLMs, the number of events − the number of coefficients for Cox, and n − the number of coefficients otherwise (same as `mice`). The random number generator differs from R, so the imputed values have the same distribution as `mice` but do not match digit for digit.
 
-### 既存の関数
+### Existing functions
 
-`cumulative_survival_ci`、`log_rank_pvalue`、`plot_survival`、`tableone` はそのまま使えます。`sm_summary2df` は削除しました（置き換え先は `Fit.tidy`）。マッチングは `match_sample`、逆確率重み付けは `propensity_weights`、係数表は `fit_glm` / `Fit.tidy` です。
+`cumulative_survival_ci`, `log_rank_pvalue`, `plot_survival`, and `tableone` work as before. `sm_summary2df` has been removed (replaced by `Fit.tidy`). Matching is `match_sample`, inverse probability weighting is `propensity_weights`, and coefficient tables are `fit_glm` / `Fit.tidy`.
 
-## 次に読む
+## What to read next
 
-- [Wilkinson 式](formula.md) — 式の文法
-- [解析例ギャラリー](../examples/index.md) — Table 1 → モデル → 図の一連の流れ。リポジトリ側の目次は [`examples/`](https://github.com/mizuy/statract/tree/main/examples)
-- [R パッケージとの対応](vs-r.md)、[Benchmarks](benchmarks.md)
+- [Wilkinson formula](formula.md) — formula grammar
+- [Examples gallery](../examples/index.md) — full workflows from Table 1 to models to figures. The table of contents in the repository is [`examples/`](https://github.com/mizuy/statract/tree/main/examples)
+- [Mapping to R packages](vs-r.md), [Benchmarks](benchmarks.md)

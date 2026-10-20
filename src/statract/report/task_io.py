@@ -18,7 +18,7 @@ def clear_task_output_dir(
     *,
     preserve_subdirs: tuple[str, ...] = (),
 ) -> None:
-    """``out_dir`` 直下の生成物を削除し、改名・削除された出力の残骸を残さない。"""
+    """Delete generated files directly under ``out_dir`` so no stale outputs from renamed or removed files remain."""
     if not out_dir.is_dir():
         return
     preserve = {out_dir.resolve() / name for name in preserve_subdirs}
@@ -38,7 +38,7 @@ def prepare_task_output(
     clear: bool = True,
     preserve_subdirs: tuple[str, ...] = (),
 ) -> Path:
-    """task の ``out/``（または ``out_dir``）を返す。既定では実行前に既存成果物を消す。"""
+    """Return the task's ``out/`` (or ``out_dir``). By default, existing outputs are deleted before the run."""
     out = Path(out_dir) if out_dir is not None else Path(task_file).resolve().parent / "out"
     if clear:
         clear_task_output_dir(out, preserve_subdirs=preserve_subdirs)
@@ -53,7 +53,7 @@ def task_output_dir(
     clear: bool = True,
     preserve_subdirs: tuple[str, ...] = (),
 ) -> Path:
-    """``tasks/<name>/<file>.py`` から ``tasks/<name>/out/`` を返す。"""
+    """Return ``tasks/<name>/out/`` from ``tasks/<name>/<file>.py``."""
     return prepare_task_output(
         task_file,
         out_dir,
@@ -63,7 +63,7 @@ def task_output_dir(
 
 
 def save_frames(paths: Mapping[str, Path], frames: Mapping[str, pl.DataFrame]) -> None:
-    """``paths`` と ``frames`` のキー集合を一致させ、Polars DataFrame を CSV 保存する。"""
+    """Check that ``paths`` and ``frames`` have the same keys, and save the Polars DataFrames as CSV."""
     miss_in_paths = sorted(set(frames) - set(paths))
     miss_in_frames = sorted(set(paths) - set(frames))
     if miss_in_paths or miss_in_frames:
@@ -76,7 +76,7 @@ def save_frames(paths: Mapping[str, Path], frames: Mapping[str, pl.DataFrame]) -
 
 
 def print_saved(*paths: Path | str) -> None:
-    """``Saved: <path>`` を ``paths`` ごとに 1 行ずつ出力する。"""
+    """Print one ``Saved: <path>`` line for each entry in ``paths``."""
     for p in paths:
         if p is None:
             continue
