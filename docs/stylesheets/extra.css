@@ -183,3 +183,25 @@
     padding-top: 0.4rem;
   }
 }
+
+/* Appendix D: the messy ledger and its problem list (docs/javascripts/theory/appD.js). */
+.tidy-link .tidy-hot {
+  cursor: pointer;
+}
+
+.tidy-link .tidy-on,
+.tidy-link tr.tidy-on td {
+  background-color: rgba(232, 135, 30, 0.28);
+}
+
+.md-typeset table[data-tidy="ledger"] th,
+.md-typeset table[data-tidy="ledger"] td {
+  min-width: 0;
+  padding: 0.5em 0.7em;
+  white-space: nowrap;
+}
+
+.tidy-hint {
+  font-size: 0.7rem;
+  color: var(--md-default-fg-color--light);
+}

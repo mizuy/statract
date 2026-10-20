@@ -48,6 +48,7 @@ extra_javascript:
   - javascripts/theory/ch15.js
   - javascripts/theory/ch16.js
   - javascripts/theory/math.js
+  - javascripts/theory/appD.js
 
 hooks:
   - tools/mkdocs_hooks.py
