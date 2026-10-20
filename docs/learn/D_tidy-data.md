@@ -2,19 +2,40 @@
 
 解析の多くは、表を一つ読み込むだけでは終わりません。所見の表に検査の情報をつける、検査の表に所見の数をつける、患者ごとに検査を時間の順に並べる、といった作業が要ります。こうした**表の結合**や**時系列の集計**にあとからつなげるには、CSV（comma-separated values）ファイルを編集するときに、**整然データ**（tidy data）の形を保つことが大切です（Wickham 2014）。
 
-この付録では、大腸内視鏡の検査一覧と所見一覧を例に、まず目標とする形を示し（D.1）、次によくある崩れた表と、その直し方を並べます（D.2）。そのあと、準備のときに守ることをチェックリストにまとめ（D.3）、整った表を読み込んで確認し、結合し、集計する例を示します（D.4–D.7）。
+この付録では、まず崩れた台帳を一つ見て、それを整然データに整えます（D.1）。次に、整然データの決まりとキーをまとめ（D.2）、崩れ方を一つずつ詳しく見ます（D.3）。そのあと、準備のときに守ることをチェックリストにし（D.4）、整った表を読み込んで確認し、結合し、集計する例を DuckDB の SQL と Python の polars で示します（D.5–D.8）。
 
 [← 目次](index.md) · [← 付録 C](C_p-value.md)
 
-## D.1 目標とする形 {#tidy}
+## D.1 崩れた台帳を整える {#example}
 
-整然データは、次の三つを満たす表です（Wickham 2014）。
+大腸内視鏡の検査を、Excel で次のような台帳にまとめたとします。人が見るには困りませんが、解析には向かない書き方がいくつも入っています。
 
-- 1 行が 1 つの観測
-- 1 列が 1 つの変数
-- 1 セルが 1 つの値
+**だめな例**：Excel の台帳
 
-「1 つの観測」が何かは、表ごとに決めます。内視鏡のデータなら、検査一覧は**1 行 1 検査**、所見一覧は**1 行 1 所見**（1 病変）です。
+| 患者 | 検査 | | | 病変 | | | | 病理 |
+|------|------|---|---|------|---|---|---|------|
+| | 日付 | 種類 | 鎮静 | 1 | 大きさ | 2 | 大きさ | |
+| 10 | 2024/4/1 | ESD | ミダゾラム | 直腸 0-IIa | 15mm | S状 0-Is | 8 | 癌（SM）、腺腫 |
+| 〃 | 5月1日 | EBD | あり | - | | | | |
+| 11 | R6.4.3 | CS | なし | 盲腸 LST-G | 30 mm | | | 腺腫 |
+| 計 | | | | 3 | | 1 | | |
+
+この表には、次の崩れ方が入っています。
+
+1. 2 行にわたる列名（「検査」の下に「日付」「種類」「鎮静」）
+2. 「〃」で省いた患者（セル結合を CSV にしても同じく空欄）
+3. 検査や病変を区別する ID がない
+4. まちまちな日付の書き方（2024/4/1、5月1日、R6.4.3）
+5. 1 列に二つの変数（「直腸 0-IIa」は部位と肉眼型）
+6. 単位のある数とない数の混在（15mm、8、30 mm）
+7. 横に並べた病変（病変 1、病変 2）
+8. 1 セルに二つの値（病理の「癌（SM）、腺腫」）
+9. 同じ意味の別の書き方（鎮静の「ミダゾラム」と「あり」）
+10. 意味のはっきりしない「-」と空欄（病変なしか、書き忘れか）
+11. 合計の行
+12. 検査の情報と病変の情報が同じ行
+
+**よい例**：整然データに整えると、検査一覧と所見一覧の二つの表になります。
 
 **検査一覧**（1 行 1 検査）
 
@@ -32,6 +53,29 @@
 | 102 | 1 | sigmoid | 0-Is | 8 | adenoma |
 | 103 | 2 | cecum | LST-G | 30 | adenoma |
 
+変えたのは次の点です。
+
+- 列名は 1 行目だけにし、英数字に
+- 検査ごとに `id_proc`、所見ごとに `id_item` を追加
+- 「〃」を患者 ID（`id_patient` = 10）で埋める
+- 日付は 2024-04-01 の形（ISO 8601）に
+- 部位、肉眼型、大きさを別の列に。大きさは mm の数字だけ
+- 病変 1、病変 2 と病理は、所見一覧の 1 行 1 病変に
+- 鎮静は `midazolam` 列の 1 と 0 に
+- 病変のない EBD は、所見一覧に行を作らない
+- 合計の行は消し、解析のときに数える
+- 検査の情報は検査一覧に、病変の情報は所見一覧に
+
+## D.2 整然データの決まりとキー {#tidy}
+
+D.1 のよい例は、次の三つを満たしています（Wickham 2014）。これが整然データです。
+
+- 1 行が 1 つの観測
+- 1 列が 1 つの変数
+- 1 セルが 1 つの値
+
+「1 つの観測」が何かは、表ごとに決めます。検査一覧は**1 行 1 検査**、所見一覧は**1 行 1 所見**（1 病変）です。
+
 二つの表は**キー**でつながります。キーは、行を一つに決める列です。
 
 | 表 | 1 行の単位 | プライマリーキー | ほかの表を指す列 |
@@ -39,9 +83,9 @@
 | 検査一覧 | 1 検査 | dump `id_proc` / DuckDB `hid_proc` | `id_patient`（患者） |
 | 所見一覧 | 1 所見 | dump `id_item` / DuckDB `hid_item` | `id_proc` / `hid_proc`（検査） |
 
-**プライマリーキー**（primary key）は、表の中で値が重ならない列です。所見一覧の `id_proc` は、その所見がどの検査のものかを示します。検査 1 には所見が二つあるので、所見一覧では `id_proc` = 1 が 2 行あります。この「1 つの検査に複数の所見」という関係を使って、二つの表を結合します（[D.5](#join)）。
+**プライマリーキー**（primary key）は、表の中で値が重ならない列です。所見一覧の `id_proc` は、その所見がどの検査のものかを示します。検査 1 には所見が二つあるので、所見一覧では `id_proc` = 1 が 2 行あります。この「1 つの検査に複数の所見」という関係を使って、二つの表を結合します（[D.6](#join)）。
 
-この形の表には、次の特徴があります。
+整然データの表には、次の特徴があります。
 
 - 1 行目が列名で、2 行目からがデータ
 - 列名は英数字で、スペースや括弧なし
@@ -49,9 +93,9 @@
 - カテゴリの列には決まった値だけ
 - 検査の情報は検査一覧に、所見の情報は所見一覧に、それぞれ一度だけ
 
-## D.2 だめな表とよい表 {#bad-good}
+## D.3 崩れ方ごとのだめな例とよい例 {#bad-good}
 
-Excel の台帳は、人が見やすいように作ると、D.1 の形から崩れがちです。人が読むには困らなくても、解析ソフトはそのままでは扱えません。困るのは、エラーが出ずに**誤った数字が出る**ことです。よくある崩れ方を、だめな例、何が起きるか、よい例の順に示します。
+D.1 の台帳に入っていた崩れ方を、一つずつ見ます。困るのは、多くの場合エラーが出ずに**誤った数字が出る**ことです。だめな例、何が起きるか、よい例の順に示します。
 
 ### 1 セルに複数の値 {#multi-value}
 
@@ -128,7 +172,7 @@ Excel の台帳は、人が見やすいように作ると、D.1 の形から崩�
 
 逆に、検査一覧に「病変数」「最大径」を手で書くのも、同じ崩れ方です。所見一覧と食い違っても気づけません。
 
-**よい例**：検査の情報は検査一覧に、所見の情報は所見一覧に、一度だけ書きます。所見ごとにミダゾラムの有無が要るときや、検査ごとに病変数が要るときは、解析のときに結合や集計で作ります（[D.5](#join)）。
+**よい例**：検査の情報は検査一覧に、所見の情報は所見一覧に、一度だけ書きます。所見ごとにミダゾラムの有無が要るときや、検査ごとに病変数が要るときは、解析のときに結合や集計で作ります（[D.6](#join)）。
 
 ### 表記ゆれとカテゴリ外の値 {#category}
 
@@ -203,105 +247,171 @@ CSV に保存すると、色や太字は消えます。結合したセルは、�
 
 **よい例**：識別列（dump の `id_proc` と `id_item`、DuckDB の `hid_proc` と `hid_item`）には手を触れません。並べ替えは表全体を選んで行います。
 
-## D.3 準備のとき守ること {#checklist}
+## D.4 準備のとき守ること {#checklist}
 
-D.2 をまとめると、CSV を Excel などで編集するときに守ることは次の七つです。
+D.3 をまとめると、CSV を Excel などで編集するときに守ることは次の七つです。
 
 1. **識別列は削除、書き換え、複製をしません。** dump の `id_proc` と `id_item`、DuckDB の `hid_proc` と `hid_item` です。壊すと結合がずれます（[キーが壊れる](#broken-key)）。
 2. **各表のプライマリーキーを 1 つ残します。** 検査一覧なら dump の `id_proc`（DuckDB の `hid_proc`）、所見一覧なら `id_item`（`hid_item`）です。
 3. **1 セルには 1 つの値を入れます。** カンマで複数の値を並べず、行を分けるか、別の列にします（[1 セルに複数の値](#multi-value)）。
 4. **決まったカテゴリの列（肉眼型、病理、部位など）に、一覧にない値を入れません。** 集計で項目が分かれます（[表記ゆれ](#category)）。
-5. **列の追加、行の削除、並べ替えはしてかまいません。** 行を削除するときは、何行を削除したかを記録します。行を残したまま `exclude` 列に印をつけ、解析のときに除く方法もあります（[D.7](#exclude)）。
+5. **列の追加、行の削除、並べ替えはしてかまいません。** 行を削除するときは、何行を削除したかを記録します。行を残したまま `exclude` 列に印をつけ、解析のときに除く方法もあります（[D.8](#exclude)）。
 6. **列名は重ならないようにします。** スペース、改行、括弧は避けます。
 7. **1 行目は列名、2 行目からはデータにします。** 列名の行が 2 行あると、読み込みがずれます（[見た目のための書式](#formatting)）。
 
-## D.4 読み込んだあとの確認 {#check}
+## D.5 読み込んだあとの確認 {#check}
 
-ここからは、整った表を Python の polars で読み込んで使う例です。statract は polars のデータフレームを受け取ります。
+ここからは、整った表を読み込んで使う例です。DuckDB の SQL と Python の polars の両方で示します。タブで切り替えられます。DuckDB の表では、`id_proc` と `id_item` を `hid_proc` と `hid_item` に読み替えてください。statract の関数は polars のデータフレームを受け取ります。
 
-読み込んだら、まず D.3 が守られているかを確かめます。
+読み込んだら、まず D.4 が守られているかを確かめます。
 
-```python
-import polars as pl
+=== "DuckDB SQL"
 
-proc = pl.read_csv("procedures.csv", try_parse_dates=True)  # 検査一覧：1 行 1 検査
-item = pl.read_csv("items.csv")                             # 所見一覧：1 行 1 所見
+    ```sql
+    CREATE TABLE proc AS SELECT * FROM read_csv('procedures.csv');  -- 検査一覧：1 行 1 検査
+    CREATE TABLE item AS SELECT * FROM read_csv('items.csv');       -- 所見一覧：1 行 1 所見
 
-# キーが一意か
-assert proc["id_proc"].is_unique().all()
-assert item["id_item"].is_unique().all()
+    -- キーが一意か（結果が 0 行なら一意）
+    SELECT id_proc, count(*) AS n FROM proc GROUP BY id_proc HAVING n > 1;
+    SELECT id_item, count(*) AS n FROM item GROUP BY id_item HAVING n > 1;
 
-# 所見の id_proc がすべて検査一覧にあるか
-print(item.filter(~pl.col("id_proc").is_in(proc["id_proc"].implode())))
+    -- 所見の id_proc がすべて検査一覧にあるか（結果が 0 行なら OK）
+    SELECT * FROM item WHERE id_proc NOT IN (SELECT id_proc FROM proc);
 
-# 列名の重なり。polars は重なった列名に _duplicated_ をつけて読み込みます
-assert not any("_duplicated_" in c for c in item.columns)
+    -- カテゴリの列に一覧にない値がないか
+    SELECT site, count(*) AS n FROM item
+    WHERE site NOT IN ('rectum', 'sigmoid', 'descending', 'transverse', 'ascending', 'cecum')
+    GROUP BY site;
 
-# カテゴリの列に一覧にない値がないか
-allowed = ["rectum", "sigmoid", "descending", "transverse", "ascending", "cecum"]
-print(item.filter(~pl.col("site").is_in(allowed))["site"].value_counts())
+    -- 型、数値の範囲、欠測の数
+    DESCRIBE item;
+    SUMMARIZE item;
+    ```
 
-# 型、数値の範囲、欠測の数
-print(item.schema)
-print(item.describe())
-```
+    列名が重なっていると、DuckDB は 2 つ目以降に `_1` のような番号をつけて読み込みます。`DESCRIBE` で列名も確かめます。
 
-`size_mm` の型が数値（`i64` や `f64`）でなく文字（`str`）なら、どこかに「15mm」や「不明」が混ざっています。`date` が日付（`date`）でなければ、書き方がまちまちです。
+=== "polars"
+
+    ```python
+    import polars as pl
+
+    proc = pl.read_csv("procedures.csv", try_parse_dates=True)  # 検査一覧：1 行 1 検査
+    item = pl.read_csv("items.csv")                             # 所見一覧：1 行 1 所見
+
+    # キーが一意か
+    assert proc["id_proc"].is_unique().all()
+    assert item["id_item"].is_unique().all()
+
+    # 所見の id_proc がすべて検査一覧にあるか（0 行なら OK）
+    print(item.filter(~pl.col("id_proc").is_in(proc["id_proc"].implode())))
+
+    # 列名の重なり。polars は重なった列名に _duplicated_ をつけて読み込みます
+    assert not any("_duplicated_" in c for c in item.columns)
+
+    # カテゴリの列に一覧にない値がないか
+    allowed = ["rectum", "sigmoid", "descending", "transverse", "ascending", "cecum"]
+    print(item.filter(~pl.col("site").is_in(allowed))["site"].value_counts())
+
+    # 型、数値の範囲、欠測の数
+    print(item.schema)
+    print(item.describe())
+    ```
+
+`size_mm` の型が数値（DuckDB の `BIGINT` や `DOUBLE`、polars の `i64` や `f64`）でなく文字（`VARCHAR`、`str`）なら、どこかに「15mm」や「不明」が混ざっています。`date` が日付（`DATE`、`date`）でなければ、書き方がまちまちです。
 
 問題が見つかったら、元の CSV を直すか、直す手順をスクリプトに書きます。どちらにしても、何をどう直したかが、あとからわかるようにしておきます。
 
-## D.5 表を結合する {#join}
+## D.6 表を結合する {#join}
 
 **所見一覧に検査の情報をつける**例です。所見ごとに、その検査でミダゾラムを使ったかどうかがわかります。
 
-```python
-item_with_proc = item.join(
-    proc.select("id_proc", "midazolam"),
-    on="id_proc",
-    how="left",
-    validate="m:1",   # 所見は多、検査は 1。検査一覧に同じ id_proc が 2 行あればエラー
-)
-```
+=== "DuckDB SQL"
 
-**検査一覧に所見の情報をつける**例です。検査ごとに、浸潤癌の所見がいくつあったかを数えます。
+    ```sql
+    SELECT item.*, proc.midazolam
+    FROM item
+    LEFT JOIN proc USING (id_proc);
+    ```
 
-```python
-n_invasive = item.group_by("id_proc").agg(
-    (pl.col("pathology") == "invasive").sum().alias("n_invasive")
-)
-proc_with_item = proc.join(n_invasive, on="id_proc", how="left", validate="1:1").with_columns(
-    pl.col("n_invasive").fill_null(0)   # 所見のない検査は 0 個
-)
-```
+=== "polars"
 
-`validate` を指定すると、キーが崩れていたときに結合の時点でエラーになります。結合の前後で行数が変わっていないかも確かめます。
+    ```python
+    item_with_proc = item.join(
+        proc.select("id_proc", "midazolam"),
+        on="id_proc",
+        how="left",
+        validate="m:1",   # 所見は多、検査は 1。検査一覧に同じ id_proc が 2 行あればエラー
+    )
+    ```
 
-## D.6 患者ごとの時系列 {#timeline}
+**検査一覧に所見の情報をつける**例です。検査ごとに、浸潤癌の所見がいくつあったかを数えます。所見のない検査は 0 個にします。
+
+=== "DuckDB SQL"
+
+    ```sql
+    SELECT proc.*, coalesce(n.n_invasive, 0) AS n_invasive
+    FROM proc
+    LEFT JOIN (
+        SELECT id_proc, count(*) FILTER (WHERE pathology = 'invasive') AS n_invasive
+        FROM item
+        GROUP BY id_proc
+    ) AS n USING (id_proc);
+    ```
+
+=== "polars"
+
+    ```python
+    n_invasive = item.group_by("id_proc").agg(
+        (pl.col("pathology") == "invasive").sum().alias("n_invasive")
+    )
+    proc_with_item = proc.join(n_invasive, on="id_proc", how="left", validate="1:1").with_columns(
+        pl.col("n_invasive").fill_null(0)
+    )
+    ```
+
+キーが崩れていると、結合で行が増えたり、別の検査の情報がついたりします。polars では `validate` を指定すると、結合の時点でエラーになります。SQL には同じ指定がないので、D.5 のキーの確認を先に済ませておきます。どちらでも、結合の前後で行数が変わっていないかを確かめます。
+
+## D.7 患者ごとの時系列 {#timeline}
 
 検査一覧に患者 ID と日付があれば、患者ごとに検査を時間の順に並べられます。例として、内視鏡的粘膜下層剥離術（endoscopic submucosal dissection、ESD）のあと 180 日以内に、狭窄に対する内視鏡的バルーン拡張術（endoscopic balloon dilation、EBD）を受けたかを、ESD ごとに調べます。
 
-```python
-esd = proc.filter(pl.col("procedure") == "ESD").select("id_proc", "id_patient", "date")
-ebd = proc.filter(pl.col("procedure") == "EBD").select(
-    "id_patient", pl.col("date").alias("date_ebd")
-)
+=== "DuckDB SQL"
 
-esd_ebd = (
-    esd.join(ebd, on="id_patient", how="left")
-    .with_columns(
-        ((pl.col("date_ebd") > pl.col("date"))
-         & (pl.col("date_ebd") - pl.col("date") <= pl.duration(days=180))).alias("ebd_180")
+    ```sql
+    SELECT esd.id_proc,
+           coalesce(bool_or(ebd.date > esd.date
+                            AND ebd.date <= esd.date + INTERVAL 180 DAY), false) AS ebd_180
+    FROM proc AS esd
+    LEFT JOIN proc AS ebd
+        ON ebd.id_patient = esd.id_patient AND ebd.procedure = 'EBD'
+    WHERE esd.procedure = 'ESD'
+    GROUP BY esd.id_proc;
+    ```
+
+=== "polars"
+
+    ```python
+    esd = proc.filter(pl.col("procedure") == "ESD").select("id_proc", "id_patient", "date")
+    ebd = proc.filter(pl.col("procedure") == "EBD").select(
+        "id_patient", pl.col("date").alias("date_ebd")
     )
-    .group_by("id_proc")
-    .agg(pl.col("ebd_180").any())   # EBD のない ESD は false
-)
-```
+
+    esd_ebd = (
+        esd.join(ebd, on="id_patient", how="left")
+        .with_columns(
+            ((pl.col("date_ebd") > pl.col("date"))
+             & (pl.col("date_ebd") - pl.col("date") <= pl.duration(days=180))).alias("ebd_180")
+        )
+        .group_by("id_proc")
+        .agg(pl.col("ebd_180").any())   # EBD のない ESD は false
+    )
+    ```
 
 この集計は、`procedure` 列の値が「ESD」と「EBD」にそろっていて（[表記ゆれ](#category)）、日付が日付として読み込めること（[日付](#date)）を前提にしています。「ESD 」や「esd」が混ざると、その検査は数えられません。
 
 追跡期間と打ち切りを扱う解析（生存時間解析）に進むときは、同じように患者ごとの時系列から、追跡の長さ（`time`）とイベントの有無（`event`）の列を作ります。考え方は [第 16 章](16_survival.md) にあります。
 
-## D.7 行を除くとき {#exclude}
+## D.8 行を除くとき {#exclude}
 
 行を削除すると、何人を、なぜ除いたのかが残りません。論文では、対象の選び方と除外の数を示す必要があります（[付録 B](B_reporting-guidelines.md) の STROBE など）。そこで、行は残したまま、`exclude` 列に除外の理由を書いておく方法があります。
 
@@ -311,22 +421,31 @@ esd_ebd = (
 | 2 | … | 同意なし |
 | 3 | … | 他院で治療済み |
 
-```python
-print(proc["exclude"].value_counts())        # 除外の理由ごとの数
-analysis = proc.filter(pl.col("exclude").is_null())
-```
+=== "DuckDB SQL"
+
+    ```sql
+    SELECT exclude, count(*) AS n FROM proc GROUP BY exclude;   -- 除外の理由ごとの数
+    CREATE TABLE analysis AS SELECT * FROM proc WHERE exclude IS NULL;
+    ```
+
+=== "polars"
+
+    ```python
+    print(proc["exclude"].value_counts())        # 除外の理由ごとの数
+    analysis = proc.filter(pl.col("exclude").is_null())
+    ```
 
 除外の理由ごとの数が、そのまま対象者の流れ図（フローチャート）の数字になります。表が整えば、[第 1 章](01_descriptive.md#table1) の Table 1 から解析を始められます。
 
 ## 文献 {#references}
 
 - Wickham H. Tidy data. Journal of Statistical Software 2014;59(10):1–23.
-- Broman KW, Woo KH. Data organization in spreadsheets. The American Statistician 2018;72(1):2–10. 表計算ソフトでデータを作るときの注意が、D.2 より詳しくまとまっています。
+- Broman KW, Woo KH. Data organization in spreadsheets. The American Statistician 2018;72(1):2–10. 表計算ソフトでデータを作るときの注意が、D.3 より詳しくまとまっています。
 
 ## まとめ
 
 - 整然データは、1 行 1 観測、1 列 1 変数、1 セル 1 値の表です。検査一覧は 1 行 1 検査、所見一覧は 1 行 1 所見です。
-- よくある崩れ方は、1 セルに複数の値、1 列に複数の変数、横に長い表、1 つの表に 2 種類の観測、表記ゆれ、見た目のための書式、まちまちな欠測と日付、壊れたキーです。どれもエラーが出ずに誤った数字になります。
+- よくある崩れ方は、1 セルに複数の値、1 列に複数の変数、横に長い表、1 つの表に 2 種類の観測、表記ゆれ、見た目のための書式、まちまちな欠測と日付、壊れたキーです。多くはエラーが出ずに誤った数字になります。
 - 検査一覧と所見一覧は、プライマリーキー（`id_proc`、`id_item`）でつながります。識別列は削除、書き換え、複製をしません。
 - 行を除くときは数を記録するか、`exclude` 列に理由を書いて、解析のときに除きます。
 - 読み込んだら、キーの一意性、カテゴリの値、型を確かめてから結合します。
