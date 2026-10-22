@@ -1004,6 +1004,11 @@ class TermsResult:
     function_evals: int
     zero_coefficients: np.ndarray | None = None
     zero_covariance: np.ndarray | None = None
+    # Covariance-factor parameters of every term, in order (log SD, then
+    # the lower-triangle entries or atanh(rho)), and their covariance from
+    # the inverse Hessian of the log-likelihood.
+    term_parameters: np.ndarray | None = None
+    term_parameter_covariance: np.ndarray | None = None
 
 
 def fit_laplace_terms(
@@ -1055,4 +1060,6 @@ def fit_laplace_terms(
         function_evals=prob.evals,
         zero_coefficients=None if gamma is None else np.asarray(gamma, dtype=float),
         zero_covariance=None if gamma is None else cov_full[at + prob.n_theta :, at + prob.n_theta :],
+        term_parameters=np.asarray(phi[prob.p : prob.p + prob.n_l], dtype=float),
+        term_parameter_covariance=cov_full[prob.p : prob.p + prob.n_l, prob.p : prob.p + prob.n_l],
     )

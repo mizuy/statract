@@ -66,6 +66,7 @@ class GammFit:
     n_obs: int
     converged: bool
     random_terms: list[dict]
+    n_parameters: int
     random_effects_frame: pl.DataFrame
     _smooths: list[_SmoothPart] = field(repr=False)
     _slices: list[slice] = field(repr=False)
@@ -103,21 +104,62 @@ class GammFit:
             {"term": self.smooth_names, "edf": self.edf, "variance": self.smooth_variances}
         )
 
-    def variance_table(self) -> pl.DataFrame:
-        """Variances of the other random effects, as ``VarCorr(g$mer)`` lists them."""
+    def variance_table(self, *, level: float = 0.95) -> pl.DataFrame:
+        """Variances of the other random effects, as ``VarCorr(g$mer)`` lists them.
+
+        ``std_error`` and ``conf_low`` / ``conf_high`` are for the variance.
+        The interval is a Wald interval for the log SD, from the inverse
+        Hessian of the Laplace log-likelihood, transformed to the variance.
+        It is not lme4's profile interval and is less accurate near zero.
+        A median odds ratio interval is ``median_odds_ratio`` of each end.
+        """
+        crit = float(stats.norm.ppf(0.5 + level / 2))
         rows = []
         for term in self.random_terms:
             cov = np.asarray(term["covariance"])
             for i, name in enumerate(term["names"]):
+                variance = float(cov[i, i])
+                log_sd, se_log = term["log_sd"][i], term["log_sd_std_error"][i]
                 rows.append(
                     {
                         "group": term["group"],
                         "term": name,
-                        "variance": float(cov[i, i]),
-                        "std_dev": float(np.sqrt(max(cov[i, i], 0.0))),
+                        "variance": variance,
+                        "std_dev": float(np.sqrt(max(variance, 0.0))),
+                        "std_error": 2 * variance * se_log,
+                        "conf_low": float(np.exp(2 * (log_sd - crit * se_log))),
+                        "conf_high": float(np.exp(2 * (log_sd + crit * se_log))),
                     }
                 )
-        return pl.DataFrame(rows)
+        schema = {
+            "group": pl.String,
+            "term": pl.String,
+            "variance": pl.Float64,
+            "std_dev": pl.Float64,
+            "std_error": pl.Float64,
+            "conf_low": pl.Float64,
+            "conf_high": pl.Float64,
+        }
+        return pl.DataFrame(rows, schema=schema)
+
+    def glance(self) -> pl.DataFrame:
+        """Laplace log-likelihood, AIC, and BIC, as ``logLik`` / ``AIC`` of ``g$mer``.
+
+        ``n_parameters`` counts the unpenalized coefficients (parametric
+        terms and each smooth's null space) and the variance parameters
+        (one per smooth, plus each random term's covariance parameters).
+        """
+        ll = self.log_likelihood
+        k = self.n_parameters
+        return pl.DataFrame(
+            {
+                "n_obs": [self.n_obs],
+                "n_parameters": [k],
+                "log_likelihood": [ll],
+                "aic": [-2 * ll + 2 * k],
+                "bic": [-2 * ll + np.log(self.n_obs) * k],
+            }
+        )
 
     def random_effects(self) -> pl.DataFrame:
         """BLUPs of the other random effects: ``group``, ``level``, ``term``, ``blup``."""
@@ -171,7 +213,7 @@ def gamm(
     outcome: ColumnRef,
     smooths: Sequence[Smooth],
     *,
-    random: str,
+    random: str | None = None,
     predictors: Sequence[ColumnRef] | None = None,
     family: str = "binomial",
 ) -> GammFit:
@@ -180,7 +222,9 @@ def gamm(
     ``smooths`` are :func:`statract.smooth` terms with ``basis="tp"``
     (mgcv's default, up to 2000 unique values) or ``"cr"``, one penalty
     each and no ``by``. ``random`` is the lme4 random part, for example
-    ``"(1 | examiner)"``. ``family`` is ``"binomial"`` (logit) or
+    ``"(1 | examiner)"``. ``random=None`` fits the smooths alone by the same
+    Laplace likelihood, so its log-likelihood can be compared with a fit
+    that has random effects (:func:`compare_gamms`). ``family`` is ``"binomial"`` (logit) or
     ``"poisson"`` (log). The fit is Laplace maximum likelihood, as glmer.
     """
     if family not in _FAMILIES:
@@ -192,11 +236,13 @@ def gamm(
             raise ValueError("gamm takes univariate tp or cr smooths without by")
     from .formula import model_matrix
 
-    effects_probe = model_matrix(f"{_name(data, outcome)} ~ 1 + {random}", data)
-    if not effects_probe.random_effects:
-        raise ValueError("random needs at least one term, for example '(1 | group)'")
     extra: list[ColumnRef] = [outcome, *[sm.column for sm in smooths]]
-    for effect in effects_probe.random_effects:
+    probed = []
+    if random is not None:
+        probed = model_matrix(f"{_name(data, outcome)} ~ 1 + {random}", data).random_effects
+        if not probed:
+            raise ValueError("random needs at least one term, for example '(1 | group)'")
+    for effect in probed:
         extra.append(effect.group)
         extra.extend(effect.slopes)
     design = design_matrix(data, list(predictors or []), extra=extra)
@@ -211,8 +257,10 @@ def gamm(
 
     from .mixed import _effect_columns
 
-    built = model_matrix(f"{_name(data, outcome)} ~ 1 + {random}", used)
-    term_cols = [_effect_columns(used, built.design, effect) for effect in built.random_effects]
+    term_cols = []
+    if random is not None:
+        built = model_matrix(f"{_name(data, outcome)} ~ 1 + {random}", used)
+        term_cols = [_effect_columns(used, built.design, effect) for effect in built.random_effects]
     terms = [RandomTerm(t.z, t.codes, len(t.levels), t.structure) for t in term_cols]
     fixed = [design.x] + [p.x_c @ p.null for p in parts]
     x_fixed = np.column_stack(fixed)
@@ -266,6 +314,16 @@ def gamm(
                     schema={"group": pl.String, "level": pl.String, "term": pl.String, "blup": pl.Float64},
                 )
             )
+    # Wald intervals for the SDs on the log scale, by the delta method from
+    # the covariance of the Laplace fit's covariance-factor parameters.
+    at = 0
+    for term, info in zip(terms, random_terms + [None] * len(parts), strict=True):
+        width = term.n_par
+        if info is not None:
+            par = result.term_parameters[at : at + width]
+            cov_par = result.term_parameter_covariance[at : at + width, at : at + width]
+            info["log_sd"], info["log_sd_std_error"] = _log_sd_wald(term, par, cov_par)
+        at += width
     names = list(design.names)
     for part in parts:
         names.extend(f"s({part.name}).{j + 1}" for j in range(part.x_c.shape[1]))
@@ -282,11 +340,85 @@ def gamm(
         n_obs=len(y),
         converged=result.converged,
         random_terms=random_terms,
-        random_effects_frame=pl.concat(frames),
+        random_effects_frame=pl.concat(frames) if frames else pl.DataFrame(
+            schema={"group": pl.String, "level": pl.String, "term": pl.String, "blup": pl.Float64}
+        ),
+        n_parameters=int(x_fixed.shape[1] + sum(term.n_par for term in terms)),
         _smooths=parts,
         _slices=slices,
         _parametric_design=design,
     )
+
+
+def compare_gamms(*fits: GammFit) -> pl.DataFrame:
+    """Likelihood-ratio tests between additive mixed models on the same rows.
+
+    Each row after the first is tested against the row before it, as
+    ``anova(m0$mer, m1$mer)``. A fit with ``random=None`` is the model
+    without the random effects, on the same Laplace likelihood. ``df`` is
+    the change in ``n_parameters`` and ``p_value`` uses chi-squared on ``df``.
+
+    When the larger model adds one random term, its variance is tested at
+    the boundary zero, where chi-squared on ``df`` is conservative.
+    ``p_value_boundary`` is the 50:50 mixture of chi-squared on ``df - 1``
+    and ``df`` (Self & Liang 1987; Stram & Lee 1994), which is the usual
+    reference for one added variance (``df = 1``: half the naive p-value).
+    """
+    if not fits:
+        raise ValueError("compare_gamms needs at least one fit")
+    if len({fit.n_obs for fit in fits}) > 1:
+        raise ValueError("all fits must use the same rows")
+    if len({fit.family for fit in fits}) > 1:
+        raise ValueError("all fits must have the same family")
+    rows = []
+    for index, fit in enumerate(fits):
+        row = fit.glance().row(0, named=True)
+        row = {"model": index + 1, **row, "df": None, "statistic": None, "p_value": None, "p_value_boundary": None}
+        if index > 0:
+            before = fits[index - 1]
+            df = fit.n_parameters - before.n_parameters
+            stat = 2 * (fit.log_likelihood - before.log_likelihood) * np.sign(df)
+            row["df"] = df
+            row["statistic"] = stat
+            if df != 0:
+                width = abs(df)
+                tail = float(stats.chi2.sf(max(stat, 0.0), width))
+                row["p_value"] = tail
+                lower = float(stats.chi2.sf(max(stat, 0.0), width - 1)) if width > 1 else float(stat <= 0)
+                row["p_value_boundary"] = 0.5 * tail + 0.5 * lower
+        rows.append(row)
+    schema = {
+        "model": pl.Int64,
+        "n_obs": pl.Int64,
+        "n_parameters": pl.Int64,
+        "log_likelihood": pl.Float64,
+        "aic": pl.Float64,
+        "bic": pl.Float64,
+        "df": pl.Int64,
+        "statistic": pl.Float64,
+        "p_value": pl.Float64,
+        "p_value_boundary": pl.Float64,
+    }
+    return pl.DataFrame(rows, schema=schema)
+
+
+def _log_sd_wald(term: RandomTerm, par: np.ndarray, cov_par: np.ndarray) -> tuple[list[float], list[float]]:
+    """Log SD of each column of a random term and its delta-method SE."""
+
+    def log_sd(values: np.ndarray) -> np.ndarray:
+        factor = term.factor(values)
+        return 0.5 * np.log(np.sum(factor * factor, axis=1))
+
+    centre = log_sd(par)
+    jac = np.zeros((centre.size, par.size))
+    for j in range(par.size):
+        step = 1e-6 * max(1.0, abs(par[j]))
+        up, down = par.copy(), par.copy()
+        up[j] += step
+        down[j] -= step
+        jac[:, j] = (log_sd(up) - log_sd(down)) / (2 * step)
+    var = np.einsum("ij,jk,ik->i", jac, cov_par, jac)
+    return [float(v) for v in centre], [float(np.sqrt(max(v, 0.0))) for v in var]
 
 
 def _name(data: pl.DataFrame, ref: ColumnRef) -> str:
