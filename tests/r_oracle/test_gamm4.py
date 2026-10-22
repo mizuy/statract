@@ -115,6 +115,33 @@ def test_gamm_variance_wald_interval() -> None:
     assert row["conf_low"] < narrower["conf_low"] < narrower["conf_high"] < row["conf_high"]
 
 
+def test_gamm_variance_profile_interval_matches_lme4() -> None:
+    fit = gamm(DATA, "y", [smooth("pre_size_mm", k=10, basis="tp")], random="(1 | examiner)")
+    row = fit.variance_table(method="profile").row(0, named=True)
+    np.testing.assert_allclose(np.sqrt([row["conf_low"], row["conf_high"]]), COMPARE["profile_sd"], rtol=1e-4)
+    # Almost no variance between sites: the profile reaches zero, Wald does not.
+    sites = DATA.with_row_index("i").with_columns(site="s" + (pl.col("i") % 20).cast(pl.String))
+    small = gamm(sites, "y", [smooth("pre_size_mm", k=10, basis="tp")], random="(1 | site)")
+    np.testing.assert_allclose(small.variance_table()["variance"][0], COMPARE["small"]["variance"], rtol=1e-3)
+    row = small.variance_table(method="profile").row(0, named=True)
+    assert row["conf_low"] == 0.0
+    np.testing.assert_allclose(np.sqrt(row["conf_high"]), COMPARE["small"]["profile_sd"][1], rtol=1e-4)
+    with pytest.raises(ValueError, match="method"):
+        small.variance_table(method="bootstrap")
+
+
+def test_gamm_smooth_test_near_gamm4() -> None:
+    fit = gamm(DATA, "y", [smooth("pre_size_mm", k=10, basis="tp")], random="(1 | examiner)")
+    row = fit.smooth_table().row(0, named=True)
+    edf, ref_df, chi_sq, _p = COMPARE["s_table"]
+    # As in gamm4, the reference df is the edf.
+    assert row["ref_df"] == row["edf"]
+    # gamm4's Vp is about 1% off (Matrix pivot), which moves the statistic by a few percent.
+    np.testing.assert_allclose(row["ref_df"], ref_df, rtol=2e-3)
+    np.testing.assert_allclose(row["chi_sq"], chi_sq, rtol=0.05)
+    assert row["p_value"] < 1e-4
+
+
 def test_gamm_guards() -> None:
     with pytest.raises(ValueError, match="family"):
         gamm(DATA, "y", [smooth("pre_size_mm", basis="tp")], random="(1 | examiner)", family="gaussian")

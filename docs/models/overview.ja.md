@@ -182,6 +182,8 @@ print(fitted.predict())
 
 `fitted.glance()` は逸脱度、帰無逸脱度、説明率、調整済み R² を返します。`summary.gam` の `dev.expl` と `r.sq` に当たります。`compare_gams(small, large)` は `anova(m1, m2)` と同じく入れ子のモデルを比べます。逸脱度の変化、edf の変化（`df`）、カイ二乗検定（二項、ポアソン）または F 検定（ガウス、ガンマ）です。p 値は平滑化パラメータを既知として扱います。mgcv はその不確実性で補正した edf を使うので、`df` も p 値も mgcv のほうが大きくなります。
 
+`fitted.smooth_table()` は、`summary.gam` の `s.table` と同じく、各平滑が 0 であるかを検定します（Wood 2013）。`ref_df`、`statistic`（二項とポアソンはカイ二乗、ガウスとガンマは F）、`p_value` です。`ref_df` と統計量は mgcv と一致します。p 値は論文の帰無分布にもとづき、mgcv より少し小さくなります。`glance()` は、平滑化パラメータの不確実性で補正した edf（`edf2`、Wood, Pya & Säfken 2016）と、`logLik()` と `AIC()` に当たる `log_likelihood`、`df`、`aic` も返します。`compare_gams` もこの AIC を出すので、平滑の違うモデルをこれで比べられます。
+
 平滑と変量切片を一つのモデルにするときは `gamm` です。`gamm4(y ~ s(pre_size_mm), random = ~(1 | examiner), family = binomial)` に当たります。
 
 ```python
@@ -194,7 +196,7 @@ print(fit.partial_effect("pre_size_mm", [10, 20, 30]))
 eta, se = fit.predict(frame, se=True)  # 人口平均。変量効果は 0
 ```
 
-`fit.variance_table()` は各分散の `std_error`、`conf_low`、`conf_high` も返します。区間は Laplace の Hessian から作る log SD の Wald 区間で、lme4 の profile 区間ではありません。MOR の区間は、両端をそれぞれ `median_odds_ratio` に渡します。`gamm(..., random=None)` は同じ Laplace 尤度で平滑だけを当てはめます。`compare_gamms(なし, 検査医あり)` が `anova(g0$mer, g1$mer)` と同じ尤度比検定、AIC、BIC を返します。分散 1 つを足す検定は境界 0 での検定なので、`p_value_boundary` は p 値を半分にした値です。
+`fit.variance_table()` は各分散の `std_error`、`conf_low`、`conf_high` も返します。既定の区間は Laplace の Hessian から作る log SD の Wald 区間です。`variance_table(method="profile")` は `confint(g$mer, method = "profile")` と同じ profile 区間を返します。SD を固定して当てはめ直すので数秒かかりますが、分散が 0 に近いときはこちらを使います。MOR の区間は、両端をそれぞれ `median_odds_ratio` に渡します。`gamm(..., random=None)` は同じ Laplace 尤度で平滑だけを当てはめます。`compare_gamms(なし, 検査医あり)` が `anova(g0$mer, g1$mer)` と同じ尤度比検定、AIC、BIC を返します。分散 1 つを足す検定は境界 0 での検定なので、`p_value_boundary` は p 値を半分にした値です。
 
 平滑を固定の零空間と iid の変量効果に分け（`mgcv::smooth2random`）、ほかの変量効果と一緒に Laplace の最尤で解きます。`gam(..., smooth("examiner", basis="re"))` は mgcv の `bs = "re"`（REML）と一致しますが、これは gamm4 とは別の近似で、合成データでは MOR が 1.8% ずれました。混合モデル形は基底の座標に依存するので、thin plate は mgcv と同じ座標（共変量の中心化、固有値で割った基底、列の二乗平均を 1）で作ります。基底は `tp`（一意な値 2000 個まで）と `cr`、分布は binomial と poisson です。
 

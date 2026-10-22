@@ -182,6 +182,8 @@ This version matches the Gaussian family, `basis="cr"`, `method="reml"`, and a s
 
 `fitted.glance()` gives the deviance, the null deviance, the deviance explained, and the adjusted R², as `summary.gam`'s `dev.expl` and `r.sq`. `compare_gams(small, large)` compares nested models, as `anova(m1, m2)`: the deviance change, the change in edf (`df`), and a chi-squared test (binomial, Poisson) or F test (Gaussian, gamma). The p-value treats the smoothing parameters as known. mgcv uses an edf corrected for their uncertainty, so its `df` is larger and its p-value is larger too.
 
+`fitted.smooth_table()` tests that each smooth is zero, as the `s.table` of `summary.gam` (Wood 2013): `ref_df`, `statistic` (chi-squared for binomial and Poisson, F for Gaussian and gamma), and `p_value`. `ref_df` and the statistic match mgcv; the p-values follow the null distribution in the paper and are somewhat smaller than mgcv's. `glance()` also gives `edf2`, the edf corrected for smoothing parameter uncertainty (Wood, Pya & Säfken 2016), with `log_likelihood`, `df`, and `aic` as `logLik()` and `AIC()` on a `gam`. `compare_gams` reports this AIC, so models with different smooths can be compared on it.
+
 To put smooths and random intercepts in one model, use `gamm`. It corresponds to `gamm4(y ~ s(pre_size_mm), random = ~(1 | examiner), family = binomial)`.
 
 ```python
@@ -194,7 +196,7 @@ print(fit.partial_effect("pre_size_mm", [10, 20, 30]))
 eta, se = fit.predict(frame, se=True)  # population level, random effects at zero
 ```
 
-`fit.variance_table()` adds `std_error`, `conf_low`, and `conf_high` for each variance. The interval is a Wald interval for the log SD from the Laplace Hessian, not lme4's profile interval; for a MOR interval, pass each end to `median_odds_ratio`. `gamm(..., random=None)` fits the smooths alone on the same Laplace likelihood, so `compare_gamms(without, with_examiner)` gives the likelihood-ratio test, AIC, and BIC, as `anova(g0$mer, g1$mer)`. `p_value_boundary` halves the p-value for one added variance, which is tested at zero.
+`fit.variance_table()` adds `std_error`, `conf_low`, and `conf_high` for each variance. The default interval is a Wald interval for the log SD from the Laplace Hessian. `variance_table(method="profile")` gives the profile interval, as `confint(g$mer, method = "profile")`; it refits the model at each trial SD, so it takes a few seconds, and it is the better choice when the variance is near zero. For a MOR interval, pass each end to `median_odds_ratio`. `gamm(..., random=None)` fits the smooths alone on the same Laplace likelihood, so `compare_gamms(without, with_examiner)` gives the likelihood-ratio test, AIC, and BIC, as `anova(g0$mer, g1$mer)`. `p_value_boundary` halves the p-value for one added variance, which is tested at zero.
 
 It splits each smooth into a fixed null space and iid random effects (`mgcv::smooth2random`), then solves it together with the other random effects by Laplace maximum likelihood. `gam(..., smooth("examiner", basis="re"))` matches mgcv's `bs = "re"` (REML). That is a different approximation from gamm4, and on synthetic data the MOR differed by 1.8%. The mixed model form depends on the basis coordinates, so thin plate splines use the same coordinates as mgcv (centered covariates, basis divided by eigenvalues, column mean squares of 1). The bases are `tp` (up to 2000 unique values) and `cr`. The families are binomial and poisson.
 

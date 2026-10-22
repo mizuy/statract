@@ -49,6 +49,11 @@ $$\zeta(\sigma) = \mathrm{sign}(\sigma - \hat\sigma)\sqrt{2\{\ell(\hat\psi) - \e
 - fixture `gamm4_compare.json` の `profile_sd`（gamm_binary_a、検査医の SD の profile 区間 0.4991–1.0759）と rtol 1e-3 で比べる。lme4 は spline 補間、こちらは根探索なので、完全には一致しない。
 - `glmm_binary_*.csv` で `glmer` の profile 区間を fixture に足す。分散が小さく、下限が 0 になる例を 1 つ入れる。
 
+## 7a. 実装の状況（2026-10-22）
+
+- `gamm` に実装した（`variance_table(method="profile")`）。gamm_binary_a の検査医の SD と、分散がほぼ 0 の例（20 施設に順番に割り当て、下限 0）で、lme4 と rtol 1e-4 で一致した。1 回あたり約 3 秒。
+- `fit_mixed`（Laplace エンジン）にはまだ入れていない。`term_parameter_profile` を同じように使える。
+
 ## 8. R と違うところ、未確認の点
 
 - lme4 は $\zeta$ を数点で計算して spline で補間する。こちらは交点を直接解く。差は補間誤差の分だけ出る。
