@@ -190,7 +190,7 @@ fit = gam(frame, "y", [smooth("age")], predictors=["arm"], family="binomial")
 print(fit.smooth_table())
 ```
 
-**Note**: Compare the AIC of the model with smooths and the linear model using `compare_gams`. If a smooth's `edf` is close to 1, a straight line is enough.
+**Note**: Compare the model with smooths and the linear model using `compare_gams` (AIC, deviance change, and an approximate test). If a smooth's `edf` is close to 1, a straight line is enough.
 
 ## Clusters and repeated measures: mixed models
 

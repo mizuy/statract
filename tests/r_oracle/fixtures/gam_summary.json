@@ -1,0 +1,67 @@
+{
+  "meta": {
+    "r": "R version 4.3.3 (2024-02-29)",
+    "mgcv": "1.9.1"
+  },
+  "cases": {
+    "binomial": {
+      "small": {
+        "deviance": 1073.12664714094,
+        "null_deviance": 1102.90264910631,
+        "deviance_explained": 0.0269978515234324,
+        "adj_r_squared": 0.0336016668500713,
+        "edf": 3.83357485585268
+      },
+      "large": {
+        "deviance": 1070.68484897526,
+        "null_deviance": 1102.90264910631,
+        "deviance_explained": 0.0292118258643697,
+        "adj_r_squared": 0.0346848310991207,
+        "edf": 5.25258745774198
+      },
+      "deviance_change": 2.44179816567316,
+      "mgcv_df": 2.28333884832216,
+      "mgcv_p_value": 0.349500425588471
+    },
+    "gaussian_weighted": {
+      "small": {
+        "deviance": 76.6002678535278,
+        "null_deviance": 270.63071424268,
+        "deviance_explained": 0.716956487855112,
+        "adj_r_squared": 0.710240805079603,
+        "edf": 7.93474427239275
+      },
+      "large": {
+        "deviance": 68.8185643560082,
+        "null_deviance": 270.63071424268,
+        "deviance_explained": 0.745710443293228,
+        "adj_r_squared": 0.738812407828966,
+        "edf": 8.88948940805061
+      },
+      "deviance_change": 7.78170349751959,
+      "mgcv_df": 0.854073555252569,
+      "mgcv_p_value": 1.69088142136503e-08
+    },
+    "poisson_offset": {
+      "deviance": 1720.27794719308,
+      "null_deviance": 1800.5336304934,
+      "deviance_explained": 0.0445732764671147,
+      "adj_r_squared": 0.00055061212995744,
+      "edf": 3.75603429165603
+    },
+    "gaussian": {
+      "deviance": 71.356723710653,
+      "null_deviance": 223.168114277867,
+      "deviance_explained": 0.680255739304197,
+      "adj_r_squared": 0.673043288014372,
+      "edf": 7.59574450257024
+    },
+    "gamma": {
+      "deviance": 86.3821791646677,
+      "null_deviance": 95.5007448648302,
+      "deviance_explained": 0.0954816186310243,
+      "adj_r_squared": 0.08261135099563,
+      "edf": 2.00069989806429
+    }
+  }
+}

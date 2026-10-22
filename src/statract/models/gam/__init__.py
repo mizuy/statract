@@ -95,6 +95,13 @@ class GamFit:
             }
         )
 
+    def glance(self) -> pl.DataFrame:
+        """One-row summary: deviance, deviance explained, and adjusted R²."""
+        from .general import _glance
+
+        mu = self.x @ self.coefficients
+        return _glance(self.family, self.y, mu, None, None, self.edf, self.sig2, self.reml)
+
     def smooth_table(self) -> pl.DataFrame:
         return pl.DataFrame(
             {

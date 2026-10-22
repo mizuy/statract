@@ -81,7 +81,7 @@ from .models.effects import spline_effect, spline_test
 from .viz.effect import plot_spline_effect
 from .models.mixed import MixedFit, fit_mixed
 from .models.impute import MultipleImputation, impute_chained, pool
-from .models.gamm import GammFit, gamm
+from .models.gamm import GammFit, compare_gamms, gamm
 from .models.gam import compare_gams, gam, smooth, tensor_interaction, tensor_smooth
 from .models.tree import conditional_tree
 from .models.htest import HTest, binom_test, mcnemar_test, p_adjust, prop_test, t_test, wilcox_test
@@ -246,6 +246,7 @@ __all__ = [
     "coefficient_interval",
     "coefficient_test",
     "compare_gams",
+    "compare_gamms",
     "conditional_logit",
     "conditional_tree",
     "plot_tree",

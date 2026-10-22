@@ -16,10 +16,11 @@ import numpy as np
 import polars as pl
 import pytest
 
-from statract import gamm, median_odds_ratio, smooth
+from statract import compare_gamms, gamm, median_odds_ratio, smooth
 
 HERE = Path(__file__).resolve().parent
 FIXTURE = json.loads((HERE / "fixtures" / "gamm4.json").read_text())
+COMPARE = json.loads((HERE / "fixtures" / "gamm4_compare.json").read_text())
 DATA = pl.read_csv(HERE / "data" / "gamm_binary_a.csv")
 GRID = pl.DataFrame(FIXTURE["grid"])
 
@@ -60,6 +61,58 @@ def test_gamm_matches_gamm4(name: str) -> None:
     for want, se in zip(case["smooth_fits"], corrected["smooth_std_errors"], strict=True):
         effect = fit.partial_effect(want["column"], GRID[want["column"]].to_numpy())
         np.testing.assert_allclose(effect["std_error"].to_numpy(), se, rtol=1e-4)
+
+
+def test_gamm_predict_standard_errors() -> None:
+    fit = gamm(DATA, "y", [smooth("pre_size_mm", k=10, basis="tp")], random="(1 | examiner)")
+    eta, se = fit.predict(GRID, se=True)
+    np.testing.assert_allclose(eta, fit.predict(GRID))
+    # Intercept plus one smooth: var = var(b0) + var(f) + 2 cov(b0, f).
+    basis = fit._smooths[0].rebuild(GRID["pre_size_mm"].to_numpy())
+    sl = fit._slices[0]
+    cov = fit.covariance
+    smooth_var = np.sum((basis @ cov[sl, sl]) * basis, axis=1)
+    cross = basis @ cov[sl, 0]
+    np.testing.assert_allclose(se**2, cov[0, 0] + smooth_var + 2 * cross, rtol=1e-10)
+    effect = fit.partial_effect("pre_size_mm", GRID["pre_size_mm"].to_numpy())
+    np.testing.assert_allclose(smooth_var, effect["std_error"].to_numpy() ** 2, rtol=1e-10)
+    mu, se_mu = fit.predict(GRID, kind="response", se=True)
+    np.testing.assert_allclose(mu, 1 / (1 + np.exp(-eta)))
+    np.testing.assert_allclose(se_mu, se * mu * (1 - mu))
+
+
+def test_gamm_without_random_effects_is_on_the_same_likelihood() -> None:
+    null = gamm(DATA, "y", [smooth("pre_size_mm", k=10, basis="tp")])
+    full = gamm(DATA, "y", [smooth("pre_size_mm", k=10, basis="tp")], random="(1 | examiner)")
+    assert null.converged
+    assert null.variance_table().height == 0
+    assert null.random_effects().height == 0
+    for fit, want in zip((null, full), COMPARE["fits"], strict=True):
+        row = fit.glance().row(0, named=True)
+        assert row["n_parameters"] == want["n_parameters"]
+        for key in ("log_likelihood", "aic", "bic"):
+            np.testing.assert_allclose(row[key], want[key], atol=1e-4, err_msg=key)
+    table = compare_gamms(null, full)
+    row = table.row(1, named=True)
+    assert row["df"] == COMPARE["df"]
+    np.testing.assert_allclose(row["statistic"], COMPARE["statistic"], atol=2e-4)
+    np.testing.assert_allclose(row["p_value"], COMPARE["p_value"], rtol=1e-3)
+    np.testing.assert_allclose(row["p_value_boundary"], row["p_value"] / 2)
+
+
+def test_gamm_variance_wald_interval() -> None:
+    fit = gamm(DATA, "y", [smooth("pre_size_mm", k=10, basis="tp")], random="(1 | examiner)")
+    row = fit.variance_table().row(0, named=True)
+    assert row["conf_low"] < row["variance"] < row["conf_high"]
+    # Symmetric on the log-SD scale.
+    np.testing.assert_allclose(
+        np.log(row["conf_high"]) - np.log(row["variance"]), np.log(row["variance"]) - np.log(row["conf_low"])
+    )
+    # Close to lme4's profile interval for the SD (Wald 0.502-1.068 here).
+    low, high = COMPARE["profile_sd"]
+    np.testing.assert_allclose(np.sqrt([row["conf_low"], row["conf_high"]]), [low, high], rtol=0.02)
+    narrower = fit.variance_table(level=0.5).row(0, named=True)
+    assert row["conf_low"] < narrower["conf_low"] < narrower["conf_high"] < row["conf_high"]
 
 
 def test_gamm_guards() -> None:

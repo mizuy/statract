@@ -263,6 +263,18 @@ def _gamm_binary(seed: int, n: int, n_examiners: int) -> pl.DataFrame:
     )
 
 
+def _gam_sample(seed: int, n: int) -> pl.DataFrame:
+    """Gaussian outcome with prior weights, a positive (gamma) outcome, and an offset."""
+    rng = np.random.default_rng(seed)
+    x = np.round(rng.uniform(0, 1, n), 4)
+    z = np.round(rng.uniform(0, 1, n), 4)
+    w = np.round(rng.uniform(0.5, 2.0, n), 3)
+    off = np.round(rng.normal(0, 0.3, n), 4)
+    y = np.round(np.sin(2 * np.pi * x) + 0.5 * z + rng.normal(0, 0.5, n) / np.sqrt(w), 4)
+    cost = np.round(rng.gamma(4.0, 1 / (0.5 + 0.5 * x + 0.3 * z) / 4.0), 4)
+    return pl.DataFrame({"x": x, "z": z, "w": w, "off": off, "y": y, "cost": cost})
+
+
 def _stdreg_sample(seed: int, n: int, *, exposure: str, whole_tenths: bool, max_follow_up: float) -> pl.DataFrame:
     """Cox data for standardization: a binary ``ope`` or a continuous ``dose``."""
     rng = np.random.default_rng(seed)
@@ -526,6 +538,8 @@ def main() -> None:
     _crossed_sample(20261022, 300, 30, theta=2.0, rho=0.6).write_csv(DATA / "glmm_crossed_a.csv")
     # Smooth plus examiner intercept, binary (gamm4 and mgcv bs = "re").
     _gamm_binary(20261023, 800, 25).write_csv(DATA / "gamm_binary_a.csv")
+    # Additive models: weighted Gaussian and gamma outcomes (mgcv summaries).
+    _gam_sample(20261043, 300).write_csv(DATA / "gam_a.csv")
     # Cox standardization: tied times with sites, a continuous exposure, and
     # untied times for the restricted mean.
     _stdreg_sample(20261024, 300, exposure="ope", whole_tenths=True, max_follow_up=8.0).write_csv(DATA / "stdreg_a.csv")
