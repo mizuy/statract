@@ -25,7 +25,7 @@ import numpy as np
 import polars as pl
 from scipy import special, stats
 
-from .._core.laplace import RandomTerm, fit_laplace_terms
+from .._core.laplace import RandomTerm, fit_laplace_terms, term_parameter_profile
 from .design import ColumnRef, column_series, design_matrix
 from .gam import Smooth
 
@@ -71,6 +71,7 @@ class GammFit:
     _smooths: list[_SmoothPart] = field(repr=False)
     _slices: list[slice] = field(repr=False)
     _parametric_design: object = field(repr=False)
+    _laplace: tuple = field(default=(), repr=False)  # y, x, terms, start, and offsets of each term's parameters
 
     def tidy(self, *, level: float = 0.95, exponentiate: bool = False) -> pl.DataFrame:
         """Parametric coefficients with SEs from ``Vp``, as ``summary(g$gam)$p.table``."""
@@ -104,22 +105,36 @@ class GammFit:
             {"term": self.smooth_names, "edf": self.edf, "variance": self.smooth_variances}
         )
 
-    def variance_table(self, *, level: float = 0.95) -> pl.DataFrame:
+    def variance_table(self, *, level: float = 0.95, method: str = "wald") -> pl.DataFrame:
         """Variances of the other random effects, as ``VarCorr(g$mer)`` lists them.
 
         ``std_error`` and ``conf_low`` / ``conf_high`` are for the variance.
-        The interval is a Wald interval for the log SD, from the inverse
-        Hessian of the Laplace log-likelihood, transformed to the variance.
-        It is not lme4's profile interval and is less accurate near zero.
-        A median odds ratio interval is ``median_odds_ratio`` of each end.
+        ``method="wald"`` is a Wald interval for the log SD, from the inverse
+        Hessian of the Laplace log-likelihood, transformed to the variance. It
+        is less accurate near zero. ``method="profile"`` inverts the profile
+        likelihood of the SD, as ``confint(g$mer, method = "profile")``: each
+        limit refits the model with the SD fixed, so it takes longer. The
+        profile interval covers the first column of each term (the intercept
+        SD); other columns of a term with slopes get NaN. A lower limit of 0
+        means the profile never drops far enough below the maximum. A median
+        odds ratio interval is ``median_odds_ratio`` of each end.
         """
+        if method not in {"wald", "profile"}:
+            raise ValueError("method must be 'wald' or 'profile'")
         crit = float(stats.norm.ppf(0.5 + level / 2))
         rows = []
-        for term in self.random_terms:
+        for k, term in enumerate(self.random_terms):
             cov = np.asarray(term["covariance"])
             for i, name in enumerate(term["names"]):
                 variance = float(cov[i, i])
                 log_sd, se_log = term["log_sd"][i], term["log_sd_std_error"][i]
+                if method == "wald":
+                    low = float(np.exp(2 * (log_sd - crit * se_log)))
+                    high = float(np.exp(2 * (log_sd + crit * se_log)))
+                elif i == 0:
+                    low, high = self._profile_variance(k, log_sd, se_log, crit)
+                else:
+                    low = high = float("nan")
                 rows.append(
                     {
                         "group": term["group"],
@@ -127,8 +142,8 @@ class GammFit:
                         "variance": variance,
                         "std_dev": float(np.sqrt(max(variance, 0.0))),
                         "std_error": 2 * variance * se_log,
-                        "conf_low": float(np.exp(2 * (log_sd - crit * se_log))),
-                        "conf_high": float(np.exp(2 * (log_sd + crit * se_log))),
+                        "conf_low": low,
+                        "conf_high": high,
                     }
                 )
         schema = {
@@ -141,6 +156,18 @@ class GammFit:
             "conf_high": pl.Float64,
         }
         return pl.DataFrame(rows, schema=schema)
+
+    def _profile_variance(self, k: int, log_sd: float, se_log: float, crit: float) -> tuple[float, float]:
+        from ._profile import profile_limit
+
+        y, x, terms, start, offsets = self._laplace
+        profile = term_parameter_profile(y, x, terms, None, family=self.family, start=start, index=offsets[k])
+
+        def drop(value: float) -> float:
+            return 2 * (self.log_likelihood - profile(value))
+
+        limits = [profile_limit(drop, log_sd, se_log, q) for q in (-crit, crit)]
+        return tuple(float(np.exp(2 * limit)) for limit in limits)
 
     def glance(self) -> pl.DataFrame:
         """Laplace log-likelihood, AIC, and BIC, as ``logLik`` / ``AIC`` of ``g$mer``.
@@ -344,6 +371,13 @@ def gamm(
             schema={"group": pl.String, "level": pl.String, "term": pl.String, "blup": pl.Float64}
         ),
         n_parameters=int(x_fixed.shape[1] + sum(term.n_par for term in terms)),
+        _laplace=(
+            y,
+            x_fixed,
+            terms,
+            np.concatenate([result.coefficients, result.term_parameters]),
+            np.cumsum([0] + [term.n_par for term in terms])[:-1].tolist(),
+        ),
         _smooths=parts,
         _slices=slices,
         _parametric_design=design,

@@ -344,10 +344,12 @@ def _hessian_from_grad(gfun, phi, h):
 _POLISH_GAIN = 1e-15
 
 
-def _maximize(prob, phi0, sd_index):
+def _maximize(prob, phi0, sd_index, fixed=None, covariance=True):
     """Maximise ``prob.loglik``; return the optimum, its inverse Hessian, and status.
 
     ``sd_index`` lists the log-SD parameters that may hit the singular floor.
+    ``fixed`` maps parameter positions to values held fixed (profiling).
+    With ``covariance=False`` the inverse Hessian is not computed (NaN).
     Models with an exact gradient (``prob.has_gradient()``) pass it to
     L-BFGS-B and take the Hessian from its central differences; the others
     use finite differences of the log-likelihood.
@@ -364,9 +366,14 @@ def _maximize(prob, phi0, sd_index):
             return 1e300, np.zeros_like(phi)
         return -value, -grad
 
+    fixed = fixed or {}
+    phi0 = np.array(phi0, dtype=float)
     bounds = [(None, None)] * prob.n_par
     for at in sd_index:
         bounds[at] = (_LOG_SD_FLOOR, None)
+    for at, value in fixed.items():
+        phi0[at] = value
+        bounds[at] = (value, value)
     options = {"maxiter": 2000, "ftol": 1e-15, "gtol": 1e-9}
     if exact:
         first = optimize.minimize(objective_grad, phi0, jac=True, method="L-BFGS-B", bounds=bounds, options=options)
@@ -379,7 +386,12 @@ def _maximize(prob, phi0, sd_index):
     # glmer reports it. Pin it at the floor when that does not lower the
     # likelihood, and polish the rest with Newton steps.
     free = np.ones(prob.n_par, dtype=bool)
+    for at, value in fixed.items():
+        phi[at] = value
+        free[at] = False
     for at in sd_index:
+        if at in fixed:
+            continue
         if phi[at] < -8.0:
             pinned = phi.copy()
             pinned[at] = _LOG_SD_FLOOR
@@ -443,10 +455,10 @@ def _maximize(prob, phi0, sd_index):
             converged = True
             break
 
-    cov_free = np.linalg.pinv(hessian())
     cov_full = np.full((prob.n_par, prob.n_par), np.nan)
-    idx = np.flatnonzero(free)
-    cov_full[np.ix_(idx, idx)] = cov_free
+    if covariance and free.any():
+        idx = np.flatnonzero(free)
+        cov_full[np.ix_(idx, idx)] = np.linalg.pinv(hessian())
     return phi, cov_full, converged, n_iter
 
 
@@ -1009,6 +1021,30 @@ class TermsResult:
     # the inverse Hessian of the log-likelihood.
     term_parameters: np.ndarray | None = None
     term_parameter_covariance: np.ndarray | None = None
+
+
+def term_parameter_profile(y, x, terms: list[RandomTerm], offset, *, family: str, start: np.ndarray, index: int):
+    """Profile log-likelihood of one covariance-factor parameter of a ``fit_laplace_terms`` fit.
+
+    ``start`` is the fitted ``(coefficients, term_parameters)``. ``index`` is the
+    position within ``term_parameters``. The returned function maximizes the
+    Laplace log-likelihood over all other parameters with that one fixed,
+    starting from the previous optimum.
+    """
+    y, _zx = _check(y, family, None, None)
+    prob = _SparseProblem(y, x, terms, offset, family, None, None)
+    start = np.asarray(start, dtype=float)
+    if start.size != prob.n_par:
+        raise ValueError("profiling needs a model without theta or zero-inflation parameters")
+    at = prob.p + int(index)
+    last = [start.copy()]
+
+    def loglik(value: float) -> float:
+        phi, _cov, _conv, _n = _maximize(prob, last[0], prob.sd_index(), fixed={at: float(value)}, covariance=False)
+        last[0] = phi
+        return float(prob.loglik(phi))
+
+    return loglik
 
 
 def fit_laplace_terms(

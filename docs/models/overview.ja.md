@@ -194,7 +194,7 @@ print(fit.partial_effect("pre_size_mm", [10, 20, 30]))
 eta, se = fit.predict(frame, se=True)  # 人口平均。変量効果は 0
 ```
 
-`fit.variance_table()` は各分散の `std_error`、`conf_low`、`conf_high` も返します。区間は Laplace の Hessian から作る log SD の Wald 区間で、lme4 の profile 区間ではありません。MOR の区間は、両端をそれぞれ `median_odds_ratio` に渡します。`gamm(..., random=None)` は同じ Laplace 尤度で平滑だけを当てはめます。`compare_gamms(なし, 検査医あり)` が `anova(g0$mer, g1$mer)` と同じ尤度比検定、AIC、BIC を返します。分散 1 つを足す検定は境界 0 での検定なので、`p_value_boundary` は p 値を半分にした値です。
+`fit.variance_table()` は各分散の `std_error`、`conf_low`、`conf_high` も返します。既定の区間は Laplace の Hessian から作る log SD の Wald 区間です。`variance_table(method="profile")` は `confint(g$mer, method = "profile")` と同じ profile 区間を返します。SD を固定して当てはめ直すので数秒かかりますが、分散が 0 に近いときはこちらを使います。MOR の区間は、両端をそれぞれ `median_odds_ratio` に渡します。`gamm(..., random=None)` は同じ Laplace 尤度で平滑だけを当てはめます。`compare_gamms(なし, 検査医あり)` が `anova(g0$mer, g1$mer)` と同じ尤度比検定、AIC、BIC を返します。分散 1 つを足す検定は境界 0 での検定なので、`p_value_boundary` は p 値を半分にした値です。
 
 平滑を固定の零空間と iid の変量効果に分け（`mgcv::smooth2random`）、ほかの変量効果と一緒に Laplace の最尤で解きます。`gam(..., smooth("examiner", basis="re"))` は mgcv の `bs = "re"`（REML）と一致しますが、これは gamm4 とは別の近似で、合成データでは MOR が 1.8% ずれました。混合モデル形は基底の座標に依存するので、thin plate は mgcv と同じ座標（共変量の中心化、固有値で割った基底、列の二乗平均を 1）で作ります。基底は `tp`（一意な値 2000 個まで）と `cr`、分布は binomial と poisson です。
 
