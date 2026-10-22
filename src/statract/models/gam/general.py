@@ -34,6 +34,7 @@ class _Block:
     null_dim: int
     rebuild: Callable[[dict[str, np.ndarray]], np.ndarray]
     extra_penalties: tuple[np.ndarray, ...] = ()
+    random_effect: bool = False
 
 
 @dataclass
@@ -92,15 +93,30 @@ class GeneralFit:
         )
 
     def smooth_table(self) -> pl.DataFrame:
+        """edf, smoothing parameters, and a test that each smooth is zero.
+
+        ``ref_df``, ``statistic``, and ``p_value`` follow Wood (2013): a Wald
+        statistic on the smooth's fitted values with a rank-``ref_df``
+        pseudo-inverse of their Bayesian covariance, as ``summary.gam``'s
+        ``s.table``. ``test`` is ``"chi_sq"`` for binomial and Poisson and
+        ``"F"`` (statistic divided by ``ref_df``, residual df ``n - edf``) for
+        Gaussian and gamma. The p-values treat the smoothing parameters as
+        known. ``basis="re"`` terms get NaN; a factor ``by`` smooth is tested
+        as one term over all its levels.
+        """
+        tests = _smooth_tests(self)
         terms: list[str] = []
         edf: list[float] = []
         smoothing: list[float] = []
+        columns: dict[str, list] = {"ref_df": [], "statistic": [], "p_value": []}
         cursor = 0
-        for block, count, block_edf in zip(self.blocks, self.penalty_counts, self.block_edf, strict=True):
+        for block, count, block_edf, test in zip(self.blocks, self.penalty_counts, self.block_edf, tests, strict=True):
             for index in range(count):
                 terms.append(block.name if count == 1 else f"{block.name}[{index + 1}]")
                 edf.append(float(block_edf))
                 smoothing.append(float(self.smoothing_parameters[cursor + index]))
+                for key, value in zip(("ref_df", "statistic", "p_value"), test, strict=True):
+                    columns[key].append(value)
             cursor += count
         return pl.DataFrame(
             {
@@ -108,6 +124,8 @@ class GeneralFit:
                 "edf": edf,
                 "smoothing_parameter": smoothing,
                 "reml": [self.reml] * len(terms),
+                **columns,
+                "test": [_test_name(self.family)] * len(terms),
             }
         )
 
@@ -197,6 +215,46 @@ class GeneralFit:
             other = total - part
             rows.append({"term": block.name, "observed": _rsquared(part, other)})
         return pl.DataFrame(rows)
+
+
+def _test_name(family: str) -> str:
+    return "chi_sq" if family in {"binomial", "poisson"} else "F"
+
+
+def _smooth_tests(fit) -> list[tuple[float, float, float]]:
+    """``(ref_df, statistic, p_value)`` for each block of a fit (Wood 2013)."""
+    from .smooth_test import reference_df, smooth_p_value, wood_statistic
+
+    eta = fit.x @ fit.coefficients
+    offset = getattr(fit, "offset", None)
+    if offset is not None:
+        eta = eta + offset
+    weights = getattr(fit, "weights", None)
+    if fit.family == "gaussian":
+        w = np.ones(fit.n_obs)
+    else:
+        _z, w = _working(fit.family, fit.y, eta)
+    if weights is not None:
+        w = w * weights
+    root_w = np.sqrt(w)
+    known = fit.family in {"binomial", "poisson"}
+    scale = 1.0 if known else fit.sig2
+    information = fit.x.T @ (w[:, None] * fit.x)
+    influence = fit.covariance @ information / scale
+    residual_df = None if known else fit.n_obs - fit.edf
+    out = []
+    for block in fit.blocks:
+        if getattr(block, "random_effect", False):
+            out.append((np.nan, np.nan, np.nan))
+            continue
+        sl = np.asarray(block.columns)
+        ref = reference_df(influence, sl)
+        stat, chi_weights, dofs = wood_statistic(
+            fit.coefficients[sl], fit.covariance[np.ix_(sl, sl)], fit.x[:, sl] * root_w[:, None], ref
+        )
+        p_value = smooth_p_value(stat, chi_weights, dofs, residual_df)
+        out.append((ref, stat if known else stat / max(ref, 1.0), p_value))
+    return out
 
 
 def compare_gams(*fits) -> pl.DataFrame:
@@ -900,7 +958,14 @@ def _build_block(spec, kept: dict[str, np.ndarray]) -> _Block:
     def constrained(columns, _rebuild=rebuild, _q=q):
         return _rebuild(columns) @ _q
 
-    return _Block(spec.column if spec.basis != "te" else spec.column, constrained(kept) * 0 + 0, penalty, null_after, constrained)
+    return _Block(
+        spec.column if spec.basis != "te" else spec.column,
+        constrained(kept) * 0 + 0,
+        penalty,
+        null_after,
+        constrained,
+        random_effect=spec.basis == "re",
+    )
 
 
 def _univariate(spec, kept):

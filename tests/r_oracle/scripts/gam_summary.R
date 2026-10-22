@@ -6,6 +6,7 @@
 # null.deviance, and anova(..., test = ...). mgcv's anova takes the df change
 # from a smoothing-parameter-uncertainty corrected edf, so the fixture keeps
 # its df and p-value for reference only; statract uses the plain edf.
+# s_table is summary(m)$s.table (Wood 2013 smooth tests).
 suppressMessages({
   library(mgcv)
   library(jsonlite)
@@ -18,8 +19,11 @@ out <- "tests/r_oracle/fixtures/gam_summary.json"
 
 one <- function(m) {
   s <- summary(m)
+  st <- s$s.table
   list(deviance = deviance(m), null_deviance = m$null.deviance, deviance_explained = s$dev.expl,
-       adj_r_squared = s$r.sq, edf = sum(m$edf))
+       adj_r_squared = s$r.sq, edf = sum(m$edf),
+       s_table = list(edf = unname(st[, 1]), ref_df = unname(st[, 2]), statistic = unname(st[, 3]),
+                      p_value = unname(st[, 4])))
 }
 pair <- function(m1, m2, test) {
   a <- anova(m1, m2, test = test)

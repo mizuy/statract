@@ -6,6 +6,8 @@
 # of both fits is on the same Laplace scale. statract's variance interval is a
 # Wald interval for the log SD; the profile interval is kept to bound how far
 # the two may differ, and statract's profile interval is compared with it.
+# s_table is summary(g1$gam)$s.table (edf, Ref.df, Chi.sq, p-value); gamm4
+# 0.2-6 with Matrix >= 1.6 has Vp about 1% off (see gamm4.R).
 suppressMessages({
   library(gamm4)
   library(jsonlite)
@@ -32,6 +34,7 @@ meta <- list(r = R.version.string, gamm4 = as.character(packageVersion("gamm4"))
              lme4 = as.character(packageVersion("lme4")))
 write_json(list(meta = meta, fits = fits, statistic = a$Chisq[2], df = a$Df[2], p_value = a[["Pr(>Chisq)"]][2],
                 profile_sd = unname(ci["sd_(Intercept)|examiner", ]),
+                s_table = unname(summary(g1$gam)$s.table[1, ]),
                 small = list(variance = as.data.frame(VarCorr(g2$mer))$vcov[1],
                              profile_sd = unname(ci2["sd_(Intercept)|site", ]))),
            out, digits = NA, auto_unbox = TRUE, pretty = TRUE)

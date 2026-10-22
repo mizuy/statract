@@ -4,6 +4,12 @@ Fixture: ``fixtures/gam_summary.json`` from ``scripts/gam_summary.R``.
 ``compare_gams`` takes the df change from the plain edf; mgcv corrects the
 edf for smoothing-parameter uncertainty, so only the deviance change is
 compared, and the p-value is checked against its own definition.
+
+``smooth_table`` (Wood 2013 tests): ``ref_df`` and the statistic are compared
+with ``s.table``. The p-values come from the null distribution in the paper
+(sec. 2.3), computed by quadrature, and are checked against simulation;
+mgcv 1.9-1 reports somewhat larger p-values, kept in the fixture for
+reference.
 """
 
 from __future__ import annotations
@@ -24,10 +30,16 @@ BINARY = pl.read_csv(HERE / "data" / "gamm_binary_a.csv").with_columns(off=(pl.c
 GAUSS = pl.read_csv(HERE / "data" / "gam_a.csv")
 
 
-def _check(fit, want: dict, rtol: float = 1e-4) -> None:
+def _check(fit, want: dict, rtol: float = 1e-4, statistic: bool = True) -> None:
     row = fit.glance().row(0, named=True)
     for key in ("deviance", "null_deviance", "deviance_explained", "adj_r_squared", "edf"):
         np.testing.assert_allclose(row[key], want[key], rtol=rtol, err_msg=key)
+    table = fit.smooth_table()
+    want_table = want["s_table"]
+    np.testing.assert_allclose(table["edf"].to_numpy(), want_table["edf"], rtol=max(rtol, 1e-3), atol=1e-3)
+    np.testing.assert_allclose(table["ref_df"].to_numpy(), want_table["ref_df"], rtol=max(rtol, 1e-3), atol=2e-3)
+    if statistic:
+        np.testing.assert_allclose(table["statistic"].to_numpy(), want_table["statistic"], rtol=1e-3)
 
 
 def test_binomial_summary_and_chisq_comparison() -> None:
@@ -69,7 +81,36 @@ def test_weighted_gaussian_summary_and_f_comparison() -> None:
     ],
 )
 def test_single_model_summary(name: str, build, rtol: float) -> None:
-    _check(build(), FIXTURE[name], rtol=rtol)
+    # Gamma: mgcv's scale is the Pearson estimate, statract's the REML one
+    # (6% apart here), and the F statistic scales with it.
+    _check(build(), FIXTURE[name], rtol=rtol, statistic=name != "gamma")
+
+
+def test_smooth_test_null_distribution() -> None:
+    from statract.models.gam.smooth_test import null_sf, smooth_p_value, wood_statistic
+
+    # Integer rank: chi-squared on r.
+    np.testing.assert_allclose(null_sf([3.0, 12.0], [1, 1, 0], [2, 1, 1]), stats.chi2.sf([3.0, 12.0], 3), rtol=1e-8)
+    # Non-integer rank: chi2(k-2) + nu1 chi2(1) + nu2 chi2(1) by simulation.
+    rng = np.random.default_rng(20261022)
+    n = 400_000
+    for weights, dofs, x in [([1, 1.2046, 0.5598], [0, 1, 1], 2.1275), ([1, 0.85, 0.67], [2, 1, 1], 6.0)]:
+        q = weights[1] * rng.chisquare(1, n) + weights[2] * rng.chisquare(1, n)
+        if dofs[0]:
+            q += rng.chisquare(dofs[0], n)
+        np.testing.assert_allclose(null_sf(x, weights, dofs)[0], np.mean(q > x), atol=3e-3)
+        # Estimated scale: P(Q > t W / kappa), W ~ chi2(kappa).
+        w = rng.chisquare(40, n)
+        np.testing.assert_allclose(smooth_p_value(x, weights, dofs, 40), np.mean(q > x * w / 40), atol=3e-3)
+    # Integer rank with an estimated scale is the F test.
+    np.testing.assert_allclose(smooth_p_value(9.0, [1, 1, 0], [2, 1, 1], 50), stats.f.sf(3.0, 3, 50), rtol=1e-4)
+    # The statistic does not depend on the signs the eigen solver picks.
+    basis = rng.normal(size=(60, 5))
+    cov = np.cov(rng.normal(size=(5, 30)))
+    beta = rng.normal(size=5)
+    first = wood_statistic(beta, cov, basis, 2.4)[0]
+    flipped = wood_statistic(beta, cov, -basis, 2.4)[0]
+    np.testing.assert_allclose(first, flipped)
 
 
 def test_compare_gams_rejects_mixed_families() -> None:

@@ -28,6 +28,7 @@ from scipy import special, stats
 from .._core.laplace import RandomTerm, fit_laplace_terms, term_parameter_profile
 from .design import ColumnRef, column_series, design_matrix
 from .gam import Smooth
+from .gam.smooth_test import smooth_p_value, wood_statistic
 
 _FAMILIES = ("binomial", "poisson")
 _TP_MAX_KNOTS = 2000
@@ -67,6 +68,7 @@ class GammFit:
     converged: bool
     random_terms: list[dict]
     n_parameters: int
+    smooth_tests: list[tuple[float, float, float]]
     random_effects_frame: pl.DataFrame
     _smooths: list[_SmoothPart] = field(repr=False)
     _slices: list[slice] = field(repr=False)
@@ -100,9 +102,21 @@ class GammFit:
         return frame
 
     def smooth_table(self) -> pl.DataFrame:
-        """edf and the random-effect variance of each smooth (``1 / sp``)."""
+        """edf, the random-effect variance of each smooth (``1 / sp``), and a test that it is zero.
+
+        ``ref_df``, ``chi_sq``, and ``p_value`` are Wood's (2013) test from
+        ``Vp``, as ``summary(g$gam)$s.table``. As there, the reference df is
+        the smooth's edf. The p-value treats the variances as known.
+        """
         return pl.DataFrame(
-            {"term": self.smooth_names, "edf": self.edf, "variance": self.smooth_variances}
+            {
+                "term": self.smooth_names,
+                "edf": self.edf,
+                "variance": self.smooth_variances,
+                "ref_df": [t[0] for t in self.smooth_tests],
+                "chi_sq": [t[1] for t in self.smooth_tests],
+                "p_value": [t[2] for t in self.smooth_tests],
+            }
         )
 
     def variance_table(self, *, level: float = 0.95, method: str = "wald") -> pl.DataFrame:
@@ -329,6 +343,10 @@ def gamm(
     vb = 0.5 * (vb + vb.T)
     influence = vb @ xvx
     edf = np.array([float(np.trace(influence[sl, sl])) for sl in slices])
+    smooth_tests = []
+    for sl, ref in zip(slices, edf, strict=True):
+        stat, chi_weights, dofs = wood_statistic(coefficients[sl], vb[sl, sl], x_gam[:, sl] * np.sqrt(w)[:, None], ref)
+        smooth_tests.append((float(ref), stat, smooth_p_value(stat, chi_weights, dofs, None)))
 
     random_terms = []
     frames = []
@@ -370,6 +388,7 @@ def gamm(
         random_effects_frame=pl.concat(frames) if frames else pl.DataFrame(
             schema={"group": pl.String, "level": pl.String, "term": pl.String, "blup": pl.Float64}
         ),
+        smooth_tests=smooth_tests,
         n_parameters=int(x_fixed.shape[1] + sum(term.n_par for term in terms)),
         _laplace=(
             y,
