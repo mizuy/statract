@@ -67,7 +67,7 @@ $$\tilde B = \Lambda_{2}^{-1/2}\begin{pmatrix}1 & \rho\\ \rho & \nu\end{pmatrix}
 ## 8. R と違うところ、未確認の点
 
 - 2026-10-22: 論文 PDF（mizuy から受け取った）で §3 の式を確認し、実装した（`models/gam/smooth_test.py`）。
-- `ref_df` と統計量は mgcv の `s.table` と rtol 1e-3 で一致する。ただしガンマでは尺度が違う（mgcv は Pearson 推定 0.2944、statract は REML 推定 0.2771、約 6%）ので F も同じ割合でずれる。
+- `ref_df` と統計量は mgcv の `s.table` と rtol 1e-3 で一致する。ガンマの尺度は、はじめ REML 基準の尺度（0.2771）を使っていて、mgcv の Pearson 推定（0.2944）と約 6% ずれていた。2026-10-22 に、表示の尺度、共分散、検定を Pearson 推定 $\sum w_i (y_i-\hat\mu_i)^2/\hat\mu_i^2 / (n - \mathrm{edf})$ に替え、F は rtol 3e-3 で一致するようになった。
 - p 値は mgcv より小さい（例: gam の age 項 0.29 に対し mgcv 0.37、b1 で 1.88e-5 に対し 2.03e-5）。statract の p 値は論文の帰無分布どおりで、モンテカルロで確かめた。mgcv 1.9-1 は論文と別の計算をしていると考えられるが、GPL のソースは読まないので理由は特定しない。
 - gamm4 の `s.table` は `Ref.df = edf` を使う。`GammFit.smooth_table` もそれに合わせた。gamm4 の pivot の問題で $V_p$ が少しずれるため、比較は rtol 5%。
 - `re` 基底の項は `NaN`。因子 `by` の平滑は全水準をまとめて 1 つの検定にする（mgcv は水準ごと）。

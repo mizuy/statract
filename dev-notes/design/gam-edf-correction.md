@@ -50,7 +50,7 @@ $\tau_2$ が $\tau_1$ を超えるときは $\tau_1$ を使う（`?gamObject`: �
 2. $V_\rho$: 基準関数の中心差分 Hessian（刻み $10^{-3}$）の擬似逆行列。
 3. $J$ と $\partial R/\partial\rho_k$: 当てはめ直しの中心差分（刻み $10^{-4}$）。作業重みの変化も入る。
 4. $\tau_2$ を計算し、$\min(\tau_2, \tau_1)$ を `edf2` とする（`models/gam/edf_correction.py`）。
-5. `glance()` に `edf2`、`log_likelihood`、`df`、`aic` を足す。`df` は edf2 に、ガウスとガンマでは尺度の分の 1 を足す。ガウスの $\ell$ は尺度の MLE（重み付き残差平方和 / $n$）、ガンマの $\ell$ は当てはめの尺度（REML 推定）を使う。ガンマで `logLik.gam` と合うのは後者だった（Pearson 推定や deviance/$n$ では合わない）。
+5. `glance()` に `edf2`、`log_likelihood`、`df`、`aic` を足す。`df` は edf2 に、ガウスとガンマでは尺度の分の 1 を足す。ガウスの $\ell$ は尺度の MLE（重み付き残差平方和 / $n$）、ガンマの $\ell$ は REML（または ML）基準を最大にする尺度を使う。ガンマで `logLik.gam` と合うのはこれだった（Pearson 推定や deviance/$n$ では合わない）。表示の尺度、共分散、検定には Pearson 推定を使う（`smooth-term-tests.md` §8）。
 6. `compare_gams` の `aic` は `glance()` の補正 AIC。`df` は補正前の edf の差のまま（§8）。
 
 ## 5. 数値上の注意
@@ -75,4 +75,4 @@ $\tau_2$ が $\tau_1$ を超えるときは $\tau_1$ を使う（`?gamObject`: �
 - 2026-10-22: 論文 PDF で式を確認し、二次の項 $V''$ を入れて実装した。一次の補正だけでは二項の例で 4.088 だったが、$V''$ を入れて 4.33 になった。残りの差（約 0.6%）は $R$ の選び方と差分の誤差による。
 - `compare_gams` の `df` は補正前の edf の差のまま。mgcv の `anova` の残差自由度（二項の例で $800 - 4.99$）は edf、edf1、edf2 のどれとも一致せず、公開ヘルプからは定義を特定できない。
 - `method="gcv"` では補正しない（`edf2 = edf`）。
-- `method="ml"` の二項とポアソンは、基準関数に対数行列式の項がないため平滑化パラメータが 0 に向かう（edf が上限になる）。edf2 もその影響を受ける。別に直す。
+- `method="ml"` の基準関数は 2026-10-22 に直した（`gam-ml-criterion.md`）。

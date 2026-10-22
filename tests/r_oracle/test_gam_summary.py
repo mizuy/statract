@@ -30,12 +30,14 @@ from scipy import stats
 from statract import compare_gams, gam, smooth
 
 HERE = Path(__file__).resolve().parent
-FIXTURE = json.loads((HERE / "fixtures" / "gam_summary.json").read_text())["cases"]
+_DATA = json.loads((HERE / "fixtures" / "gam_summary.json").read_text())
+FIXTURE = _DATA["cases"]
+ML_FIXTURE = _DATA["ml"]
 BINARY = pl.read_csv(HERE / "data" / "gamm_binary_a.csv").with_columns(off=(pl.col("age") / 50).log())
 GAUSS = pl.read_csv(HERE / "data" / "gam_a.csv")
 
 
-def _check(fit, want: dict, rtol: float = 1e-4, statistic: bool = True) -> None:
+def _check(fit, want: dict, rtol: float = 1e-4, statistic_rtol: float = 1e-3) -> None:
     row = fit.glance().row(0, named=True)
     for key in ("deviance", "null_deviance", "deviance_explained", "adj_r_squared", "edf"):
         np.testing.assert_allclose(row[key], want[key], rtol=rtol, err_msg=key)
@@ -43,8 +45,7 @@ def _check(fit, want: dict, rtol: float = 1e-4, statistic: bool = True) -> None:
     want_table = want["s_table"]
     np.testing.assert_allclose(table["edf"].to_numpy(), want_table["edf"], rtol=max(rtol, 1e-3), atol=1e-3)
     np.testing.assert_allclose(table["ref_df"].to_numpy(), want_table["ref_df"], rtol=max(rtol, 1e-3), atol=2e-3)
-    if statistic:
-        np.testing.assert_allclose(table["statistic"].to_numpy(), want_table["statistic"], rtol=1e-3)
+    np.testing.assert_allclose(table["statistic"].to_numpy(), want_table["statistic"], rtol=statistic_rtol)
 
 
 def test_binomial_summary_and_chisq_comparison() -> None:
@@ -86,9 +87,12 @@ def test_weighted_gaussian_summary_and_f_comparison() -> None:
     ],
 )
 def test_single_model_summary(name: str, build, rtol: float) -> None:
-    # Gamma: mgcv's scale is the Pearson estimate, statract's the REML one
-    # (6% apart here), and the F statistic scales with it.
-    _check(build(), FIXTURE[name], rtol=rtol, statistic=name != "gamma")
+    fit = build()
+    # Gamma: the edf is 1.0001 here and 1.0007 in mgcv, which moves the F by 0.15%.
+    _check(fit, FIXTURE[name], rtol=rtol, statistic_rtol=3e-3 if name == "gamma" else 1e-3)
+    if name == "gamma":
+        # The Pearson scale, as summary.gam; the REML score's own scale is a few percent lower.
+        np.testing.assert_allclose(fit.sig2, FIXTURE[name]["scale"], rtol=rtol)
 
 
 _MODELS = {
@@ -121,6 +125,30 @@ def test_compare_gams_aic_is_corrected() -> None:
     large = _MODELS[("binomial", "large")]()
     table = compare_gams(small, large)
     np.testing.assert_allclose(table["aic"].to_numpy(), [small.glance()["aic"][0], large.glance()["aic"][0]])
+
+
+_ML = {
+    "binomial": lambda: gam(BINARY, "y", [smooth("pre_size_mm", k=10)], family="binomial", method="ml"),
+    "gaussian_weighted": lambda: gam(GAUSS, "y", [smooth("x", k=10)], weights="w", method="ml"),
+    "poisson_offset": lambda: gam(BINARY, "n", [smooth("age", k=8)], family="poisson", offset="off", method="ml"),
+    "gaussian": lambda: gam(GAUSS, "y", [smooth("x", k=10)], method="ml"),
+    "gamma": lambda: gam(GAUSS, "cost", [smooth("x", k=8)], family="gamma", method="ml"),
+}
+
+
+@pytest.mark.parametrize("name", list(_ML))
+def test_ml_matches_mgcv(name: str) -> None:
+    want = ML_FIXTURE[name]
+    fit = _ML[name]()
+    np.testing.assert_allclose(fit.reml, want["criterion"], rtol=1e-6)
+    np.testing.assert_allclose(fit.sig2, want["scale"], rtol=1e-4)
+    if name == "gamma":
+        # The smooth is a straight line: the smoothing parameter is at working
+        # infinity in both, where the criterion is flat.
+        np.testing.assert_allclose(fit.edf, want["edf"], rtol=1e-3)
+        return
+    np.testing.assert_allclose(fit.smoothing_parameters, want["sp"], rtol=1e-3)
+    np.testing.assert_allclose(fit.edf, want["edf"], rtol=1e-4)
 
 
 def test_smooth_test_null_distribution() -> None:

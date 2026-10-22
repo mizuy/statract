@@ -95,8 +95,9 @@ class GeneralFit:
             eta = eta + self.offset
         mu = _mean(self.family, eta)
         summary = _glance(self.family, self.y, mu, self.weights, self.offset, self.edf, self.sig2, self.reml)
+        scale = _likelihood_scale(self) if self.family == "gamma" else self.sig2
         return summary.with_columns(
-            **_aic_columns(self.family, self.y, mu, self.weights, self.sig2, self.corrected_edf())
+            **_aic_columns(self.family, self.y, mu, self.weights, scale, self.corrected_edf())
         )
 
     def corrected_edf(self) -> float:
@@ -418,8 +419,9 @@ def _aic_columns(family: str, y: np.ndarray, mu: np.ndarray, weights, scale: flo
 
     ``df`` is the corrected edf, plus one for the scale of Gaussian and gamma
     models. The Gaussian ``l`` uses the maximum likelihood scale, the
-    weighted residual sum of squares over ``n``. The gamma ``l`` uses the
-    fit's scale ``scale``, which with REML matches ``logLik.gam``.
+    weighted residual sum of squares over ``n``. The gamma ``l`` uses
+    ``scale``, the scale that maximizes the REML or ML score, as
+    ``logLik.gam`` does.
     """
     n = y.shape[0]
     prior = np.ones(n) if weights is None else weights
@@ -613,14 +615,15 @@ def _fit_once(design, y, penalties, lam, family, method, mp, gamma, weights=None
     if weights is None and offset is None:
         beta = _pirls(design, y, penalty, family)
         beta, rss, pen, edf, block_edf = _penalized_weighted(design, y, penalty, penalties, beta, family)
-        dev = _deviance(family, y, _mean(family, design @ beta))
-        sig2 = 1.0 if family in {"binomial", "poisson"} else dev / max(y.shape[0] - edf, 1.0)
+        mu = _mean(family, design @ beta)
+        dev = _deviance(family, y, mu)
+        sig2 = 1.0 if family in {"binomial", "poisson"} else _pearson_scale(y, mu, None, edf)
         if method == "gcv":
             score = y.shape[0] * dev / (y.shape[0] - gamma * edf) ** 2
         elif family in {"binomial", "poisson"}:
             score = _known_scale_score(design, y, beta, penalty, rank, family, method, mp)
         else:
-            score, sig2 = _gamma_reml(design, y, beta, penalty, rank, mp, method)
+            score, _phi = _gamma_reml(design, y, beta, penalty, rank, mp, method)
         return score, beta, float(sig2), float(edf), block_edf
     return _fit_glm_weighted(design, y, penalty, rank, penalties, family, method, mp, gamma, weights, offset)
 
@@ -666,7 +669,10 @@ def _fit_gaussian_weighted(design, y, penalty, rank, penalties, method, mp, gamm
 
 
 def _weighted_reml_score(sys, penalty, rank, phi, phi_df, method, weights, n) -> float:
-    _sign, logdet_p = np.linalg.slogdet(sys)
+    if method == "ml":
+        logdet_p = _range_logdet(sys, penalty, rank)
+    else:
+        _sign, logdet_p = np.linalg.slogdet(sys)
     logdet_s = _logdet_penalty(penalty, rank)
     width = phi_df if method == "reml" else n
     return float(width / 2 * (1 + np.log(2 * np.pi * phi)) + 0.5 * (logdet_p - logdet_s) - 0.5 * np.sum(np.log(weights)))
@@ -688,13 +694,13 @@ def _fit_glm_weighted(design, y, penalty, rank, penalties, family, method, mp, g
     block_edf = _edf_by_block(influence, penalties)
     mu = _mean(family, np.clip(design @ beta + off, -20, 20))
     dev = _deviance_weighted(family, y, mu, prior)
-    sig2 = 1.0 if family in {"binomial", "poisson"} else dev / max(y.shape[0] - edf, 1.0)
+    sig2 = 1.0 if family in {"binomial", "poisson"} else _pearson_scale(y, mu, prior, edf)
     if method == "gcv":
         score = y.shape[0] * dev / (y.shape[0] - gamma * edf) ** 2
     elif family in {"binomial", "poisson"}:
         score = _known_scale_score_weighted(design, y, beta, penalty, rank, family, method, mp, prior, off)
     else:
-        score, sig2 = _gamma_reml_weighted(design, y, beta, penalty, rank, mp, method, prior, off)
+        score, _phi = _gamma_reml_weighted(design, y, beta, penalty, rank, mp, method, prior, off)
     return score, beta, float(sig2), float(edf), block_edf
 
 
@@ -817,7 +823,10 @@ def _intercept_start(family: str, y: np.ndarray) -> float:
 
 def _reml_score(design, penalty, rank, phi, phi_df, method) -> float:
     sys = design.T @ design + penalty
-    _sign, logdet_p = np.linalg.slogdet(sys)
+    if method == "ml":
+        logdet_p = _range_logdet(sys, penalty, rank)
+    else:
+        _sign, logdet_p = np.linalg.slogdet(sys)
     logdet_s = _logdet_penalty(penalty, rank)
     width = phi_df if method == "reml" else design.shape[0]
     return float(width / 2 * (1 + np.log(2 * np.pi * phi)) + 0.5 * (logdet_p - logdet_s))
@@ -845,6 +854,23 @@ def _penalty_rank(width: int, penalties) -> int:
     return int(np.linalg.matrix_rank(_total_penalty(width, penalties, scale), hermitian=True))
 
 
+def _range_logdet(hessian: np.ndarray, penalty: np.ndarray, rank: int) -> float:
+    """``log|U' H U|`` with ``U`` the range space of the penalty, for the ML score.
+
+    ML treats the unpenalized (null space) coefficients as fixed and
+    integrates only the penalized ones, so the Laplace determinant is that of
+    the Hessian restricted to the penalty's range space (Wood 2011, sec. 2).
+    REML integrates all coefficients and uses ``log|H|``.
+    """
+    if rank == 0:
+        return 0.0
+    sym = 0.5 * (penalty + penalty.T)
+    _eig, vec = np.linalg.eigh(sym)
+    basis = vec[:, -rank:]
+    _sign, value = np.linalg.slogdet(basis.T @ hessian @ basis)
+    return float(value)
+
+
 def _penalized_hessian(design, w, penalty) -> tuple[np.ndarray, float]:
     hessian = design.T @ (w[:, None] * design) + penalty
     _sign, logdet_h = np.linalg.slogdet(hessian)
@@ -856,13 +882,45 @@ def _known_scale_score(design, y, beta, penalty, rank, family, method, mp: int) 
     eta = np.clip(design @ beta, -20, 20)
     mu = _mean(family, eta)
     _z, w = _working(family, y, eta)
-    _hessian, logdet_h = _penalized_hessian(design, w, penalty)
+    hessian, logdet_h = _penalized_hessian(design, w, penalty)
     logdet_s = _logdet_penalty(penalty, rank)
     pen = float(beta @ penalty @ beta)
     loglik = _log_likelihood(family, y, mu)
     if method == "ml":
-        return float(-loglik + 0.5 * pen)
+        return float(-loglik + 0.5 * pen + 0.5 * (_range_logdet(hessian, penalty, rank) - logdet_s))
     return float(-loglik + 0.5 * pen + 0.5 * (logdet_h - logdet_s) - 0.5 * mp * np.log(2 * np.pi))
+
+
+def _pearson_scale(y: np.ndarray, mu: np.ndarray, prior: np.ndarray | None, edf: float) -> float:
+    """Gamma scale: the Pearson statistic over the residual df, as ``summary.gam`` reports.
+
+    The REML (or ML) score profiles its own scale out, which can differ by a
+    few percent. That one enters only the score and the log-likelihood
+    (:func:`_likelihood_scale`); the covariance and the tests use this one.
+    """
+    resid = (y - mu) ** 2 / np.clip(mu, 1e-8, None) ** 2
+    if prior is not None:
+        resid = prior * resid
+    return float(np.sum(resid) / max(y.shape[0] - edf, 1.0))
+
+
+def _likelihood_scale(fit) -> float:
+    """Gamma scale that maximizes the fit's REML or ML score at its coefficients.
+
+    ``logLik.gam`` uses it, not the Pearson scale. GCV has no such score, so
+    it falls back to the Pearson scale.
+    """
+    if fit.method == "gcv" or fit.penalties is None:
+        return fit.sig2
+    penalty = _total_penalty(fit.x.shape[1], fit.penalties, fit.smoothing_parameters)
+    rank = _penalty_rank(fit.x.shape[1], fit.penalties)
+    if fit.weights is None and fit.offset is None:
+        return _gamma_reml(fit.x, fit.y, fit.coefficients, penalty, rank, fit.null_space_dim, fit.method)[1]
+    prior = np.ones(fit.n_obs) if fit.weights is None else fit.weights
+    off = np.zeros(fit.n_obs) if fit.offset is None else fit.offset
+    return _gamma_reml_weighted(
+        fit.x, fit.y, fit.coefficients, penalty, rank, fit.null_space_dim, fit.method, prior, off
+    )[1]
 
 
 def _gamma_loglik(y: np.ndarray, mu: np.ndarray, phi: float) -> float:
@@ -879,7 +937,10 @@ def _gamma_reml(design, y, beta, penalty, rank, mp: int, method: str) -> tuple[f
     hessian = design.T @ (w[:, None] * design) + penalty
     _sign, logdet_h = np.linalg.slogdet(hessian)
     n, p = design.shape
-    const = 0.0 if method == "ml" else 0.5 * mp * np.log(2 * np.pi)
+    const = 0.5 * mp * np.log(2 * np.pi)
+    if method == "ml":
+        # Only the penalized coefficients are integrated; their scale factors cancel with the penalty's.
+        logdet_h, p, const = _range_logdet(hessian, penalty, rank), rank, 0.0
 
     def objective(phi: float) -> float:
         ld_h = logdet_h - p * np.log(phi)
@@ -894,12 +955,12 @@ def _known_scale_score_weighted(design, y, beta, penalty, rank, family, method, 
     eta = np.clip(design @ beta + offset, -20, 20)
     mu = _mean(family, eta)
     _z, fisher = _working(family, y, eta)
-    _hessian, logdet_h = _penalized_hessian(design, fisher * prior, penalty)
+    hessian, logdet_h = _penalized_hessian(design, fisher * prior, penalty)
     logdet_s = _logdet_penalty(penalty, rank)
     pen = float(beta @ penalty @ beta)
     loglik = _log_likelihood_weighted(family, y, mu, prior)
     if method == "ml":
-        return float(-loglik + 0.5 * pen)
+        return float(-loglik + 0.5 * pen + 0.5 * (_range_logdet(hessian, penalty, rank) - logdet_s))
     return float(-loglik + 0.5 * pen + 0.5 * (logdet_h - logdet_s) - 0.5 * mp * np.log(2 * np.pi))
 
 
@@ -911,7 +972,10 @@ def _gamma_reml_weighted(design, y, beta, penalty, rank, mp, method, prior, offs
     hessian = design.T @ ((fisher * prior)[:, None] * design) + penalty
     _sign, logdet_h = np.linalg.slogdet(hessian)
     p = design.shape[1]
-    const = 0.0 if method == "ml" else 0.5 * mp * np.log(2 * np.pi)
+    const = 0.5 * mp * np.log(2 * np.pi)
+    if method == "ml":
+        # Only the penalized coefficients are integrated; their scale factors cancel with the penalty's.
+        logdet_h, p, const = _range_logdet(hessian, penalty, rank), rank, 0.0
 
     def objective(phi: float) -> float:
         ld_h = logdet_h - p * np.log(phi)
