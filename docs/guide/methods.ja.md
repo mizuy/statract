@@ -190,7 +190,7 @@ fit = gam(frame, "y", [smooth("age")], predictors=["arm"], family="binomial")
 print(fit.smooth_table())
 ```
 
-**注意**: 平滑を入れたモデルと直線のモデルは `compare_gams` で AIC を比べます。平滑の `edf` が 1 に近ければ、直線で足ります。
+**注意**: 平滑を入れたモデルと直線のモデルは `compare_gams` で比べます（AIC、逸脱度の変化、近似の検定）。平滑の `edf` が 1 に近ければ、直線で足ります。
 
 ## クラスターと反復: 混合モデル
 

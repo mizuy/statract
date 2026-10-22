@@ -60,6 +60,7 @@ class GeneralFit:
     parametric: list[tuple]
     offset: np.ndarray | None = None
     offset_name: str | None = None
+    weights: np.ndarray | None = None
 
     @property
     def smoothing_parameter(self) -> float:
@@ -76,6 +77,18 @@ class GeneralFit:
                 "statistic": stat,
                 "p_value": 2 * stats.norm.sf(np.abs(stat)),
             }
+        )
+
+    def glance(self) -> pl.DataFrame:
+        """One-row summary: deviance, deviance explained, and adjusted R².
+
+        See :func:`_glance` for the definitions.
+        """
+        eta = self.x @ self.coefficients
+        if self.offset is not None:
+            eta = eta + self.offset
+        return _glance(
+            self.family, self.y, _mean(self.family, eta), self.weights, self.offset, self.edf, self.sig2, self.reml
         )
 
     def smooth_table(self) -> pl.DataFrame:
@@ -186,21 +199,131 @@ class GeneralFit:
         return pl.DataFrame(rows)
 
 
-def compare_gams(*fits: GeneralFit) -> pl.DataFrame:
-    """AIC and the fitting criterion for nested or alternative smoothers."""
+def compare_gams(*fits) -> pl.DataFrame:
+    """Compare additive models fitted to the same rows, as ``anova`` on nested GAMs.
+
+    Each row after the first is tested against the row before it. ``df`` is
+    the change in effective degrees of freedom and ``deviance_change`` the
+    drop in deviance. Binomial and Poisson use a chi-squared test on the
+    deviance change. Gaussian and gamma divide by the scale of the larger
+    model and use an F test on ``df`` and that model's residual df.
+
+    The p-values are approximate: they treat the smoothing parameters as
+    known (Wood 2017, sec. 6.12.4). Fit the models with ``method="ml"``
+    when they differ in their unpenalized terms.
+    """
+    if not fits:
+        raise ValueError("compare_gams needs at least one fit")
+    families = {fit.family for fit in fits}
+    if len(families) > 1:
+        raise ValueError("all fits must have the same family")
+    if len({fit.n_obs for fit in fits}) > 1:
+        raise ValueError("all fits must use the same rows")
+    family = families.pop()
+    known_scale = family in {"binomial", "poisson"}
+    summaries = [fit.glance().row(0, named=True) for fit in fits]
     rows = []
-    for index, fit in enumerate(fits):
+    for index, (fit, summary) in enumerate(zip(fits, summaries, strict=True)):
         aic = fit.n_obs * np.log(fit.sig2) + 2 * fit.edf if fit.family == "gaussian" else np.nan
-        rows.append(
-            {
-                "model": index + 1,
-                "n_obs": fit.n_obs,
-                "edf": fit.edf,
-                "criterion": fit.reml,
-                "aic": aic,
-            }
-        )
-    return pl.DataFrame(rows)
+        row = {
+            "model": index + 1,
+            "n_obs": fit.n_obs,
+            "edf": fit.edf,
+            "residual_df": summary["residual_df"],
+            "deviance": summary["deviance"],
+            "criterion": fit.reml,
+            "aic": aic,
+            "df": None,
+            "deviance_change": None,
+            "statistic": None,
+            "p_value": None,
+        }
+        if index > 0:
+            before = summaries[index - 1]
+            df = fit.edf - fits[index - 1].edf
+            change = before["deviance"] - summary["deviance"]
+            row["df"] = df
+            row["deviance_change"] = change
+            row["statistic"], row["p_value"] = _deviance_test(
+                change, df, known_scale, summaries[index - 1], summary
+            )
+        rows.append(row)
+    schema = {
+        "model": pl.Int64,
+        "n_obs": pl.Int64,
+        "edf": pl.Float64,
+        "residual_df": pl.Float64,
+        "deviance": pl.Float64,
+        "criterion": pl.Float64,
+        "aic": pl.Float64,
+        "df": pl.Float64,
+        "deviance_change": pl.Float64,
+        "statistic": pl.Float64,
+        "p_value": pl.Float64,
+    }
+    return pl.DataFrame(rows, schema=schema)
+
+
+def _deviance_test(change: float, df: float, known_scale: bool, before: dict, after: dict) -> tuple[float, float]:
+    """Chi-squared or F test of a deviance change across ``|df|`` degrees of freedom."""
+    width = abs(df)
+    if width < 1e-8:
+        return np.nan, np.nan
+    if known_scale:
+        return change, float(stats.chi2.sf(change * np.sign(df), width))
+    larger = before if before["residual_df"] < after["residual_df"] else after
+    f_value = change / df / larger["scale"]
+    return f_value, float(stats.f.sf(f_value, width, larger["residual_df"]))
+
+
+def _glance(family, y, mu, weights, offset, edf, sig2, criterion) -> pl.DataFrame:
+    """Deviance, null deviance, deviance explained, and adjusted R².
+
+    The null model has the intercept, the prior weights, and the offset.
+    Deviance explained is ``1 - deviance / null_deviance``. Adjusted R² is
+    one minus the ratio of two unbiased variance estimates on the response
+    scale: the weighted residual sum of squares over ``n - edf``, and the
+    weighted total sum of squares around the weighted mean over ``n - 1``.
+    """
+    n = y.shape[0]
+    prior = np.ones(n) if weights is None else weights
+    deviance = _deviance_weighted(family, y, mu, prior)
+    null_deviance = _null_deviance(family, y, prior, offset)
+    residual_df = n - edf
+    centre = np.sum(prior * y) / np.sum(prior)
+    rss = np.sum(prior * (y - mu) ** 2)
+    tss = np.sum(prior * (y - centre) ** 2)
+    adj = 1 - (rss / residual_df) / (tss / (n - 1)) if tss > 0 and residual_df > 0 else np.nan
+    explained = 1 - deviance / null_deviance if null_deviance > 0 else np.nan
+    return pl.DataFrame(
+        {
+            "n_obs": [n],
+            "edf": [float(edf)],
+            "residual_df": [float(residual_df)],
+            "deviance": [deviance],
+            "null_deviance": [null_deviance],
+            "deviance_explained": [float(explained)],
+            "adj_r_squared": [float(adj)],
+            "scale": [float(sig2)],
+            "criterion": [float(criterion)],
+        }
+    )
+
+
+def _null_deviance(family: str, y: np.ndarray, weights: np.ndarray, offset: np.ndarray | None) -> float:
+    if offset is None:
+        centre = np.sum(weights * y) / np.sum(weights)
+        return _deviance_weighted(family, y, np.full(y.shape[0], centre), weights)
+    if family == "gaussian":
+        level = np.sum(weights * (y - offset)) / np.sum(weights)
+        return _deviance_weighted(family, y, level + offset, weights)
+
+    def deviance(level: float) -> float:
+        return _deviance_weighted(family, y, _mean(family, level + offset), weights)
+
+    start = _intercept_start(family, y)
+    opt = minimize_scalar(deviance, bracket=(start - 1.0, start + 1.0), options={"xtol": 1e-10})
+    return float(opt.fun)
 
 
 def fit_general(
@@ -305,6 +428,7 @@ def fit_general(
         parametric=parametric_spec,
         offset=offset_values,
         offset_name=offset,
+        weights=weight_values,
     )
 
 
@@ -523,6 +647,8 @@ def _dmean(family: str, eta: np.ndarray) -> np.ndarray:
 
 
 def _deviance(family: str, y: np.ndarray, mu: np.ndarray) -> float:
+    if family == "gaussian":
+        return float(np.sum((y - mu) ** 2))
     mu = np.clip(mu, 1e-8, None)
     if family == "binomial":
         mu = np.clip(mu, 1e-8, 1 - 1e-8)
@@ -687,6 +813,8 @@ def _log_likelihood_weighted(family: str, y: np.ndarray, mu: np.ndarray, weights
 
 
 def _deviance_weighted(family: str, y: np.ndarray, mu: np.ndarray, weights: np.ndarray) -> float:
+    if family == "gaussian":
+        return float(np.sum(weights * (y - mu) ** 2))
     mu = np.clip(mu, 1e-8, None)
     if family == "binomial":
         mu = np.clip(mu, 1e-8, 1 - 1e-8)

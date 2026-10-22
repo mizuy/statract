@@ -136,18 +136,34 @@ class GammFit:
         se = np.sqrt(np.clip(np.sum((basis @ cov) * basis, axis=1), 0, None))
         return pl.DataFrame({term: x, "fit": fit, "std_error": se})
 
-    def predict(self, data: pl.DataFrame, *, kind: str = "link") -> np.ndarray:
-        """Population prediction: parametric terms plus smooths, random effects at zero."""
+    def predict(
+        self, data: pl.DataFrame, *, kind: str = "link", se: bool = False
+    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+        """Population prediction: parametric terms plus smooths, random effects at zero.
+
+        ``se=True`` also returns the pointwise standard error from ``covariance``
+        (``Vp``), as ``predict(g$gam, se.fit = TRUE)``. For ``kind="response"``
+        it is the delta-method SE; a confidence interval is better built on the
+        link scale and transformed.
+        """
         if kind not in {"link", "response"}:
             raise ValueError("kind must be 'link' or 'response'")
         from .design import build_design
 
-        eta = build_design(data, self._parametric_design).x @ self.coefficients[: self.n_parametric]
-        for part, sl in zip(self._smooths, self._slices, strict=True):
-            eta = eta + part.rebuild(np.asarray(column_series(data, part.name).to_numpy(), dtype=float)) @ self.coefficients[sl]
+        pieces = [build_design(data, self._parametric_design).x]
+        for part in self._smooths:
+            pieces.append(part.rebuild(np.asarray(column_series(data, part.name).to_numpy(), dtype=float)))
+        design = np.column_stack(pieces)
+        eta = design @ self.coefficients
+        mu = special.expit(eta) if self.family == "binomial" else np.exp(eta)
+        point = eta if kind == "link" else mu
+        if not se:
+            return point
+        var = np.sum((design @ self.covariance) * design, axis=1)
+        se_link = np.sqrt(np.clip(var, 0, None))
         if kind == "link":
-            return eta
-        return special.expit(eta) if self.family == "binomial" else np.exp(eta)
+            return point, se_link
+        return point, se_link * (mu * (1 - mu) if self.family == "binomial" else mu)
 
 
 def gamm(

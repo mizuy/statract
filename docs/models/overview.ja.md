@@ -180,6 +180,8 @@ print(fitted.predict())
 
 この版が合わせるのは、ガウス分布、`basis="cr"`、`method="reml"`、平滑 1 本です。
 
+`fitted.glance()` は逸脱度、帰無逸脱度、説明率、調整済み R² を返します。`summary.gam` の `dev.expl` と `r.sq` に当たります。`compare_gams(small, large)` は `anova(m1, m2)` と同じく入れ子のモデルを比べます。逸脱度の変化、edf の変化（`df`）、カイ二乗検定（二項、ポアソン）または F 検定（ガウス、ガンマ）です。p 値は平滑化パラメータを既知として扱います。mgcv はその不確実性で補正した edf を使うので、`df` も p 値も mgcv のほうが大きくなります。
+
 平滑と変量切片を一つのモデルにするときは `gamm` です。`gamm4(y ~ s(pre_size_mm), random = ~(1 | examiner), family = binomial)` に当たります。
 
 ```python
@@ -189,6 +191,7 @@ fit = gamm(frame, "y", [smooth("pre_size_mm", basis="tp")], random="(1 | examine
 print(fit.tidy(), fit.smooth_table())
 print(median_odds_ratio(fit.variance_table()["variance"][0]))
 print(fit.partial_effect("pre_size_mm", [10, 20, 30]))
+eta, se = fit.predict(frame, se=True)  # 人口平均。変量効果は 0
 ```
 
 平滑を固定の零空間と iid の変量効果に分け（`mgcv::smooth2random`）、ほかの変量効果と一緒に Laplace の最尤で解きます。`gam(..., smooth("examiner", basis="re"))` は mgcv の `bs = "re"`（REML）と一致しますが、これは gamm4 とは別の近似で、合成データでは MOR が 1.8% ずれました。混合モデル形は基底の座標に依存するので、thin plate は mgcv と同じ座標（共変量の中心化、固有値で割った基底、列の二乗平均を 1）で作ります。基底は `tp`（一意な値 2000 個まで）と `cr`、分布は binomial と poisson です。

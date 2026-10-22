@@ -61,6 +61,7 @@
 | テンソル | `te(x, z)` | `tensor_smooth` | edf（rtol 3e-3）と当てはめ（atol 1e-3）。ヌルに近い周辺の平滑化パラメータは平坦 |
 | テンソル交互作用 | `ti(x, z)` | `tensor_interaction` | edf（rtol 3e-3）、REML（atol 1e-3）、当てはめ（atol 1e-3）。ヌルに近い周辺の平滑化パラメータは平坦 |
 | 重みと offset | `gam(..., weights=, offset=)` | `gam(..., weights=, offset=)`。列名 | 平滑化パラメータ、edf、REML、係数、当てはめ |
+| 説明率と入れ子の比較 | `summary.gam` の `dev.expl`、`r.sq`、`deviance()`、`null.deviance`、`anova(m1, m2, test=)` | `glance()`、`compare_gams` | fixture `gam_summary.json` 7 モデル: 二項、重み付きガウス、offset つきポアソン、ガウス、ガンマ。逸脱度、帰無逸脱度、説明率、調整済み R²、edf（rtol 1e-4、平坦な 2 例は 5e-4）。逸脱度の変化（atol 5e-3）。mgcv の `df` は平滑化パラメータの不確実性で補正した edf の差なので、`df` と p 値は合わせない |
 | 条件付き推論木 | `partykit::ctree`。二次形式、Šidák（`testtype="Bonferroni"`）、`minsplit=20`、`minbucket=7` | `conditional_tree` | 根の統計量と調整済み p 値、終端ノードの平均 |
 | ROC 曲線と AUC | `pROC::roc`（既定の水準、`direction="auto"`、`na.rm=TRUE`） | `roc_curve` | 閾値、感度、特異度、AUC（rtol 1e-10）。fixture は `proc.json` の 3 標本（同順位なし、同順位と欠測あり、完全分離の小標本） |
 | AUC の分散と区間 | `var`、`ci.auc(method="delong")` | `RocCurve.var_auc`、`RocCurve.ci_auc` | DeLong の分散と 95% / 90% 区間（rtol 1e-8） |

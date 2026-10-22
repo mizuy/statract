@@ -62,6 +62,24 @@ def test_gamm_matches_gamm4(name: str) -> None:
         np.testing.assert_allclose(effect["std_error"].to_numpy(), se, rtol=1e-4)
 
 
+def test_gamm_predict_standard_errors() -> None:
+    fit = gamm(DATA, "y", [smooth("pre_size_mm", k=10, basis="tp")], random="(1 | examiner)")
+    eta, se = fit.predict(GRID, se=True)
+    np.testing.assert_allclose(eta, fit.predict(GRID))
+    # Intercept plus one smooth: var = var(b0) + var(f) + 2 cov(b0, f).
+    basis = fit._smooths[0].rebuild(GRID["pre_size_mm"].to_numpy())
+    sl = fit._slices[0]
+    cov = fit.covariance
+    smooth_var = np.sum((basis @ cov[sl, sl]) * basis, axis=1)
+    cross = basis @ cov[sl, 0]
+    np.testing.assert_allclose(se**2, cov[0, 0] + smooth_var + 2 * cross, rtol=1e-10)
+    effect = fit.partial_effect("pre_size_mm", GRID["pre_size_mm"].to_numpy())
+    np.testing.assert_allclose(smooth_var, effect["std_error"].to_numpy() ** 2, rtol=1e-10)
+    mu, se_mu = fit.predict(GRID, kind="response", se=True)
+    np.testing.assert_allclose(mu, 1 / (1 + np.exp(-eta)))
+    np.testing.assert_allclose(se_mu, se * mu * (1 - mu))
+
+
 def test_gamm_guards() -> None:
     with pytest.raises(ValueError, match="family"):
         gamm(DATA, "y", [smooth("pre_size_mm", basis="tp")], random="(1 | examiner)", family="gaussian")
