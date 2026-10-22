@@ -182,6 +182,8 @@ This version matches the Gaussian family, `basis="cr"`, `method="reml"`, and a s
 
 `fitted.glance()` gives the deviance, the null deviance, the deviance explained, and the adjusted R², as `summary.gam`'s `dev.expl` and `r.sq`. `compare_gams(small, large)` compares nested models, as `anova(m1, m2)`: the deviance change, the change in edf (`df`), and a chi-squared test (binomial, Poisson) or F test (Gaussian, gamma). The p-value treats the smoothing parameters as known. mgcv uses an edf corrected for their uncertainty, so its `df` is larger and its p-value is larger too.
 
+`fitted.smooth_table()` tests that each smooth is zero, as the `s.table` of `summary.gam` (Wood 2013): `ref_df`, `statistic` (chi-squared for binomial and Poisson, F for Gaussian and gamma), and `p_value`. `ref_df` and the statistic match mgcv; the p-values follow the null distribution in the paper and are somewhat smaller than mgcv's. `glance()` also gives `edf2`, the edf corrected for smoothing parameter uncertainty (Wood, Pya & Säfken 2016), with `log_likelihood`, `df`, and `aic` as `logLik()` and `AIC()` on a `gam`. `compare_gams` reports this AIC, so models with different smooths can be compared on it.
+
 To put smooths and random intercepts in one model, use `gamm`. It corresponds to `gamm4(y ~ s(pre_size_mm), random = ~(1 | examiner), family = binomial)`.
 
 ```python

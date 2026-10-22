@@ -21,7 +21,8 @@ one <- function(m) {
   s <- summary(m)
   st <- s$s.table
   list(deviance = deviance(m), null_deviance = m$null.deviance, deviance_explained = s$dev.expl,
-       adj_r_squared = s$r.sq, edf = sum(m$edf),
+       adj_r_squared = s$r.sq, edf = sum(m$edf), edf2 = sum(m$edf2),
+       log_likelihood = as.numeric(logLik(m)), df = attr(logLik(m), "df"), aic = AIC(m),
        s_table = list(edf = unname(st[, 1]), ref_df = unname(st[, 2]), statistic = unname(st[, 3]),
                       p_value = unname(st[, 4])))
 }

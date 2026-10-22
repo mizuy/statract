@@ -182,6 +182,8 @@ print(fitted.predict())
 
 `fitted.glance()` は逸脱度、帰無逸脱度、説明率、調整済み R² を返します。`summary.gam` の `dev.expl` と `r.sq` に当たります。`compare_gams(small, large)` は `anova(m1, m2)` と同じく入れ子のモデルを比べます。逸脱度の変化、edf の変化（`df`）、カイ二乗検定（二項、ポアソン）または F 検定（ガウス、ガンマ）です。p 値は平滑化パラメータを既知として扱います。mgcv はその不確実性で補正した edf を使うので、`df` も p 値も mgcv のほうが大きくなります。
 
+`fitted.smooth_table()` は、`summary.gam` の `s.table` と同じく、各平滑が 0 であるかを検定します（Wood 2013）。`ref_df`、`statistic`（二項とポアソンはカイ二乗、ガウスとガンマは F）、`p_value` です。`ref_df` と統計量は mgcv と一致します。p 値は論文の帰無分布にもとづき、mgcv より少し小さくなります。`glance()` は、平滑化パラメータの不確実性で補正した edf（`edf2`、Wood, Pya & Säfken 2016）と、`logLik()` と `AIC()` に当たる `log_likelihood`、`df`、`aic` も返します。`compare_gams` もこの AIC を出すので、平滑の違うモデルをこれで比べられます。
+
 平滑と変量切片を一つのモデルにするときは `gamm` です。`gamm4(y ~ s(pre_size_mm), random = ~(1 | examiner), family = binomial)` に当たります。
 
 ```python

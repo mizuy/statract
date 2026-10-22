@@ -10,6 +10,11 @@ with ``s.table``. The p-values come from the null distribution in the paper
 (sec. 2.3), computed by quadrature, and are checked against simulation;
 mgcv 1.9-1 reports somewhat larger p-values, kept in the fixture for
 reference.
+
+``glance`` ``edf2`` and ``aic`` (Wood, Pya & Säfken 2016) are compared with
+``sum(edf2)`` and ``AIC()``. ``edf2`` depends on the choice of the factor of
+the coefficient covariance and on how flat smoothing parameters are found,
+so it agrees to 1%; the AIC moves by twice that difference.
 """
 
 from __future__ import annotations
@@ -84,6 +89,38 @@ def test_single_model_summary(name: str, build, rtol: float) -> None:
     # Gamma: mgcv's scale is the Pearson estimate, statract's the REML one
     # (6% apart here), and the F statistic scales with it.
     _check(build(), FIXTURE[name], rtol=rtol, statistic=name != "gamma")
+
+
+_MODELS = {
+    ("binomial", "small"): lambda: gam(BINARY, "y", [smooth("pre_size_mm", k=10)], family="binomial"),
+    ("binomial", "large"): lambda: gam(
+        BINARY, "y", [smooth("pre_size_mm", k=10), smooth("age", k=10)], family="binomial"
+    ),
+    ("gaussian_weighted", "small"): lambda: gam(GAUSS, "y", [smooth("x", k=10)], weights="w"),
+    # The z smooth is at working infinity, so its smoothing parameter gets no variance.
+    ("gaussian_weighted", "large"): lambda: gam(GAUSS, "y", [smooth("x", k=10), smooth("z", k=10)], weights="w"),
+    ("poisson_offset", None): lambda: gam(BINARY, "n", [smooth("age", k=8)], family="poisson", offset="off"),
+    ("gaussian", None): lambda: gam(GAUSS, "y", [smooth("x", k=10)]),
+    ("gamma", None): lambda: gam(GAUSS, "cost", [smooth("x", k=8)], family="gamma"),
+}
+
+
+@pytest.mark.parametrize("key", list(_MODELS), ids=lambda key: "-".join(k for k in key if k))
+def test_corrected_edf_and_aic(key) -> None:
+    case, part = key
+    want = FIXTURE[case] if part is None else FIXTURE[case][part]
+    row = _MODELS[key]().glance().row(0, named=True)
+    np.testing.assert_allclose(row["edf2"], want["edf2"], rtol=1e-2)
+    np.testing.assert_allclose(row["log_likelihood"], want["log_likelihood"], rtol=1e-5)
+    np.testing.assert_allclose(row["df"] - row["edf2"], want["df"] - want["edf2"])
+    np.testing.assert_allclose(row["aic"], want["aic"], atol=2 * 1e-2 * want["edf2"])
+
+
+def test_compare_gams_aic_is_corrected() -> None:
+    small = _MODELS[("binomial", "small")]()
+    large = _MODELS[("binomial", "large")]()
+    table = compare_gams(small, large)
+    np.testing.assert_allclose(table["aic"].to_numpy(), [small.glance()["aic"][0], large.glance()["aic"][0]])
 
 
 def test_smooth_test_null_distribution() -> None:

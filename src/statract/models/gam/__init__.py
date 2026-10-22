@@ -96,11 +96,30 @@ class GamFit:
         )
 
     def glance(self) -> pl.DataFrame:
-        """One-row summary: deviance, deviance explained, and adjusted R²."""
-        from .general import _glance
+        """One-row summary: deviance, deviance explained, adjusted R², and the corrected AIC."""
+        from .general import _aic_columns, _glance
 
         mu = self.x @ self.coefficients
-        return _glance(self.family, self.y, mu, None, None, self.edf, self.sig2, self.reml)
+        summary = _glance(self.family, self.y, mu, None, None, self.edf, self.sig2, self.reml)
+        return summary.with_columns(**_aic_columns(self.family, self.y, mu, None, self.sig2, self.corrected_edf()))
+
+    def corrected_edf(self) -> float:
+        """edf corrected for smoothing parameter uncertainty (Wood, Pya & Säfken 2016)."""
+        cached = getattr(self, "_corrected_edf", None)
+        if cached is not None:
+            return cached
+        from .edf_correction import corrected_edf
+
+        xtx = self.x.T @ self.x
+
+        def refit(rho):
+            sp = float(np.exp(rho[0]))
+            score, beta, sig2, _edf = _reml(sp, self.x, self.y, self.penalty, 2)
+            return score, beta, sig2 * np.linalg.pinv(xtx + sp * self.penalty)
+
+        _tau0, _tau1, value = corrected_edf(np.log([self.smoothing_parameter]), refit, xtx / self.sig2)
+        self._corrected_edf = value
+        return value
 
     def smooth_table(self) -> pl.DataFrame:
         """edf, smoothing parameter, and the Wood (2013) F test that the smooth is zero."""

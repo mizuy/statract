@@ -27,12 +27,18 @@ $X_j = QR$（薄い QR）とすると、$T_r = \hat\beta_j^\top R^\top (R V_j R^
 
 **$r$ の決め方。** $r$ は平滑の edf から決める。`?summary.gam`: 「p 値の計算には $\mathrm{tr}(2A - AA)$ にもとづく別の edf が適している」。平滑 $j$ のブロックでは、$F = V_\beta\mathcal{I}$ として $\mathrm{tr}(2F_{jj} - (FF)_{jj})$。これを Ref.df とする。
 
-**$r$ が整数でないとき。** $R V_j R^\top = U\Lambda U^\top$（固有値は降順）とする。$k = \lceil r\rceil$ として、上位 $k$ 個の固有成分を使う。$r$ の端数の扱いは Wood (2013b) の非整数階数の擬似逆行列による。最後の 2 成分を一つの $2\times2$ ブロックにまとめ、帰無分布が $\chi^2_{\lfloor r\rfloor}$ と $\chi^2_{\lceil r\rceil}$ のあいだを滑らかにつなぐようにする。ブロックの具体的な形は論文 sec. 3 で確認してから書く（§8）。
+**$r$ が整数でないとき（Wood 2013, sec. 2.2）。** $R V_j R^\top = U\Lambda U^\top$（固有値は降順）、$d = U^\top R\hat\beta_j$ とする。$k = \lfloor r\rfloor + 1$、$\nu = r - k + 1$、$\rho = \sqrt{\nu(1-\nu)/2}$。上位 $k-2$ 成分はふつうの逆数、最後の 2 成分は
 
-**帰無分布。**
+$$\tilde B = \Lambda_{2}^{-1/2}\begin{pmatrix}1 & \rho\\ \rho & \nu\end{pmatrix}\Lambda_{2}^{-1/2}$$
 
-- 尺度が既知（二項、ポアソン、gamm）: $T_r$ の帰無分布は、重み付きのカイ二乗の和で近似する（整数 $r$ なら $\chi^2_r$）。p 値は Davies または Liu–Tang–Zhang の方法で求める。
-- 尺度を推定（ガウス、ガンマ）: $F = (T_r/r)/\hat\phi$ を $F(r, n - \mathrm{edf})$ と比べる。
+でまとめる。$T_r = \sum_{i \le k-2} d_i^2/\lambda_i + d_{(2)}^\top\tilde B\,d_{(2)}$。$r$ が整数なら $\nu = 0$ で、ふつうの階数 $r$ の擬似逆行列になる。
+
+論文の $T_r$ は、最後の 2 つの固有ベクトルの符号で値が変わる（固有値ソルバーの符号は任意）。`s.table` と合うのは、交差項が負にならない向き（$|d_{(2)}|$ を使う）だった（2026-10-22、mgcv 1.9-1 と rtol 1e-3 で一致）。
+
+**帰無分布（sec. 2.3）。**
+
+- 尺度が既知（二項、ポアソン、gamm）: $T_r \sim \chi^2_{k-2} + \nu_1\chi^2_1 + \nu_2\chi^2_1$、$\nu_1 = \{\nu + 1 + \sqrt{1-\nu^2}\}/2$、$\nu_2 = \nu + 1 - \nu_1$。p 値は正規変数 2 つを Gauss–Legendre 求積で積分して求める（Imhof 型の積分は精度が足りなかった）。
+- 尺度を推定（ガウス、ガンマ）: p 値は $P(Q > T_r W/\kappa)$、$W \sim \chi^2_\kappa$、$\kappa = n - \mathrm{edf}$。$W$ の分位点で積分する。表には $F = T_r/r$ を出す。$r$ が整数なら $F(r, \kappa)$ 検定と一致する。
 
 ## 4. 計算の手順
 
@@ -60,5 +66,8 @@ $X_j = QR$（薄い QR）とすると、$T_r = \hat\beta_j^\top R^\top (R V_j R^
 
 ## 8. R と違うところ、未確認の点
 
-- 非整数階数の擬似逆行列の $2\times2$ ブロックの形と、それに対応する帰無分布。論文の本文で確認する。クラウド環境から arXiv と出版社サイトに届かなかったため（2026-10-22）、このノートはまだ記憶にもとづく。確認が済むまで実装に入らない。
-- 重み付きカイ二乗の和の p 値の方法（Davies の厳密法か、モーメント近似か）。R と合わせる精度に応じて決める。
+- 2026-10-22: 論文 PDF（mizuy から受け取った）で §3 の式を確認し、実装した（`models/gam/smooth_test.py`）。
+- `ref_df` と統計量は mgcv の `s.table` と rtol 1e-3 で一致する。ただしガンマでは尺度が違う（mgcv は Pearson 推定 0.2944、statract は REML 推定 0.2771、約 6%）ので F も同じ割合でずれる。
+- p 値は mgcv より小さい（例: gam の age 項 0.29 に対し mgcv 0.37、b1 で 1.88e-5 に対し 2.03e-5）。statract の p 値は論文の帰無分布どおりで、モンテカルロで確かめた。mgcv 1.9-1 は論文と別の計算をしていると考えられるが、GPL のソースは読まないので理由は特定しない。
+- gamm4 の `s.table` は `Ref.df = edf` を使う。`GammFit.smooth_table` もそれに合わせた。gamm4 の pivot の問題で $V_p$ が少しずれるため、比較は rtol 5%。
+- `re` 基底の項は `NaN`。因子 `by` の平滑は全水準をまとめて 1 つの検定にする（mgcv は水準ごと）。

@@ -62,6 +62,9 @@ class GeneralFit:
     offset: np.ndarray | None = None
     offset_name: str | None = None
     weights: np.ndarray | None = None
+    penalties: list | None = None
+    null_space_dim: int = 0
+    gamma: float = 1.0
 
     @property
     def smoothing_parameter(self) -> float:
@@ -81,16 +84,49 @@ class GeneralFit:
         )
 
     def glance(self) -> pl.DataFrame:
-        """One-row summary: deviance, deviance explained, and adjusted R².
+        """One-row summary: deviance, deviance explained, adjusted R², and AIC.
 
-        See :func:`_glance` for the definitions.
+        See :func:`_glance` for the definitions. ``edf2`` is
+        :meth:`corrected_edf`; ``log_likelihood``, ``df``, and ``aic`` match
+        ``logLik()`` and ``AIC()`` on a ``gam`` (see :func:`_aic_columns`).
         """
         eta = self.x @ self.coefficients
         if self.offset is not None:
             eta = eta + self.offset
-        return _glance(
-            self.family, self.y, _mean(self.family, eta), self.weights, self.offset, self.edf, self.sig2, self.reml
+        mu = _mean(self.family, eta)
+        summary = _glance(self.family, self.y, mu, self.weights, self.offset, self.edf, self.sig2, self.reml)
+        return summary.with_columns(
+            **_aic_columns(self.family, self.y, mu, self.weights, self.sig2, self.corrected_edf())
         )
+
+    def corrected_edf(self) -> float:
+        """edf corrected for smoothing parameter uncertainty (Wood, Pya & Säfken 2016).
+
+        mgcv's ``sum(edf2)``. It is the plain edf for ``method="gcv"`` and
+        when there is no smoothing parameter.
+        """
+        cached = getattr(self, "_corrected_edf", None)
+        if cached is not None:
+            return cached
+        if self.method == "gcv" or self.penalties is None or self.smoothing_parameters.size == 0:
+            value = float(self.edf)
+        else:
+            from .edf_correction import corrected_edf
+
+            def refit(rho):
+                lam = np.exp(rho)
+                score, beta, sig2, _edf, _block = _fit_once(
+                    self.x, self.y, self.penalties, lam, self.family, self.method, self.null_space_dim,
+                    self.gamma, self.weights, self.offset,
+                )
+                cov = _covariance(
+                    self.x, self.y, beta, self.penalties, lam, self.family, sig2, self.weights, self.offset
+                )
+                return score, beta, cov
+
+            _tau0, _tau1, value = corrected_edf(np.log(self.smoothing_parameters), refit, _information(self))
+        self._corrected_edf = value
+        return value
 
     def smooth_table(self) -> pl.DataFrame:
         """edf, smoothing parameters, and a test that each smooth is zero.
@@ -225,22 +261,10 @@ def _smooth_tests(fit) -> list[tuple[float, float, float]]:
     """``(ref_df, statistic, p_value)`` for each block of a fit (Wood 2013)."""
     from .smooth_test import reference_df, smooth_p_value, wood_statistic
 
-    eta = fit.x @ fit.coefficients
-    offset = getattr(fit, "offset", None)
-    if offset is not None:
-        eta = eta + offset
-    weights = getattr(fit, "weights", None)
-    if fit.family == "gaussian":
-        w = np.ones(fit.n_obs)
-    else:
-        _z, w = _working(fit.family, fit.y, eta)
-    if weights is not None:
-        w = w * weights
+    w = _fit_weights(fit)
     root_w = np.sqrt(w)
     known = fit.family in {"binomial", "poisson"}
-    scale = 1.0 if known else fit.sig2
-    information = fit.x.T @ (w[:, None] * fit.x)
-    influence = fit.covariance @ information / scale
+    influence = fit.covariance @ _information(fit)
     residual_df = None if known else fit.n_obs - fit.edf
     out = []
     for block in fit.blocks:
@@ -257,6 +281,27 @@ def _smooth_tests(fit) -> list[tuple[float, float, float]]:
     return out
 
 
+def _fit_weights(fit) -> np.ndarray:
+    """Working weights times prior weights at the fitted coefficients."""
+    weights = getattr(fit, "weights", None)
+    if fit.family == "gaussian":
+        w = np.ones(fit.n_obs)
+    else:
+        eta = fit.x @ fit.coefficients
+        offset = getattr(fit, "offset", None)
+        if offset is not None:
+            eta = eta + offset
+        _z, w = _working(fit.family, fit.y, eta)
+    return w if weights is None else w * weights
+
+
+def _information(fit) -> np.ndarray:
+    """Unpenalized information ``X'WX / phi`` at the fit."""
+    w = _fit_weights(fit)
+    scale = 1.0 if fit.family in {"binomial", "poisson"} else fit.sig2
+    return fit.x.T @ (w[:, None] * fit.x) / scale
+
+
 def compare_gams(*fits) -> pl.DataFrame:
     """Compare additive models fitted to the same rows, as ``anova`` on nested GAMs.
 
@@ -268,7 +313,8 @@ def compare_gams(*fits) -> pl.DataFrame:
 
     The p-values are approximate: they treat the smoothing parameters as
     known (Wood 2017, sec. 6.12.4). Fit the models with ``method="ml"``
-    when they differ in their unpenalized terms.
+    when they differ in their unpenalized terms. ``aic`` is the corrected
+    AIC from :meth:`GeneralFit.glance`, as ``AIC()`` on a ``gam``.
     """
     if not fits:
         raise ValueError("compare_gams needs at least one fit")
@@ -282,7 +328,6 @@ def compare_gams(*fits) -> pl.DataFrame:
     summaries = [fit.glance().row(0, named=True) for fit in fits]
     rows = []
     for index, (fit, summary) in enumerate(zip(fits, summaries, strict=True)):
-        aic = fit.n_obs * np.log(fit.sig2) + 2 * fit.edf if fit.family == "gaussian" else np.nan
         row = {
             "model": index + 1,
             "n_obs": fit.n_obs,
@@ -290,7 +335,7 @@ def compare_gams(*fits) -> pl.DataFrame:
             "residual_df": summary["residual_df"],
             "deviance": summary["deviance"],
             "criterion": fit.reml,
-            "aic": aic,
+            "aic": summary["aic"],
             "df": None,
             "deviance_change": None,
             "statistic": None,
@@ -366,6 +411,36 @@ def _glance(family, y, mu, weights, offset, edf, sig2, criterion) -> pl.DataFram
             "criterion": [float(criterion)],
         }
     )
+
+
+def _aic_columns(family: str, y: np.ndarray, mu: np.ndarray, weights, scale: float, edf2: float) -> dict:
+    """``edf2``, ``log_likelihood``, ``df``, and ``aic = -2 l + 2 df`` (Wood, Pya & Säfken 2016, eq. 10).
+
+    ``df`` is the corrected edf, plus one for the scale of Gaussian and gamma
+    models. The Gaussian ``l`` uses the maximum likelihood scale, the
+    weighted residual sum of squares over ``n``. The gamma ``l`` uses the
+    fit's scale ``scale``, which with REML matches ``logLik.gam``.
+    """
+    n = y.shape[0]
+    prior = np.ones(n) if weights is None else weights
+    if family in {"binomial", "poisson"}:
+        loglik = _log_likelihood_weighted(family, y, mu, prior)
+        df = edf2
+    elif family == "gaussian":
+        sigma2 = np.sum(prior * (y - mu) ** 2) / n
+        loglik = -0.5 * n * (np.log(2 * np.pi * sigma2) + 1) + 0.5 * np.sum(np.log(prior))
+        df = edf2 + 1
+    else:
+        shape = 1 / scale
+        mu = np.clip(mu, 1e-8, None)
+        loglik = float(np.sum(prior * stats.gamma.logpdf(y, shape, scale=mu / shape)))
+        df = edf2 + 1
+    return {
+        "edf2": float(edf2),
+        "log_likelihood": float(loglik),
+        "df": float(df),
+        "aic": float(-2 * loglik + 2 * df),
+    }
 
 
 def _null_deviance(family: str, y: np.ndarray, weights: np.ndarray, offset: np.ndarray | None) -> float:
@@ -487,6 +562,9 @@ def fit_general(
         offset=offset_values,
         offset_name=offset,
         weights=weight_values,
+        penalties=penalties,
+        null_space_dim=mp,
+        gamma=gamma,
     )
 
 
