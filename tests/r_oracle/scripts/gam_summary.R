@@ -45,5 +45,16 @@ cases <- list(
   gamma = one(gam(cost ~ s(x, k = 8, bs = "cr"), family = Gamma, data = g, method = "REML"))
 )
 
+# method = "ML": smoothing parameters, edf, the minimized criterion, and the scale.
+ml <- function(m) list(sp = unname(m$sp), edf = sum(m$edf), criterion = m$gcv.ubre, scale = m$sig2)
+ml_cases <- list(
+  binomial = ml(gam(y ~ s(pre_size_mm, k = 10, bs = "cr"), family = binomial, data = b, method = "ML")),
+  gaussian_weighted = ml(gam(y ~ s(x, k = 10, bs = "cr"), weights = w, data = g, method = "ML")),
+  poisson_offset = ml(gam(n ~ s(age, k = 8, bs = "cr") + offset(off), family = poisson, data = b, method = "ML")),
+  gaussian = ml(gam(y ~ s(x, k = 10, bs = "cr"), data = g, method = "ML")),
+  gamma = ml(gam(cost ~ s(x, k = 8, bs = "cr"), family = Gamma, data = g, method = "ML"))
+)
+cases$gamma$scale <- gam(cost ~ s(x, k = 8, bs = "cr"), family = Gamma, data = g, method = "REML")$sig2
+
 meta <- list(r = R.version.string, mgcv = as.character(packageVersion("mgcv")))
-write_json(list(meta = meta, cases = cases), out, digits = NA, auto_unbox = TRUE, pretty = TRUE)
+write_json(list(meta = meta, cases = cases, ml = ml_cases), out, digits = NA, auto_unbox = TRUE, pretty = TRUE)
