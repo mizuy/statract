@@ -28,6 +28,7 @@ class SurvivalFormula:
     strata_names: tuple[str, ...]
     cluster_name: str | None
     covariate_names: list[str]
+    random_effects: tuple = ()
 
 
 def parse_survival_formula(
@@ -43,12 +44,13 @@ def parse_survival_formula(
     allow_counting: bool,
     allow_strata: bool,
     allow_cluster: bool,
+    allow_random: bool = False,
 ) -> SurvivalFormula:
     """Expand ``Surv(time, status) ~ ...`` and align the extra columns."""
     built = model_matrix(formula, data)
     if built.surv is None:
         raise ValueError("the formula needs a Surv() response, for example Surv(time, status) ~ age + sex")
-    if built.random_effects:
+    if built.random_effects and not allow_random:
         raise ValueError("random effects belong in fit_mixed, for example (1 | group)")
     if built.surv.entry is not None and not allow_counting:
         raise ValueError("Surv(start, stop, status) belongs in cox_ph or fine_gray")
@@ -120,6 +122,7 @@ def parse_survival_formula(
         strata_names=tuple(strata_names),
         cluster_name=cluster_name,
         covariate_names=_covariate_names(design),
+        random_effects=tuple(built.random_effects),
     )
 
 

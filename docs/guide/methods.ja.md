@@ -206,6 +206,7 @@ print(fit.smooth_table())
 | 計数で過分散 | `fit_mixed(frame, "n ~ x + offset(log(years)) + (1 | site)", family="negative_binomial")` |
 | ゼロが多い計数 | `zero_inflation=True` または `hurdle=True` |
 | 非線形と変量効果 | `gamm(frame, "y", [smooth("x")], random="(1 | site)", family="binomial")` |
+| 生存時間、施設の変量切片（frailty） | `cox_mixed(frame, "Surv(time, event) ~ x + (1 | site)")` |
 
 施設差の大きさは `fit.variance_table()` で見ます。ロジスティックなら `median_odds_ratio` でオッズ比の尺度にできます。
 
@@ -247,6 +248,7 @@ print(proportional_hazards_test(fit))
 | 同じ患者の複数の眼など | `cluster(id)` か `cluster=`（Lin–Wei のロバスト分散） |
 | 時間で変わる共変量・効果 | `split_follow_up` で追跡を区切り、`entry` を渡す |
 | 遅れて観察に入る | `entry=` |
+| 施設でハザードがばらつき、そのばらつき自体を知りたい（frailty） | `cox_mixed(frame, "Surv(time, event) ~ arm + (1 | hospital)")` |
 
 **注意**: `proportional_hazards_test` で PH（比例ハザード）を確かめます。P 値が小さい共変量は、層にするか、時間で区切るか、AFT を考えます。診断図をまとめて出すときは `write_cox_diagnostic_suite` です。
 

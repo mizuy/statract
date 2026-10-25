@@ -202,7 +202,7 @@ When you pass new data to `predict`, columns are rebuilt with the recipe from fi
 
 `(1 | g)` is lme4 syntax, and `model_matrix` puts it in `random_effects`. `fit_ols`, `fit_glm`, and `formula_model_matrix` raise an error when there are random effects. Estimation is done by `fit_mixed`.
 
-Random effects are joined to other terms with `+`. Combining them with `*`, `:`, `/`, `^`, `%in%`, or subtraction is an error. A slope is one numeric column. There is also one grouping column. For Gaussian and gamma, `fit_mixed` accepts one grouping. For binomial (logit), Poisson, and negative binomial, you can write multiple terms, as in `(1 | patient) + (1 | examiner)`.
+Random effects are joined to other terms with `+`. Combining them with `*`, `:`, `/`, `^`, `%in%`, or subtraction is an error. A slope is one numeric column. There is also one grouping column. For Gaussian and gamma, `fit_mixed` accepts one grouping. For binomial (logit), Poisson, and negative binomial, you can write multiple terms, as in `(1 | patient) + (1 | examiner)`. `cox_mixed` takes random effects in a `Surv` formula. It also takes `(1 | hospital:ward)`, grouped by the combinations of the two columns, and `(1 | hospital/ward)`, which is `(1 | hospital) + (1 | hospital:ward)` as in lme4. `fit_mixed` and `gamm` do not take these yet.
 
 - `y ~ x + (1 | g)` has fixed effects `x` and the intercept, and a random intercept.
 - `y ~ x + (1 + x | g)` has a random intercept and a random slope for `x`. They are correlated. Use `method="ml"` for maximum likelihood.

@@ -36,6 +36,7 @@
 | 重み付き Cox | `coxph(..., weights=)`。整数でない重みは Lin–Wei 分散、整数の重みはモデルベース | `cox_ph(..., weights=)` | 係数、頑健 SE、部分尤度 |
 | Cox の推論 | `residuals.coxph`（7 種）、`cox.zph(transform="km")`、`concordance`、`basehaz(centered=FALSE)`、`predict(type="expected")` | `fit.residuals(kind=)`、`proportional_hazards_test`、`fit.concordance()`、`fit.baseline_hazard()`、`fit.predict(kind="expected")` | fixture `cox_inference.json`。同順位あり（Efron / Breslow）、層と重み、計数過程（クラスタありとなし）の 6 標本。残差 rtol 1e-6、`cox.zph` は項ごとのカイ二乗と自由度、C と SE |
 | Cox の多方向クラスタ頑健分散 | `sandwich::vcovCL(fit, cluster = ~ id_patient + e_examiner)`（HC0、`cadjust=TRUE`） | `cluster_covariance(cox_fit, ["id_patient", "e_examiner"], data=frame)` | fixture `cox_two_way.json` 8 例: 二元、HC1、`adjust=False`、一元、係数 1 個（vcovCL が落ちるので R 側は同じ包除を手で書き、他の例で vcovCL と一致を確認）、重みと層と Breslow、三元。共分散 rtol 1e-6 |
+| 混合効果 Cox（frailty） | `coxme::coxme`（2.2-22）。`(1 \| g)`、交差、入れ子、変量傾き、`strata`、重み、計数過程、Efron / Breslow。`vfixed=` | `cox_mixed`、`variances=` | fixture `cox_mixed.json` の 11 例。分散を R の推定値に固定した当てはめで係数 rtol 1e-6、共分散 rtol 1e-5、3 つの対数尤度 atol 1e-6、有効自由度 rtol 1e-6、BLUP atol 1e-6。分散も推定する当てはめでは、積分対数尤度が R 以上（差 0.01 未満）、分散 rtol 2e-2 / atol 3e-3 |
 | クラスタ頑健分散 | `coxph(..., cluster=id)`。計数過程 `Surv(start, stop, status)` を含む | `cox_ph(..., cluster=)` または式の `cluster(id)` | 頑健共分散 rtol 1e-6 |
 | 加速故障時間 | `survreg` | `accelerated_failure` | weibull、lognormal、exponential の係数、SE、対数尤度。尺度は `Log(scale)` |
 | Aalen–Johansen | `survfit(Surv(time, factor(event)) ~ 1)`。左切り捨ては `Surv(entry, time, factor(event))` | `survival_curve(..., kind="aalen_johansen", entry=)` | 累積発生、Aalen 型 SE、plain 区間 |
@@ -162,6 +163,17 @@ WeightIt と違うところ:
 - 切り詰めた重みで `vcov="asympt"` はエラーです。WeightIt の扱いは確かめていません。
 - `vcov="bootstrap"` はパーセンタイル区間です。WeightIt の `vcov="BS"` は複製の共分散から Wald 型の区間を作ります。乱数も違うので値は一致しません。
 - 周辺効果は飽和モデル（群ごとの重み付き平均）だけです。共変量を入れたアウトカムモデルからの g 計算（`avg_comparisons`）はありません。
+
+## coxme と違うところ
+
+`cox_mixed` は coxme 2.2-22 に合わせていますが、次の点は R と違います。設計ノートは `dev-notes/design/cox-mixed.md` です。
+
+- `(x | g)`: coxme では切片なしの傾きだけです。statract は lme4 と同じく `(1 + x | g)` と読みます。傾きだけなら `(0 + x | g)` と書きます。
+- 入れ子 `(1 | a/b)` の項名: R は `a/b` と `a`、statract は `a` と `a:b` です。水準名も `h01/w1` ではなく `h01:w1` です。
+- 50 水準を超える項: coxme は既定（`coxme.control(sparse = c(50, 0.02))`）で情報行列の一部を省く近似を使います。statract は常に全部を計算します。fixture は `sparse = c(1000, 0.02)` で近似を切った R と比べます。80 施設の例では、R の既定の分散は 0.287、厳密な値は 0.291 です。
+- 分散の探索: coxme は分散が 0 に近い項などで最適点の手前で止まることがあります。statract の積分対数尤度は、疎近似の例を除く fixture の全例で R 以上です。差は多くの例で 1e-6 未満、分散が 0 に近い入れ子の例で最大 0.007 です。
+- `variances=` で分散を固定したとき、積分対数尤度の自由度に分散の数を入れません。R の `vfixed` と同じです。
+- 分散の標準誤差やプロファイル区間はまだありません。
 
 ## polr、multinom、survRM2 と違うところ
 
