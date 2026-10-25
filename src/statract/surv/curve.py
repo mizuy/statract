@@ -43,7 +43,7 @@ class SurvivalCurve:
         return self.table
 
     def at(self, times: float | list[float] | np.ndarray) -> pl.DataFrame:
-        """Right-continuous value at each requested time, within each group.
+        """Right-continuous value at each requested time, within each group and state.
 
         ``n_risk`` follows ``summary(survfit(...), times=)``: the risk set at
         the first tabled time at or after ``t``, so the subjects with
@@ -53,35 +53,33 @@ class SurvivalCurve:
         table = self.table
         has_group = "group" in table.columns
         has_state = "state" in table.columns
-        if has_group:
-            labels = table["group"].to_numpy()
-            group_ids, group_codes = _appearance_codes(labels)
-        else:
-            group_ids = [None]
-            group_codes = np.zeros(table.height, dtype=np.int32)
+        groups = table["group"].to_list() if has_group else [None] * table.height
+        states = table["state"].to_list() if has_state else [None] * table.height
+        keys = np.empty(table.height, dtype=object)
+        keys[:] = list(zip(groups, states, strict=True))
+        key_ids, key_codes = _appearance_codes(keys)
         known = table["time"].to_numpy()
         estimate = table["estimate"].to_numpy()
         std_error = table["std_error"].to_numpy()
         low = table["conf_low"].to_numpy()
         high = table["conf_high"].to_numpy()
         n_risk = table["n_risk"].to_numpy()
-        state = table["state"].to_numpy() if has_state else None
         before = 1.0 if self.kind != "aalen_johansen" else 0.0
         n_ask = asked.shape[0]
-        n_out = n_ask * len(group_ids)
+        n_out = n_ask * len(key_ids)
         out_time = np.empty(n_out, dtype=float)
         out_est = np.empty(n_out, dtype=float)
         out_se = np.empty(n_out, dtype=float)
         out_low = np.empty(n_out, dtype=float)
         out_high = np.empty(n_out, dtype=float)
         out_risk = np.empty(n_out, dtype=float)
-        out_group: list[object] | None = [] if has_group else None
-        out_state: list[object] | None = [] if has_state else None
+        out_group: list[object] = []
+        out_state: list[object] = []
         cursor = 0
-        for index, group in enumerate(group_ids):
-            sel = group_codes == index
-            known_g = known[sel]
-            idx = np.searchsorted(known_g, asked, side="right") - 1
+        for index, (group, state) in enumerate(key_ids):
+            sel = key_codes == index
+            known_k = known[sel]
+            idx = np.searchsorted(known_k, asked, side="right") - 1
             valid = idx >= 0
             end = cursor + n_ask
             out_time[cursor:end] = asked
@@ -89,19 +87,15 @@ class SurvivalCurve:
             out_se[cursor:end] = 0.0
             out_low[cursor:end] = before
             out_high[cursor:end] = before
-            out_risk[cursor:end] = _risk_at(known_g, n_risk[sel], asked)
+            out_risk[cursor:end] = _risk_at(known_k, n_risk[sel], asked)
             if np.any(valid):
                 picked = idx[valid]
                 out_est[cursor:end][valid] = estimate[sel][picked]
                 out_se[cursor:end][valid] = std_error[sel][picked]
                 out_low[cursor:end][valid] = low[sel][picked]
                 out_high[cursor:end][valid] = high[sel][picked]
-            if out_group is not None:
-                out_group.extend([group] * n_ask)
-            if out_state is not None and state is not None:
-                state_g = state[sel]
-                for ok, pos in zip(valid, idx, strict=True):
-                    out_state.append(state_g[int(pos)] if ok else None)
+            out_group.extend([group] * n_ask)
+            out_state.extend([state] * n_ask)
             cursor = end
         columns: dict[str, Any] = {
             "time": out_time,
@@ -111,9 +105,9 @@ class SurvivalCurve:
             "conf_high": out_high,
             "n_risk": out_risk,
         }
-        if out_group is not None:
+        if has_group:
             columns["group"] = out_group
-        if out_state is not None:
+        if has_state:
             columns["state"] = out_state
         return pl.DataFrame(columns)
 
@@ -342,6 +336,12 @@ def _curve_arrays(
         # summary.survfit reports the standard error of S, which is S * se(log S).
         std_error = survival * se_log
         low, high = _survival_interval(survival, se_log, confidence, level)
+        # Once everyone at risk has the event, S is 0 and se(log S) is
+        # infinite, so the standard error and the interval are undefined.
+        zeroed = np.cumsum((n_event_a > 0) & (n_event_a >= n_risk_a)) > 0
+        std_error[zeroed] = np.nan
+        low[zeroed] = np.nan
+        high[zeroed] = np.nan
         estimate = survival
     else:
         with np.errstate(divide="ignore", invalid="ignore"):
@@ -623,7 +623,9 @@ def _aalen_johansen_truncated(
         return _empty_aj()
     code_of = {cause: index for index, cause in enumerate(causes)}
     codes = np.array([code_of.get(key, -1) for key in key_list], dtype=np.int32)
-    stamps = np.unique(time[codes >= 0])
+    # Every observed time, as in the untruncated curve, so at() can find the
+    # risk set after the last event.
+    stamps = np.unique(time)
     n_risk = np.empty(stamps.size, dtype=float)
     deaths = {cause: np.zeros(stamps.size, dtype=float) for cause in causes}
     for index, stamp in enumerate(stamps):
