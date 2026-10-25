@@ -3,7 +3,8 @@
 Fixture: ``fixtures/km_at.json`` from ``scripts/km_at.R``. The grid covers
 times before the first time, on tied times, between times, and past the last
 time, with and without groups and delayed entry. The Aalen–Johansen cases
-check the estimate and ``n_risk`` of each cause.
+also cover case weights, and check the infinitesimal-jackknife standard
+error of each cause.
 """
 
 from __future__ import annotations
@@ -53,10 +54,14 @@ def test_at_matches_summary_survfit(name: str) -> None:
 AJ_CASES = sorted(FIXTURE["aj"])
 
 
+def _values(raw: list[float | None]) -> np.ndarray:
+    return np.array([np.nan if v is None else v for v in raw], dtype=float)
+
+
 @pytest.mark.parametrize("name", AJ_CASES)
 def test_aalen_johansen_at_matches_summary_survfit(name: str) -> None:
     case = FIXTURE["aj"][name]
-    df = _data("fg_a")
+    df = _data("fg_a").with_columns(w=0.5 + (pl.int_range(pl.len()) % 4) * 0.5)
     if case["entry"]:
         df = df.filter(pl.col("time") > pl.col("entry"))
     curve = survival_curve(
@@ -65,6 +70,7 @@ def test_aalen_johansen_at_matches_summary_survfit(name: str) -> None:
         "status",
         "stage" if case["by"] else None,
         kind="aalen_johansen",
+        weights="w" if case["weighted"] else None,
         entry="entry" if case["entry"] else None,
     )
     got = curve.at(case["grid"])
@@ -76,5 +82,12 @@ def test_aalen_johansen_at_matches_summary_survfit(name: str) -> None:
         part = got.filter(pl.col("state") == state)
         if case["by"]:
             part = expected.join(part, on=["group", "time"], how="left", maintain_order="left")
-        np.testing.assert_allclose(part["estimate"].to_numpy(), case[f"cause{state}"], rtol=1e-12, atol=1e-15)
-        np.testing.assert_array_equal(part["n_risk"].to_numpy(), case["n_risk"])
+        if not case["weighted"]:
+            # Multi-state survfit counts n.risk without the weights; statract
+            # keeps the weighted risk set, as its Kaplan-Meier does.
+            np.testing.assert_allclose(part["n_risk"].to_numpy(), case["n_risk"], rtol=1e-12)
+        np.testing.assert_allclose(part["estimate"].to_numpy(), case["estimate"][state], rtol=1e-12, atol=1e-15)
+        for column in ("std_error", "conf_low", "conf_high"):
+            np.testing.assert_allclose(
+                part[column].to_numpy(), _values(case[column][state]), rtol=1e-9, atol=1e-14, err_msg=f"{state} {column}"
+            )

@@ -165,6 +165,10 @@ def survival_curve(
     ``kind="aalen_johansen"`` it is a cause code, with 0 meaning censored.
     ``entry`` is the left-truncation time: the risk set at ``t`` is
     ``entry < t <= time``.
+
+    For Aalen–Johansen, ``std_error`` is the infinitesimal-jackknife standard
+    error of each cumulative incidence, as in a multi-state ``survfit``, and
+    ``confidence`` transforms the interval the same way as for survival.
     """
     if kind not in {"kaplan_meier", "nelson_aalen", "aalen_johansen"}:
         raise ValueError("kind must be kaplan_meier, nelson_aalen, or aalen_johansen")
@@ -516,63 +520,60 @@ def _aalen_johansen(
     level: float,
     entry: np.ndarray | None = None,
 ) -> pl.DataFrame:
-    if entry is not None:
-        return _aalen_johansen_truncated(time, event, weights, entry, level)
-    causes = [c for c in sorted(set(np.asarray(event).tolist())) if not _is_censored(c)]
+    """Aalen–Johansen cumulative incidence of each cause.
+
+    The risk set at ``t`` is ``entry < t <= time``. The standard error is the
+    infinitesimal jackknife (Jaeckel 1972; Glidden 2002), as in a multi-state
+    ``survfit``: ``sqrt(sum_i (w_i dF/dw_i)^2)``.
+    """
+    time = np.asarray(time, dtype=float)
+    weights = np.asarray(weights, dtype=float)
+    entry = np.full(time.shape[0], -np.inf) if entry is None else np.asarray(entry, dtype=float)
+    ok = np.isfinite(time) & ~np.isnan(entry) & (time > entry)
+    time, event, weights, entry = time[ok], np.asarray(event)[ok], weights[ok], entry[ok]
+    if time.size == 0:
+        return _empty_aj()
+    key_list = [_cause_key(value) for value in event.tolist()]
+    causes = sorted({key for key in key_list if not _is_censored(key)})
     if not causes:
         return _empty_aj()
-    order = np.argsort(time, kind="mergesort")
-    time = time[order]
-    event = np.asarray(event)[order]
-    weights = weights[order]
-    uniq = np.unique(time)
-    n_risk = []
-    deaths = {c: [] for c in causes}
-    remaining = float(weights.sum())
-    any_event = np.array([e not in (0, "0", False) for e in event])
-    for t in uniq:
-        at = time == t
-        n_risk.append(remaining)
-        for cause in causes:
-            deaths[cause].append(float(weights[at & (event == cause)].sum()))
-        remaining -= float(weights[at].sum())
-    n_risk_a = np.asarray(n_risk, dtype=float)
-    total_events = np.zeros(len(uniq))
-    for cause in causes:
-        total_events += np.asarray(deaths[cause])
-    with np.errstate(divide="ignore", invalid="ignore"):
-        overall = np.divide(total_events, n_risk_a, out=np.zeros_like(total_events), where=n_risk_a > 0)
-    survival_before = np.cumprod(1 - overall)
-    survival_before = np.concatenate([[1.0], survival_before[:-1]])
+    code_of = {cause: index for index, cause in enumerate(causes)}
+    codes = np.array([code_of.get(key, -1) for key in key_list], dtype=np.int64)
+    stamps = np.unique(time)
+    n_stamp = stamps.size
+    n_cause = len(causes)
+    # Positions 1..J are the tabled times and 0 is the start. A subject is at
+    # risk at positions first..last.
+    last = np.searchsorted(stamps, time, side="left") + 1
+    first = np.searchsorted(stamps, entry, side="right") + 1
+    diff = np.zeros(n_stamp + 2)
+    np.add.at(diff, first, weights)
+    np.add.at(diff, last + 1, -weights)
+    n_risk = np.cumsum(diff)[1 : n_stamp + 1]
+    deaths = np.zeros((n_cause, n_stamp))
+    died = codes >= 0
+    np.add.at(deaths, (codes[died], last[died] - 1), weights[died])
+    variance, cif = _aj_ij_variance(n_risk, deaths, first.astype(np.int64), last.astype(np.int64), codes, weights)
     frames = []
-    for cause in causes:
-        d = np.asarray(deaths[cause], dtype=float)
-        jumps = survival_before * np.divide(d, n_risk_a, out=np.zeros_like(d), where=n_risk_a > 0)
-        cif = np.cumsum(jumps)
-        # Aalen variance of the cumulative incidence, Greenwood-style.
-        all_haz = np.divide(total_events, n_risk_a, out=np.zeros_like(d), where=n_risk_a > 0)
-        var = _aj_variance(
-            np.ascontiguousarray(survival_before, dtype=np.float64),
-            np.ascontiguousarray(d, dtype=np.float64),
-            np.ascontiguousarray(total_events, dtype=np.float64),
-            np.ascontiguousarray(n_risk_a, dtype=np.float64),
-            np.ascontiguousarray(cif, dtype=np.float64),
-            np.ascontiguousarray(all_haz, dtype=np.float64),
-        )
-        std = np.sqrt(np.clip(var, 0, None))
-        z = _norm_z(level)
-        low = np.clip(cif - z * std, 0, 1)
-        high = np.clip(cif + z * std, 0, 1)
+    for k, cause in enumerate(causes):
+        p = cif[k, 1:]
+        se = np.sqrt(np.clip(variance[k], 0, None))
+        with np.errstate(divide="ignore", invalid="ignore"):
+            se_log = np.where(p > 0, se / p, 0.0)
+        low, high = _survival_interval(p, se_log, confidence, level)
+        flat = p <= 0
+        low[flat] = 0.0
+        high[flat] = 0.0
         frames.append(
             pl.DataFrame(
                 {
-                    "time": uniq,
-                    "state": [str(_cause_key(cause))] * len(uniq),
-                    "n_risk": n_risk_a,
-                    "n_event": d,
-                    "n_censor": np.zeros(len(uniq)),
-                    "estimate": cif,
-                    "std_error": std,
+                    "time": stamps,
+                    "state": [str(cause)] * n_stamp,
+                    "n_risk": n_risk,
+                    "n_event": deaths[k],
+                    "n_censor": np.zeros(n_stamp),
+                    "estimate": p,
+                    "std_error": se,
                     "conf_low": low,
                     "conf_high": high,
                 }
@@ -582,93 +583,107 @@ def _aalen_johansen(
 
 
 @njit(cache=True)
-def _aj_variance(survival_before, d, total, n_risk, cif, all_haz):
-    """Variance of one cumulative incidence. The covariance piece is a prefix sum."""
-    n = n_risk.shape[0]
-    var = np.empty(n)
-    running = 0.0
-    integ = 0.0
-    acc = 0.0
-    cif_inc = 0.0
+def _aj_ij_variance(n_risk, deaths, first, last, codes, weights):
+    """Infinitesimal-jackknife variance of each cumulative incidence in O(n + J).
+
+    See notes/aj-variance/aj-ij-variance.md for the derivation. Each subject's
+    influence U_i = dF/dw_i is H - b F - q while at risk, has an extra term at
+    its own time, and is alpha + c F after it leaves. The variance at each time
+    is sum_i w_i^2 U_i^2, kept as running sums of the quadratic's coefficients.
+    """
+    n_cause, n_stamp = deaths.shape
+    n = weights.shape[0]
+    # Curves and the shared derivative of someone who stays at risk.
+    surv = np.ones(n_stamp + 1)
+    cif = np.zeros((n_cause, n_stamp + 1))
+    g = np.zeros(n_stamp + 1)
+    h = np.zeros((n_cause, n_stamp + 1))
+    for j in range(1, n_stamp + 1):
+        nr = n_risk[j - 1]
+        total = 0.0
+        for k in range(n_cause):
+            total += deaths[k, j - 1]
+        haz = total / nr if nr > 0.0 else 0.0
+        surv[j] = surv[j - 1] * (1.0 - haz)
+        g[j] = g[j - 1] * (1.0 - haz) + (surv[j - 1] * haz / nr if nr > 0.0 else 0.0)
+        for k in range(n_cause):
+            hk = deaths[k, j - 1] / nr if nr > 0.0 else 0.0
+            cif[k, j] = cif[k, j - 1] + surv[j - 1] * hk
+            h[k, j] = h[k, j - 1] + g[j - 1] * hk - (surv[j - 1] * hk / nr if nr > 0.0 else 0.0)
+    # Running-sum pieces, as difference arrays over positions.
+    in_w = np.zeros(n_stamp + 2)
+    in_b = np.zeros(n_stamp + 2)
+    in_bb = np.zeros(n_stamp + 2)
+    in_q = np.zeros((n_cause, n_stamp + 2))
+    in_qq = np.zeros((n_cause, n_stamp + 2))
+    in_bq = np.zeros((n_cause, n_stamp + 2))
+    out_aa = np.zeros((n_cause, n_stamp + 2))
+    out_ac = np.zeros((n_cause, n_stamp + 2))
+    out_cc = np.zeros(n_stamp + 2)
+    at_exit = np.zeros((n_cause, n_stamp + 1))
     for i in range(n):
-        if n_risk[i] > 0.0:
-            running += (survival_before[i] ** 2) * d[i] * (n_risk[i] - d[i]) / n_risk[i] ** 3
-            if i > 0 and n_risk[i - 1] > 0.0 and n_risk[i - 1] != total[i - 1]:
-                integ += all_haz[i - 1] / (n_risk[i - 1] - total[i - 1])
-            jump = survival_before[i] * d[i] / n_risk[i]
-            cif_inc += jump
-            acc += cif_inc * total[i] / (n_risk[i] ** 2) * survival_before[i]
-        var[i] = running + (cif[i] ** 2) * integ - 2.0 * cif[i] * acc
-    return var
-
-
-def _aalen_johansen_truncated(
-    time: np.ndarray,
-    event: np.ndarray,
-    weights: np.ndarray,
-    entry: np.ndarray,
-    level: float,
-) -> pl.DataFrame:
-    """Aalen–Johansen on event times only. The risk set is ``entry < t <= time``."""
-    time = np.asarray(time, dtype=float)
-    entry = np.asarray(entry, dtype=float)
-    weights = np.asarray(weights, dtype=float)
-    ok = np.isfinite(time) & np.isfinite(entry) & (time > entry)
-    time, event, weights, entry = time[ok], np.asarray(event)[ok], weights[ok], entry[ok]
-    if time.size == 0:
-        return _empty_aj()
-    key_list = [_cause_key(value) for value in event.tolist()]
-    causes = sorted(key for key in set(key_list) if not _is_censored(key))
-    if not causes:
-        return _empty_aj()
-    code_of = {cause: index for index, cause in enumerate(causes)}
-    codes = np.array([code_of.get(key, -1) for key in key_list], dtype=np.int32)
-    # Every observed time, as in the untruncated curve, so at() can find the
-    # risk set after the last event.
-    stamps = np.unique(time)
-    n_risk = np.empty(stamps.size, dtype=float)
-    deaths = {cause: np.zeros(stamps.size, dtype=float) for cause in causes}
-    for index, stamp in enumerate(stamps):
-        at_risk = (entry < stamp) & (time >= stamp)
-        at = time == stamp
-        n_risk[index] = float(weights[at_risk].sum())
-        for cause in causes:
-            deaths[cause][index] = float(weights[at & (codes == code_of[cause])].sum())
-    total = np.zeros(stamps.size, dtype=float)
-    for cause in causes:
-        total += deaths[cause]
-    with np.errstate(divide="ignore", invalid="ignore"):
-        overall = np.divide(total, n_risk, out=np.zeros_like(total), where=n_risk > 0)
-    survival_before = np.concatenate([[1.0], np.cumprod(1 - overall)[:-1]])
-    z = _norm_z(level)
-    frames = []
-    for cause in causes:
-        d = deaths[cause]
-        jumps = survival_before * np.divide(d, n_risk, out=np.zeros_like(d), where=n_risk > 0)
-        cif = np.cumsum(jumps)
-        all_haz = np.divide(total, n_risk, out=np.zeros_like(d), where=n_risk > 0)
-        var = _aj_variance(
-            np.ascontiguousarray(survival_before, dtype=np.float64),
-            np.ascontiguousarray(d, dtype=np.float64),
-            np.ascontiguousarray(total, dtype=np.float64),
-            np.ascontiguousarray(n_risk, dtype=np.float64),
-            np.ascontiguousarray(cif, dtype=np.float64),
-            np.ascontiguousarray(all_haz, dtype=np.float64),
-        )
-        std = np.sqrt(np.clip(var, 0, None))
-        frames.append(
-            pl.DataFrame(
-                {
-                    "time": stamps,
-                    "state": [str(cause)] * len(stamps),
-                    "n_risk": n_risk,
-                    "n_event": d,
-                    "n_censor": np.zeros(len(stamps)),
-                    "estimate": cif,
-                    "std_error": std,
-                    "conf_low": np.clip(cif - z * std, 0, 1),
-                    "conf_high": np.clip(cif + z * std, 0, 1),
-                }
+        a = first[i] - 1
+        m = last[i]
+        w2 = weights[i] * weights[i]
+        b = g[a] / surv[a] if surv[a] > 0.0 else 0.0
+        nr = n_risk[m - 1]
+        step = surv[m - 1] / nr if nr > 0.0 else 0.0
+        d_surv = g[m] - b * surv[m] - (step if codes[i] >= 0 else 0.0)
+        c = d_surv / surv[m] if surv[m] > 0.0 else 0.0
+        if a + 1 < m:
+            in_w[a + 1] += w2
+            in_w[m] -= w2
+            in_b[a + 1] += w2 * b
+            in_b[m] -= w2 * b
+            in_bb[a + 1] += w2 * b * b
+            in_bb[m] -= w2 * b * b
+        out_cc[m + 1] += w2 * c * c
+        for k in range(n_cause):
+            q = h[k, a] - b * cif[k, a]
+            d_cif = h[k, m] - b * cif[k, m] - q + (step if codes[i] == k else 0.0)
+            at_exit[k, m] += w2 * d_cif * d_cif
+            alpha = d_cif - c * cif[k, m]
+            out_aa[k, m + 1] += w2 * alpha * alpha
+            out_ac[k, m + 1] += w2 * alpha * c
+            if a + 1 < m:
+                in_q[k, a + 1] += w2 * q
+                in_q[k, m] -= w2 * q
+                in_qq[k, a + 1] += w2 * q * q
+                in_qq[k, m] -= w2 * q * q
+                in_bq[k, a + 1] += w2 * b * q
+                in_bq[k, m] -= w2 * b * q
+    variance = np.zeros((n_cause, n_stamp))
+    sw = 0.0
+    sb = 0.0
+    sbb = 0.0
+    scc = 0.0
+    sq = np.zeros(n_cause)
+    sqq = np.zeros(n_cause)
+    sbq = np.zeros(n_cause)
+    saa = np.zeros(n_cause)
+    sac = np.zeros(n_cause)
+    for j in range(1, n_stamp + 1):
+        sw += in_w[j]
+        sb += in_b[j]
+        sbb += in_bb[j]
+        scc += out_cc[j]
+        for k in range(n_cause):
+            sq[k] += in_q[k, j]
+            sqq[k] += in_qq[k, j]
+            sbq[k] += in_bq[k, j]
+            saa[k] += out_aa[k, j]
+            sac[k] += out_ac[k, j]
+            hj = h[k, j]
+            fj = cif[k, j]
+            inside = (
+                hj * hj * sw
+                + fj * fj * sbb
+                + sqq[k]
+                - 2.0 * hj * fj * sb
+                - 2.0 * hj * sq[k]
+                + 2.0 * fj * sbq[k]
             )
-        )
-    return pl.concat(frames)
+            outside = saa[k] + 2.0 * fj * sac[k] + fj * fj * scc
+            variance[k, j - 1] = inside + outside + at_exit[k, j]
+    return variance, cif
+
