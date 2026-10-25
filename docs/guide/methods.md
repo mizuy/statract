@@ -206,6 +206,7 @@ print(fit.smooth_table())
 | Overdispersed counts | `fit_mixed(frame, "n ~ x + offset(log(years)) + (1 | site)", family="negative_binomial")` |
 | Counts with many zeros | `zero_inflation=True` or `hurdle=True` |
 | Nonlinear terms and random effects | `gamm(frame, "y", [smooth("x")], random="(1 | site)", family="binomial")` |
+| Survival time, random intercept for site (frailty) | `cox_mixed(frame, "Surv(time, event) ~ x + (1 | site)")` |
 
 Check the size of between-site variation with `fit.variance_table()`. For logistic models, `median_odds_ratio` puts it on the odds ratio scale.
 
@@ -247,6 +248,7 @@ print(proportional_hazards_test(fit))
 | Several eyes from the same patient, and similar | `cluster(id)` or `cluster=` (Lin–Wei robust variance) |
 | Time-varying covariates or effects | Split follow-up with `split_follow_up` and pass `entry` |
 | Delayed entry | `entry=` |
+| Hazard varies by hospital, and that variation is of interest (frailty) | `cox_mixed(frame, "Surv(time, event) ~ arm + (1 | hospital)")` |
 
 **Note**: Check PH (proportional hazards) with `proportional_hazards_test`. For covariates with small P values, stratify, split by time, or consider AFT. To output a full set of diagnostic plots, use `write_cox_diagnostic_suite`.
 

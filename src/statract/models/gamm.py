@@ -282,6 +282,8 @@ def gamm(
         if not probed:
             raise ValueError("random needs at least one term, for example '(1 | group)'")
     for effect in probed:
+        if effect.group not in data.columns:
+            raise ValueError("nested or combined groups (a/b, a:b) are supported in cox_mixed only; make a column")
         extra.append(effect.group)
         extra.extend(effect.slopes)
     design = design_matrix(data, list(predictors or []), extra=extra)

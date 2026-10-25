@@ -173,6 +173,48 @@ def _mi_sample(seed: int, n: int) -> pl.DataFrame:
     )
 
 
+def _cox_mixed_sample(seed: int, n_hospitals: int, size: tuple[int, int], *, slope_sd: float, counting: bool) -> pl.DataFrame:
+    """Survival in hospitals with wards and crossed surgeons, with frailties for each and a random slope."""
+    rng = np.random.default_rng(seed)
+    sizes = rng.integers(size[0], size[1] + 1, n_hospitals)
+    hospital = np.repeat(np.arange(n_hospitals), sizes)
+    n = len(hospital)
+    ward = rng.integers(0, 3, n)
+    surgeon = rng.integers(0, 12, n)
+    x = rng.normal(size=n)
+    arm = rng.choice(["control", "low", "high"], size=n)
+    sex = rng.choice(["F", "M"], size=n)
+    u_hospital = rng.normal(0, 0.6, n_hospitals)
+    u_slope = rng.normal(0, slope_sd, n_hospitals)
+    u_ward = rng.normal(0, 0.3, (n_hospitals, 3))
+    u_surgeon = rng.normal(0, 0.4, 12)
+    effect = np.select([arm == "low", arm == "high"], [0.3, -0.5], 0.0)
+    lp = (0.5 + u_slope[hospital]) * x + effect + 0.3 * (sex == "M") + u_hospital[hospital]
+    lp = lp + u_ward[hospital, ward] + u_surgeon[surgeon]
+    t = rng.exponential(1.0 / (0.2 * np.exp(lp)))
+    censor = rng.uniform(2.0, 8.0, n)
+    # Round to a grid so that event times tie.
+    time = np.ceil(np.minimum(t, censor) * 10.0) / 10.0
+    frame = pl.DataFrame(
+        {
+            "time": time,
+            "status": (t <= censor).astype(int),
+            "x": np.round(x, 6),
+            "arm": arm,
+            "sex": sex,
+            "hosp": [f"h{i:02d}" for i in hospital],
+            "ward": [f"w{i}" for i in ward],
+            "surgeon": [f"s{i:02d}" for i in surgeon],
+            "w": np.round(rng.uniform(0.5, 2.0, n), 3),
+        }
+    )
+    if counting:
+        # Late entry: a start time strictly before the exit time.
+        start = np.floor(rng.uniform(0.0, 0.6, n) * (time - 0.1) * 10.0) / 10.0
+        frame = frame.with_columns(pl.Series("start", np.round(start, 1)))
+    return frame
+
+
 def _two_way_sample(seed: int, n_patients: int, n_examiners: int, *, weighted: bool) -> pl.DataFrame:
     """Right-censored exams, crossed by patient and examiner, with frailties for both."""
     rng = np.random.default_rng(seed)
@@ -534,6 +576,9 @@ def main() -> None:
     # Two-way clustered Cox: patients crossed with examiners.
     _two_way_sample(20261020, 150, 12, weighted=False).write_csv(DATA / "cox2way_a.csv")
     _two_way_sample(20261021, 200, 8, weighted=True).write_csv(DATA / "cox2way_b.csv")
+    # Mixed-effects Cox (coxme): nested and crossed groups and a random slope; many small hospitals with late entry.
+    _cox_mixed_sample(20261044, 30, (8, 16), slope_sd=0.3, counting=False).write_csv(DATA / "coxme_a.csv")
+    _cox_mixed_sample(20261045, 80, (3, 7), slope_sd=0.0, counting=True).write_csv(DATA / "coxme_b.csv")
     # Crossed GLMMs: patients crossed with examiners, examiner-by-year AR(1).
     _crossed_sample(20261022, 300, 30, theta=2.0, rho=0.6).write_csv(DATA / "glmm_crossed_a.csv")
     # Smooth plus examiner intercept, binary (gamm4 and mgcv bs = "re").

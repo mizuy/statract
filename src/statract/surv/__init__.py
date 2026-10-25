@@ -6,6 +6,7 @@ from .aft import AftFit, accelerated_failure
 from .clogit import conditional_logit
 from .competing import CompetingRisksFit, CumulativeIncidence, cumulative_incidence, fine_gray_regression
 from .cox import CoxFit, cox_ph, proportional_hazards_test
+from .cox_mixed import CoxMixedFit, cox_mixed
 from .curve import SurvivalCurve, survival_curve
 from .diagnostics import plot_cox_residuals, plot_loglog, write_cox_diagnostic_suite
 from .fine_gray import fine_gray, split_follow_up
@@ -17,6 +18,7 @@ __all__ = [
     "AftFit",
     "CompetingRisksFit",
     "CoxFit",
+    "CoxMixedFit",
     "CumulativeIncidence",
     "LogRankResult",
     "RmstResult",
@@ -25,6 +27,7 @@ __all__ = [
     "accelerated_failure",
     "conditional_logit",
     "cumulative_incidence",
+    "cox_mixed",
     "cox_ph",
     "fine_gray",
     "fine_gray_regression",

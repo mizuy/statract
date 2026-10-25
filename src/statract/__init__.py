@@ -133,6 +133,7 @@ from .tableone.stat import (
 from .surv import (
     accelerated_failure,
     conditional_logit,
+    cox_mixed,
     cox_ph,
     cumulative_incidence,
     fine_gray,
@@ -250,6 +251,7 @@ __all__ = [
     "conditional_logit",
     "conditional_tree",
     "plot_tree",
+    "cox_mixed",
     "cox_ph",
     "cumulative_incidence",
     "durbin_watson_test",

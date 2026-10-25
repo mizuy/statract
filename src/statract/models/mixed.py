@@ -20,7 +20,7 @@ from scipy import stats
 
 from .design import ColumnRef, Design, _is_factor, column_series, design_matrix
 from .._core.laplace import COUNT_FAMILIES, LAPLACE_FAMILIES, fit_laplace_glmm
-from .formula import is_formula, model_matrix, reject_survival_syntax
+from .formula import group_labels, is_formula, model_matrix, reject_survival_syntax
 
 _FAMILIES = ("gaussian", "binomial", "poisson", "gamma", "negative_binomial")
 _LME_ENGINES = {"lme", "lme-rs", "lme-python", "lme_python"}
@@ -561,7 +561,7 @@ class _TermColumns:
 def _effect_columns(data: pl.DataFrame, design: Design, effect: Any) -> _TermColumns:
     """Columns of one random-effect term on the rows the model uses."""
     idx = design.row_index
-    labels = np.asarray([str(v) for v in column_series(data, effect.group).gather(idx.tolist()).to_list()])
+    labels = group_labels(data, effect.group, idx)
     levels, codes = np.unique(labels, return_inverse=True)
     if effect.structure == "ar1":
         if effect.intercept or len(effect.slopes) != 1 or effect.slope_exprs:
@@ -825,6 +825,8 @@ def _from_formula(
     for one in built.random_effects:
         if not one.correlated:
             raise ValueError("uncorrelated random slopes (||) are not supported")
+        if one.group not in data.columns:
+            raise ValueError("nested or combined groups (a/b, a:b) are supported in cox_mixed only; make a column")
     effect = built.random_effects[0]
     design = built.design
     idx = design.row_index

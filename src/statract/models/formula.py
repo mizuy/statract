@@ -189,6 +189,19 @@ def reject_survival_syntax(built: FormulaModel) -> None:
         )
 
 
+def group_columns(group: str, data: pl.DataFrame) -> tuple[str, ...]:
+    """Columns behind a random-effect group: ``a:b`` is ``("a", "b")``."""
+    if group in data.columns:
+        return (group,)
+    return tuple(group.split(":"))
+
+
+def group_labels(data: pl.DataFrame, group: str, index: np.ndarray) -> np.ndarray:
+    """One string label per row in ``index``; ``a:b`` joins the values with ``:``."""
+    parts = [[str(v) for v in _require_column(data, col).gather(index.tolist()).to_list()] for col in group_columns(group, data)]
+    return np.asarray([":".join(values) for values in zip(*parts, strict=True)])
+
+
 def is_formula(value: object) -> bool:
     return isinstance(value, str) and "~" in value
 
@@ -262,7 +275,7 @@ def _materialize(response: Arith, response_label: str, terms: list[Term], state:
     if state.cluster is not None:
         inputs.add(state.cluster)
     for effect in state.random:
-        inputs.add(effect.group)
+        inputs.update(group_columns(effect.group, state.data))
         expressed = {name for name, _expr in effect.slope_exprs}
         for name in effect.slopes:
             if name not in expressed:
@@ -1088,13 +1101,28 @@ class _Parser:
             self._pop()
         else:
             raise ValueError("random-effect term is missing '|'")
+        # ``a:b`` groups by the combinations of a and b. ``a/b`` nests b in a:
+        # it expands to ``(… | a) + (… | a:b)``, as lme4 does.
+        segments: list[list[str]] = [[self._group_name()]]
+        while self._peek() in {":", "/"}:
+            op = self._pop()
+            if op == "/":
+                segments.append([])
+            segments[-1].append(self._group_name())
+        self._expect(")")
+        groups = [":".join(sum(segments[: k + 1], [])) for k in range(len(segments))]
+        node: tuple = ("random", inner, groups[0], correlated, "us")
+        for group in groups[1:]:
+            node = ("+", node, ("random", inner, group, correlated, "us"))
+        return node
+
+    def _group_name(self) -> str:
         group = self._pop()
-        if not isinstance(group, str) or group in {"|", "||", "(", ")"}:
+        if not isinstance(group, str) or group in {"|", "||", "(", ")", ":", "/"}:
             raise ValueError("the grouping term must be a column name")
         if group.startswith("`"):
             group = _unquote(group)
-        self._expect(")")
-        return ("random", inner, group, correlated, "us")
+        return group
 
     def _parse_arith(self) -> Arith:
         return self._parse_arith_sum()

@@ -104,7 +104,7 @@ print(model.tidy())
 
 患者と検査医のような交差する二元クラスタは `cluster_covariance(fit, ["id_patient", "e_examiner"], data=frame)` です。`sandwich::vcovCL(fit, cluster = ~ id_patient + e_examiner)` と同じ値で、係数が 1 個でも使えます。係数表は `coefficient_test(fit, cov)` です。`cox_ph(cluster=)` は 1 列の Lin–Wei（`coxph` と同じ）で、`cluster_covariance` の 1 列とは `G / (G - 1)` だけ違います。
 
-`survival_curve` の既定は Kaplan–Meier で、信頼区間は log です。Nelson–Aalen は `kind="nelson_aalen"` です。Cox の同順位は既定で Efron、`ties="breslow"` も選べます。層は `strata(arm)` か `strata=`、重みは `weights=` です。加速故障時間は `accelerated_failure(frame, "Surv(time, event) ~ x")`、Fine–Gray の展開は `fine_gray(frame, "Surv(time, status) ~ x", cause=1)` です。
+`survival_curve` の既定は Kaplan–Meier で、信頼区間は log です。Nelson–Aalen は `kind="nelson_aalen"` です。Cox の同順位は既定で Efron、`ties="breslow"` も選べます。層は `strata(arm)` か `strata=`、重みは `weights=` です。加速故障時間は `accelerated_failure(frame, "Surv(time, event) ~ x")`、Fine–Gray の展開は `fine_gray(frame, "Surv(time, status) ~ x", cause=1)` です。変量効果（共有 frailty）つきの Cox は `cox_mixed(frame, "Surv(time, status) ~ x + (1 | hospital)")`（`coxme::coxme`）です。交差・入れ子のグループと変量傾きも書けます。frailty の分散は `fit.variance_table()`、施設ごとの BLUP は `fit.random_effects()` です。
 
 競合リスクの累積発生と Gray 検定は `cumulative_incidence(frame, "time", "status", by="arm")` です（`cmprsk::cuminc`）。`.tests` が原因ごとの検定、`.at([1, 3])` が時点の値です。`crr` と同じ Fine–Gray 回帰は `fine_gray_regression(frame, "Surv(time, status) ~ x + arm", cause=1)` で、SE は打ち切り分布の推定を含むサンドイッチです。`.predict(new)` が共変量ごとの CIF を返します。
 
