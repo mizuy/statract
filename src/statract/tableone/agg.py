@@ -96,6 +96,24 @@ def agg_nunique(expr: pl.Expr) -> pl.Expr:
     return expr.n_unique()
 
 
+def _fixed(x: pl.Expr, precision: int = 1) -> pl.Expr:
+    """Format a number as a string with exactly ``precision`` decimal places.
+
+    Trailing zeros are kept (``11.00``, not ``11.0``), like R's ``sprintf("%.2f")``.
+    Ties round half to even on the scaled value. Null and NaN give null.
+    """
+    scale = 10**precision
+    scaled = (x * scale).round(0).cast(pl.Int64, strict=False)
+    whole = (scaled.abs() // scale).cast(pl.String)
+    if precision > 0:
+        frac = (scaled.abs() % scale).cast(pl.String).str.zfill(precision)
+        body = pl.concat_str([whole, pl.lit("."), frac])
+    else:
+        body = whole
+    # Keep the input's output name: `then` decides it, so the plain branch goes first.
+    return pl.when(scaled >= 0).then(body).otherwise(pl.concat_str([pl.lit("-"), body]))
+
+
 def _format_n(n: pl.Expr, precision: int = 1) -> pl.Expr:
     """Format number with precision."""
     return n.round(precision)
@@ -108,12 +126,12 @@ def _format_p(p: pl.Expr, precision: int = 1) -> pl.Expr:
 
 def _format_np(n: pl.Expr, p: pl.Expr, precision: int = 1) -> pl.Expr:
     """Format number (percentage)."""
-    return pl.format("{} ({}%)", n.round(precision), (p * 100).round(precision))
+    return pl.format("{} ({}%)", n.round(precision), _fixed(p * 100, precision))
 
 
 def _format_pnn(n: pl.Expr, total: pl.Expr, p: pl.Expr, precision: int = 1) -> pl.Expr:
     """Format percentage (count/total)."""
-    return pl.format("{}% ({}/{})", _format_p(p, precision), n, total)
+    return pl.format("{}% ({}/{})", _fixed(p * 100, precision), n, total)
 
 
 def agg_bool_np(expr: pl.Expr, precision: int = 1) -> pl.Expr:
@@ -200,7 +218,8 @@ def agg_mean_sd(expr: pl.Expr, precision: int = 1) -> pl.Expr:
 
     Args:
         expr: Polars expression for the numeric column
-        precision: Number of decimal places to round to (default: 1)
+        precision: Number of decimal places shown (default: 1). Trailing
+            zeros are kept, so ``precision=2`` gives ``62.41 (11.00)``.
 
     Returns:
         Polars expression that evaluates to a string in "mean (SD)" format
@@ -220,9 +239,9 @@ def agg_mean_sd(expr: pl.Expr, precision: int = 1) -> pl.Expr:
         │ 35.0 (7.9)  │
         └─────────────┘
     """
-    mean = expr.mean().round(precision)
-    sd = expr.std().round(precision)
-    return pl.format("{} ({})", mean, sd)
+    return pl.format(
+        "{} ({})", _fixed(expr.mean(), precision), _fixed(expr.std(), precision)
+    )
 
 
 def agg_median(expr: pl.Expr, precision: int = 1) -> pl.Expr:
@@ -280,9 +299,9 @@ def agg_median_range(expr: pl.Expr, precision: int = 1) -> pl.Expr:
         │ 35.0 (25.0-45.0)│
         └─────────────────┘
     """
-    median = expr.median().round(precision)
-    min_val = expr.min().round(precision)
-    max_val = expr.max().round(precision)
+    median = _fixed(expr.median(), precision)
+    min_val = _fixed(expr.min(), precision)
+    max_val = _fixed(expr.max(), precision)
     return pl.format("{} ({}-{})", median, min_val, max_val)
 
 
@@ -454,19 +473,22 @@ def agg_range(expr: pl.Expr, precision: int = 1) -> pl.Expr:
         │ 25.0-45.0 │
         └───────────┘
     """
-    min_val = expr.min().round(precision)
-    max_val = expr.max().round(precision)
-    return pl.format("{}-{}", min_val, max_val)
+    return pl.format(
+        "{}-{}", _fixed(expr.min(), precision), _fixed(expr.max(), precision)
+    )
 
 
 def agg_median_iqr(expr: pl.Expr, precision: int = 1) -> pl.Expr:
     """Aggregate numeric column as "median [Q1, Q3]" format with interquartile range.
 
     Commonly used in medical research Table One for skewed continuous variables.
+    Quartiles use linear interpolation, the same as R's default
+    ``quantile(type = 7)``.
 
     Args:
         expr: Polars expression for the numeric column
-        precision: Number of decimal places to round to (default: 1)
+        precision: Number of decimal places shown (default: 1). Trailing
+            zeros are kept, so ``precision=2`` gives ``2.30 [0.59, 4.38]``.
 
     Returns:
         Polars expression that evaluates to a string in "median [Q1, Q3]" format
@@ -483,13 +505,13 @@ def agg_median_iqr(expr: pl.Expr, precision: int = 1) -> pl.Expr:
         │ ---               │
         │ str               │
         ╞═══════════════════╡
-        │ 35.0 [30.0,40.0]  │
+        │ 35.0 [30.0, 40.0] │
         └───────────────────┘
     """
-    median = expr.median().round(precision)
-    p25 = expr.quantile(0.25).round(precision)
-    p75 = expr.quantile(0.75).round(precision)
-    return pl.format("{} [{},{}]", median, p25, p75)
+    median = _fixed(expr.median(), precision)
+    p25 = _fixed(expr.quantile(0.25, interpolation="linear"), precision)
+    p75 = _fixed(expr.quantile(0.75, interpolation="linear"), precision)
+    return pl.format("{} [{}, {}]", median, p25, p75)
 
 
 def agg_category_base(

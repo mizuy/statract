@@ -1,8 +1,16 @@
 """Tests for statract.tableone.agg module."""
 
+import numpy as np
 import polars as pl
 
-from statract.tableone.agg import agg_category_base
+from statract.tableone.agg import (
+    agg_bool_np,
+    agg_bool_pnn,
+    agg_category_base,
+    agg_mean_sd,
+    agg_median_iqr,
+    agg_range,
+)
 
 
 class TestAggCategoryBase:
@@ -267,3 +275,61 @@ class TestAggCategoryBase:
         assert category_list[1]["name"] == "Y"
         assert category_list[2]["name"] == "Z"
         assert category_list[3]["name"] == "W"
+
+
+class TestNumberFormat:
+    """Fixed decimal places and R type 7 quartiles in the string aggregators."""
+
+    def test_mean_sd_keeps_trailing_zeros(self):
+        df = pl.DataFrame({"x": [51.41, 73.41]})  # mean 62.41, SD 15.556...
+        out = df.select(agg_mean_sd(pl.col("x"), precision=2)).item()
+        assert out == "62.41 (15.56)"
+        df = pl.DataFrame({"x": [1.0, 3.0]})  # SD = sqrt(2)
+        assert df.select(agg_mean_sd(pl.col("x"), precision=2)).item() == "2.00 (1.41)"
+        assert df.select(agg_mean_sd(pl.col("x"), precision=0)).item() == "2 (1)"
+
+    def test_median_iqr_uses_type7_and_comma_space(self):
+        # R: quantile(1:4) gives 1.75 and 3.25 (type 7, linear interpolation).
+        df = pl.DataFrame({"x": [1.0, 2.0, 3.0, 4.0]})
+        assert (
+            df.select(agg_median_iqr(pl.col("x"), precision=2)).item()
+            == "2.50 [1.75, 3.25]"
+        )
+
+    def test_median_iqr_matches_numpy_linear(self):
+        rng = np.random.default_rng(0)
+        x = rng.exponential(2.0, size=37)
+        q1, med, q3 = np.quantile(x, [0.25, 0.5, 0.75])
+        out = (
+            pl.DataFrame({"x": x})
+            .select(agg_median_iqr(pl.col("x"), precision=3))
+            .item()
+        )
+        assert out == f"{med:.3f} [{q1:.3f}, {q3:.3f}]"
+
+    def test_group_by_and_nulls(self):
+        df = pl.DataFrame({"g": ["a", "a", "b"], "x": [1.0, 2.0, None]})
+        out = (
+            df.group_by("g", maintain_order=True)
+            .agg(agg_median_iqr(pl.col("x")))
+            .to_dicts()
+        )
+        assert out == [{"g": "a", "x": "1.5 [1.2, 1.8]"}, {"g": "b", "x": None}]
+
+    def test_negative_and_ties(self):
+        df = pl.DataFrame({"x": [-0.25, -2.5]})
+        assert df.select(agg_range(pl.col("x"))).item() == "-2.5--0.2"
+        # Same as sprintf("%.2f", 0.125) in R and Python: "0.12".
+        assert (
+            pl.DataFrame({"x": [0.125]}).select(agg_range(pl.col("x"), 2)).item()
+            == "0.12-0.12"
+        )
+
+    def test_percent_keeps_trailing_zeros(self):
+        df = pl.DataFrame(
+            {"b": [True, False, False, False, False, False, False, False]}
+        )
+        assert df.select(agg_bool_np(pl.col("b"), precision=2)).item() == "1 (12.50%)"
+        assert (
+            df.select(agg_bool_pnn(pl.col("b"), precision=2)).item() == "12.50% (1/8)"
+        )
