@@ -58,6 +58,12 @@ class CoxFit:
     deviance: float | None = None
 
     def tidy(self, *, level: float = 0.95, exponentiate: bool = False, df: float | None = None) -> pl.DataFrame:
+        """Coefficient table with Wald z tests, as ``broom::tidy`` on a ``coxph`` fit.
+
+        With ``exponentiate=True``, ``estimate``, ``conf_low``, and
+        ``conf_high`` are hazard ratios. ``std_error``, ``statistic``, and
+        ``p_value`` stay on the log scale.
+        """
         return Fit.tidy(self, level=level, exponentiate=exponentiate, df=np.inf)
 
     def _ensure_baseline(self) -> None:

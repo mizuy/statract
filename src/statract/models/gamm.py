@@ -95,9 +95,7 @@ class GammFit:
         )
         if exponentiate:
             frame = frame.with_columns(
-                pl.col("estimate").exp().alias("exp_estimate"),
-                pl.col("conf_low").exp().alias("exp_conf_low"),
-                pl.col("conf_high").exp().alias("exp_conf_high"),
+                pl.col("estimate", "conf_low", "conf_high").exp(),
             )
         return frame
 

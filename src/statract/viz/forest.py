@@ -1,7 +1,7 @@
 """Forest plots for coefficient / OR / HR tables.
 
-Accepts ``Fit.tidy`` / Cox ``tidy`` frames (with or without ``exponentiate=True``)
-and mixed-model ``tidy(exponentiate=True)`` frames. Pure matplotlib — no R / rpy2.
+Accepts ``Fit.tidy`` / Cox / mixed-model ``tidy`` frames. Pass ``ratio=True``
+for ``tidy(exponentiate=True)`` frames. Pure matplotlib — no R / rpy2.
 
 Default layout joins a text table (term, estimate/CI, p) with the forest panel,
 inspired by the column layout of ``forest.R`` / classic forest tables.
@@ -88,16 +88,9 @@ def _pick_columns(
         for name in (est, lo, hi):
             if name not in cols:
                 raise ValueError(f"column {name!r} not in tidy frame")
-        ratio = (
-            est.startswith("exp_")
-            or est in {"oddsratio", "hr", "or"}
-            or lo in {"conf.low", "exp_conf_low"}
-            or hi in {"conf.high", "exp_conf_high"}
-        )
+        ratio = est in {"oddsratio", "hr", "or"} or lo == "conf.low" or hi == "conf.high"
         return term_col, est, lo, hi, ratio
 
-    if {"exp_estimate", "exp_conf_low", "exp_conf_high"} <= cols:
-        return term_col, "exp_estimate", "exp_conf_low", "exp_conf_high", True
     if {"oddsratio", "lo", "hi"} <= cols:
         return term_col, "oddsratio", "lo", "hi", True
     if {"estimate", "conf.low", "conf.high"} <= cols:
@@ -106,7 +99,7 @@ def _pick_columns(
         return term_col, "estimate", "conf_low", "conf_high", False
     raise ValueError(
         "tidy frame needs estimate/CI columns "
-        "(exp_estimate/exp_conf_* or estimate/conf_* or oddsratio/lo/hi)"
+        "(estimate/conf_* or oddsratio/lo/hi)"
     )
 
 
@@ -145,6 +138,7 @@ def _prepare_frame(
     conf_low: str | None,
     conf_high: str | None,
     drop_intercept: bool,
+    ratio: bool | None = None,
     extra_cols: Sequence[str] = (),
 ) -> tuple[pl.DataFrame, bool]:
     term_col, est_col, lo_col, hi_col, is_ratio = _pick_columns(
@@ -154,6 +148,8 @@ def _prepare_frame(
         conf_low=conf_low,
         conf_high=conf_high,
     )
+    if ratio is not None:
+        is_ratio = ratio
     exprs = [
         pl.col(term_col).cast(pl.Utf8).alias("term"),
         pl.col(est_col).cast(pl.Float64).alias("estimate"),
@@ -302,6 +298,7 @@ def plot_forest(
     estimate: str | None = None,
     conf_low: str | None = None,
     conf_high: str | None = None,
+    ratio: bool | None = None,
     null_value: float | None = None,
     drop_intercept: bool = True,
     log_scale: bool | None = None,
@@ -328,18 +325,24 @@ def plot_forest(
 
     Args:
         tidy: Coefficient table, typically ``fit.tidy()`` or
-            ``fit.tidy(exponentiate=True)``. Also accepts experimental OR tables
+            ``fit.tidy(exponentiate=True)`` with ``ratio=True``. Also accepts experimental OR tables
             summaries with ``oddsratio`` / ``lo`` / ``hi``, and prepared HR
             tables with ``name`` / ``estimate`` / ``conf.low`` / ``conf.high``.
         path: If set, save a PNG and return that path; otherwise return the
             matplotlib ``Figure``.
         term: Label column. Auto-detects ``term``, ``variable``, or ``name``.
-        estimate: Point-estimate column. Auto-detects ``exp_estimate``,
-            ``oddsratio``, or ``estimate`` when omitted.
-        conf_low: Lower CI column. Auto-detects ``exp_conf_low``, ``lo``,
-            ``conf.low``, or ``conf_low`` when omitted.
-        conf_high: Upper CI column. Auto-detects ``exp_conf_high``, ``hi``,
-            ``conf.high``, or ``conf_high`` when omitted.
+        estimate: Point-estimate column. Auto-detects ``oddsratio`` or
+            ``estimate`` when omitted.
+        conf_low: Lower CI column. Auto-detects ``lo``, ``conf.low``, or
+            ``conf_low`` when omitted.
+        conf_high: Upper CI column. Auto-detects ``hi``, ``conf.high``, or
+            ``conf_high`` when omitted.
+        ratio: Whether the estimates are ratios (odds, rate, or hazard
+            ratios), as from ``tidy(exponentiate=True)``. Sets the defaults of
+            ``null_value``, ``log_scale``, and ``xlabel``. When omitted it is
+            inferred from the column names: ``oddsratio`` / ``lo`` / ``hi``
+            and ``conf.low`` / ``conf.high`` are ratios, ``conf_low`` /
+            ``conf_high`` are not.
         null_value: Vertical reference. Defaults to 1 for ratios, 0 otherwise.
         drop_intercept: Drop intercept rows when recognized.
         log_scale: Log x-axis for ratio estimates (default when ratio columns
@@ -375,6 +378,7 @@ def plot_forest(
         conf_low=conf_low,
         conf_high=conf_high,
         drop_intercept=drop_intercept,
+        ratio=ratio,
         extra_cols=extra_cols,
     )
 

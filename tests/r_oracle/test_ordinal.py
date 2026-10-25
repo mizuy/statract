@@ -89,7 +89,7 @@ def test_tidy_and_predict() -> None:
     table = fit.tidy(exponentiate=True)
     assert table["coef_type"].to_list() == ["coefficient"] * 4 + ["threshold"] * 3
     np.testing.assert_allclose(table["std_error"].to_numpy(), np.sqrt(np.diag(fit.covariance)))
-    np.testing.assert_allclose(table["exp_estimate"].to_numpy(), np.exp(table["estimate"].to_numpy()))
+    np.testing.assert_allclose(table["estimate"].to_numpy(), np.exp(fit.tidy()["estimate"].to_numpy()))
     data = _data("ordinal_a")
     probs = fit.predict(data.head(10))
     np.testing.assert_allclose(probs, fit.fitted[:10], rtol=1e-12)

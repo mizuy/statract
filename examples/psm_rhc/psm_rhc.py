@@ -155,6 +155,7 @@ def main() -> None:
         out / "figures" / "glm_matched_forest.png",
         title="Matched logistic (OR)",
         xlabel="Odds ratio",
+        ratio=True,
         layout="table",
     )
     unadj = fit_glm(cohort, "dth30_bin ~ rhc", family="binomial")

@@ -182,6 +182,7 @@ def main() -> None:
         out / "figures" / "finegray_forest.png",
         title="Fine–Gray (subdistribution HR)",
         xlabel="Hazard ratio",
+        ratio=True,
         layout="table",
     )
     crr = fine_gray_regression(fg_df, FG_FORMULA, cause=2)
@@ -192,10 +193,10 @@ def main() -> None:
     compare = pl.DataFrame(
         {
             "term": crr_tidy["term"],
-            "crr_estimate": crr_tidy["estimate"],
-            "finegray_estimate": fg_tidy["estimate"],
-            "crr_shr": crr_tidy["exp_estimate"],
-            "finegray_shr": fg_tidy["exp_estimate"],
+            "crr_estimate": crr.coefficients,
+            "finegray_estimate": fg_fit.coefficients,
+            "crr_shr": crr_tidy["estimate"],
+            "finegray_shr": fg_tidy["estimate"],
             "crr_se": crr_tidy["std_error"],
             "finegray_robust_se": fg_tidy["std_error"],
             "finegray_model_se": model_se,

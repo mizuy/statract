@@ -164,11 +164,11 @@ $$
 
 === "表"
 
-    | term | estimate | std_error | statistic | p_value | conf_low | conf_high | exp_estimate | exp_conf_low | exp_conf_high |
-    | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-    | trt_labeltreated | -0.7815 | 0.1510 | -5.175 | 2.274e-07 | -1.077 | -0.4855 | 0.4577 | 0.3405 | 0.6154 |
-    | typejuvenile | -0.07017 | 0.1774 | -0.3956 | 0.6924 | -0.4178 | 0.2775 | 0.9322 | 0.6585 | 1.320 |
-    | risk | 0.1470 | 0.05881 | 2.500 | 0.01243 | 0.03175 | 0.2623 | 1.158 | 1.032 | 1.300 |
+    | term | estimate | std_error | statistic | p_value | conf_low | conf_high |
+    | --- | --- | --- | --- | --- | --- | --- |
+    | trt_labeltreated | 0.4577 | 0.1510 | -5.175 | 2.274e-07 | 0.3405 | 0.6154 |
+    | typejuvenile | 0.9322 | 0.1774 | -0.3956 | 0.6924 | 0.6585 | 1.320 |
+    | risk | 1.158 | 0.05881 | 2.500 | 0.01243 | 1.032 | 1.300 |
 
     [CSV](assets/cox_retinopathy/cox_tidy.csv)
 
@@ -223,6 +223,7 @@ $$
         out / "figures" / "cox_forest.png",
         title="Cox PH, cluster-robust (HR)",
         xlabel="Hazard ratio",
+        ratio=True,
         layout="table",
     )
     ```

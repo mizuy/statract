@@ -173,7 +173,7 @@
     shared = (async () => {
       const model = await loadCsv("ch7_model.csv");
       const metrics = await loadQuotedCsv("ch9_metrics.csv");
-      const b = model.map((r) => Math.log(r.exp_estimate));
+      const b = model.map((r) => Math.log(r.estimate));
       const meanPred = metrics.find((r) => /^Seven predictors, same/.test(r.model)).mean_predicted;
       const d = simulate(50000, rng(TEST_SEED));
       const lp0 = new Float64Array(d.n);

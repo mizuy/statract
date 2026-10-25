@@ -68,16 +68,18 @@ def test_weibull_log_scale_se_matches_full_hessian() -> None:
     assert nll(fit.coefficients) == pytest.approx(-fit.log_likelihood, rel=1e-10)
     reference = np.sqrt(np.diag(np.linalg.inv(_numeric_hessian(nll, fit.coefficients))))
 
-    tidy = fit.tidy(exponentiate=True)
+    tidy = fit.tidy()
     row = tidy.filter(pl.col("term") == "Log(scale)").row(0, named=True)
     np.testing.assert_allclose(tidy["std_error"].to_numpy(), reference, rtol=1e-4)
     assert row["std_error"] > 0
     assert row["statistic"] == pytest.approx(row["estimate"] / row["std_error"])
     assert row["conf_low"] < row["estimate"] < row["conf_high"]
     assert row["conf_high"] - row["conf_low"] == pytest.approx(2 * 1.959963984540054 * row["std_error"])
-    assert row["exp_estimate"] == pytest.approx(fit.scale)
-    assert row["exp_conf_low"] == pytest.approx(np.exp(row["conf_low"]))
-    assert row["exp_conf_high"] == pytest.approx(np.exp(row["conf_high"]))
+    ratio = fit.tidy(exponentiate=True).filter(pl.col("term") == "Log(scale)").row(0, named=True)
+    assert ratio["estimate"] == pytest.approx(fit.scale)
+    assert ratio["conf_low"] == pytest.approx(np.exp(row["conf_low"]))
+    assert ratio["conf_high"] == pytest.approx(np.exp(row["conf_high"]))
+    assert ratio["std_error"] == pytest.approx(row["std_error"])
 
 
 def test_non_converged_fit_warns_and_reports_no_zero_se(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -92,7 +94,7 @@ def test_non_converged_fit_warns_and_reports_no_zero_se(monkeypatch: pytest.Monk
     assert np.diag(fit.covariance)[-1] <= 0
     row = fit.tidy(exponentiate=True).filter(pl.col("term") == "Log(scale)").row(0, named=True)
     assert np.isfinite(row["estimate"])
-    for column in ("std_error", "statistic", "p_value", "conf_low", "conf_high", "exp_conf_low", "exp_conf_high"):
+    for column in ("std_error", "statistic", "p_value", "conf_low", "conf_high"):
         assert np.isnan(row[column]), column
 
 

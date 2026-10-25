@@ -267,12 +267,23 @@ def test_plot_cox_residuals_and_loglog_return_paths(tmp_path: Path) -> None:
     assert Path(out2).exists()
 
 
+def test_cox_tidy_exponentiate_replaces_estimate_like_broom() -> None:
+    fit = cox_ph(_surv_frame(50), "Surv(time, event) ~ treat + age")
+    log_scale = fit.tidy()
+    hr = fit.tidy(exponentiate=True)
+    assert hr.columns == log_scale.columns
+    for column in ("estimate", "conf_low", "conf_high"):
+        np.testing.assert_allclose(hr[column].to_numpy(), np.exp(log_scale[column].to_numpy()))
+    for column in ("std_error", "statistic", "p_value"):
+        np.testing.assert_allclose(hr[column].to_numpy(), log_scale[column].to_numpy())
+
+
 def test_plot_forest_table_layout_default(tmp_path: Path) -> None:
     df = _surv_frame(50)
     tidy = cox_ph(df, "Surv(time, event) ~ treat + age").tidy(exponentiate=True)
-    out = plot_forest(tidy, tmp_path / "forest.png", title="HR", xlabel="Hazard ratio")
+    out = plot_forest(tidy, tmp_path / "forest.png", title="HR", xlabel="Hazard ratio", ratio=True)
     assert Path(out).exists() and Path(out).stat().st_size > 0
-    fig = plot_forest(tidy, layout="points")
+    fig = plot_forest(tidy, ratio=True, layout="points")
     assert fig is not None
     assert len(fig.axes) == 1
     import matplotlib.pyplot as plt

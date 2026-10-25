@@ -60,8 +60,8 @@ def test_pool_options() -> None:
     fits = [MODELS["logit"](d) for d in _completed()]
     plain = pool(fits)
     wide = pool(fits, exponentiate=True, level=0.9)
-    np.testing.assert_allclose(wide["exp_estimate"].to_numpy(), np.exp(plain["estimate"].to_numpy()))
-    assert np.all(wide["conf_low"].to_numpy() > plain["conf_low"].to_numpy())
+    np.testing.assert_allclose(wide["estimate"].to_numpy(), np.exp(plain["estimate"].to_numpy()))
+    assert np.all(wide["conf_low"].to_numpy() > np.exp(plain["conf_low"].to_numpy()))
     # An infinite complete-data df gives the classic Rubin df.
     rubin = pool(fits, dfcom=float("inf"))
     lam = rubin["lambda"].to_numpy()

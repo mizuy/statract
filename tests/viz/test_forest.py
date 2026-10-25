@@ -28,7 +28,7 @@ def _binomial_frame() -> pl.DataFrame:
 def test_plot_forest_or_returns_path(tmp_path: Path) -> None:
     fit = fit_glm(_binomial_frame(), "y ~ x + z", family="binomial")
     tidy = fit.tidy(exponentiate=True)
-    out = plot_forest(tidy, tmp_path / "or_forest.png", title="OR", xlabel="Odds ratio")
+    out = plot_forest(tidy, tmp_path / "or_forest.png", title="OR", xlabel="Odds ratio", ratio=True)
     assert out == tmp_path / "or_forest.png"
     assert out.exists()
     assert out.stat().st_size > 0
@@ -44,7 +44,7 @@ def test_plot_forest_hr_returns_figure() -> None:
         }
     )
     tidy = cox_ph(df, "Surv(time, event) ~ treat + age").tidy(exponentiate=True)
-    fig = plot_forest(tidy, title="HR", xlabel="Hazard ratio")
+    fig = plot_forest(tidy, title="HR", xlabel="Hazard ratio", ratio=True)
     assert fig is not None
     assert hasattr(fig, "savefig")
     import matplotlib.pyplot as plt
@@ -85,7 +85,7 @@ def test_plot_forest_rejects_empty() -> None:
 
 def test_plot_forest_default_is_table_layout() -> None:
     tidy = fit_glm(_binomial_frame(), "y ~ x + z", family="binomial").tidy(exponentiate=True)
-    fig = plot_forest(tidy, title="OR", xlabel="Odds ratio")
+    fig = plot_forest(tidy, title="OR", xlabel="Odds ratio", ratio=True)
     assert len(fig.axes) == 2
     texts = [t.get_text() for ax in fig.axes for t in ax.texts]
     assert "Term" in texts
@@ -109,7 +109,7 @@ def test_plot_forest_bw_is_grayscale() -> None:
     import matplotlib.pyplot as plt
 
     tidy = fit_glm(_binomial_frame(), "y ~ x + z", family="binomial").tidy(exponentiate=True)
-    fig = plot_forest(tidy, xlabel="Odds ratio", style="bw")
+    fig = plot_forest(tidy, xlabel="Odds ratio", ratio=True, style="bw")
     forest = fig.axes[-1]
     for line in forest.lines:
         rgb = mcolors.to_rgb(line.get_color())
@@ -125,16 +125,13 @@ def test_plot_forest_formats_small_p_as_lt_001() -> None:
     tidy = pl.DataFrame(
         {
             "term": ["treat"],
-            "estimate": [0.4],
-            "conf_low": [0.2],
-            "conf_high": [0.7],
-            "exp_estimate": [1.5],
-            "exp_conf_low": [1.2],
-            "exp_conf_high": [1.9],
+            "estimate": [1.5],
+            "conf_low": [1.2],
+            "conf_high": [1.9],
             "p_value": [1e-8],
         }
     )
-    fig = plot_forest(tidy, xlabel="Hazard ratio")
+    fig = plot_forest(tidy, xlabel="Hazard ratio", ratio=True)
     texts = [t.get_text() for ax in fig.axes for t in ax.texts]
     assert "<0.001" in texts
     assert "HR (95% CI)" in texts
@@ -172,6 +169,6 @@ def test_plot_forest_accepts_prepared_hr_columns() -> None:
 
 def test_plot_forest_also_pdf(tmp_path: Path) -> None:
     tidy = fit_glm(_binomial_frame(), "y ~ x + z", family="binomial").tidy(exponentiate=True)
-    png = plot_forest(tidy, tmp_path / "or.png", xlabel="Odds ratio", also_pdf=True)
+    png = plot_forest(tidy, tmp_path / "or.png", xlabel="Odds ratio", ratio=True, also_pdf=True)
     assert Path(png).exists()
     assert Path(png).with_suffix(".pdf").exists()

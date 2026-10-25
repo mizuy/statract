@@ -183,6 +183,7 @@ def main() -> None:
         out / "figures" / "glm_full_forest.png",
         title="Multivariable GLM on training sample (OR)",
         xlabel="Odds ratio",
+        ratio=True,
         layout="table",
     )
 

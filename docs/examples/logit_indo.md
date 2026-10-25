@@ -105,14 +105,14 @@ n=602（全例）。サイト掲載は `assets/logit_indo/`。表の数値は `t
 
 === "表"
 
-    | term | estimate | std_error | exp_estimate | exp_conf_low | exp_conf_high | p_value |
-    | --- | --- | --- | --- | --- | --- | --- |
-    | (Intercept) | -2.545 | 0.7883 | 0.0785 | 0.0167 | 0.368 | 0.00124 |
-    | indomethacin | -0.7671 | 0.2612 | 0.464 | 0.278 | 0.775 | 0.00331 |
-    | age | -0.00819 | 0.00991 | 0.992 | 0.973 | 1.011 | 0.408 |
-    | risk | 0.5496 | 0.1508 | 1.733 | 1.289 | 2.328 | 0.000268 |
-    | sod_yes | 0.0105 | 0.3764 | 1.011 | 0.483 | 2.113 | 0.978 |
-    | pdstent_yes | 0.0102 | 0.3565 | 1.010 | 0.502 | 2.032 | 0.977 |
+    | term | estimate | std_error | conf_low | conf_high | p_value |
+    | --- | --- | --- | --- | --- | --- |
+    | (Intercept) | 0.0785 | 0.7883 | 0.0167 | 0.368 | 0.00124 |
+    | indomethacin | 0.464 | 0.2612 | 0.278 | 0.775 | 0.00331 |
+    | age | 0.992 | 0.00991 | 0.973 | 1.011 | 0.408 |
+    | risk | 1.733 | 0.1508 | 1.289 | 2.328 | 0.000268 |
+    | sod_yes | 1.011 | 0.3764 | 0.483 | 2.113 | 0.978 |
+    | pdstent_yes | 1.010 | 0.3565 | 0.502 | 2.032 | 0.977 |
 
     [CSV](assets/logit_indo/glmm_tidy.csv)
 
@@ -132,6 +132,7 @@ n=602（全例）。サイト掲載は `assets/logit_indo/`。表の数値は `t
         out / "figures" / "glmm_fixed_forest.png",
         title="Site GLMM fixed effects (OR)",
         xlabel="Odds ratio",
+        ratio=True,
         layout="table",
     )
     ```
@@ -152,6 +153,7 @@ n=602（全例）。サイト掲載は `assets/logit_indo/`。表の数値は `t
         out / "figures" / "glmm_fixed_forest.png",
         title="Site GLMM fixed effects (OR)",
         xlabel="Odds ratio",
+        ratio=True,
         layout="table",
     )
     ```
@@ -211,10 +213,10 @@ MOR はライブラリ API（`statract.median_odds_ratio`）です。例スク�
 
 === "表"
 
-    | term | estimate | std_error | exp_estimate | exp_conf_low | exp_conf_high | p_value |
-    | --- | --- | --- | --- | --- | --- | --- |
-    | (Intercept) | -1.590 | 0.1522 | 0.204 | 0.151 | 0.275 | 1.47e-25 |
-    | indomethacin | -0.7051 | 0.2528 | 0.494 | 0.301 | 0.811 | 0.00529 |
+    | term | estimate | std_error | conf_low | conf_high | p_value |
+    | --- | --- | --- | --- | --- | --- |
+    | (Intercept) | 0.204 | 0.1522 | 0.151 | 0.275 | 1.47e-25 |
+    | indomethacin | 0.494 | 0.2528 | 0.301 | 0.811 | 0.00529 |
 
     [CSV](assets/logit_indo/glm_unadjusted.csv)
 
@@ -231,14 +233,14 @@ MOR はライブラリ API（`statract.median_odds_ratio`）です。例スク�
 
 === "表"
 
-    | term | estimate | std_error | exp_estimate | exp_conf_low | exp_conf_high | p_value |
-    | --- | --- | --- | --- | --- | --- | --- |
-    | (Intercept) | -1.884 | 0.6601 | 0.152 | 0.0417 | 0.554 | 0.00431 |
-    | indomethacin | -0.7502 | 0.2572 | 0.472 | 0.285 | 0.782 | 0.00353 |
-    | age | -0.00793 | 0.00970 | 0.992 | 0.973 | 1.011 | 0.414 |
-    | risk | 0.5321 | 0.1484 | 1.703 | 1.273 | 2.277 | 0.000337 |
-    | sod_yes | -0.503 | 0.3428 | 0.605 | 0.309 | 1.184 | 0.142 |
-    | pdstent_yes | -0.314 | 0.3398 | 0.730 | 0.375 | 1.422 | 0.355 |
+    | term | estimate | std_error | conf_low | conf_high | p_value |
+    | --- | --- | --- | --- | --- | --- |
+    | (Intercept) | 0.152 | 0.6601 | 0.0417 | 0.554 | 0.00431 |
+    | indomethacin | 0.472 | 0.2572 | 0.285 | 0.782 | 0.00353 |
+    | age | 0.992 | 0.00970 | 0.973 | 1.011 | 0.414 |
+    | risk | 1.703 | 0.1484 | 1.273 | 2.277 | 0.000337 |
+    | sod_yes | 0.605 | 0.3428 | 0.309 | 1.184 | 0.142 |
+    | pdstent_yes | 0.730 | 0.3398 | 0.375 | 1.422 | 0.355 |
 
     [CSV](assets/logit_indo/glm_adjusted.csv)
 
@@ -269,6 +271,7 @@ MOR はライブラリ API（`statract.median_odds_ratio`）です。例スク�
         out / "figures" / "glm_adjusted_forest.png",
         title="Adjusted binomial GLM (OR), comparison",
         xlabel="Odds ratio",
+        ratio=True,
         layout="table",
     )
     ```

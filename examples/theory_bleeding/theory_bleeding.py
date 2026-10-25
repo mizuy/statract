@@ -160,7 +160,7 @@ def _or_rows(fit, terms: list[str]) -> pl.DataFrame:
     return (
         fit.tidy(exponentiate=True)
         .filter(pl.col("term").is_in(terms))
-        .select("term", "exp_estimate", "exp_conf_low", "exp_conf_high", "p_value")
+        .select("term", "estimate", "conf_low", "conf_high", "p_value")
     )
 
 
@@ -307,6 +307,7 @@ def conventional(df: pl.DataFrame, out: Path) -> tuple[pl.DataFrame, list[str]]:
             ),
             title=title,
             xlabel="Odds ratio",
+            ratio=True,
         )
         _save_restyled(fig, out / "figures" / f"{stem}.png")
     return uni, selected
@@ -337,7 +338,7 @@ def clip_estimates(df: pl.DataFrame, out: Path) -> pl.DataFrame:
     )
     _write_csv(out, "clip_truth", truth)
     table = pl.concat([crude, dag]).select(
-        "model", "exp_estimate", "exp_conf_low", "exp_conf_high", "p_value"
+        "model", "estimate", "conf_low", "conf_high", "p_value"
     )
     _write_csv(out, "clip_models", table)
     return table
@@ -1384,9 +1385,9 @@ def prediction_model(df: pl.DataFrame, out: Path) -> None:
         rows.append(
             {
                 "model": name,
-                "hypertension_or": float(t["exp_estimate"][0]),
-                "conf_low": float(t["exp_conf_low"][0]),
-                "conf_high": float(t["exp_conf_high"][0]),
+                "hypertension_or": float(t["estimate"][0]),
+                "conf_low": float(t["conf_low"][0]),
+                "conf_high": float(t["conf_high"][0]),
                 "p_value": float(t["p_value"][0]),
                 "auc_test": _auc(yt, np.asarray(f.predict(test, kind="response"))),
             }

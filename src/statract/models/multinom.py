@@ -58,8 +58,8 @@ class MultinomialFit:
     def tidy(self, *, level: float = 0.95, exponentiate: bool = False) -> pl.DataFrame:
         """One row per level and term, with Wald z tests and intervals.
 
-        ``exponentiate`` adds relative-risk-ratio columns ``exp_estimate``,
-        ``exp_conf_low``, and ``exp_conf_high``.
+        With ``exponentiate`` the estimate and interval are relative risk
+        ratios; ``std_error`` and ``statistic`` stay on the log scale.
         """
         estimate = self.coefficients.reshape(-1)
         se = self.std_errors.reshape(-1)
@@ -81,9 +81,7 @@ class MultinomialFit:
         )
         if exponentiate:
             frame = frame.with_columns(
-                pl.col("estimate").exp().alias("exp_estimate"),
-                pl.col("conf_low").exp().alias("exp_conf_low"),
-                pl.col("conf_high").exp().alias("exp_conf_high"),
+                pl.col("estimate", "conf_low", "conf_high").exp(),
             )
         return frame
 

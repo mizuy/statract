@@ -41,7 +41,11 @@ def test_ols_drops_null_rows_and_tidy_has_the_public_columns():
     table = fit.tidy()
     assert table.columns == ["term", "estimate", "std_error", "statistic", "p_value", "conf_low", "conf_high"]
     expanded = fit.tidy(exponentiate=True)
-    assert "exp_estimate" in expanded.columns
+    assert expanded.columns == table.columns
+    for column in ("estimate", "conf_low", "conf_high"):
+        np.testing.assert_allclose(expanded[column].to_numpy(), np.exp(table[column].to_numpy()))
+    for column in ("std_error", "statistic", "p_value"):
+        np.testing.assert_allclose(expanded[column].to_numpy(), table[column].to_numpy())
     glance = fit.glance()
     assert glance["n_obs"][0] == 6
     assert glance.columns[:4] == ["n_obs", "residual_df", "log_likelihood", "aic"]
@@ -418,7 +422,7 @@ def test_fit_mixed_accepts_a_wilkinson_formula():
     assert binomial.family == "binomial"
     assert binomial.engine == "laplace"
     tidy = binomial.tidy(exponentiate=True)
-    assert "exp_estimate" in tidy.columns
+    np.testing.assert_allclose(tidy["estimate"].to_numpy(), np.exp(binomial.tidy()["estimate"].to_numpy()))
 
 
 def test_ols_keeps_qr_accuracy_on_an_uncentred_birth_year():

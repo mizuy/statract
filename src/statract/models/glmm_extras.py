@@ -402,6 +402,7 @@ def glmm_forestplot(
     from ..viz.forest import plot_forest
 
     kwargs: dict[str, Any] = {
+        "ratio": True,
         "null_value": 1.0,
         "log_scale": True,
         "xlabel": "Odds ratio",
@@ -417,7 +418,7 @@ def glmm_forestplot(
     if lim and lim > 0:
         lo_name = kwargs.get("conf_low")
         if lo_name is None:
-            lo_name = "exp_conf_low" if "exp_conf_low" in summary.columns else "conf_low"
+            lo_name = "conf_low"
         lo_min = float(summary[lo_name].drop_nulls().min())
         kwargs["xlim"] = (max(1e-3, lo_min * 0.8), float(lim))
 

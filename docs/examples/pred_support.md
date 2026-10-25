@@ -168,7 +168,7 @@ ctree は各ノードで変数ごとに並べ替え検定を行い、多重性�
 
 === "表"
 
-    | term | exp_estimate | exp_conf_low | exp_conf_high | p_value |
+    | term | estimate | conf_low | conf_high | p_value |
     | --- | --- | --- | --- | --- |
     | age | 1.018 | 1.014 | 1.022 | 5.8e-20 |
     | dzclassCOPD/CHF/Cirrhosis | 0.557 | 0.478 | 0.649 | 5.7e-14 |
@@ -193,6 +193,7 @@ ctree は各ノードで変数ごとに並べ替え検定を行い、多重性�
         out / "figures" / "glm_full_forest.png",
         title="Multivariable GLM on training sample (OR)",
         xlabel="Odds ratio",
+        ratio=True,
         layout="table",
     )
     ```

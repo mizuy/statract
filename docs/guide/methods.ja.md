@@ -119,7 +119,7 @@ tableone(
 | 順序（重症度など） | 比例オッズ | `ordinal_regression(frame, "grade ~ x", levels=["none", "mild", "severe"])` | `exp` で累積オッズ比 |
 | 3 水準以上で順序なし | 多項ロジスティック | `multinomial_regression(frame, "subtype ~ x + age")` | `exp` で基準水準に対する相対リスク比 |
 
-式の書き方は [Wilkinson 式](../models/formula.md) です。カテゴリの最初の水準が参照になります。係数表は `fit.tidy()` です。
+式の書き方は [Wilkinson 式](../models/formula.md) です。カテゴリの最初の水準が参照になります。係数表は `fit.tidy()` です。broom と同じく、`fit.tidy(exponentiate=True)` では `estimate`、`conf_low`、`conf_high` がオッズ比・率比・ハザード比になります。`std_error` と `p_value` は対数スケールのままです。
 
 ### 効果の尺度を選ぶ
 

@@ -89,6 +89,11 @@ class Fit:
 
         OLS uses a t reference distribution with ``residual_df``. GLM uses a
         normal reference, matching ``coeftest`` on a ``glm`` object.
+
+        With ``exponentiate=True``, ``estimate``, ``conf_low``, and
+        ``conf_high`` are exponentiated in place (odds, rate, or hazard
+        ratios), as in broom's ``tidy(exponentiate = TRUE)``. ``std_error``,
+        ``statistic``, and ``p_value`` stay on the log scale.
         """
         se = np.sqrt(np.clip(np.diag(self.covariance), 0, None))
         estimate = self.coefficients
@@ -120,9 +125,7 @@ class Fit:
         )
         if exponentiate:
             frame = frame.with_columns(
-                pl.col("estimate").exp().alias("exp_estimate"),
-                pl.col("conf_low").exp().alias("exp_conf_low"),
-                pl.col("conf_high").exp().alias("exp_conf_high"),
+                pl.col("estimate", "conf_low", "conf_high").exp(),
             )
         return frame
 
