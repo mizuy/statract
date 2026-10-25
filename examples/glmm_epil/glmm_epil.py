@@ -176,6 +176,7 @@ def main() -> None:
         out / "figures" / "trt_rate_ratio_forest.png",
         title="Progabide vs placebo: rate ratio by model",
         xlabel="Rate ratio (progabide / placebo)",
+        ratio=True,
         layout="table",
         drop_intercept=False,
     )
@@ -189,6 +190,7 @@ def main() -> None:
         out / "figures" / "nb_glmm_forest.png",
         title="NB GLMM fixed effects (rate ratio)",
         xlabel="Rate ratio",
+        ratio=True,
         layout="table",
     )
     re = glmm_random_effects(main_fit, visits.select("subject"))
@@ -212,15 +214,15 @@ def main() -> None:
     rr_main = rate_ratios.filter(pl.col("term") == MAIN)
     (out / "glmm.md").write_text(
         f"Main model: `fit_mixed(visits, 'y ~ {RHS} + (1 | subject)', family='negative_binomial')`. "
-        f"Progabide rate ratio = {float(rr_main['exp_estimate'][0]):.3f} "
-        f"(95% CI {float(rr_main['exp_conf_low'][0]):.3f}-{float(rr_main['exp_conf_high'][0]):.3f}); "
+        f"Progabide rate ratio = {float(rr_main['estimate'][0]):.3f} "
+        f"(95% CI {float(rr_main['conf_low'][0]):.3f}-{float(rr_main['conf_high'][0]):.3f}); "
         f"theta = {main_fit.theta:.2f}; patient variance = {float(mrr['variance'][0]):.3f}; "
         f"median rate ratio = {float(mrr['median_rate_ratio'][0]):.2f}.\n",
         encoding="utf-8",
     )
 
     print(comparison)
-    print(rate_ratios.select("term", "exp_estimate", "exp_conf_low", "exp_conf_high", "p_value"))
+    print(rate_ratios.select("term", "estimate", "conf_low", "conf_high", "p_value"))
     print(f"wrote {out} from {project.project_root}")
 
 

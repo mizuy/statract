@@ -242,7 +242,7 @@
       vline(A, expected, { stroke: COLOR.ink, "stroke-width": 1.5, "stroke-dasharray": "5 4" });
       vline(A, ref.observed, { stroke: COLOR.red, "stroke-width": 2 });
       vline(B, Math.log(trueOr), { stroke: COLOR.ink, "stroke-width": 1.5, "stroke-dasharray": "5 4" });
-      vline(B, Math.log(ch7.exp_estimate), { stroke: COLOR.red, "stroke-width": 2 });
+      vline(B, Math.log(ch7.estimate), { stroke: COLOR.red, "stroke-width": 2 });
       if (!n) {
         for (const P of [A, B]) {
           svgEl("text", { x: P.sx((P === A ? C0 + C1 : OR0 + OR1) / 2), y: P.sy(0.5), "text-anchor": "middle", class: "sx-note", text: "上のボタンで硬貨を投げ直します" }, P.over);
@@ -261,7 +261,7 @@
         ],
         ["抗血栓薬のオッズ比", enough ? `中央値 ${or2(quant(ors, 0.5))}、95% の範囲 ${or2(quant(ors, 0.025))}–${or2(quant(ors, 0.975))}` : "40 回以上で表示します"],
         ["本（5000 回）の出血の人数", `平均 ${Math.round(ref.expected)} 人、95% の範囲 ${ref.sim_low}–${ref.sim_high} 人`],
-        ["本当のオッズ比と第 8 章の推定", `本当は ${or2(trueOr)}。第 8 章では ${or2(ch7.exp_estimate)}（95% 信頼区間 ${or2(ch7.exp_conf_low)}–${or2(ch7.exp_conf_high)}）`],
+        ["本当のオッズ比と第 8 章の推定", `本当は ${or2(trueOr)}。第 8 章では ${or2(ch7.estimate)}（95% 信頼区間 ${or2(ch7.conf_low)}–${or2(ch7.conf_high)}）`],
       ]);
     }
     draw();

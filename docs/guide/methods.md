@@ -119,7 +119,7 @@ Example: [Basic tests for a 2-arm RCT](../examples/htest_licorice.md)
 | Ordinal (such as severity) | Proportional odds | `ordinal_regression(frame, "grade ~ x", levels=["none", "mild", "severe"])` | `exp` gives the cumulative odds ratio |
 | 3 or more unordered levels | Multinomial logistic | `multinomial_regression(frame, "subtype ~ x + age")` | `exp` gives the relative risk ratio versus the reference level |
 
-See [Wilkinson formulas](../models/formula.md) for formula syntax. The first level of a categorical variable is the reference. Get the coefficient table with `fit.tidy()`.
+See [Wilkinson formulas](../models/formula.md) for formula syntax. The first level of a categorical variable is the reference. Get the coefficient table with `fit.tidy()`. As in broom, `fit.tidy(exponentiate=True)` turns `estimate`, `conf_low`, and `conf_high` into odds, rate, or hazard ratios; `std_error` and `p_value` stay on the log scale.
 
 ### Choose the effect measure
 

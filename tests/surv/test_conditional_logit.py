@@ -202,4 +202,4 @@ def test_tidy_exponentiates():
     fit = conditional_logit(_matched(double=True), "y ~ x + z + strata(set)")
     tidy = fit.tidy(exponentiate=True)
     assert tidy["term"].to_list() == ["x", "z"]
-    np.testing.assert_allclose(tidy["exp_estimate"].to_numpy(), np.exp(fit.coefficients))
+    np.testing.assert_allclose(tidy["estimate"].to_numpy(), np.exp(fit.coefficients))

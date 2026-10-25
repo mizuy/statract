@@ -111,6 +111,7 @@ def main() -> None:
         out / "figures" / "glmm_fixed_forest.png",
         title="Site GLMM fixed effects (OR)",
         xlabel="Odds ratio",
+        ratio=True,
         layout="table",
     )
     plot_random_effects(
@@ -141,6 +142,7 @@ def main() -> None:
         out / "figures" / "glm_adjusted_forest.png",
         title="Adjusted binomial GLM (OR), comparison",
         xlabel="Odds ratio",
+        ratio=True,
         layout="table",
     )
     (out / "glm_n.md").write_text(

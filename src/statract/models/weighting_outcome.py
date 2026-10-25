@@ -83,17 +83,13 @@ class WeightedGLM:
         With ``vcov="bootstrap"`` the standard error is the replicates' standard
         deviation and the interval is their percentiles.
         """
-        frame = self.fit.tidy(level=level, exponentiate=exponentiate)
-        if self.replicates is None:
-            return frame
-        alpha = (1.0 - level) / 2.0
-        low, high = np.quantile(self.replicates, [alpha, 1.0 - alpha], axis=0)
-        frame = frame.with_columns(pl.Series("conf_low", low), pl.Series("conf_high", high))
+        frame = self.fit.tidy(level=level)
+        if self.replicates is not None:
+            alpha = (1.0 - level) / 2.0
+            low, high = np.quantile(self.replicates, [alpha, 1.0 - alpha], axis=0)
+            frame = frame.with_columns(pl.Series("conf_low", low), pl.Series("conf_high", high))
         if exponentiate:
-            frame = frame.with_columns(
-                pl.col("conf_low").exp().alias("exp_conf_low"),
-                pl.col("conf_high").exp().alias("exp_conf_high"),
-            )
+            frame = frame.with_columns(pl.col("estimate", "conf_low", "conf_high").exp())
         return frame
 
 

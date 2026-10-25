@@ -173,6 +173,7 @@ $e^{\beta_1}$ が患者内（条件付き）の率比です。対数リンクで
         out / "figures" / "trt_rate_ratio_forest.png",
         title="Progabide vs placebo: rate ratio by model",
         xlabel="Rate ratio (progabide / placebo)",
+        ratio=True,
         layout="table",
         drop_intercept=False,
     )
@@ -206,6 +207,7 @@ $e^{\beta_1}$ が患者内（条件付き）の率比です。対数リンクで
         out / "figures" / "nb_glmm_forest.png",
         title="NB GLMM fixed effects (rate ratio)",
         xlabel="Rate ratio",
+        ratio=True,
         layout="table",
     )
     ```

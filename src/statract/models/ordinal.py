@@ -121,9 +121,9 @@ class OrdinalFit:
     def tidy(self, *, level: float = 0.95, exponentiate: bool = False) -> pl.DataFrame:
         """Coefficients then thresholds, with Wald z tests and intervals.
 
-        ``exponentiate`` adds ``exp_estimate``, ``exp_conf_low``, and
-        ``exp_conf_high``. For the coefficients these are cumulative odds ratios
-        under the logit link.
+        With ``exponentiate`` the estimate and interval are exponentiated; for
+        the coefficients these are cumulative odds ratios under the logit link.
+        ``std_error`` and ``statistic`` stay on the log scale.
         """
         estimate = np.concatenate([self.coefficients, self.thresholds])
         se = np.sqrt(np.clip(np.diag(self.covariance), 0, None))
@@ -144,9 +144,7 @@ class OrdinalFit:
         )
         if exponentiate:
             frame = frame.with_columns(
-                pl.col("estimate").exp().alias("exp_estimate"),
-                pl.col("conf_low").exp().alias("exp_conf_low"),
-                pl.col("conf_high").exp().alias("exp_conf_high"),
+                pl.col("estimate", "conf_low", "conf_high").exp(),
             )
         return frame
 

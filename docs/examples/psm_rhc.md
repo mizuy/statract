@@ -142,10 +142,10 @@ $$
 
 === "表"
 
-    | term | estimate | std_error | statistic | p_value | conf_low | conf_high | exp_estimate | exp_conf_low | exp_conf_high |
-    | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-    | (Intercept) | -0.8363 | 0.05301 | -15.78 | 4.583e-56 | -0.9402 | -0.7324 | 0.4333 | 0.3905 | 0.4807 |
-    | rhc | 0.2883 | 0.07324 | 3.937 | 8.260e-05 | 0.1448 | 0.4319 | 1.334 | 1.156 | 1.54 |
+    | term | estimate | std_error | statistic | p_value | conf_low | conf_high |
+    | --- | --- | --- | --- | --- | --- | --- |
+    | (Intercept) | 0.4333 | 0.05301 | -15.78 | 4.583e-56 | 0.3905 | 0.4807 |
+    | rhc | 1.334 | 0.07324 | 3.937 | 8.260e-05 | 1.156 | 1.54 |
 
     [CSV](assets/psm_rhc/glm_matched.csv)
 
@@ -174,15 +174,16 @@ $$
         out / "figures" / "glm_matched_forest.png",
         title="Matched logistic (OR)",
         xlabel="Odds ratio",
+        ratio=True,
         layout="table",
     )
     ```
 
 ### 参考: 未マッチロジスティック
 
-| term | estimate | exp_estimate | exp_conf_low | exp_conf_high |
-| --- | --- | --- | --- | --- |
-| rhc | 0.3276 | 1.388 | 1.241 | 1.552 |
+| term | estimate | conf_low | conf_high |
+| --- | --- | --- | --- |
+| rhc | 1.388 | 1.241 | 1.552 |
 
 [CSV](assets/psm_rhc/glm_unmatched.csv)
 

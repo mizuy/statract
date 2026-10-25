@@ -55,7 +55,7 @@ class AftFit:
         if not bad.any():
             return frame
         mask = pl.Series(bad)
-        inference = [c for c in frame.columns if c not in {"term", "estimate", "exp_estimate"}]
+        inference = [c for c in frame.columns if c not in {"term", "estimate"}]
         return frame.with_columns(
             pl.when(mask).then(pl.lit(float("nan"))).otherwise(pl.col(c)).alias(c) for c in inference
         )

@@ -137,6 +137,7 @@ def main() -> None:
         out / "figures" / "cox_forest.png",
         title="Cox PH, cluster-robust (HR)",
         xlabel="Hazard ratio",
+        ratio=True,
         layout="table",
     )
     zph = proportional_hazards_test(fit)

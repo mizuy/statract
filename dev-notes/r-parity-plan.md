@@ -62,7 +62,7 @@ fit = gam(
 | グループ | `by`。既存 `plot_survival` の `hue` は残す |
 | カテゴリ | `pl.Enum` の定義順。先頭が参照水準。上書きは `levels=` |
 | 重み・オフセット | 列名 `weights` / `offset` |
-| 結果 | `tidy()` の列は `term, estimate, std_error, statistic, p_value, conf_low, conf_high`。`exponentiate=True` で `exp_estimate, exp_conf_low, exp_conf_high` を足す |
+| 結果 | `tidy()` の列は `term, estimate, std_error, statistic, p_value, conf_low, conf_high`。`exponentiate=True` では broom と同じく `estimate, conf_low, conf_high` を exp したものに置き換える |
 | 予測の種類 | `kind=`（`"link"`, `"response"`, `"survival"` など）。R の `type=` は公開名にしない |
 | 式 | `fit_ols`、`fit_glm`、`fit_mixed` の結果引数、および `model_matrix`。列名リストも残す。演算子は `+` `-` `*` `:` `/` `%in%` `^`、`0`/`1`、`.`、`I()`、`offset()`、`log` など。変量効果は `(1 \| g)` と `(1 + x \| g)` |
 

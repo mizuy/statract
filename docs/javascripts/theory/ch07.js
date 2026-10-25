@@ -16,7 +16,7 @@
 
   async function riskWidget(root) {
     const [model, patients] = await Promise.all([loadCsv("ch7_model.csv"), loadCsv("ch7_patients.csv")]);
-    for (const t of TERMS) t.beta = Math.log(model.find((r) => r.term === t.term).exp_estimate);
+    for (const t of TERMS) t.beta = Math.log(model.find((r) => r.term === t.term).estimate);
     // ch7_model.csv has the odds ratios only. Each example patient's predicted
     // risk gives the intercept back: logit(risk) minus the other terms. The
     // three agree to rounding error; their mean is used.
