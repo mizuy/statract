@@ -43,7 +43,12 @@ class SurvivalCurve:
         return self.table
 
     def at(self, times: float | list[float] | np.ndarray) -> pl.DataFrame:
-        """Right-continuous value at each requested time, within each group."""
+        """Right-continuous value at each requested time, within each group.
+
+        ``n_risk`` follows ``summary(survfit(...), times=)``: the risk set at
+        the first tabled time at or after ``t``, so the subjects with
+        ``time >= t`` when there is no delayed entry. It is 0 past the last time.
+        """
         asked = np.atleast_1d(np.asarray(times, dtype=float))
         table = self.table
         has_group = "group" in table.columns
@@ -84,15 +89,13 @@ class SurvivalCurve:
             out_se[cursor:end] = 0.0
             out_low[cursor:end] = before
             out_high[cursor:end] = before
-            first_risk = float(n_risk[sel][0]) if np.any(sel) else 0.0
-            out_risk[cursor:end] = first_risk
+            out_risk[cursor:end] = _risk_at(known_g, n_risk[sel], asked)
             if np.any(valid):
                 picked = idx[valid]
                 out_est[cursor:end][valid] = estimate[sel][picked]
                 out_se[cursor:end][valid] = std_error[sel][picked]
                 out_low[cursor:end][valid] = low[sel][picked]
                 out_high[cursor:end][valid] = high[sel][picked]
-                out_risk[cursor:end][valid] = n_risk[sel][picked]
             if out_group is not None:
                 out_group.extend([group] * n_ask)
             if out_state is not None and state is not None:
@@ -359,6 +362,21 @@ def _curve_arrays(
         "conf_low": low,
         "conf_high": high,
     }
+
+
+def _risk_at(known: np.ndarray, n_risk: np.ndarray, asked: np.ndarray) -> np.ndarray:
+    """Risk set at each asked time: the risk at the first tabled time >= t.
+
+    The table lists every observed time, so no subject leaves the risk set
+    between ``t`` and that time. Past the last time nobody is at risk.
+    """
+    out = np.zeros(asked.shape[0], dtype=float)
+    if known.size == 0:
+        return out
+    nxt = np.searchsorted(known, asked, side="left")
+    ok = nxt < known.size
+    out[ok] = n_risk[nxt[ok]]
+    return out
 
 
 def _tie_counts(
