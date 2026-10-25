@@ -140,6 +140,7 @@ def _prepare_frame(
     drop_intercept: bool,
     ratio: bool | None = None,
     extra_cols: Sequence[str] = (),
+    panel: str | None = None,
 ) -> tuple[pl.DataFrame, bool]:
     term_col, est_col, lo_col, hi_col, is_ratio = _pick_columns(
         tidy,
@@ -160,7 +161,11 @@ def _prepare_frame(
         exprs.append(pl.col("p_value").cast(pl.Float64).alias("p_value"))
     elif "pvalue" in tidy.columns:
         exprs.append(pl.col("pvalue").cast(pl.Utf8).alias("pvalue"))
-    seen = {"term", "estimate", "conf_low", "conf_high", "p_value", "pvalue"}
+    if panel is not None:
+        if panel not in tidy.columns:
+            raise ValueError(f"panel column {panel!r} not in tidy frame")
+        exprs.append(pl.col(panel).cast(pl.Utf8).alias("_panel"))
+    seen = {"term", "estimate", "conf_low", "conf_high", "p_value", "pvalue", "_panel"}
     for col in extra_cols:
         if col not in tidy.columns:
             raise ValueError(f"extra column {col!r} not in tidy frame")
@@ -233,6 +238,10 @@ def _ratio_ticks(x0: float, x1: float) -> list[float]:
     if len(ticks) > 7:
         preferred = {0.01, 0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 5.0, 10.0, 20.0, 50.0, 100.0}
         ticks = [t for t in ticks if t in preferred or abs(np.log10(t) % 1.0) < 1e-9]
+    if len(ticks) < 3:
+        # Narrow ranges (e.g. per-unit HRs 0.93–1.0): fall back to linear "nice" steps.
+        fine = MaxNLocator(nbins=4, steps=[1, 2, 2.5, 5, 10]).tick_values(x0, x1)
+        ticks = sorted({round(float(t), 6) for t in fine if t > 0 and x0 <= t <= x1} | set(ticks))
     if not ticks:
         ticks = [x0, 1.0, x1] if x0 < 1.0 < x1 else [x0, x1]
     return ticks
@@ -290,6 +299,164 @@ def _row_bands(ax: Any, y: np.ndarray, *, color: str, header_y: float | None) ->
             ax.axhspan(yi - 0.5, yi + 0.5, color=color, zorder=0, linewidth=0)
 
 
+def _draw_table(
+    ax_tab: Any,
+    y: np.ndarray,
+    *,
+    header_y: float,
+    columns: list[tuple[float, str, str, Any]],
+    colors: dict[str, str],
+) -> None:
+    """Text columns (term / extra / estimate / P) with header row and separator line."""
+    ax_tab.set_xlim(0.0, 1.0)
+    ax_tab.set_facecolor("white")
+    ax_tab.axis("off")
+    _row_bands(ax_tab, y, color=colors["band"], header_y=header_y)
+    sep_y = float(np.max(y) + 0.5)
+    ax_tab.plot([0.0, 1.0], [sep_y, sep_y], color=colors["ink"], lw=0.7, clip_on=False, zorder=2)
+    for hx, ha, header, getter in columns:
+        ax_tab.text(
+            hx,
+            header_y,
+            header,
+            va="center",
+            ha=ha,
+            fontsize=_HEADER_SIZE,
+            fontweight="bold",
+            color=colors["ink"],
+            clip_on=False,
+        )
+        for i in range(len(y)):
+            ax_tab.text(
+                hx,
+                y[i],
+                getter(i),
+                va="center",
+                ha=ha,
+                fontsize=_FONTSIZE,
+                color=colors["ink"],
+                clip_on=False,
+            )
+
+
+def _table_texts(
+    frame: pl.DataFrame,
+    *,
+    estimate_digits: int,
+    extra_cols: Sequence[str],
+) -> tuple[list[str], list[str], dict[str, list[str]]]:
+    est = frame["estimate"].to_list()
+    lo = frame["conf_low"].to_list()
+    hi = frame["conf_high"].to_list()
+    est_texts = [
+        _format_estimate(float(est[i]), float(lo[i]), float(hi[i]), digits=estimate_digits)
+        for i in range(frame.height)
+    ]
+    if "p_value" in frame.columns:
+        p_texts = [_format_pvalue(None if v is None else float(v)) for v in frame["p_value"].to_list()]
+    elif "pvalue" in frame.columns:
+        p_texts = ["—" if v is None or str(v).strip() == "" else str(v) for v in frame["pvalue"].to_list()]
+    else:
+        p_texts = [_format_pvalue(None)] * frame.height
+    extra = {col: ["" if v is None else str(v) for v in frame[col].to_list()] for col in extra_cols}
+    return est_texts, p_texts, extra
+
+
+def _plot_forest_panels(
+    frame: pl.DataFrame,
+    *,
+    is_ratio: bool,
+    use_log: bool,
+    ref: float,
+    xlim: tuple[float, float] | None,
+    xlabel: str,
+    title: str | None,
+    figsize: tuple[float, float] | None,
+    colors: dict[str, str],
+    estimate_digits: int,
+    extra_cols: Sequence[str],
+) -> Any:
+    """One figure, one table + forest row per panel. Columns are shared; each panel has its own x-axis."""
+    panels = list(dict.fromkeys(frame["_panel"].to_list()))
+    est_header = _estimate_header(xlabel, is_ratio=is_ratio)
+    est_texts, p_texts, extra = _table_texts(frame, estimate_digits=estimate_digits, extra_cols=extra_cols)
+    labels = frame["term"].to_list()
+    term_in, est_in, p_in = _table_column_inches(labels + panels, est_texts, p_texts, est_header)
+    term_in = max(term_in, *(_approx_text_in(p, fontsize=_HEADER_SIZE, weight="bold") + 0.08 for p in panels))
+    extra_widths = {
+        col: max(
+            0.35,
+            _approx_text_in(col, fontsize=_HEADER_SIZE, weight="bold"),
+            *(_approx_text_in(s, fontsize=_FONTSIZE) for s in texts),
+        )
+        for col, texts in extra.items()
+    }
+    extra_in = sum(w + _COL_PAD_IN for w in extra_widths.values())
+    table_in = term_in + _COL_PAD_IN + extra_in + est_in + _COL_PAD_IN + p_in
+    sizes = [frame.filter(pl.col("_panel") == p).height for p in panels]
+    heights = [_ROW_IN * n + _HEADER_IN for n in sizes]
+    gap_in = _AXIS_IN + 0.12  # tick labels and x label of the panel above
+    if figsize is None:
+        figsize = (
+            table_in + _FOREST_PANEL_IN + 0.28,
+            sum(heights) + gap_in * len(panels) + (_TITLE_IN if title else 0.02),
+        )
+    fig = plt.figure(figsize=figsize, facecolor="white")
+    fig.patch.set_facecolor("white")
+    top = 1.0 - ((_TITLE_IN / float(figsize[1])) if title else 0.01)
+    gs = fig.add_gridspec(
+        len(panels),
+        2,
+        width_ratios=[table_in, _FOREST_PANEL_IN],
+        height_ratios=heights,
+        wspace=0.04,
+        hspace=gap_in / (sum(heights) / len(panels)),
+        left=0.02,
+        right=0.985,
+        top=top,
+        bottom=gap_in / float(figsize[1]),
+    )
+    offset = 0
+    for k, (name, n) in enumerate(zip(panels, sizes, strict=True)):
+        rows = slice(offset, offset + n)
+        offset += n
+        sub = frame.filter(pl.col("_panel") == name)
+        est = np.asarray(sub["estimate"].to_list(), dtype=float)
+        lo = np.asarray(sub["conf_low"].to_list(), dtype=float)
+        hi = np.asarray(sub["conf_high"].to_list(), dtype=float)
+        y = np.arange(n)[::-1]
+        header_y = n - 0.22
+        sub_labels, sub_est, sub_p = labels[rows], est_texts[rows], p_texts[rows]
+        cursor = term_in + _COL_PAD_IN
+        columns: list[tuple[float, str, str, Any]] = [(0.0, "left", name, lambda i, t=sub_labels: t[i])]
+        for col, width in extra_widths.items():
+            texts = extra[col][rows]
+            columns.append((cursor / table_in, "left", col, lambda i, t=texts: t[i]))
+            cursor += width + _COL_PAD_IN
+        columns.append(((cursor + est_in / 2.0) / table_in, "center", est_header, lambda i, t=sub_est: t[i]))
+        columns.append((1.0, "right", "P", lambda i, t=sub_p: t[i]))
+        ax_tab = fig.add_subplot(gs[k, 0])
+        ax_forest = fig.add_subplot(gs[k, 1], sharey=ax_tab)
+        _draw_table(ax_tab, y, header_y=header_y, columns=columns, colors=colors)
+        _draw_forest_panel(
+            ax_forest,
+            est,
+            lo,
+            hi,
+            y,
+            labels=None,
+            ref=ref,
+            use_log=use_log,
+            xlim=xlim if xlim is not None else _auto_xlim(lo, hi, ref=ref, use_log=use_log),
+            xlabel=xlabel,
+            colors=colors,
+            header_y=header_y,
+        )
+    if title:
+        fig.text(0.5, 0.995, title, ha="center", va="top", fontsize=10, color=colors["ink"])
+    return fig
+
+
 def plot_forest(
     tidy: pl.DataFrame,
     path: Path | str | None = None,
@@ -312,6 +479,7 @@ def plot_forest(
     extra_cols: Sequence[str] = (),
     dpi: int = 180,
     also_pdf: bool = False,
+    panel: str | None = None,
 ) -> Path | Any:
     """Draw a publication-ready forest plot from a tidy coefficient table.
 
@@ -359,6 +527,11 @@ def plot_forest(
         dpi: PNG resolution when ``path`` is set.
         also_pdf: Also write ``path`` with a ``.pdf`` suffix. The return value
             is still the PNG path.
+        panel: Optional column that splits rows into stacked panels (in order of
+            first appearance). Each panel gets its own x-axis (``xlim`` applies to
+            all panels when given, otherwise each is fitted to its own rows); the
+            table columns are aligned across panels and the panel name replaces the
+            "Term" header. Requires ``layout="table"``.
 
     Returns:
         ``Path`` when ``path`` is given, otherwise a matplotlib ``Figure``.
@@ -370,6 +543,8 @@ def plot_forest(
     if style not in {"color", "bw"}:
         raise ValueError('style must be "color" or "bw"')
 
+    if panel is not None and layout != "table":
+        raise ValueError('panel requires layout="table"')
     extra_cols = tuple(extra_cols)
     frame, is_ratio = _prepare_frame(
         tidy,
@@ -380,6 +555,7 @@ def plot_forest(
         drop_intercept=drop_intercept,
         ratio=ratio,
         extra_cols=extra_cols,
+        panel=panel,
     )
 
     labels = frame["term"].to_list()
@@ -406,10 +582,23 @@ def plot_forest(
     colors = _style_spec(style)
     header_y = (n - 0.22) if layout == "table" else None
     resolved_xlim = xlim if xlim is not None else _auto_xlim(lo, hi, ref=ref, use_log=use_log)
-    sep_y = float(np.max(y) + 0.5)
 
     with plt.rc_context(_FOREST_RC):
-        if layout == "points":
+        if panel is not None:
+            fig = _plot_forest_panels(
+                frame,
+                is_ratio=is_ratio,
+                use_log=use_log,
+                ref=ref,
+                xlim=xlim,
+                xlabel=xlabel,
+                title=title,
+                figsize=figsize,
+                colors=colors,
+                estimate_digits=estimate_digits,
+                extra_cols=extra_cols,
+            )
+        elif layout == "points":
             if figsize is None:
                 figsize = (6.4, max(1.4, _ROW_IN * n + _AXIS_IN + 0.35))
             fig, ax = plt.subplots(figsize=figsize, facecolor="white")
@@ -481,10 +670,6 @@ def plot_forest(
             )
             ax_tab = fig.add_subplot(gs[0, 0])
             ax_forest = fig.add_subplot(gs[0, 1], sharey=ax_tab)
-            ax_tab.set_xlim(0.0, 1.0)
-            ax_tab.set_facecolor("white")
-            ax_tab.axis("off")
-            _row_bands(ax_tab, y, color=colors["band"], header_y=header_y)
             cursor = term_in + _COL_PAD_IN
             columns: list[tuple[float, str, str, Any]] = [
                 (0.0, "left", "Term", lambda i: labels[i]),
@@ -494,37 +679,7 @@ def plot_forest(
                 cursor += width + _COL_PAD_IN
             columns.append(((cursor + est_in / 2.0) / table_in, "center", est_header, lambda i: est_texts[i]))
             columns.append((1.0, "right", "P", lambda i: p_texts[i]))
-            ax_tab.plot(
-                [0.0, 1.0],
-                [sep_y, sep_y],
-                color=colors["ink"],
-                lw=0.7,
-                clip_on=False,
-                zorder=2,
-            )
-            for hx, ha, header, getter in columns:
-                ax_tab.text(
-                    hx,
-                    header_y,
-                    header,
-                    va="center",
-                    ha=ha,
-                    fontsize=_HEADER_SIZE,
-                    fontweight="bold",
-                    color=colors["ink"],
-                    clip_on=False,
-                )
-                for i in range(n):
-                    ax_tab.text(
-                        hx,
-                        y[i],
-                        getter(i),
-                        va="center",
-                        ha=ha,
-                        fontsize=_FONTSIZE,
-                        color=colors["ink"],
-                        clip_on=False,
-                    )
+            _draw_table(ax_tab, y, header_y=header_y, columns=columns, colors=colors)
             _draw_forest_panel(
                 ax_forest,
                 est,

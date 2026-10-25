@@ -100,6 +100,8 @@ def tableone_gt_from_frame(
     style: TableOneStyle | None = None,
     group_labels: dict[str, str] | None = None,
     column_order: Sequence[str] | None = None,
+    column_labels: dict[str, str] | None = None,
+    column_spanners: Sequence[tuple[str, Sequence[str]]] | None = None,
     source_df: pl.DataFrame | None = None,
     hue: str | pl.Expr | list[pl.Expr] | list[str] | None = None,
 ) -> GT:
@@ -118,9 +120,27 @@ def tableone_gt_from_frame(
     result_visible = table.with_columns(
         pl.col("name").str.replace("^  ", style["indent_display"], literal=False).alias("name"),
     )
+    # ``Group | item`` はグループ名だけの見出し行にし、項目は字下げする。
+    has_row_group = bool(
+        result_visible.height
+        and result_visible.select(pl.col("name").str.contains(" | ", literal=True).all()).item()
+    )
+    if has_row_group:
+        split = pl.col("name").str.split_exact(" | ", 1)
+        item = split.struct.field("field_1")
+        # カテゴリの要素（``"  "`` 始まり）は、変数名の行よりさらに一段下げる。
+        child = item.str.starts_with("  ")
+        indent = style["indent_display"]
+        result_visible = result_visible.with_columns(
+            split.struct.field("field_0").alias("row_group"),
+            pl.when(child)
+            .then(pl.lit(indent * 2) + item.str.strip_chars_start())
+            .otherwise(pl.lit(indent) + item)
+            .alias("name"),
+        )
 
     labels: dict[str, str] = {"name": ""}
-    value_cols = [c for c in result_visible.columns if c != "name"]
+    value_cols = [c for c in result_visible.columns if c not in {"name", "row_group"}]
     if group_labels is not None:
         for col in value_cols:
             labels[col] = group_labels.get(col, col)
@@ -136,24 +156,39 @@ def tableone_gt_from_frame(
     else:
         for col in value_cols:
             labels[col] = col
+    if column_labels is not None:
+        for col, label in column_labels.items():
+            if col in labels:
+                labels[col] = label
 
-    return (
-        GT(result_visible, rowname_col="name")
-        .tab_stub()
-        .cols_label(**labels)
-        .cols_align(align="left", columns="name")
+    if has_row_group:
+        gt = GT(result_visible, rowname_col="name", groupname_col="row_group")
+        options: dict[str, object] = {"stub_row_group_font_weight": "bold"}
+    else:
+        # ``tab_stub()`` はコンストラクタで付けた stub を外し、name を本文の先頭列にする。
+        gt = GT(result_visible, rowname_col="name").tab_stub()
+        options = {}
+    gt = (
+        gt.cols_label(**labels)
         .cols_align(align="center", columns=value_cols)
-        .tab_style(
-            gt_style.text(weight="bold"),
-            loc.body(columns="name", rows=~pl.col("name").str.starts_with(style["indent_display"])),
-        )
         .tab_options(
             table_font_size=style["font_size"],
             table_width=style["table_width"],
             column_labels_padding_horizontal=style["column_labels_padding_horizontal"],
             data_row_padding=style["data_row_padding"],
+            **options,
         )
     )
+    if not has_row_group:
+        gt = gt.cols_align(align="left", columns="name").tab_style(
+            gt_style.text(weight="bold"),
+            loc.body(columns="name", rows=~pl.col("name").str.starts_with(style["indent_display"])),
+        )
+    for label, cols in column_spanners or ():
+        present = [col for col in cols if col in value_cols]
+        if present:
+            gt = gt.tab_spanner(label=label, columns=present)
+    return gt
 
 
 def tableone(
@@ -199,6 +234,8 @@ def write_tableone_artifacts(
     style: TableOneStyle | None = None,
     group_labels: dict[str, str] | None = None,
     column_order: Sequence[str] | None = None,
+    column_labels: dict[str, str] | None = None,
+    column_spanners: Sequence[tuple[str, Sequence[str]]] | None = None,
 ) -> list[Path]:
     """Write a Table One as CSV / companion / GT HTML / GT Markdown fragment.
 
@@ -244,6 +281,8 @@ def write_tableone_artifacts(
             style=style,
             group_labels=group_labels,
             column_order=column_order,
+            column_labels=column_labels,
+            column_spanners=column_spanners,
             source_df=df,
             hue=hue,
         )
@@ -369,6 +408,20 @@ def _get_aggfunc(aggfunc: agg.AggFunc | str | None, column: pl.Expr) -> agg.AggF
     return aggfunc
 
 
+def _callable_func(aggfunc: agg.AggFunc) -> agg.AggFunc:
+    """``functools.partial`` なら包んでいる関数を返す。"""
+    return getattr(aggfunc, "func", aggfunc)
+
+
+def _bound_enum_categories(aggfunc: agg.AggFunc) -> list[str] | None:
+    """partial に束縛した ``enum_categories``。文字列列でも並びを固定するために使う。"""
+    keywords = getattr(aggfunc, "keywords", None) or {}
+    cats = keywords.get("enum_categories")
+    if not cats:
+        return None
+    return list(cats)
+
+
 def _is_category_aggfunc(aggfunc: agg.AggFunc) -> bool:
     """Check if aggregation function is a category function."""
     category_funcs = {
@@ -379,7 +432,7 @@ def _is_category_aggfunc(aggfunc: agg.AggFunc) -> bool:
         agg.agg_category_pnn,
         agg.agg_bool_category,
     }
-    return aggfunc in category_funcs
+    return _callable_func(aggfunc) in category_funcs
 
 
 def _get_enum_categories(df: pl.DataFrame, column: pl.Expr) -> list[str] | None:
@@ -527,14 +580,16 @@ def _agg_expr_with_enum_categories(
 
     Returns (aggregation_expr, enum_categories).
     """
-    enum_categories = _get_enum_categories(df, column)
-    if enum_categories is None:
-        return aggfunc(column), None
+    column_enum = _get_enum_categories(df, column)
+    bound_enum = _bound_enum_categories(aggfunc)
+    enum_categories = column_enum if column_enum is not None else bound_enum
+    if column_enum is None or bound_enum is not None:
+        return aggfunc(column), enum_categories
 
     def aggfunc_with_enum(col: pl.Expr) -> pl.Expr:
-        return aggfunc(col, enum_categories=enum_categories)  # type: ignore[misc]
+        return aggfunc(col, enum_categories=column_enum)  # type: ignore[misc]
 
-    return aggfunc_with_enum(column), enum_categories
+    return aggfunc_with_enum(column), column_enum
 
 
 def _grouped_results(df: pl.DataFrame, agg_expr: pl.Expr, hue: list[pl.Expr] | None) -> dict[str, object]:
