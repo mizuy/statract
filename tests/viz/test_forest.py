@@ -172,3 +172,35 @@ def test_plot_forest_also_pdf(tmp_path: Path) -> None:
     png = plot_forest(tidy, tmp_path / "or.png", xlabel="Odds ratio", ratio=True, also_pdf=True)
     assert Path(png).exists()
     assert Path(png).with_suffix(".pdf").exists()
+
+
+def test_plot_forest_panels_have_separate_axes(tmp_path: Path) -> None:
+    tidy = pl.DataFrame(
+        {
+            "term": ["ADR per 1%", "APC per 0.01", "Q2", "Q3", "Q4"],
+            "estimate": [0.959, 0.987, 0.83, 0.38, 0.41],
+            "conf_low": [0.933, 0.976, 0.39, 0.16, 0.21],
+            "conf_high": [0.986, 0.998, 1.77, 0.90, 0.79],
+            "p_value": [0.003, 0.017, 0.64, 0.028, 0.008],
+            "group": ["Continuous", "Continuous", "Quartile", "Quartile", "Quartile"],
+        }
+    )
+    fig = plot_forest(tidy, panel="group", ratio=True)
+    forest_axes = [ax for ax in fig.axes if ax.get_xscale() == "log"]
+    assert len(forest_axes) == 2
+    top, bottom = forest_axes
+    assert top.get_xlim() != bottom.get_xlim()
+    assert len(top.get_xticks()) >= 3
+    import matplotlib.pyplot as plt
+
+    plt.close(fig)
+    out = plot_forest(tidy, tmp_path / "panels.png", panel="group", ratio=True)
+    assert out.exists()
+
+
+def test_plot_forest_panel_requires_table_layout() -> None:
+    tidy = pl.DataFrame(
+        {"term": ["a"], "estimate": [1.2], "conf_low": [0.9], "conf_high": [1.6], "g": ["x"]}
+    )
+    with pytest.raises(ValueError, match="panel"):
+        plot_forest(tidy, panel="g", layout="points")

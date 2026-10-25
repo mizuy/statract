@@ -14,6 +14,7 @@ from statract.tableone.table import (
 from statract.tableone.agg import (
     agg_category_n,
     agg_category_np,
+    agg_category_pnn,
     agg_count,
     agg_mean_sd,
     agg_median_range,
@@ -359,6 +360,21 @@ class TestTableOneAddAll:
 class TestTableOneEnum:
     """Test enum type handling in tableone."""
 
+    def test_bound_enum_categories_keep_order_on_string_column(self):
+        from functools import partial
+
+        df = pl.DataFrame({"category": ["B", "B", "A"]})
+        params = {
+            "Category, n (%)": (
+                "category",
+                partial(agg_category_pnn, enum_categories=["A", "B", "C"], precision=1),
+            ),
+        }
+        result = tableone_raw(df, params)
+        assert result["name"].to_list() == ["Category, n (%)", "  A", "  B", "  C"]
+        assert result.filter(pl.col("name") == "Category, n (%)")["All"][0] == ""
+        assert result.filter(pl.col("name") == "  C")["All"][0] == "0.0% (0/3)"
+
     def test_tableone_enum_ordering_no_hue(self):
         """Test that enum categories are displayed in enum order without hue."""
         df = pl.DataFrame(
@@ -532,6 +548,63 @@ class TestTableOneGreatTables:
             "Ope-Pre",
             "Ope-Post",
         ]
+
+    def test_column_spanner_groups_pre_post(self):
+        from statract.tableone.table import tableone_gt_from_frame
+
+        table = pl.DataFrame({"name": ["Age"], "All Pre": ["1"], "All Post": ["2"]})
+        html = tableone_gt_from_frame(
+            table,
+            column_labels={"All Pre": "治療前", "All Post": "病理"},
+            column_spanners=(("全体", ("All Pre", "All Post")),),
+        ).as_raw_html()
+        assert 'colspan="2"' in html
+        assert "全体" in html
+        assert "治療前" in html
+        assert "病理" in html
+
+    def test_row_group_is_heading_row(self):
+        from statract.tableone.table import tableone_gt_from_frame
+
+        table = pl.DataFrame(
+            {
+                "name": [
+                    "Demographics | Age, years",
+                    "Demographics | Male, n (%)",
+                    "Diagnosis | Size, mm",
+                ],
+                "All Pre": ["1", "2", "3"],
+            }
+        )
+        html = tableone_gt_from_frame(table).as_raw_html()
+        assert 'class="gt_group_heading"' in html
+        assert ">Demographics<" in html
+        assert ">Diagnosis<" in html
+        assert 'class="gt_row gt_left gt_stub_row_group"' not in html
+        assert "Demographics | " not in html
+        assert "\u3000Age, years" in html
+        assert "\u3000Size, mm" in html
+
+    def test_category_levels_indent_under_variable(self):
+        from statract.tableone.table import tableone_gt_from_frame
+
+        table = pl.DataFrame(
+            {
+                "name": [
+                    "Diagnosis | Histology, n (%)",
+                    "Diagnosis |   分化型",
+                    "Diagnosis | Depth, n (%)",
+                    "Diagnosis |   m",
+                ],
+                "All Pre": ["", "60.8% (1/2)", "", "64.0% (3/4)"],
+            }
+        )
+        html = tableone_gt_from_frame(table).as_raw_html()
+        assert "\u3000Histology, n (%)" in html
+        assert "\u3000\u3000分化型" in html
+        assert "\u3000Depth, n (%)" in html
+        assert "\u3000\u3000m" in html
+        assert "Histology 分化型" not in html
 
 
 class TestTableOnePValue:
