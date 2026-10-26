@@ -77,7 +77,12 @@ def plot_loglog(
     ax: Any = None,
     path: Path | str | None = None,
 ) -> Any:
-    """Complementary log-log plot of KM curves stratified by ``by``."""
+    """Complementary log-log plot of KM curves stratified by ``by``.
+
+    Each curve starts at the first event time. Points where ``S(t) = 1``
+    (before any event) or ``S(t) = 0`` have no finite ``log(-log(S))`` and
+    are dropped rather than clipped, so the y-axis stays readable.
+    """
     curve = survival_curve(data, time, status, by=by)
     frame = curve.frame()
     if ax is None:
@@ -86,8 +91,8 @@ def plot_loglog(
     for group in groups:
         part = frame if group is None else frame.filter(pl.col("group") == group)
         t = np.asarray(part["time"].to_list(), dtype=float)
-        s = np.clip(np.asarray(part["estimate"].to_list(), dtype=float), 1e-12, 1 - 1e-12)
-        mask = (t > 0) & np.isfinite(s)
+        s = np.asarray(part["estimate"].to_list(), dtype=float)
+        mask = (t > 0) & np.isfinite(s) & (s > 0) & (s < 1)
         if not np.any(mask):
             continue
         y = np.log(-np.log(s[mask]))

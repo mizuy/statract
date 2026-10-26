@@ -267,6 +267,26 @@ def test_plot_cox_residuals_and_loglog_return_paths(tmp_path: Path) -> None:
     assert Path(out2).exists()
 
 
+def test_plot_loglog_starts_at_first_event() -> None:
+    import matplotlib.pyplot as plt
+
+    df = pl.DataFrame(
+        {
+            "time": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+            "event": [0, 1, 0, 1, 1, 0, 1, 1],
+            "group": ["a", "a", "a", "a", "b", "b", "b", "b"],
+        }
+    )
+    ax = plot_loglog(df, "time", "event", by="group")
+    for line in ax.get_lines():
+        y = line.get_ydata()
+        assert np.all(np.isfinite(y))
+        assert y.min() > -5.0
+    first = {line.get_label(): np.exp(line.get_xdata()[0]) for line in ax.get_lines()}
+    assert first == pytest.approx({"a": 2.0, "b": 5.0})
+    plt.close(ax.figure)
+
+
 def test_cox_tidy_exponentiate_replaces_estimate_like_broom() -> None:
     fit = cox_ph(_surv_frame(50), "Surv(time, event) ~ treat + age")
     log_scale = fit.tidy()
