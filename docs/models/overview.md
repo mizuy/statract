@@ -129,7 +129,7 @@ print(matched.pairs())
 print(matched.balance())  # rows are distance and each covariate
 ```
 
-Besides `logit`, the distances are `mahalanobis`, `euclidean`, `scaled_euclidean`, and `robust_mahalanobis`. Exact matching is `method="exact"`, and coarsened exact matching is `method="cem"`.
+Besides `logit`, the distances are `probit`, `mahalanobis`, `euclidean`, `scaled_euclidean`, and `robust_mahalanobis`. Exact matching is `method="exact"`, and coarsened exact matching is `method="cem"`.
 
 ### Inverse probability weighting
 

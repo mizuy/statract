@@ -19,7 +19,7 @@ flowchart TD
   Q --> O["順序・カテゴリ"]
   C --> C1["2 群: t_test / wilcox_test<br/>調整: fit_ols"]
   B --> B1["2 群: prop_test / binom_test<br/>調整: fit_glm binomial / fit_risk_ratio"]
-  N --> N1["fit_glm poisson<br/>過分散: fit_mixed negative_binomial"]
+  N --> N1["fit_glm poisson<br/>過分散: fit_glm negative_binomial"]
   T --> T1["survival_curve / log_rank / RMST<br/>調整: cox_ph"]
   O --> O1["ordinal_regression<br/>multinomial_regression"]
   C1 --> R{"クラスターや反復がある？"}
@@ -114,6 +114,7 @@ tableone(
 | 連続 | 線形回帰 | `fit_ols(frame, "y ~ x + age")` | 平均の差 |
 | 二値 | ロジスティック | `fit_glm(frame, "y ~ x", family="binomial")` | `exp` でオッズ比 |
 | 計数・率 | ポアソン | `fit_glm(frame, "n ~ x", family="poisson", offset="log_years")` | `exp` で率比 |
+| 計数で過分散 | 負の二項（NB2） | `fit_glm(frame, "n ~ x", family="negative_binomial")` | `exp` で率比 |
 | 正の連続で右に歪む | ガンマ | `fit_glm(frame, "cost ~ x", family="gamma")` | 逆数リンク |
 | 二値でリスク比がほしい | 修正ポアソン | `fit_risk_ratio(frame, "y ~ x + age")` | リスク比 |
 | 順序（重症度など） | 比例オッズ | `ordinal_regression(frame, "grade ~ x", levels=["none", "mild", "severe"])` | `exp` で累積オッズ比 |
@@ -298,8 +299,8 @@ IPTW は次の順で進めます。
 
 1. `ipw = propensity_weights(...)` で重みを作る。
 2. `ipw.balance(threshold=0.1)` と `ipw.love_plot("love.png")` で重みづけ後の SMD を確かめる。`ipw.effective_sample_size()` が小さすぎないかも見る。
-3. `ipw.frame()` の `weights` 列を、`fit_glm`、`fit_risk_ratio`、`cox_ph` の `weights=` に渡す。
-4. 分散はロバスト分散（`hc_covariance(fit, "HC0")`）にする。
+3. 効果は `ipw.effect("death", measure=["difference", "ratio"])`（重み付きの群平均）で求める。アウトカムモデルを使うときは `weighted_glm(ipw, "death ~ treat", family="binomial")`。既定の分散（`vcov="asympt"`）は傾向スコアの推定も含む。
+4. Cox では `ipw.frame()` の `weights` 列を `cox_ph(..., weights="weights")` に渡す。整数でない重みではロバスト分散になる。
 
 **注意**: 極端な重みは `trim` で切り詰めます。それでもバランスが悪ければ、傾向スコアのモデルを見直します。
 

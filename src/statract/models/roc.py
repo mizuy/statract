@@ -392,6 +392,7 @@ def roc_curve(
     score lower than cases.
 
     Examples:
+        >>> from statract import roc_curve
         >>> r = roc_curve([0, 0, 1, 1], [0.1, 0.4, 0.35, 0.8])
         >>> r.auc
         0.75

@@ -107,10 +107,27 @@ def tableone_gt_from_frame(
 ) -> GT:
     """Turn a DataFrame like `tableone_raw` output into a styled `great_tables.GT`.
 
-    If ``source_df`` + ``hue`` are given, n is added to the column headers (same as `tableone`).
+    When every ``name`` has the form ``"Group | item"``, each group becomes a
+    bold heading row and its items (and their category levels) are indented
+    under it.
 
     The column order is set by reordering the DataFrame with ``column_order`` before building the GT.
     ``cols_move_to_start`` is not used because it pushes the stub (``name``) to the right edge.
+
+    Args:
+        table: A frame with a ``name`` column and one column per group, such as
+            `tableone_raw` output or two of them joined side by side.
+        style: Overrides for font size, table width, and padding.
+        group_labels: Header label for each value column. When set, the
+            ``n`` headers from ``source_df`` are not added.
+        column_order: Order of the value columns.
+        column_labels: Header labels for some columns, applied last (after
+            ``group_labels`` or the ``n`` headers).
+        column_spanners: ``(label, columns)`` pairs. Each puts one spanner
+            label over those columns; names not in the table are skipped.
+        source_df: The data the table came from. With ``hue``, it adds the
+            group sizes to the headers, as `tableone` does.
+        hue: Group column(s) of ``source_df``.
     """
     if "name" not in table.columns:
         raise InvalidParameterError("table must have a 'name' column")
@@ -205,6 +222,23 @@ def tableone(
 ) -> GT:
     """Generate Table One and return a styled `great_tables.GT`.
 
+    The rows are those of `tableone_raw`, which takes the same ``df``,
+    ``params``, ``hue``, ``add_all``, ``add_pvalue``, and ``add_smd``. The
+    headers show the size of each group.
+
+    Args:
+        df: Input data.
+        params: Display name → ``(column, aggfunc)`` or
+            ``(column, aggfunc, statfunc)``, as in `tableone_raw`.
+        hue: Group column(s).
+        add_all: Add an "All" column.
+        add_pvalue: Add a "P value" column.
+        add_smd: Add an "SMD" column.
+        group_labels: Header label for each value column, in place of the
+            ``n`` headers.
+        style: Overrides for font size, table width, and padding.
+        column_order: Order of the value columns.
+
     Notes:
     - Category sub-rows are detected by the fixed prefix `"  "` (two spaces).
     - For display, the prefix is replaced by a full-width space by default.
@@ -239,16 +273,30 @@ def write_tableone_artifacts(
 ) -> list[Path]:
     """Write a Table One as CSV / companion / GT HTML / GT Markdown fragment.
 
-    Parameters
-    ----------
-    stem:
-        File name stem (for example ``table_baseline_method`` →
-        ``.csv`` / ``_csv.md`` / ``.html`` / ``_gt.md``).
-    df, params:
-        Inputs passed to ``tableone_raw`` / ``tableone``. Required when ``table`` is not given.
-    table:
-        A Table One DataFrame that is already built (such as Pre/Post side by side).
-        When given, ``df``/``params`` are not needed.
+    Args:
+        out_dir: Output folder. Created if missing.
+        stem: File name stem (for example ``table_baseline_method`` →
+            ``.csv`` / ``_csv.md`` / ``.html`` / ``_gt.md``).
+        df: Input data passed to `tableone_raw`. Required with ``params`` when
+            ``table`` is not given. With ``table`` and ``hue``, it adds the
+            group sizes to the headers.
+        params: Rows, as in `tableone_raw`.
+        table: A Table One DataFrame that is already built (such as Pre/Post
+            side by side). When given, ``df``/``params`` are not needed.
+        hue: Group column(s).
+        add_all: Add an "All" column.
+        add_pvalue: Add a "P value" column.
+        add_smd: Add an "SMD" column.
+        style: Overrides for font size, table width, and padding. Defaults to
+            a table sized to its content.
+        group_labels: Header label for each value column.
+        column_order: Order of the value columns.
+        column_labels: Header labels for some columns, applied last.
+        column_spanners: ``(label, columns)`` pairs, one spanner label over
+            each set of columns.
+
+    Returns:
+        The written paths: CSV, CSV companion, HTML, and GT Markdown fragment.
     """
     from ..report.artifacts import write_csv_companion
 
@@ -262,30 +310,17 @@ def write_tableone_artifacts(
         if df is None or params is None:
             raise InvalidParameterError("Provide df+params, or a prebuilt table=")
         table = tableone_raw(df, params, hue=hue, add_all=add_all, add_pvalue=add_pvalue, add_smd=add_smd)
-        table = _reorder_table_columns(table, column_order)
-        gt = tableone(
-            df,
-            params,
-            hue=hue,
-            add_all=add_all,
-            add_pvalue=add_pvalue,
-            add_smd=add_smd,
-            group_labels=group_labels,
-            style=style,
-            column_order=column_order,
-        )
-    else:
-        table = _reorder_table_columns(table, column_order)
-        gt = tableone_gt_from_frame(
-            table,
-            style=style,
-            group_labels=group_labels,
-            column_order=column_order,
-            column_labels=column_labels,
-            column_spanners=column_spanners,
-            source_df=df,
-            hue=hue,
-        )
+    table = _reorder_table_columns(table, column_order)
+    gt = tableone_gt_from_frame(
+        table,
+        style=style,
+        group_labels=group_labels,
+        column_order=column_order,
+        column_labels=column_labels,
+        column_spanners=column_spanners,
+        source_df=df,
+        hue=hue,
+    )
 
     csv_path = out / f"{stem}.csv"
     table.write_csv(csv_path)

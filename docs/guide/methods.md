@@ -19,7 +19,7 @@ flowchart TD
   Q --> O["Ordinal or categorical"]
   C --> C1["2 groups: t_test / wilcox_test<br/>Adjusted: fit_ols"]
   B --> B1["2 groups: prop_test / binom_test<br/>Adjusted: fit_glm binomial / fit_risk_ratio"]
-  N --> N1["fit_glm poisson<br/>Overdispersion: fit_mixed negative_binomial"]
+  N --> N1["fit_glm poisson<br/>Overdispersion: fit_glm negative_binomial"]
   T --> T1["survival_curve / log_rank / RMST<br/>Adjusted: cox_ph"]
   O --> O1["ordinal_regression<br/>multinomial_regression"]
   C1 --> R{"Clusters or repeated measures?"}
@@ -114,6 +114,7 @@ Example: [Basic tests for a 2-arm RCT](../examples/htest_licorice.md)
 | Continuous | Linear regression | `fit_ols(frame, "y ~ x + age")` | Difference in means |
 | Binary | Logistic | `fit_glm(frame, "y ~ x", family="binomial")` | `exp` gives the odds ratio |
 | Count or rate | Poisson | `fit_glm(frame, "n ~ x", family="poisson", offset="log_years")` | `exp` gives the rate ratio |
+| Count, overdispersed | Negative binomial (NB2) | `fit_glm(frame, "n ~ x", family="negative_binomial")` | `exp` gives the rate ratio |
 | Positive continuous, right-skewed | Gamma | `fit_glm(frame, "cost ~ x", family="gamma")` | Inverse link |
 | Binary, risk ratio wanted | Modified Poisson | `fit_risk_ratio(frame, "y ~ x + age")` | Risk ratio |
 | Ordinal (such as severity) | Proportional odds | `ordinal_regression(frame, "grade ~ x", levels=["none", "mild", "severe"])` | `exp` gives the cumulative odds ratio |
@@ -298,8 +299,8 @@ For IPTW, follow these steps.
 
 1. Build weights with `ipw = propensity_weights(...)`.
 2. Check SMD after weighting with `ipw.balance(threshold=0.1)` and `ipw.love_plot("love.png")`. Also check that `ipw.effective_sample_size()` is not too small.
-3. Pass the `weights` column of `ipw.frame()` to `weights=` in `fit_glm`, `fit_risk_ratio`, or `cox_ph`.
-4. Use robust variance (`hc_covariance(fit, "HC0")`).
+3. Estimate the effect with `ipw.effect("death", measure=["difference", "ratio"])` (weighted group means), or fit an outcome model with `weighted_glm(ipw, "death ~ treat", family="binomial")`. Their default variance (`vcov="asympt"`) includes the estimation of the propensity score.
+4. For Cox, pass the `weights` column of `ipw.frame()` to `cox_ph(..., weights="weights")`. Non-integer weights give a robust variance.
 
 **Note**: Trim extreme weights with `trim`. If balance is still poor, revise the propensity score model.
 

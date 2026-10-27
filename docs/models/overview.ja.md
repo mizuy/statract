@@ -129,7 +129,7 @@ print(matched.pairs())
 print(matched.balance())  # 行は distance と各共変量
 ```
 
-距離は `logit` のほか `mahalanobis`、`euclidean`、`scaled_euclidean`、`robust_mahalanobis` です。完全一致は `method="exact"`、粗化完全一致は `method="cem"` です。
+距離は `logit` のほか `probit`、`mahalanobis`、`euclidean`、`scaled_euclidean`、`robust_mahalanobis` です。完全一致は `method="exact"`、粗化完全一致は `method="cem"` です。
 
 ### 逆確率重み付け
 

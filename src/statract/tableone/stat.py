@@ -547,9 +547,9 @@ def stat_auto(col0: pl.Series, col1: pl.Series) -> str:
     """Automatically select and perform appropriate statistical test based on column types.
 
     Selects and executes test function based on data types:
-    - Both numeric: ANOVA
-    - Both categorical: Chi-square
-    - Mixed: Returns "-" (cannot auto-select)
+    - Numeric column, categorical groups: ANOVA
+    - Both categorical: Fisher's exact test
+    - Otherwise (for example numeric groups): Returns "-" (cannot auto-select)
 
     Args:
         col0: First column Series

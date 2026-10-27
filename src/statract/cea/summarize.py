@@ -46,22 +46,17 @@ def calculate_icers(
 ) -> pl.DataFrame:
     """Incremental cost-effectiveness ratios with strong / extended dominance.
 
-    Parameters
-    ----------
-    cost, effect
-        One value per strategy (same length).
-    strategies
-        Strategy names. Defaults to ``Strategy_1``, ``Strategy_2``, ...
+    Args:
+        cost: One value per strategy.
+        effect: One value per strategy (same length as ``cost``).
+        strategies: Strategy names. Defaults to ``Strategy_1``, ``Strategy_2``, ...
 
-    Returns
-    -------
-    polars.DataFrame
-        Columns: ``strategy``, ``cost``, ``effect``, ``incremental_cost``,
-        ``incremental_effect``, ``icer``, ``status``.
-
-        ``status`` is ``ND`` (frontier), ``D`` (strongly dominated), or ``ED``
-        (extended dominated). Incremental columns and ``icer`` are filled only
-        for non-dominated strategies on the cost–effect frontier (sorted by
+    Returns:
+        Columns ``strategy``, ``cost``, ``effect``, ``incremental_cost``,
+        ``incremental_effect``, ``icer``, ``status``. ``status`` is ``ND``
+        (frontier), ``D`` (strongly dominated), or ``ED`` (extended
+        dominated). Incremental columns and ``icer`` are filled only for
+        non-dominated strategies on the cost–effect frontier (sorted by
         ascending cost).
     """
     c = np.asarray(cost, dtype=np.float64)

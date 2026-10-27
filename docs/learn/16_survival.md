@@ -335,7 +335,7 @@ from statract import cox_ph, cumulative_incidence, fine_gray_regression
 # cause：0 = 打ち切り、1 = 再発、2 = 再発の前の死亡
 rhs = "age + male + stage3 + t4 + cea_high + right + chemo"
 cumulative_incidence(df, "time", "cause").at([1, 3, 5])         # CIF
-cox_ph(df, f"Surv(time, recurrence) ~ {rhs}")                   # 原因別ハザード（死亡は打ち切り）
+cox_ph(df, f"Surv(time, event) ~ {rhs}")                       # 原因別ハザード（event は再発だけ。死亡は打ち切り）
 fine_gray_regression(df, f"Surv(time, cause) ~ {rhs}", cause=1)  # 部分分布ハザード
 ```
 
