@@ -14,13 +14,16 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Sequence
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, TypeAlias
 
+from matplotlib.backends.backend_agg import RendererAgg
+from matplotlib.font_manager import FontProperties
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FixedLocator, FuncFormatter, MaxNLocator
 import numpy as np
 import polars as pl
-from matplotlib.ticker import FixedLocator, FuncFormatter, MaxNLocator
 
 _INTERCEPT_NAMES = frozenset(
     {
@@ -262,7 +265,7 @@ def _ratio_ticks(x0: float, x1: float) -> list[float]:
         ticks = [t for t in ticks if t in preferred or abs(np.log10(t) % 1.0) < 1e-9]
     if len(ticks) < 3:
         # Narrow ranges (e.g. per-unit HRs 0.93–1.0): fall back to linear "nice" steps.
-        fine = MaxNLocator(nbins=4, steps=[1, 2, 2.5, 5, 10]).tick_values(x0, x1)
+        fine = MaxNLocator(nbins=6, steps=[1, 2, 2.5, 5, 10]).tick_values(x0, x1)
         ticks = sorted({round(float(t), 6) for t in fine if t > 0 and x0 <= t <= x1} | set(ticks))
     if not ticks:
         ticks = [x0, 1.0, x1] if x0 < 1.0 < x1 else [x0, x1]
@@ -278,11 +281,18 @@ def _format_ratio_tick(value: float, _pos: float) -> str:
     return text
 
 
-def _approx_text_in(text: str, *, fontsize: float, weight: str = "normal") -> float:
-    """Rough DejaVu Sans width in inches (enough to pack columns without a renderer)."""
-    em = fontsize / 72.0
-    factor = 0.56 if weight == "bold" else 0.52
-    return max(len(text) * factor * em, 0.12)
+def _text_in(text: str, *, fontsize: float, weight: str = "normal") -> float:
+    """Text width in inches, measured with the current rc fonts (wide glyphs and CJK included)."""
+    return max(_text_width_pt(text, fontsize, weight, tuple(plt.rcParams["font.sans-serif"])) / 72.0, 0.12)
+
+
+@lru_cache(maxsize=4096)
+def _text_width_pt(text: str, fontsize: float, weight: str, _family: tuple[str, ...]) -> float:
+    # A 72-dpi Agg renderer reports widths in points; _family keys the cache on the active fonts.
+    renderer = RendererAgg(1, 1, 72)
+    prop = FontProperties(size=fontsize, weight=weight)
+    width, _, _ = renderer.get_text_width_height_descent(text, prop, ismath=False)
+    return float(width)
 
 
 def _table_column_inches(
@@ -292,18 +302,18 @@ def _table_column_inches(
     est_header: str,
 ) -> tuple[float, float, float]:
     term_in = max(
-        _approx_text_in("Term", fontsize=_HEADER_SIZE, weight="bold"),
-        *(_approx_text_in(s, fontsize=_FONTSIZE) for s in labels),
+        _text_in("Term", fontsize=_HEADER_SIZE, weight="bold"),
+        *(_text_in(s, fontsize=_FONTSIZE) for s in labels),
     )
     est_in = max(
         _EST_COL_IN,
-        _approx_text_in(est_header, fontsize=_HEADER_SIZE, weight="bold"),
-        *(_approx_text_in(s, fontsize=_FONTSIZE) for s in est_texts),
+        _text_in(est_header, fontsize=_HEADER_SIZE, weight="bold"),
+        *(_text_in(s, fontsize=_FONTSIZE) for s in est_texts),
     )
     p_in = max(
         _P_COL_IN,
-        _approx_text_in("P", fontsize=_HEADER_SIZE, weight="bold"),
-        *(_approx_text_in(s, fontsize=_FONTSIZE) for s in p_texts),
+        _text_in("P", fontsize=_HEADER_SIZE, weight="bold"),
+        *(_text_in(s, fontsize=_FONTSIZE) for s in p_texts),
     )
     return min(2.20, term_in + 0.08), est_in + 0.04, max(0.50, p_in)
 
@@ -400,16 +410,24 @@ def _plot_forest_panels(
 ) -> Any:
     """One figure, one table + forest row per panel. Columns are shared; each panel has its own x-axis."""
     panels = list(dict.fromkeys(frame["_panel"].to_list()))
+    # Rows of one panel need not be contiguous in the input; group them (stable) so texts and points line up.
+    order = {name: i for i, name in enumerate(panels)}
+    frame = (
+        frame.with_columns(pl.col("_panel").replace_strict(order, return_dtype=pl.Int64).alias("_panel_order"))
+        .sort("_panel_order", maintain_order=True)
+        .drop("_panel_order")
+    )
     est_header = _estimate_header(xlabel, is_ratio=is_ratio)
     est_texts, p_texts, extra = _table_texts(frame, estimate_digits=estimate_digits, extra_cols=extra_cols)
     labels = frame["term"].to_list()
     term_in, est_in, p_in = _table_column_inches(labels + panels, est_texts, p_texts, est_header)
-    term_in = max(term_in, *(_approx_text_in(p, fontsize=_HEADER_SIZE, weight="bold") + 0.08 for p in panels))
+    # Panel names sit in the bold header row of the term column.
+    term_in = max(term_in, *(_text_in(p, fontsize=_HEADER_SIZE, weight="bold") + 0.08 for p in panels))
     extra_widths = {
         col: max(
             0.35,
-            _approx_text_in(col, fontsize=_HEADER_SIZE, weight="bold"),
-            *(_approx_text_in(s, fontsize=_FONTSIZE) for s in texts),
+            _text_in(col, fontsize=_HEADER_SIZE, weight="bold"),
+            *(_text_in(s, fontsize=_FONTSIZE) for s in texts),
         )
         for col, texts in extra.items()
     }
@@ -676,8 +694,8 @@ def plot_forest(
                 texts = ["" if v is None else str(v) for v in frame[col].to_list()]
                 width = max(
                     0.35,
-                    _approx_text_in(col, fontsize=_HEADER_SIZE, weight="bold"),
-                    *(_approx_text_in(s, fontsize=_FONTSIZE) for s in texts),
+                    _text_in(col, fontsize=_HEADER_SIZE, weight="bold"),
+                    *(_text_in(s, fontsize=_FONTSIZE) for s in texts),
                 )
                 extra_blocks.append((col, texts, width))
             extra_in = sum(w + _COL_PAD_IN for _, _, w in extra_blocks)

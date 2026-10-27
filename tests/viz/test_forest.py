@@ -216,3 +216,52 @@ def test_plot_forest_warns_when_ratio_is_missing() -> None:
         plot_forest(fit.tidy(exponentiate=True), ratio=True)
         plot_forest(fit.tidy(exponentiate=True), ratio=False)
         plot_forest(fit.tidy())
+
+
+def test_plot_forest_panels_accept_interleaved_rows() -> None:
+    tidy = pl.DataFrame(
+        {
+            "term": ["t1", "t1", "t2", "t2"],
+            "estimate": [0.9, 0.99, 0.8, 0.98],
+            "conf.low": [0.85, 0.98, 0.7, 0.97],
+            "conf.high": [0.95, 1.0, 0.9, 0.99],
+            "p_value": [0.01, 0.02, 0.03, 0.04],
+            "group": ["A", "B", "A", "B"],
+        }
+    )
+    fig = plot_forest(tidy, panel="group")
+    tables = [ax for ax in fig.axes if not ax.axison]
+    texts = [[t.get_text() for t in ax.texts] for ax in tables]
+    assert "0.010" in texts[0] and "0.030" in texts[0]
+    assert "0.020" in texts[1] and "0.040" in texts[1]
+    import matplotlib.pyplot as plt
+
+    plt.close(fig)
+
+
+@pytest.mark.parametrize("name", ["MMMMMMMMMMMMMMMMMMMMMMMM", "Recurrence-free survival (WWWWWW MMMMM)", "日本語の長いパネル名：術後再発までの期間"])
+def test_plot_forest_long_panel_name_does_not_overlap(name: str) -> None:
+    import warnings
+
+    import matplotlib.pyplot as plt
+
+    tidy = pl.DataFrame(
+        {
+            "term": ["age", "sex"],
+            "estimate": [1.2, 0.8],
+            "conf.low": [1.0, 0.6],
+            "conf.high": [1.4, 1.1],
+            "p_value": [0.03, 0.2],
+            "g": [name, name],
+        }
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)  # missing CJK glyphs in the test font
+        fig = plot_forest(tidy, panel="g")
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        table = next(ax for ax in fig.axes if not ax.axison)
+        header = next(t for t in table.texts if t.get_text() == name)
+        same_row = [t for t in table.texts if t is not header and t.get_position()[1] == header.get_position()[1]]
+        assert header.get_window_extent(renderer).x1 < min(t.get_window_extent(renderer).x0 for t in same_row)
+    plt.close(fig)
