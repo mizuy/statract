@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
 import matplotlib
@@ -204,6 +205,17 @@ def test_plot_forest_panel_requires_table_layout() -> None:
     )
     with pytest.raises(ValueError, match="panel"):
         plot_forest(tidy, panel="g", layout="points")
+
+
+def test_plot_forest_warns_when_ratio_is_missing() -> None:
+    fit = fit_glm(_binomial_frame(), "y ~ z", family="binomial")
+    with pytest.warns(UserWarning, match="ratio=True"):
+        plot_forest(fit.tidy(exponentiate=True))
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        plot_forest(fit.tidy(exponentiate=True), ratio=True)
+        plot_forest(fit.tidy(exponentiate=True), ratio=False)
+        plot_forest(fit.tidy())
 
 
 def test_plot_forest_panels_accept_interleaved_rows() -> None:
