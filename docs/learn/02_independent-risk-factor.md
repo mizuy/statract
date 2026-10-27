@@ -143,7 +143,7 @@ $$
         .filter(pl.col("term") == x)
         for x in candidates
     ])
-    plot_forest(uni, "forest_univariable.png", xlabel="Odds ratio")
+    plot_forest(uni, "forest_univariable.png", ratio=True, xlabel="Odds ratio")
     ```
 
 $P < 0.05$ で選ばれたのは次の因子です。
@@ -165,7 +165,7 @@ $P < 0.05$ で選ばれたのは次の因子です。
     ```python
     selected = uni.filter(pl.col("p_value") < 0.05)["term"].to_list()
     multi = fit_glm(df, "bleed ~ " + " + ".join(selected), family="binomial")
-    plot_forest(multi.tidy(exponentiate=True), "forest_multivariable.png", xlabel="Odds ratio")
+    plot_forest(multi.tidy(exponentiate=True), "forest_multivariable.png", ratio=True, xlabel="Odds ratio")
     ```
 
 論文ならこう書くでしょう。

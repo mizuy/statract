@@ -12,14 +12,15 @@ inspired by the column layout of ``forest.R`` / classic forest tables.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Literal, TypeAlias
 
 import matplotlib.pyplot as plt
-from matplotlib.ticker import FixedLocator, FuncFormatter, MaxNLocator
 import numpy as np
 import polars as pl
+from matplotlib.ticker import FixedLocator, FuncFormatter, MaxNLocator
 
 _INTERCEPT_NAMES = frozenset(
     {
@@ -180,6 +181,27 @@ def _prepare_frame(
     if frame.height == 0:
         raise ValueError("no terms left to plot after dropping intercept")
     return frame, is_ratio
+
+
+def _looks_exponentiated(tidy: pl.DataFrame, frame: pl.DataFrame) -> bool:
+    """True when ``statistic`` is ``log(estimate) / std_error``, not ``estimate / std_error``."""
+    if not {"estimate", "std_error", "statistic"} <= set(tidy.columns):
+        return False
+    rows = tidy
+    if "term" in tidy.columns:
+        rows = tidy.filter(pl.col("term").cast(pl.Utf8).is_in(frame["term"].to_list()))
+    est = np.asarray(rows["estimate"].to_list(), dtype=float)
+    se = np.asarray(rows["std_error"].to_list(), dtype=float)
+    stat = np.asarray(rows["statistic"].to_list(), dtype=float)
+    if np.any(est <= 0):
+        return False
+    ok = np.isfinite(est) & np.isfinite(se) & (se > 0) & np.isfinite(stat)
+    if not ok.any():
+        return False
+    est, se, stat = est[ok], se[ok], stat[ok]
+    log_match = np.isclose(stat, np.log(est) / se, rtol=1e-6, atol=1e-8)
+    raw_match = np.isclose(stat, est / se, rtol=1e-6, atol=1e-8)
+    return bool(log_match.all() and not raw_match.all())
 
 
 def _style_spec(style: ForestPlotStyle) -> dict[str, str]:
@@ -493,9 +515,10 @@ def plot_forest(
 
     Args:
         tidy: Coefficient table, typically ``fit.tidy()`` or
-            ``fit.tidy(exponentiate=True)`` with ``ratio=True``. Also accepts experimental OR tables
-            summaries with ``oddsratio`` / ``lo`` / ``hi``, and prepared HR
-            tables with ``name`` / ``estimate`` / ``conf.low`` / ``conf.high``.
+            ``fit.tidy(exponentiate=True)`` with ``ratio=True``. Also accepts
+            OR summary tables with ``oddsratio`` / ``lo`` / ``hi``, and
+            prepared HR tables with ``name`` / ``estimate`` / ``conf.low`` /
+            ``conf.high``.
         path: If set, save a PNG and return that path; otherwise return the
             matplotlib ``Figure``.
         term: Label column. Auto-detects ``term``, ``variable``, or ``name``.
@@ -510,7 +533,11 @@ def plot_forest(
             ``null_value``, ``log_scale``, and ``xlabel``. When omitted it is
             inferred from the column names: ``oddsratio`` / ``lo`` / ``hi``
             and ``conf.low`` / ``conf.high`` are ratios, ``conf_low`` /
-            ``conf_high`` are not.
+            ``conf_high`` are not. Because ``tidy(exponentiate=True)`` keeps
+            the ``conf_low`` / ``conf_high`` names, pass ``ratio=True`` for
+            it. If ``ratio``, ``log_scale``, and ``null_value`` are all
+            omitted and ``statistic`` equals ``log(estimate) / std_error``,
+            a warning says ``ratio=True`` is probably missing.
         null_value: Vertical reference. Defaults to 1 for ratios, 0 otherwise.
         drop_intercept: Drop intercept rows when recognized.
         log_scale: Log x-axis for ratio estimates (default when ratio columns
@@ -562,6 +589,15 @@ def plot_forest(
     est = np.asarray(frame["estimate"].to_list(), dtype=float)
     lo = np.asarray(frame["conf_low"].to_list(), dtype=float)
     hi = np.asarray(frame["conf_high"].to_list(), dtype=float)
+    unset = ratio is None and log_scale is None and null_value is None
+    if unset and not is_ratio and _looks_exponentiated(tidy, frame):
+        warnings.warn(
+            "estimates look like tidy(exponentiate=True) ratios "
+            "(statistic = log(estimate) / std_error); pass ratio=True for a log "
+            "axis with the reference line at 1, or ratio=False to silence this",
+            UserWarning,
+            stacklevel=2,
+        )
     if "p_value" in frame.columns:
         pvals = frame["p_value"].to_list()
         p_as_text = False
