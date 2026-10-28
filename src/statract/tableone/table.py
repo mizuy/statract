@@ -504,6 +504,20 @@ def _resolve_statfunc(
 
 
 _MEDIAN_AGGFUNCS = {agg.agg_median, agg.agg_median_iqr, agg.agg_median_range}
+_PROPORTION_AGGFUNCS = {
+    agg.agg_bool_ci,
+    agg.agg_bool_n,
+    agg.agg_bool_np,
+    agg.agg_bool_p,
+    agg.agg_bool_pnn,
+    agg.agg_bool_pnnci,
+    agg.agg_ratio,
+    agg.agg_ratio_ci,
+    agg.agg_ratio_n,
+    agg.agg_ratio_np,
+    agg.agg_ratio_pnn,
+    agg.agg_ratio_pnnci,
+}
 
 
 def _hue_series(df: pl.DataFrame, hue: list[pl.Expr]) -> pl.Series:
@@ -517,9 +531,18 @@ def _hue_series(df: pl.DataFrame, hue: list[pl.Expr]) -> pl.Series:
 def _compute_pvalue(df: pl.DataFrame, param: TableOneParam, hue: list[pl.Expr]) -> str:
     """Compute the p-value string for a param across the hue groups."""
     statfunc = param.statfunc
-    if statfunc is None and _get_aggfunc(param.aggfunc, param.column) in _MEDIAN_AGGFUNCS:
-        # A median summary gets a rank test, as R tableone does for nonnormal variables.
-        statfunc = stat.stat_kruskal
+    col_series = df.select(param.column).to_series()
+    if statfunc is None:
+        aggfunc = _callable_func(_get_aggfunc(param.aggfunc, param.column) or _get_auto_aggfunc(param.column, df))
+        if aggfunc in _MEDIAN_AGGFUNCS:
+            # A median summary gets a rank test, as R tableone does for nonnormal variables.
+            statfunc = stat.stat_kruskal
+        elif _is_category_aggfunc(aggfunc) or aggfunc in _PROPORTION_AGGFUNCS:
+            # Rows shown as counts get Fisher, whatever the column's dtype (0/1 or 1/2/3 integers too).
+            statfunc = stat.stat_fisher
+            if aggfunc in _PROPORTION_AGGFUNCS and col_series.dtype.is_numeric():
+                col_series = col_series > 0
+            col_series = col_series.cast(pl.String)
     try:
         resolved = _resolve_statfunc(statfunc, param.column, hue[0], df)
     except ValueError:
@@ -528,9 +551,8 @@ def _compute_pvalue(df: pl.DataFrame, param: TableOneParam, hue: list[pl.Expr]) 
     if resolved is None:
         return "-"
     try:
-        # Extract Series from DataFrame before calling stat function
-        col_series = df.select(param.column).to_series()
-        hue_series = _hue_series(df, hue)
+        # Groups are labels, so a numeric hue (0/1) is compared as groups, not as a number.
+        hue_series = _hue_series(df, hue).cast(pl.String)
         return resolved(col_series, hue_series)
     except Exception:  # noqa: BLE001
         return "Failed"
