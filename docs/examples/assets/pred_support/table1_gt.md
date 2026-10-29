@@ -187,7 +187,7 @@
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
-    <td class="gt_row gt_center">0.02</td>
+    <td class="gt_row gt_center">0.03</td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　0</td>

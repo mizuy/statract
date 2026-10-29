@@ -100,16 +100,16 @@
   </tr>
   <tr>
     <td style="font-weight: bold;" class="gt_row gt_left">Bilirubin (mg/dL)</td>
-    <td class="gt_row gt_center">1.4 [0.8,3.4]</td>
-    <td class="gt_row gt_center">1.4 [0.8,3.2]</td>
-    <td class="gt_row gt_center">1.3 [0.7,3.6]</td>
+    <td class="gt_row gt_center">1.4 [0.8, 3.4]</td>
+    <td class="gt_row gt_center">1.4 [0.8, 3.2]</td>
+    <td class="gt_row gt_center">1.3 [0.7, 3.6]</td>
     <td class="gt_row gt_center">0.84</td>
   </tr>
   <tr>
     <td style="font-weight: bold;" class="gt_row gt_left">Albumin (g/dL)</td>
-    <td class="gt_row gt_center">3.6 [3.3,3.8]</td>
-    <td class="gt_row gt_center">3.6 [3.2,3.8]</td>
-    <td class="gt_row gt_center">3.5 [3.3,3.8]</td>
+    <td class="gt_row gt_center">3.6 [3.3, 3.8]</td>
+    <td class="gt_row gt_center">3.6 [3.2, 3.8]</td>
+    <td class="gt_row gt_center">3.5 [3.3, 3.8]</td>
     <td class="gt_row gt_center">0.95</td>
   </tr>
   <tr>
@@ -117,7 +117,7 @@
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
-    <td class="gt_row gt_center">0.83</td>
+    <td class="gt_row gt_center">0.90</td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　0.0</td>
@@ -145,7 +145,7 @@
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
-    <td class="gt_row gt_center">0.24</td>
+    <td class="gt_row gt_center">0.21</td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　1.0</td>

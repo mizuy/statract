@@ -75,14 +75,14 @@
     <td class="gt_row gt_center">61.4 (16.7)</td>
     <td class="gt_row gt_center">61.8 (17.3)</td>
     <td class="gt_row gt_center">60.7 (15.6)</td>
-    <td class="gt_row gt_center">-</td>
+    <td class="gt_row gt_center">0.03</td>
   </tr>
   <tr>
     <td style="font-weight: bold;" class="gt_row gt_left">Sex</td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
-    <td class="gt_row gt_center">-</td>
+    <td class="gt_row gt_center">P&lt;.001</td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　Female</td>
@@ -103,7 +103,7 @@
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
-    <td class="gt_row gt_center">-</td>
+    <td class="gt_row gt_center">0.43</td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　black</td>
@@ -131,14 +131,14 @@
     <td class="gt_row gt_center">11.7 (3.1)</td>
     <td class="gt_row gt_center">11.6 (3.1)</td>
     <td class="gt_row gt_center">11.9 (3.2)</td>
-    <td class="gt_row gt_center">-</td>
+    <td class="gt_row gt_center">P&lt;.001</td>
   </tr>
   <tr>
     <td style="font-weight: bold;" class="gt_row gt_left">Primary disease</td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
-    <td class="gt_row gt_center">-</td>
+    <td class="gt_row gt_center">P&lt;.001</td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　ARF</td>
@@ -208,7 +208,7 @@
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
-    <td class="gt_row gt_center">-</td>
+    <td class="gt_row gt_center">P&lt;.001</td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　Metastatic</td>
@@ -236,21 +236,21 @@
     <td class="gt_row gt_center">54.7 (20.0)</td>
     <td class="gt_row gt_center">50.9 (18.8)</td>
     <td class="gt_row gt_center">60.7 (20.3)</td>
-    <td class="gt_row gt_center">-</td>
+    <td class="gt_row gt_center">P&lt;.001</td>
   </tr>
   <tr>
     <td style="font-weight: bold;" class="gt_row gt_left">Mean BP</td>
     <td class="gt_row gt_center">78.5 (38.0)</td>
     <td class="gt_row gt_center">84.9 (38.9)</td>
     <td class="gt_row gt_center">68.2 (34.2)</td>
-    <td class="gt_row gt_center">-</td>
+    <td class="gt_row gt_center">P&lt;.001</td>
   </tr>
   <tr>
     <td style="font-weight: bold;" class="gt_row gt_left">DNR</td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
-    <td class="gt_row gt_center">-</td>
+    <td class="gt_row gt_center">P&lt;.001</td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　No</td>
@@ -271,7 +271,7 @@
     <td class="gt_row gt_center">0.3 (0.5)</td>
     <td class="gt_row gt_center">0.3 (0.5)</td>
     <td class="gt_row gt_center">0.4 (0.5)</td>
-    <td class="gt_row gt_center">-</td>
+    <td class="gt_row gt_center">P&lt;.001</td>
   </tr>
 </tbody>
 </table>

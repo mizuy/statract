@@ -117,7 +117,7 @@
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
-    <td class="gt_row gt_center">0.68</td>
+    <td class="gt_row gt_center">0.69</td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　0</td>
@@ -141,7 +141,7 @@
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
-    <td class="gt_row gt_center">0.91</td>
+    <td class="gt_row gt_center">0.94</td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　0</td>
@@ -165,7 +165,7 @@
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
-    <td class="gt_row gt_center">0.56</td>
+    <td class="gt_row gt_center">0.57</td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　0</td>
@@ -189,7 +189,7 @@
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
-    <td class="gt_row gt_center">0.26</td>
+    <td class="gt_row gt_center">0.54</td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　1</td>
@@ -221,7 +221,7 @@
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
-    <td class="gt_row gt_center">0.61</td>
+    <td class="gt_row gt_center">0.27</td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　1</td>

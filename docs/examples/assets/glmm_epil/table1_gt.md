@@ -79,16 +79,16 @@
   </tr>
   <tr>
     <td style="font-weight: bold;" class="gt_row gt_left">Baseline seizures / 8 wk</td>
-    <td class="gt_row gt_center">22.0 [12.0,41.0]</td>
-    <td class="gt_row gt_center">19.0 [11.0,47.0]</td>
-    <td class="gt_row gt_center">24.0 [14.0,38.0]</td>
+    <td class="gt_row gt_center">22.0 [12.0, 41.0]</td>
+    <td class="gt_row gt_center">19.0 [11.0, 47.8]</td>
+    <td class="gt_row gt_center">24.0 [13.5, 38.0]</td>
     <td class="gt_row gt_center">0.63</td>
   </tr>
   <tr>
     <td style="font-weight: bold;" class="gt_row gt_left">Seizures, 4 visits total</td>
-    <td class="gt_row gt_center">16.0 [12.0,39.0]</td>
-    <td class="gt_row gt_center">16.0 [14.0,42.0]</td>
-    <td class="gt_row gt_center">15.0 [10.0,32.0]</td>
+    <td class="gt_row gt_center">16.0 [11.5, 36.0]</td>
+    <td class="gt_row gt_center">16.0 [13.8, 44.8]</td>
+    <td class="gt_row gt_center">15.0 [10.0, 30.5]</td>
     <td class="gt_row gt_center">0.19</td>
   </tr>
   <tr>

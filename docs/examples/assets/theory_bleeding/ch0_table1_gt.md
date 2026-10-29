@@ -109,7 +109,7 @@
   </tr>
   <tr>
     <td style="font-weight: bold;" class="gt_row gt_left">Lesion size (mm)</td>
-    <td class="gt_row gt_center">14.0 [10.0,20.0]</td>
+    <td class="gt_row gt_center">14.0 [10.0, 20.0]</td>
   </tr>
   <tr>
     <td style="font-weight: bold;" class="gt_row gt_left">Proximal colon</td>
