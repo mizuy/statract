@@ -18,6 +18,8 @@ tasks:
       - build
     sources:
       - '{{.STEM}}.py'
+      - ../support.py
+      - ../../src/statract/**/*.py
     cmds:
       - uv run python {{.STEM}}.py
 
