@@ -195,7 +195,7 @@ def agg_mean(expr: pl.Expr, precision: int = 1) -> pl.Expr:
 
     Examples:
         >>> import polars as pl
-        >>> from statract import agg_mean
+        >>> from statract.tableone.agg import agg_mean
         >>>
         >>> df = pl.DataFrame({"age": [25, 30, 35, 40, 45]})
         >>> df.select(agg_mean(pl.col("age")).alias("mean_age"))

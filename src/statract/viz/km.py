@@ -299,7 +299,7 @@ def timedelta_to_years(expr: pl.Expr) -> pl.Expr:
 
     Examples:
         >>> import polars as pl
-        >>> from statract import timedelta_to_years
+        >>> from statract.viz.km import timedelta_to_years
         >>>
         >>> df = pl.DataFrame({
         ...     "duration": pl.Series([365, 730, 1095], dtype=pl.Duration("ns"))

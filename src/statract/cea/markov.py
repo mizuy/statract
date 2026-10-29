@@ -151,32 +151,27 @@ def simulate_cohort_markov(
     3. Apply ``transition`` to obtain membership for the next age
        (skipped on the final age).
 
-    Parameters
-    ----------
-    states
-        Ordered state names.
-    initial
-        Initial distribution. Non-negative values with a positive total are
-        renormalized to sum to 1. Negative mass is rejected.
-    ages
-        Inclusive calendar ages, one per cycle (e.g. ``range(40, 101)``).
-    transition
-        Constant matrix, age→matrix map, or callable returning mass or matrix.
-        Entries must be finite and non-negative, and matrix rows must sum to 1.
-        Mass after a transition must conserve the cohort total. Negative mass
-        is rejected rather than zeroed and kept in the simulation.
-    utility, cost
-        Per-cycle state rewards.
-    discount_rate
-        Annual discount rate applied as ``1 / (1 + r)**t``. Finite and >= 0.
-    living_mask
-        Which states count toward LY. Default: all states whose name does not
-        start with ``death`` (case-insensitive) and is not exactly ``dead``.
-    on_cycle
-        Optional hook before transition. Returned mass must conserve the
-        cohort total.
-    record_trace
-        If True, return a DataFrame of state membership at cycle start.
+    Args:
+        states: Ordered state names.
+        initial: Initial distribution. Non-negative values with a positive
+            total are renormalized to sum to 1. Negative mass is rejected.
+        ages: Inclusive calendar ages, one per cycle (e.g. ``range(40, 101)``).
+        transition: Constant matrix, age→matrix map, or callable returning
+            mass or matrix. Entries must be finite and non-negative, and matrix
+            rows must sum to 1. Mass after a transition must conserve the
+            cohort total. Negative mass is rejected rather than zeroed and kept
+            in the simulation.
+        utility: Per-cycle utility of each state.
+        cost: Per-cycle cost of each state.
+        discount_rate: Annual discount rate applied as ``1 / (1 + r)**t``.
+            Finite and >= 0.
+        living_mask: Which states count toward LY. Default: all states whose
+            name does not start with ``death`` and is not ``dead`` (both
+            case-insensitive).
+        on_cycle: Optional hook before transition. Returned mass must conserve
+            the cohort total.
+        record_trace: If True, return a DataFrame of state membership at cycle
+            start.
     """
     state_list = [str(s) for s in states]
     n = len(state_list)

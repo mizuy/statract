@@ -37,15 +37,12 @@ def run_psa(
 ) -> PsaResult:
     """Evaluate ``evaluate`` on each joint parameter draw.
 
-    Parameters
-    ----------
-    strategies
-        Strategy names (length ``k``).
-    param_draws
-        Mapping param → length-``n`` sequence, or a DataFrame with one row per
-        simulation.
-    evaluate
-        Returns ``(costs, effects)`` of length ``k`` for a parameter dict.
+    Args:
+        strategies: Strategy names (length ``k``).
+        param_draws: Mapping param → length-``n`` sequence, or a DataFrame
+            with one row per simulation.
+        evaluate: Returns ``(costs, effects)`` of length ``k`` for a parameter
+            dict.
     """
     names = tuple(str(s) for s in strategies)
     k = len(names)
@@ -167,15 +164,19 @@ def one_way_dsa(
 ) -> pl.DataFrame:
     """One-way deterministic sensitivity analysis.
 
-    Parameters
-    ----------
-    outcome
-        ``\"nmb\"`` (requires ``wtp``): NMB of the best strategy, or of
-        ``comparator`` if that name is set.
-        ``\"delta_nmb\"`` (requires ``wtp`` and ``comparator``): incremental NMB
-        of the first other strategy vs comparator.
-        ``\"icer\"`` (requires ``comparator``): ICER of the first other
-        strategy vs comparator.
+    Args:
+        strategies: Strategy names, in the order ``evaluate`` returns them.
+        base_params: Base-case value of every parameter.
+        ranges: ``(low, high)`` for each parameter to vary, one at a time.
+        evaluate: Returns ``(costs, effects)``, one per strategy, for a
+            parameter dict.
+        outcome: ``"nmb"`` (requires ``wtp``): NMB of the best strategy, or of
+            ``comparator`` if that name is set. ``"delta_nmb"`` (requires
+            ``wtp`` and ``comparator``): incremental NMB of the first other
+            strategy vs comparator. ``"icer"`` (requires ``comparator``): ICER
+            of the first other strategy vs comparator.
+        wtp: Willingness to pay per unit of effect.
+        comparator: Name of the reference strategy.
     """
     names = [str(s) for s in strategies]
     if not names:

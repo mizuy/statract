@@ -32,4 +32,6 @@ tableone(
 
 `add_smd=True` は R の tableone と同じ標準化差（SMD）の列を足します。数値は 2 群の平均差を標本分散の平均の平方根で割ったもの、カテゴリは Yang と Dalton の多項版です。3 群以上では全ペアの平均です。単体の関数は `standardized_difference` です。分母は渡した表の中で計算するので、マッチ後の Table 1 の SMD はバランス表（分母を調整前に固定）と一致しないことがあります。0/1 の数値の列は平均で集計すると連続変数の式、カテゴリで集計すると $p(1-p)$ の式です。詳しくは [stat の実装メモ](../api/tableone/stat.md#smd) です。
 
+見出しを変えるときは、`write_tableone_artifacts` と `tableone_gt_from_frame` に `column_labels={"0": "対照"}` と `column_spanners=[("マッチ前", ["0", "1"])]` を渡します。`column_spanners` は複数の列の上に一つの見出しを置きます。行の名前がすべて `"グループ | 項目"`（`"背景 | 年齢"` など）の形なら、グループごとに太字の見出し行ができ、項目はその下に字下げされます。`tableone_gt_from_frame` は、二つの `tableone_raw` を横に並べた表など、自分で作った表にも同じ書式を付けます。
+
 公開データでの表は [解析例](../examples/index.md) の各ページにあります。API は [tableone](../api/tableone/tableone.md)、[agg](../api/tableone/agg.md)、[stat](../api/tableone/stat.md) です。推定は [models](../models/overview.md) です。

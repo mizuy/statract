@@ -49,7 +49,7 @@ The reference is the set of operators and functions in formulaic's [Formula Gram
 |------|------|------|
 | `I(...)` | Yes | `+` `-` `*` `/` `^` inside are arithmetic. One argument. Column names follow R's deparse, as in `I(x^2)` |
 | `log` `log10` `exp` `sqrt` `abs` | Yes | One argument. Usable on the left or right side |
-| `offset(...)` | Yes | Not a design matrix column. Added to `FormulaModel.offset`. formulaic does not have this function. `fit_mixed` does not accept it |
+| `offset(...)` | Yes | Not a design matrix column. Added to `FormulaModel.offset`. formulaic does not have this function. `fit_mixed` accepts it for binomial, Poisson, and negative binomial |
 | `Surv(time, status)` `Surv(start, stop, status)` | Yes | Left side for `cox_ph`, `accelerated_failure`, and `fine_gray`. `Surv(start, stop, status)` is for `cox_ph` and `fine_gray` |
 | `strata(...)` | Yes | Strata for `cox_ph` and `conditional_logit`. Not a design matrix column |
 | `cluster(...)` | Yes | Cluster-robust variance for `cox_ph`. `conditional_logit` uses it with `method="efron"` and `method="breslow"`. Not available with exact |
@@ -184,7 +184,7 @@ The functions allowed on the right and left sides are `I`, `log`, `exp`, `sqrt`,
 
 The value of `offset()` goes into `FormulaModel.offset` as the sum of its arguments. No design matrix column is created for it. The columns of both `y ~ offset(z) + x` and `y ~ x * offset(z)` are `(Intercept)`, `x`, and the offset is `z`. `offset(z)` does not remove `z` from the dot.
 
-`fit_ols` and `fit_glm` add the formula's `offset()` and the `offset=` argument. `fit_mixed` does not accept `offset()`. `predict()` on the fitted rows adds the offset to the linear predictor. `predict(data)` on new data is the product of the design matrix and the coefficients.
+`fit_ols` and `fit_glm` add the formula's `offset()` and the `offset=` argument. `fit_mixed` does the same for binomial, Poisson, and negative binomial; Gaussian and gamma raise an error. `predict()` on the fitted rows adds the offset to the linear predictor. `predict(data)` on new data is the product of the design matrix and the coefficients.
 
 ## Dot
 
@@ -210,7 +210,7 @@ Random effects are joined to other terms with `+`. Combining them with `*`, `:`,
 - `y ~ 0 + (1 | g)` has no fixed effects and a random intercept.
 - `y ~ 0 + x + (0 + x | g)` has fixed effect `x` and a random slope for `x`.
 
-`(x || g)` can be parsed. `fit_mixed` raises an error for uncorrelated slopes. Factor or boolean slopes and `offset()` are also errors.
+`(x || g)` can be parsed. `fit_mixed` raises an error for uncorrelated slopes. Factor or boolean slopes are also errors, and so is `offset()` with Gaussian or gamma.
 
 `cox_ph`, `accelerated_failure`, and `fine_gray` accept `Surv(time, status) ~ age + sex`. Cox removes the intercept column, and factors still use treatment contrasts. `strata(site)` and `cluster(id)` can go in a Cox formula. `conditional_logit` accepts `bleed ~ eolm + strata(set)` and removes the intercept. The default `method="exact"` is the combinatorial likelihood within matched sets. `Surv(start, stop, status)` is the counting process form, accepted by `cox_ph` and `fine_gray`. The right side of `fine_gray` is the covariates to keep, and `cause` is a separate argument. Accelerated failure time keeps the intercept. Smooths use `smooth`. Calls with column names are still supported.
 
