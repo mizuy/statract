@@ -75,14 +75,14 @@
     <td class="gt_row gt_center">43.7 (12.0)</td>
     <td class="gt_row gt_center">42.8 (11.8)</td>
     <td class="gt_row gt_center">46.2 (12.2)</td>
-    <td class="gt_row gt_center">-</td>
+    <td class="gt_row gt_center">P&lt;.001</td>
   </tr>
   <tr>
     <td style="font-weight: bold;" class="gt_row gt_left">Sex</td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
-    <td class="gt_row gt_center">-</td>
+    <td class="gt_row gt_center">0.007</td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　0.0</td>
@@ -103,7 +103,7 @@
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
-    <td class="gt_row gt_center">-</td>
+    <td class="gt_row gt_center">0.004</td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　0.0</td>
@@ -124,7 +124,7 @@
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
-    <td class="gt_row gt_center">-</td>
+    <td class="gt_row gt_center">0.02</td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　1.0</td>
@@ -166,21 +166,21 @@
     <td class="gt_row gt_center">20.5 (11.8)</td>
     <td class="gt_row gt_center">21.2 (11.5)</td>
     <td class="gt_row gt_center">18.6 (12.4)</td>
-    <td class="gt_row gt_center">-</td>
+    <td class="gt_row gt_center">P&lt;.001</td>
   </tr>
   <tr>
     <td style="font-weight: bold;" class="gt_row gt_left">Years smoked</td>
     <td class="gt_row gt_center">24.6 (12.0)</td>
     <td class="gt_row gt_center">24.1 (11.7)</td>
     <td class="gt_row gt_center">26.0 (12.7)</td>
-    <td class="gt_row gt_center">-</td>
+    <td class="gt_row gt_center">0.005</td>
   </tr>
   <tr>
     <td style="font-weight: bold;" class="gt_row gt_left">Exercise</td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
-    <td class="gt_row gt_center">-</td>
+    <td class="gt_row gt_center">0.11</td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　0.0</td>
@@ -208,7 +208,7 @@
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
     <td class="gt_row gt_center"></td>
-    <td class="gt_row gt_center">-</td>
+    <td class="gt_row gt_center">0.29</td>
   </tr>
   <tr>
     <td class="gt_row gt_left">　0.0</td>
@@ -236,14 +236,14 @@
     <td class="gt_row gt_center">70.8 (15.3)</td>
     <td class="gt_row gt_center">70.3 (15.2)</td>
     <td class="gt_row gt_center">72.4 (15.6)</td>
-    <td class="gt_row gt_center">-</td>
+    <td class="gt_row gt_center">0.02</td>
   </tr>
   <tr>
     <td style="font-weight: bold;" class="gt_row gt_left">Weight change (kg)</td>
     <td class="gt_row gt_center">2.6 (7.9)</td>
     <td class="gt_row gt_center">2.0 (7.4)</td>
     <td class="gt_row gt_center">4.5 (8.7)</td>
-    <td class="gt_row gt_center">-</td>
+    <td class="gt_row gt_center">P&lt;.001</td>
   </tr>
 </tbody>
 </table>

@@ -671,6 +671,37 @@ class TestTableOnePValue:
         named = tableone_raw(df, {"LOS": ("los", agg_mean_sd, "kruskal")}, hue="group", add_pvalue=True)
         assert named["P value"][0] == median["P value"][0]
 
+    def test_numeric_hue_gets_tests(self):
+        df = pl.DataFrame(
+            {
+                "arm": [0, 0, 0, 0, 0, 1, 1, 1, 1, 1],
+                "age": [50.0, 52.0, 55.0, 49.0, 60.0, 61.0, 64.0, 58.0, 66.0, 63.0],
+                "sex": ["F", "M", "F", "F", "M", "M", "M", "F", "M", "M"],
+            }
+        )
+        params = {"Age": ("age", agg_mean_sd), "Sex": ("sex", agg_category_np)}
+        result = tableone_raw(df, params, hue="arm", add_pvalue=True)
+        groups = df["arm"].cast(pl.String)
+        assert result.filter(pl.col("name") == "Age")["P value"][0] == stat_anova(df["age"], groups)
+        assert result.filter(pl.col("name") == "Sex")["P value"][0] == stat_fisher(df["sex"], groups)
+
+    def test_integer_column_shown_as_categories_gets_fisher(self):
+        df = pl.DataFrame(
+            {
+                "group": ["A"] * 8 + ["B"] * 8,
+                "grade": [1, 1, 2, 2, 2, 3, 1, 2, 3, 3, 2, 3, 3, 1, 3, 2],
+                "flag": [0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0],
+            }
+        )
+        params = {"Grade": ("grade", agg_category_n), "Flag": ("flag", agg_ratio_np)}
+        result = tableone_raw(df, params, hue="group", add_pvalue=True)
+        assert result.filter(pl.col("name") == "Grade")["P value"][0] == stat_fisher(
+            df["grade"].cast(pl.String), df["group"]
+        )
+        assert result.filter(pl.col("name") == "Flag")["P value"][0] == stat_fisher(
+            df["flag"].cast(pl.String), df["group"]
+        )
+
     def test_fisher_on_a_larger_table_is_reproducible(self):
         df = pl.DataFrame(
             {"g": ["A", "B", "C"] * 10, "c": ["u", "v", "w", "w", "v"] * 6},

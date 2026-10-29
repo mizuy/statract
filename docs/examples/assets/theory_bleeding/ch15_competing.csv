@@ -1,10 +1,10 @@
 term,model,scale,estimate,conf_low,conf_high
-age,"Cause-specific Cox, recurrence",cause-specific hazard ratio,1.0317256110815562,1.0223099937426248,1.0412279475667507
-stage3,"Cause-specific Cox, recurrence",cause-specific hazard ratio,2.1676997242016767,1.7747867135625044,2.6475981921635787
-chemo,"Cause-specific Cox, recurrence",cause-specific hazard ratio,0.6566523146794807,0.5367320611745016,0.8033659502850737
-age,"Cause-specific Cox, death without recurrence",cause-specific hazard ratio,1.094422855898159,1.0771127171946377,1.1120111835944866
-stage3,"Cause-specific Cox, death without recurrence",cause-specific hazard ratio,1.2072808771948953,0.8697535294387454,1.6757932760342142
-chemo,"Cause-specific Cox, death without recurrence",cause-specific hazard ratio,0.9917115585336335,0.7045565423482621,1.3959018988756597
-age,"Fine-Gray, recurrence",subdistribution hazard ratio,1.0246880448562068,1.0158156618814116,1.0336379213985902
-stage3,"Fine-Gray, recurrence",subdistribution hazard ratio,2.1265546483929816,1.744937947740095,2.5916306528026607
-chemo,"Fine-Gray, recurrence",subdistribution hazard ratio,0.6576614996975755,0.5393920837744354,0.8018631737378927
+age,"Cause-specific Cox, recurrence",cause-specific hazard ratio,1.0317256110815554,1.0223099937426234,1.04122794756675
+stage3,"Cause-specific Cox, recurrence",cause-specific hazard ratio,2.1676997242016833,1.774786713562509,2.647598192163587
+chemo,"Cause-specific Cox, recurrence",cause-specific hazard ratio,0.6566523146794768,0.5367320611744979,0.8033659502850696
+age,"Cause-specific Cox, death without recurrence",cause-specific hazard ratio,1.09442285589816,1.0771127171946413,1.1120111835944848
+stage3,"Cause-specific Cox, death without recurrence",cause-specific hazard ratio,1.207280877194901,0.8697535294387491,1.6757932760342233
+chemo,"Cause-specific Cox, death without recurrence",cause-specific hazard ratio,0.9917115585336382,0.7045565423482677,1.3959018988756624
+age,"Fine-Gray, recurrence",subdistribution hazard ratio,1.0246880448562052,1.0158156618814098,1.0336379213985893
+stage3,"Fine-Gray, recurrence",subdistribution hazard ratio,2.1265546483929834,1.7449379477400988,2.591630652802659
+chemo,"Fine-Gray, recurrence",subdistribution hazard ratio,0.6576614996975676,0.5393920837744293,0.8018631737378826

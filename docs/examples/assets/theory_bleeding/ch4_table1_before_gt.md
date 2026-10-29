@@ -95,8 +95,8 @@
   </tr>
   <tr>
     <td style="font-weight: bold;" class="gt_row gt_left">Lesion size (mm)</td>
-    <td class="gt_row gt_center">12.0 [9.0,16.0]</td>
-    <td class="gt_row gt_center">22.0 [15.0,30.0]</td>
+    <td class="gt_row gt_center">12.0 [9.0, 16.0]</td>
+    <td class="gt_row gt_center">22.0 [15.0, 30.0]</td>
     <td class="gt_row gt_center">1.119</td>
   </tr>
   <tr>
