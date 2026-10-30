@@ -139,6 +139,114 @@ def test_plot_forest_formats_small_p_as_lt_001() -> None:
     plt.close(fig)
 
 
+@pytest.mark.parametrize("panel", [None, "group"])
+def test_plot_forest_estimate_text_overrides_estimate(panel: str | None) -> None:
+    import matplotlib.pyplot as plt
+
+    tidy = pl.DataFrame(
+        {
+            "term": ["Q1", "Q2", "P for trend"],
+            "estimate": [1.0, 0.7, float("nan")],
+            "conf_low": [1.0, 0.4, float("nan")],
+            "conf_high": [1.0, 1.2, float("nan")],
+            "p_value": [None, 0.2, 0.03],
+            "estimate_text": ["1 (reference)", None, ""],
+            "group": ["ADR", "ADR", "ADR"],
+        }
+    )
+    fig = plot_forest(tidy, xlabel="Hazard ratio", ratio=True, panel=panel)
+    texts = [t.get_text() for ax in fig.axes for t in ax.texts]
+    assert "1 (reference)" in texts
+    assert "0.70 (0.40–1.20)" in texts
+    assert "0.030" in texts
+    assert "1.00 (1.00–1.00)" not in texts
+    plt.close(fig)
+
+
+def test_plot_forest_p_text_blanks_heading_row() -> None:
+    import matplotlib.pyplot as plt
+
+    tidy = pl.DataFrame(
+        {
+            "term": ["ADR quartile", "  Q2"],
+            "estimate": [float("nan"), 0.7],
+            "conf_low": [float("nan"), 0.4],
+            "conf_high": [float("nan"), 1.2],
+            "p_value": [None, 0.2],
+            "estimate_text": ["", None],
+            "p_text": ["", None],
+        }
+    )
+    fig = plot_forest(tidy, xlabel="Hazard ratio", ratio=True)
+    texts = [t.get_text() for ax in fig.axes for t in ax.texts]
+    assert "—" not in texts
+    assert "0.200" in texts
+    plt.close(fig)
+
+
+def test_plot_forest_panel_only_columns_need_panel() -> None:
+    tidy = pl.DataFrame(
+        {"term": ["a"], "estimate": [0.9], "conf_low": [0.8], "conf_high": [1.0], "row_style": ["heading"]}
+    )
+    with pytest.raises(ValueError, match="panel"):
+        plot_forest(tidy, xlabel="HR", ratio=True)
+
+
+def test_plot_forest_row_style_and_estimate_header() -> None:
+    import matplotlib.pyplot as plt
+    from statract.viz.forest import _row_layout
+
+    y, h, bands, bold = _row_layout(["heading", None, None, "spacer", "heading", None, None])
+    assert list(h) == [1, 1, 1, 0.5, 1, 1, 1]
+    assert list(bands[:3]) == list(bands[4:])
+    assert not bands[3]
+    assert list(bold) == [True, False, False, False, True, False, False]
+    assert y[-1] == 0.0 and y[0] == 5.5
+
+    nan = float("nan")
+    tidy = pl.DataFrame(
+        {
+            "term": ["ADR quartile", "Q2", "", "APC quartile", "Q2"],
+            "estimate": [nan, 0.7, nan, nan, 0.8],
+            "conf_low": [nan, 0.4, nan, nan, 0.5],
+            "conf_high": [nan, 1.2, nan, nan, 1.3],
+            "row_style": ["heading", None, "spacer", "heading", None],
+            "estimate_text": ["", None, "", "", None],
+            "p_text": ["", None, "", "", None],
+            "group": ["Quartile"] * 5,
+        }
+    )
+    fig = plot_forest(tidy, xlabel="HR", ratio=True, panel="group", estimate_header="Hazard ratio (95% CI)")
+    texts = {t.get_text(): t for ax in fig.axes for t in ax.texts}
+    assert "Hazard ratio (95% CI)" in texts
+    assert texts["ADR quartile"].get_fontweight() == "bold"
+    assert texts["Q2"].get_fontweight() == "normal"
+    plt.close(fig)
+
+
+def test_plot_forest_ref_interval_draws_grey_line() -> None:
+    import matplotlib.pyplot as plt
+
+    tidy = pl.DataFrame(
+        {
+            "term": ["aADR", "aAPC"],
+            "estimate": [0.95, 0.98],
+            "conf_low": [0.9, 0.96],
+            "conf_high": [0.99, 0.99],
+            "ref_estimate": [0.97, float("nan")],
+            "ref_conf_low": [0.94, float("nan")],
+            "ref_conf_high": [0.99, float("nan")],
+            "group": ["Continuous", "Continuous"],
+        }
+    )
+    fig = plot_forest(tidy, xlabel="HR", ratio=True, panel="group")
+    greys = [ln for ax in fig.axes for ln in ax.lines if ln.get_color() == "#9a9a9a"]
+    assert len(greys) == 2  # one interval and one marker for the first row only
+    texts = [t.get_text() for ax in fig.axes for t in ax.texts]
+    assert not any("0.97" in t for t in texts)
+    plt.close(fig)
+
+
 def test_plot_forest_accepts_prepared_hr_columns() -> None:
     import matplotlib.pyplot as plt
 

@@ -41,6 +41,9 @@ ForestPlotStyle: TypeAlias = Literal["color", "bw"]
 _FOREST_COLOR = "#0073C2"
 _FOREST_INK = "#111111"
 _FOREST_MUTED = "#555555"
+_ROW_MUTED = "#9a9a9a"  # reference intervals (ref_* columns)
+REF_COLS = ("ref_estimate", "ref_conf_low", "ref_conf_high")
+_REF_OFFSET = 0.2  # reference interval below the main one, in row units
 _ROW_BAND_COLOR = "#f4f4f4"
 _ROW_BAND_BW = "#efefef"
 _FONTSIZE = 8.5
@@ -115,6 +118,13 @@ def _format_estimate(est: float, lo: float, hi: float, *, digits: int = 2) -> st
     return f"{est:.{digits}f} ({lo_s}–{hi_s})"
 
 
+def _override_texts(frame: pl.DataFrame, texts: list[str], column: str = "estimate_text") -> list[str]:
+    """Replace texts with the optional ``column`` (``estimate_text`` / ``p_text``) where it is set (e.g. "1 (reference)")."""
+    if column not in frame.columns:
+        return texts
+    return [t if o is None else o for t, o in zip(texts, frame[column].to_list())]
+
+
 def _format_pvalue(p: float | None) -> str:
     if p is None or not np.isfinite(p):
         return "—"
@@ -165,11 +175,17 @@ def _prepare_frame(
         exprs.append(pl.col("p_value").cast(pl.Float64).alias("p_value"))
     elif "pvalue" in tidy.columns:
         exprs.append(pl.col("pvalue").cast(pl.Utf8).alias("pvalue"))
+    for text_col in ("estimate_text", "p_text", "row_style"):
+        if text_col in tidy.columns:
+            exprs.append(pl.col(text_col).cast(pl.Utf8).alias(text_col))
+    for ref_col in REF_COLS:
+        if ref_col in tidy.columns:
+            exprs.append(pl.col(ref_col).cast(pl.Float64).alias(ref_col))
     if panel is not None:
         if panel not in tidy.columns:
             raise ValueError(f"panel column {panel!r} not in tidy frame")
         exprs.append(pl.col(panel).cast(pl.Utf8).alias("_panel"))
-    seen = {"term", "estimate", "conf_low", "conf_high", "p_value", "pvalue", "_panel"}
+    seen = {"term", "estimate", "conf_low", "conf_high", "p_value", "pvalue", "_panel", "estimate_text", "p_text", "row_style", *REF_COLS}
     for col in extra_cols:
         if col not in tidy.columns:
             raise ValueError(f"extra column {col!r} not in tidy frame")
@@ -324,11 +340,41 @@ def _table_ylim(n: int, header_y: float | None) -> tuple[float, float]:
     return -0.42, header_y + 0.18
 
 
-def _row_bands(ax: Any, y: np.ndarray, *, color: str, header_y: float | None) -> None:
+def _row_bands(
+    ax: Any,
+    y: np.ndarray,
+    *,
+    color: str,
+    header_y: float | None,
+    heights: np.ndarray | None = None,
+    bands: np.ndarray | None = None,
+) -> None:
     ax.set_ylim(*_table_ylim(len(y), header_y))
     for i, yi in enumerate(y):
-        if i % 2 == 0:
-            ax.axhspan(yi - 0.5, yi + 0.5, color=color, zorder=0, linewidth=0)
+        half = 0.5 if heights is None else float(heights[i]) / 2.0
+        if (i % 2 == 0) if bands is None else bool(bands[i]):
+            ax.axhspan(yi - half, yi + half, color=color, zorder=0, linewidth=0)
+
+
+def _row_layout(styles: list[str | None]) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Row centers, heights, band mask and bold mask from ``row_style`` values.
+
+    ``"heading"`` rows are bold and restart the alternating bands (so every group is banded alike);
+    ``"spacer"`` rows are half height, unbanded and empty. Other rows are normal.
+    """
+    heights = np.array([0.5 if s == "spacer" else 1.0 for s in styles])
+    below = np.concatenate([np.cumsum(heights[::-1])[::-1][1:], [0.0]])
+    y = below + heights / 2.0 - 0.5
+    bands = np.zeros(len(styles), dtype=bool)
+    k = 0
+    for i, s in enumerate(styles):
+        if s == "heading":
+            k = 0
+        if s != "spacer":
+            bands[i] = k % 2 == 0
+            k += 1
+    bold = np.array([s == "heading" for s in styles])
+    return y, heights, bands, bold
 
 
 def _draw_table(
@@ -338,13 +384,16 @@ def _draw_table(
     header_y: float,
     columns: list[tuple[float, str, str, Any]],
     colors: dict[str, str],
+    heights: np.ndarray | None = None,
+    bands: np.ndarray | None = None,
+    bold: np.ndarray | None = None,
 ) -> None:
     """Text columns (term / extra / estimate / P) with header row and separator line."""
     ax_tab.set_xlim(0.0, 1.0)
     ax_tab.set_facecolor("white")
     ax_tab.axis("off")
-    _row_bands(ax_tab, y, color=colors["band"], header_y=header_y)
-    sep_y = float(np.max(y) + 0.5)
+    _row_bands(ax_tab, y, color=colors["band"], header_y=header_y, heights=heights, bands=bands)
+    sep_y = float(np.max(y) + (0.5 if heights is None else float(heights[int(np.argmax(y))]) / 2.0))
     ax_tab.plot([0.0, 1.0], [sep_y, sep_y], color=colors["ink"], lw=0.7, clip_on=False, zorder=2)
     for hx, ha, header, getter in columns:
         ax_tab.text(
@@ -366,6 +415,7 @@ def _draw_table(
                 va="center",
                 ha=ha,
                 fontsize=_FONTSIZE,
+                fontweight="bold" if bold is not None and bold[i] and hx == 0.0 else "normal",
                 color=colors["ink"],
                 clip_on=False,
             )
@@ -380,16 +430,17 @@ def _table_texts(
     est = frame["estimate"].to_list()
     lo = frame["conf_low"].to_list()
     hi = frame["conf_high"].to_list()
-    est_texts = [
+    est_texts = _override_texts(frame, [
         _format_estimate(float(est[i]), float(lo[i]), float(hi[i]), digits=estimate_digits)
         for i in range(frame.height)
-    ]
+    ])
     if "p_value" in frame.columns:
         p_texts = [_format_pvalue(None if v is None else float(v)) for v in frame["p_value"].to_list()]
     elif "pvalue" in frame.columns:
         p_texts = ["—" if v is None or str(v).strip() == "" else str(v) for v in frame["pvalue"].to_list()]
     else:
         p_texts = [_format_pvalue(None)] * frame.height
+    p_texts = _override_texts(frame, p_texts, "p_text")
     extra = {col: ["" if v is None else str(v) for v in frame[col].to_list()] for col in extra_cols}
     return est_texts, p_texts, extra
 
@@ -407,6 +458,7 @@ def _plot_forest_panels(
     colors: dict[str, str],
     estimate_digits: int,
     extra_cols: Sequence[str],
+    estimate_header: str | None = None,
 ) -> Any:
     """One figure, one table + forest row per panel. Columns are shared; each panel has its own x-axis."""
     panels = list(dict.fromkeys(frame["_panel"].to_list()))
@@ -417,7 +469,7 @@ def _plot_forest_panels(
         .sort("_panel_order", maintain_order=True)
         .drop("_panel_order")
     )
-    est_header = _estimate_header(xlabel, is_ratio=is_ratio)
+    est_header = estimate_header or _estimate_header(xlabel, is_ratio=is_ratio)
     est_texts, p_texts, extra = _table_texts(frame, estimate_digits=estimate_digits, extra_cols=extra_cols)
     labels = frame["term"].to_list()
     term_in, est_in, p_in = _table_column_inches(labels + panels, est_texts, p_texts, est_header)
@@ -434,7 +486,13 @@ def _plot_forest_panels(
     extra_in = sum(w + _COL_PAD_IN for w in extra_widths.values())
     table_in = term_in + _COL_PAD_IN + extra_in + est_in + _COL_PAD_IN + p_in
     sizes = [frame.filter(pl.col("_panel") == p).height for p in panels]
-    heights = [_ROW_IN * n + _HEADER_IN for n in sizes]
+    styles_all = frame["row_style"].to_list() if "row_style" in frame.columns else [None] * frame.height
+    units: list[float] = []
+    start = 0
+    for n in sizes:
+        units.append(float(_row_layout(styles_all[start : start + n])[1].sum()))
+        start += n
+    heights = [_ROW_IN * u + _HEADER_IN for u in units]
     gap_in = _AXIS_IN + 0.12  # tick labels and x label of the panel above
     if figsize is None:
         figsize = (
@@ -464,8 +522,13 @@ def _plot_forest_panels(
         est = np.asarray(sub["estimate"].to_list(), dtype=float)
         lo = np.asarray(sub["conf_low"].to_list(), dtype=float)
         hi = np.asarray(sub["conf_high"].to_list(), dtype=float)
-        y = np.arange(n)[::-1]
-        header_y = n - 0.22
+        y, row_h, bands, bold = _row_layout(styles_all[rows])
+        ref_rows = (
+            tuple(np.asarray(sub[c].to_list(), dtype=float) for c in REF_COLS)
+            if all(c in sub.columns for c in REF_COLS)
+            else None
+        )
+        header_y = float(y[0] + row_h[0] / 2.0) + 0.28
         sub_labels, sub_est, sub_p = labels[rows], est_texts[rows], p_texts[rows]
         cursor = term_in + _COL_PAD_IN
         columns: list[tuple[float, str, str, Any]] = [(0.0, "left", name, lambda i, t=sub_labels: t[i])]
@@ -477,7 +540,7 @@ def _plot_forest_panels(
         columns.append((1.0, "right", "P", lambda i, t=sub_p: t[i]))
         ax_tab = fig.add_subplot(gs[k, 0])
         ax_forest = fig.add_subplot(gs[k, 1], sharey=ax_tab)
-        _draw_table(ax_tab, y, header_y=header_y, columns=columns, colors=colors)
+        _draw_table(ax_tab, y, header_y=header_y, columns=columns, colors=colors, heights=row_h, bands=bands, bold=bold)
         _draw_forest_panel(
             ax_forest,
             est,
@@ -491,6 +554,9 @@ def _plot_forest_panels(
             xlabel=xlabel,
             colors=colors,
             header_y=header_y,
+            heights=row_h,
+            bands=bands,
+            ref_rows=ref_rows,
         )
     if title:
         fig.text(0.5, 0.995, title, ha="center", va="top", fontsize=10, color=colors["ink"])
@@ -520,6 +586,7 @@ def plot_forest(
     dpi: int = 180,
     also_pdf: bool = False,
     panel: str | None = None,
+    estimate_header: str | None = None,
 ) -> Path | Any:
     """Draw a publication-ready forest plot from a tidy coefficient table.
 
@@ -577,6 +644,23 @@ def plot_forest(
             all panels when given, otherwise each is fitted to its own rows); the
             table columns are aligned across panels and the panel name replaces the
             "Term" header. Requires ``layout="table"``.
+        estimate_header: Header of the estimate column (default
+            ``"HR (95% CI)"`` / ``"OR (95% CI)"`` / ``"Estimate (95% CI)"``
+            from ``xlabel``).
+
+    Optional columns of ``tidy`` with a special meaning (all may be omitted):
+
+    - ``estimate_text``: replaces the estimate (CI) text where non-null, e.g.
+      ``"1 (reference)"`` or ``""`` (pair ``""`` with a NaN estimate for a row
+      without a marker, such as a P-for-trend row).
+    - ``p_text``: replaces the P text where non-null (``""`` blanks it).
+    - ``row_style`` (panel layout only): ``"heading"`` (bold term; the
+      alternating bands restart, so grouped rows are banded alike) or
+      ``"spacer"`` (half-height empty row); other values are normal rows.
+    - ``ref_estimate`` / ``ref_conf_low`` / ``ref_conf_high`` (panel layout
+      only): a grey reference interval drawn just below the row's own
+      interval, without text (e.g. an unadjusted estimate beside an adjusted
+      one). NaN means none.
 
     Returns:
         ``Path`` when ``path`` is given, otherwise a matplotlib ``Figure``.
@@ -590,6 +674,9 @@ def plot_forest(
 
     if panel is not None and layout != "table":
         raise ValueError('panel requires layout="table"')
+    panel_only = [c for c in ("row_style", *REF_COLS) if c in tidy.columns]
+    if panel_only and panel is None:
+        raise ValueError(f"columns {panel_only} need panel (panel layout only)")
     extra_cols = tuple(extra_cols)
     frame, is_ratio = _prepare_frame(
         tidy,
@@ -651,6 +738,7 @@ def plot_forest(
                 colors=colors,
                 estimate_digits=estimate_digits,
                 extra_cols=extra_cols,
+                estimate_header=estimate_header,
             )
         elif layout == "points":
             if figsize is None:
@@ -675,11 +763,11 @@ def plot_forest(
                 ax.set_title(title, fontsize=10, color=colors["ink"], pad=4)
             fig.tight_layout(pad=0.25)
         else:
-            est_header = _estimate_header(xlabel, is_ratio=is_ratio)
-            est_texts = [
+            est_header = estimate_header or _estimate_header(xlabel, is_ratio=is_ratio)
+            est_texts = _override_texts(frame, [
                 _format_estimate(float(est[i]), float(lo[i]), float(hi[i]), digits=estimate_digits)
                 for i in range(n)
-            ]
+            ])
             if p_as_text:
                 p_texts = [
                     "—" if pvals[i] is None or str(pvals[i]).strip() == "" else str(pvals[i])
@@ -689,6 +777,7 @@ def plot_forest(
                 p_texts = [
                     _format_pvalue(None if pvals[i] is None else float(pvals[i])) for i in range(n)
                 ]
+            p_texts = _override_texts(frame, p_texts, "p_text")
             extra_blocks: list[tuple[str, list[str], float]] = []
             for col in extra_cols:
                 texts = ["" if v is None else str(v) for v in frame[col].to_list()]
@@ -791,9 +880,12 @@ def _draw_forest_panel(
     xlabel: str,
     colors: dict[str, str],
     header_y: float | None,
+    heights: np.ndarray | None = None,
+    bands: np.ndarray | None = None,
+    ref_rows: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None,
 ) -> None:
     ax.set_facecolor("white")
-    _row_bands(ax, y, color=colors["band"], header_y=header_y)
+    _row_bands(ax, y, color=colors["band"], header_y=header_y, heights=heights, bands=bands)
     x0, x1 = xlim
     if use_log:
         ax.set_xscale("log")
@@ -805,16 +897,28 @@ def _draw_forest_panel(
         ax.plot([x0, x1], [sep_y, sep_y], color=colors["ink"], lw=0.7, zorder=1)
 
     for i, yi in enumerate(y):
+        has_ref = ref_rows is not None and np.isfinite(ref_rows[0][i])
         _draw_interval(
             ax,
             float(est[i]),
             float(lo[i]),
             float(hi[i]),
-            float(yi),
+            float(yi) + (_REF_OFFSET / 2.0 if has_ref else 0.0),
             xlim=(x0, x1),
             color=colors["error"],
             marker_color=colors["marker"],
         )
+        if has_ref:
+            _draw_interval(
+                ax,
+                float(ref_rows[0][i]),
+                float(ref_rows[1][i]),
+                float(ref_rows[2][i]),
+                float(yi) - _REF_OFFSET,
+                xlim=(x0, x1),
+                color=_ROW_MUTED,
+                marker_color=_ROW_MUTED,
+            )
 
     ax.set_yticks(y)
     if labels is None:
