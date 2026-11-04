@@ -5,6 +5,7 @@
 | 層 | モジュール | R での近いもの |
 |----|------------|----------------|
 | cohort Markov | `statract.cea.markov` | heemod（核だけ） |
+| microsimulation | `statract.cea.microsim` | hesim（個人単位の核だけ） |
 | ICER / 支配 | `statract.cea.summarize` | dampack `calculate_icers` |
 | DSA / PSA 後段 | `statract.cea.sensitivity` | dampack / BCEA |
 
@@ -33,8 +34,8 @@ flowchart LR
   Markov --> SA
 ```
 
-- **入れるもの**: 名前付き状態の cohort STM、割引、イベント用 `on_cycle`、ICER 表（強支配 / 延長支配）、NMB、one-way DSA、PSA → CE plane / CEAC / EVPI
-- **入れないもの（V1）**: 半サイクル補正、個体シミュレーション、partitioned survival、EVPPI、TreeAge 連携、疾患固有の校正（GAM 等）
+- **入れるもの**: 共通乱数を使う個人単位の microsimulation、名前付き状態の cohort STM、割引、イベント用 `on_cycle`、ICER 表（強支配 / 延長支配）、NMB、one-way DSA、PSA → CE plane / CEAC / EVPI
+- **入れないもの（V1）**: 半サイクル補正、partitioned survival、EVPPI、TreeAge 連携、疾患固有の校正（GAM 等）
 
 ## モジュール一覧
 
@@ -43,6 +44,17 @@ flowchart LR
 `simulate_cohort_markov(...)` が 1 年（または任意）サイクルの状態分布を進め、割引済み費用・QALY・LY を返します。検査・切除などの介入は `on_cycle(age, mass) -> (mass, extra_cost, extra_qaly)` に閉じます（`extra_*` は**未割引**。割引は核が掛ける）。
 
 初期分布は、有限で非負かつ合計が正のとき 1 に正規化します。負の mass、合計が正でない初期分布、非有限または負の `discount_rate` は `ValueError` です。推移行列の各行は非負で和が 1、callable や `on_cycle` が返す mass はコホートの合計を保つ必要があります。負の mass を 0 に切り詰めて計算は続けません。
+
+### `microsim` — 個人単位の核
+
+`simulate_microsim(model, arms, n_trials=..., comparator=..., intervention=..., wtp=...)` は、人を NumPy の配列で持ち、1 サイクルずつ進めます。状態と遷移はモデル（`MicrosimModel`）が持ちます。モデルは `init_population`、`init_arm`、`step`、`is_done`、`outcomes`、`tallies` を用意します。
+
+- **共通乱数**：核はサイクルごとに `n_streams` 本の一様乱数を、状態によらず全員分引きます。値は人・サイクル・流れで決まり、全アームが同じ値を使います。アームの比較には、同じ人の差をとる `result.delta` か `result.increment_table()` を使います。同じ流れをアーム間で同じ向きに使ってください（例：`u < 感度`）。向きが違うと対応が崩れます。
+- **再現性**：結果は `seed` と `chunk_size` で決まります。`n_jobs` では変わりません。`n_jobs > 1` では、モデルは pickle でき、モジュールの最上位で定義されている必要があります。
+- **分布**：`keep_persons=True`（既定）なら、`distribution_table(result)` が人ごとの結果の百分位を返します。`n_trials` が大きいときは `keep_persons=False` にすると、平均と標準誤差だけを持ちます。
+- **層**：`init_population` が複数の `cell` を割り当てると、平均は層を等加重し、標準誤差は層内の分散から出します。
+
+標準誤差は平均の正規近似です。少数のまれなイベントで決まる指標では小さく出ることがあるので、実行に含まれるイベント数を確かめてください。サイクルの順序は核では決めません。コホートモデルと揃うように `step` の中で守ってください。
 
 ### `summarize` — ICER 表
 

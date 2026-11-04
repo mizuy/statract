@@ -7,7 +7,8 @@
 | 役割 | R | `statract.cea` | 備考 |
 |------|---|---------------|------|
 | cohort Markov の定義・実行 | **heemod** | `markov.simulate_cohort_markov` | 時間依存 `P(a)`・状態報酬・`on_cycle`。半サイクル補正は未実装 |
-| 個体 / DES / PartSA | **hesim** | （なし） | V1 対象外 |
+| 個体 | **hesim** | `simulate_microsim` | 核だけ（離散時間） |
+| DES / PartSA | **hesim** | （なし） | V1 対象外 |
 | ICER・強支配・延長支配 | **dampack** `calculate_icers` | `summarize.calculate_icers` | `ND` / `D` / `ED` |
 | NMB | dampack / BCEA | `summarize.net_monetary_benefit` | |
 | One-way / tornado | dampack OWSA | `sensitivity.one_way_dsa` | `nmb` / `delta_nmb` / `icer` |

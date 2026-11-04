@@ -217,6 +217,7 @@ nav:
           - misc: api/viz/misc.md
       - Cost-effectiveness:
           - markov: api/cea/markov.md
+          - microsim: api/cea/microsim.md
           - summarize: api/cea/summarize.md
           - sensitivity: api/cea/sensitivity.md
       - Report:

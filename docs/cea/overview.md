@@ -5,6 +5,7 @@ Disease-agnostic utilities for **cost-effectiveness analysis (CEA)**. Following 
 | Layer | Module | Closest in R |
 |----|------------|----------------|
 | Cohort Markov | `statract.cea.markov` | heemod (core only) |
+| Microsimulation | `statract.cea.microsim` | hesim (individual-level core only) |
 | ICER / dominance | `statract.cea.summarize` | dampack `calculate_icers` |
 | DSA / PSA post-processing | `statract.cea.sensitivity` | dampack / BCEA |
 
@@ -33,8 +34,8 @@ flowchart LR
   Markov --> SA
 ```
 
-- **In scope**: cohort STM with named states, discounting, `on_cycle` for events, ICER table (strong / extended dominance), NMB, one-way DSA, PSA → CE plane / CEAC / EVPI
-- **Out of scope (V1)**: half-cycle correction, individual-level simulation, partitioned survival, EVPPI, TreeAge integration, disease-specific calibration (GAM and so on)
+- **In scope**: individual-level microsimulation with common random numbers, cohort STM with named states, discounting, `on_cycle` for events, ICER table (strong / extended dominance), NMB, one-way DSA, PSA → CE plane / CEAC / EVPI
+- **Out of scope (V1)**: half-cycle correction, partitioned survival, EVPPI, TreeAge integration, disease-specific calibration (GAM and so on)
 
 ## Modules
 
@@ -43,6 +44,17 @@ flowchart LR
 `simulate_cohort_markov(...)` steps the state distribution forward in 1-year (or any length) cycles. It returns discounted costs, QALYs, and LYs. Interventions such as tests or resections go inside `on_cycle(age, mass) -> (mass, extra_cost, extra_qaly)` (`extra_*` are **undiscounted**. The core applies discounting).
 
 The initial distribution is normalized to 1 when it is finite, non-negative, and has a positive sum. A negative mass, an initial distribution whose sum is not positive, or a non-finite or negative `discount_rate` raises `ValueError`. Each row of the transition matrix must be non-negative and sum to 1. The mass returned by a callable or by `on_cycle` must keep the cohort total. The core does not clip negative mass to 0 and carry on.
+
+### `microsim` — individual-level core
+
+`simulate_microsim(model, arms, n_trials=..., comparator=..., intervention=..., wtp=...)` runs people one cycle at a time on NumPy arrays. The model (`MicrosimModel`) holds the states and transitions. It provides `init_population`, `init_arm`, `step`, `is_done`, `outcomes`, and `tallies`.
+
+- **Common random numbers**: each cycle, the core draws `n_streams` uniforms for every person, whatever their state. A value is fixed by person, cycle, and stream, and all arms use the same values. Compare arms with `result.delta` or `result.increment_table()`, which take differences within the same person. Reuse the same stream in the same direction across arms (for example `u < sensitivity`), or the arms lose their pairing.
+- **Reproducibility**: `seed` and `chunk_size` fix the result. `n_jobs` does not change it. With `n_jobs > 1`, the model must be picklable and defined at the top level of a module.
+- **Distributions**: with `keep_persons=True` (the default), `distribution_table(result)` gives percentiles of each per-person outcome. For a large `n_trials`, pass `keep_persons=False` to keep only means and standard errors.
+- **Strata**: if `init_population` assigns more than one `cell`, the mean weights strata equally and the standard error uses within-stratum variance.
+
+Standard errors assume a normal mean. When a metric comes from a few rare events, they can be too small, so check how many events the run contains. The core does not apply cycle order for you. Keep it inside `step` so that it matches your cohort model.
 
 ### `summarize` — ICER table
 
