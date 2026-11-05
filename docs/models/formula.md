@@ -184,7 +184,7 @@ The functions allowed on the right and left sides are `I`, `log`, `exp`, `sqrt`,
 
 The value of `offset()` goes into `FormulaModel.offset` as the sum of its arguments. No design matrix column is created for it. The columns of both `y ~ offset(z) + x` and `y ~ x * offset(z)` are `(Intercept)`, `x`, and the offset is `z`. `offset(z)` does not remove `z` from the dot.
 
-`fit_ols` and `fit_glm` add the formula's `offset()` and the `offset=` argument. `fit_mixed` does the same for binomial, Poisson, and negative binomial; Gaussian and gamma raise an error. `predict()` on the fitted rows adds the offset to the linear predictor. `predict(data)` on new data is the product of the design matrix and the coefficients.
+`fit_ols` and `fit_glm` add the formula's `offset()` and the `offset=` argument. `fit_mixed` does the same for binomial, Poisson, and negative binomial; Gaussian and gamma raise an error. `predict()` on the fitted rows adds the offset to the linear predictor. `predict(data)` on new data also adds the offset, as R's `predict.glm` does: the `offset=` column and each `offset()` term are added when their columns are in `data`. If they are not, the result is the product of the design matrix and the coefficients. Rows with a missing predictor or a missing offset are dropped, so the result can be shorter than `data`.
 
 ## Dot
 
@@ -194,7 +194,7 @@ If the right side has a main effect equal to the response, that term is dropped 
 
 ## Missing values and new data
 
-Rows with missing values in any column the formula uses are dropped together. Levels are set from the remaining rows. Missing values in `weights=` and `offset=` also drop the same rows afterward.
+Rows with missing values in any column the formula uses are dropped together. Levels are set from the remaining rows. Levels that do not occur in them, such as an `Enum` category absent from the data, are dropped as R's `drop.unused.levels` does; the first remaining level is the reference. A factor or Boolean with fewer than two levels left is an error. Missing values in `weights=` and `offset=` also drop the same rows afterward.
 
 In `fit_ols`, `fit_glm` and `fit_risk_ratio`, rows with weight 0 are not observations, as in R's `lm` and `glm`. They do not count in `n_obs`, the residual degrees of freedom, the log-likelihood, AIC, BIC, or the sandwich and cluster covariances, so the fit equals one with those rows removed. They keep their fitted values and residuals. Negative weights raise `ValueError`.
 

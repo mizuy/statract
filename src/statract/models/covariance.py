@@ -139,7 +139,8 @@ def bootstrap_covariance(
     """Bootstrap covariance of the coefficients.
 
     ``kind="xy"`` resamples rows (or clusters). ``kind="wild"`` multiplies
-    residuals by Rademacher, Webb, or Mammen weights. The random generator is
+    residuals by Rademacher, Webb, or Mammen weights; it is for linear models
+    (``fit_ols`` and gaussian ``fit_glm``) and raises ``ValueError`` otherwise. The random generator is
     NumPy's, so standard errors are not bit-identical to ``vcovBS``.
     """
     rng = np.random.default_rng(seed)
@@ -156,7 +157,15 @@ def bootstrap_covariance(
                 index = np.concatenate([np.flatnonzero(labels == lab) for lab in chosen])
             coefs[draw] = fit.refit_rows(index).coefficients
     elif kind == "wild":
+        if fit.family not in {"ols", "gaussian"}:
+            raise ValueError(
+                "the wild bootstrap is for linear models only (fit_ols or a gaussian identity-link GLM); "
+                f"use kind='xy' for family {fit.family!r}"
+            )
         fitted = fit.x @ fit.coefficients
+        if fit.family == "gaussian":
+            # A GLM refit subtracts the offset from the new response again.
+            fitted = fitted + fit.offset
         resid = fit.working_residuals
         for draw in range(n):
             shocks = _wild_weights(rng, fitted.shape[0], wild)

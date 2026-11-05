@@ -18,7 +18,13 @@ from numba import njit
 from scipy import linalg, special, stats
 
 from .design import ColumnRef, Design, build_design, column_series, design_matrix
-from .formula import is_formula, model_matrix, reject_survival_syntax
+from .formula import (
+    evaluate_offset,
+    is_formula,
+    model_matrix,
+    offset_columns,
+    reject_survival_syntax,
+)
 
 _FAMILIES = ("gaussian", "binomial", "poisson", "gamma", "negative_binomial")
 _LINKS = {
@@ -151,17 +157,25 @@ class Fit:
         """Linear predictor or mean response.
 
         ``kind`` is ``"link"`` or ``"response"``. With ``data=None`` the
-        fitted rows are used.
+        fitted rows are used. New rows add the offset, as ``predict.glm``
+        does: the ``offset=`` column and each formula ``offset()`` term are
+        added when their columns are in ``data``. Rows with a missing
+        predictor or a missing offset are dropped.
         """
         if kind not in {"link", "response"}:
             raise ValueError("kind must be 'link' or 'response'")
         if data is None:
             eta = self.x @ self.coefficients + self.offset
         else:
-            design = build_design(data, self.design)
+            design, offset = _new_design_offset(
+                data,
+                self.design,
+                getattr(self, "_offset_ref", None),
+                getattr(self, "_offset_terms", ()),
+            )
             if design.x.shape[1] != len(self.coefficients):
                 raise ValueError("new data produced a different number of columns")
-            eta = design.x @ self.coefficients
+            eta = design.x @ self.coefficients + offset
         if kind == "link" or self.family == "ols":
             return eta
         family = "gaussian" if self.family == "ols" else self.family
@@ -194,6 +208,42 @@ class Fit:
         if self._refit is None:
             raise TypeError(f"refit is not available for family {self.family!r}")
         return self._refit(index, y)
+
+
+def _new_design_offset(
+    data: pl.DataFrame,
+    design: Design,
+    offset_ref: ColumnRef | None,
+    offset_terms: Sequence[Any],
+) -> tuple[Design, np.ndarray]:
+    """A fitted design on new rows and the offset on those rows.
+
+    The ``offset=`` column and the formula's ``offset()`` terms are each
+    added when their columns are in ``data``. Rows where an added offset is
+    missing are dropped, as in the fit.
+    """
+    design = build_design(data, design)
+    keep = np.ones(design.n_obs, dtype=bool)
+    offset = np.zeros(design.n_obs)
+    rows = design.row_index.tolist()
+    if offset_ref is not None:
+        try:
+            series = column_series(data, offset_ref).gather(rows)
+        except (KeyError, pl.exceptions.PolarsError):
+            series = None
+        if series is not None:
+            keep &= series.is_not_null().to_numpy()
+            offset = offset + np.asarray(series.cast(pl.Float64).fill_null(0.0).to_numpy(), dtype=float)
+    names = offset_columns(offset_terms) if offset_terms else []
+    if offset_terms and all(name in data.columns for name in names):
+        for name in names:
+            keep &= data.get_column(name).gather(rows).is_not_null().to_numpy()
+        with np.errstate(all="ignore"):
+            offset = offset + np.where(keep, evaluate_offset(offset_terms, data, design.row_index), 0.0)
+    if not bool(keep.all()):
+        design = _subset_design(design, keep)
+        offset = offset[keep]
+    return design, offset
 
 
 def _xtwx_inv(x: np.ndarray, weights: np.ndarray) -> np.ndarray:
@@ -344,7 +394,8 @@ def _ols_fields(
     else:
         f_statistic = ((total - rss) / df_model) / (rss / df_resid)
         f_p_value = float(stats.f.sf(f_statistic, df_model, df_resid))
-    rank = float(rank)
+    # ``logLik.lm`` counts the residual variance as a parameter.
+    n_params = float(rank) + 1.0
     return {
         "coefficients": beta,
         "covariance": xtwx_inv * sigma2,
@@ -354,8 +405,8 @@ def _ols_fields(
         "residual_df": int(df_resid),
         "rss": rss,
         "sigma2": float(sigma2),
-        "aic": float(-2.0 * log_likelihood + 2.0 * rank),
-        "bic": float(-2.0 * log_likelihood + np.log(n) * rank),
+        "aic": float(-2.0 * log_likelihood + 2.0 * n_params),
+        "bic": float(-2.0 * log_likelihood + np.log(n) * n_params),
         "r_squared": float(r_squared),
         "adj_r_squared": float(adj_r_squared),
         "f_statistic": float(f_statistic),
@@ -476,7 +527,7 @@ def fit_ols(
     if is_formula(outcome):
         if predictors is not None:
             raise ValueError("pass a Wilkinson formula or predictors, not both")
-        design, y, w, off = _from_formula(data, str(outcome), weights, offset)
+        design, y, w, off, offset_terms = _from_formula_terms(data, str(outcome), weights, offset)
     else:
         if predictors is None:
             raise ValueError("predictors are required when outcome is a column")
@@ -492,6 +543,7 @@ def fit_ols(
         off = _optional_numeric(data, offset, design.row_index)
         if off is None:
             off = np.zeros(design.n_obs)
+        offset_terms = ()
     response = y - off
     prior_w = w
     if w is None:
@@ -528,6 +580,8 @@ def fit_ols(
         f_p_value=solved["f_p_value"],
     )
     fit._refit = _ols_refit(y, off, None if prior_w is None else np.asarray(prior_w, dtype=float), design)
+    fit._offset_ref = offset
+    fit._offset_terms = offset_terms
     return fit
 
 
@@ -552,7 +606,7 @@ def fit_glm(
     if is_formula(outcome):
         if predictors is not None:
             raise ValueError("pass a Wilkinson formula or predictors, not both")
-        design, y, w, off = _from_formula(data, str(outcome), weights, offset)
+        design, y, w, off, offset_terms = _from_formula_terms(data, str(outcome), weights, offset)
         if w is None:
             w = np.ones(design.n_obs)
     else:
@@ -572,6 +626,7 @@ def fit_glm(
             w = np.ones(design.n_obs)
         if off is None:
             off = np.zeros(design.n_obs)
+        offset_terms = ()
     fit = _fit_glm_arrays(
         y,
         design.x,
@@ -584,6 +639,8 @@ def fit_glm(
     )
     stored_w = None if weights is None else np.asarray(w, dtype=float)
     fit._refit = _glm_refit(y, np.asarray(off, dtype=float), stored_w, family, design)
+    fit._offset_ref = offset
+    fit._offset_terms = offset_terms
     return fit
 
 
@@ -613,17 +670,20 @@ def _fit_glm_arrays(
         working_w, dispersion, cov, hat = _glm_sandwich_pieces(
             y, x, family, w, off, working_resid, df_resid
         )
-        aic = -2.0 * log_likelihood + 2.0 * rank
-        bic = -2.0 * log_likelihood + rank * np.log(n)
+        # As ``glm``, the dispersion counts as a parameter.
+        aic = -2.0 * log_likelihood + 2.0 * (rank + 1)
+        bic = -2.0 * log_likelihood + (rank + 1) * np.log(n)
     else:
         # One IRLS supplies the coefficients and the weights R keeps from the
         # converging least-squares step. A second pass repeats that work and
         # stops at a different point under separation.
-        coef, working_w, mu, deviance, working_resid = _glm_irls(y, x, family, w, off)
+        coef, working_w, mu, deviance, working_resid, converged = _glm_irls(y, x, family, w, off)
+        _warn_irls(family, converged, mu, w)
         rank = int(x.shape[1])
         counted = family in {"binomial", "poisson"}
-        df_resid_f = float(np.sum(w) - rank) if counted else float(n - rank)
-        df_resid = int(df_resid_f)
+        # As ``glm``: rows with nonzero prior weight, not the sum of weights.
+        df_resid = n - rank
+        df_resid_f = float(df_resid)
         if counted:
             dispersion = 1.0
             model_dispersion = 1.0
@@ -639,9 +699,10 @@ def _fit_glm_arrays(
         cov = inv * model_dispersion
         hat = _hat(x, working_w)
         log_likelihood = _glm_loglik(family, y, mu, w, scale)
-        wnobs = float(np.sum(w)) if counted else float(n)
-        aic = -2.0 * log_likelihood + 2.0 * rank
-        bic = -2.0 * log_likelihood + rank * np.log(wnobs) if wnobs > 0 else float("nan")
+        # The gamma dispersion counts as a parameter, as in ``glm``.
+        n_params = rank if counted else rank + 1
+        aic = -2.0 * log_likelihood + 2.0 * n_params
+        bic = -2.0 * log_likelihood + n_params * np.log(n) if n > 0 else float("nan")
     return Fit(
         coefficients=coef,
         covariance=cov,
@@ -733,7 +794,7 @@ def _glm_irls_weights(
     maxit: int = 25,
 ) -> np.ndarray:
     """Working weights of the IRLS step that produced the final coefficients."""
-    _coef, weights, _mu, _deviance, _resid = _glm_irls(
+    _coef, weights, _mu, _deviance, _resid, _converged = _glm_irls(
         y, x, family, prior, offset, eps=eps, maxit=maxit
     )
     return weights
@@ -750,8 +811,8 @@ def _glm_irls(
     maxit: int = 25,
     theta: float | None = None,
     etastart: np.ndarray | None = None,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, float, np.ndarray]:
-    """Coefficients, weights, mean, deviance, and working residual.
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, float, np.ndarray, bool]:
+    """Coefficients, weights, mean, deviance, working residual, and convergence.
 
     The working residual is evaluated at the final mean; the weights are
     those of the least-squares step that produced the final coefficients.
@@ -781,15 +842,7 @@ def _glm_loglik(
     if not bool(active.all()):
         y, mu, prior = y[active], mu[active], prior[active]
     if family == "binomial":
-        # One trial per row. ``prior`` is the frequency weight.
-        ll = (
-            special.gammaln(2.0)
-            - special.gammaln(y + 1.0)
-            - special.gammaln(2.0 - y)
-            + y * np.log((mu + 1e-20) / (1.0 - mu + 1e-20))
-            + np.log(1.0 - mu + 1e-20)
-        )
-        return float(np.sum(ll * prior))
+        return _r_binomial_loglik(y, mu, prior)
     if family == "poisson":
         ll = y * np.log(mu) - mu - special.gammaln(y + 1.0)
         return float(np.sum(prior * ll / scale))
@@ -804,6 +857,32 @@ def _glm_loglik(
         )
         return float(np.sum(ll))
     raise ValueError(family)
+
+
+# Fitted probabilities this close to 0 or 1 draw a warning, as ``glm`` does.
+_PROB_EDGE = 10.0 * np.finfo(float).eps
+
+
+def _warn_irls(family: str, converged: bool, mu: np.ndarray, prior: np.ndarray) -> None:
+    """Warn as ``glm`` does when IRLS stops at ``maxit`` or probabilities reach 0 or 1."""
+    if not converged:
+        warnings.warn("glm IRLS did not converge within the iteration limit", RuntimeWarning, stacklevel=4)
+    if family == "binomial":
+        active = mu[prior > 0.0]
+        if np.any(active > 1.0 - _PROB_EDGE) or np.any(active < _PROB_EDGE):
+            warnings.warn("fitted probabilities numerically 0 or 1 occurred", RuntimeWarning, stacklevel=4)
+
+
+def _r_binomial_loglik(y: np.ndarray, mu: np.ndarray, w: np.ndarray) -> float:
+    """``logLik`` of a binomial ``glm``: weights are trial counts, rounded as ``binomial()$aic`` does.
+
+    ``y`` is the proportion of successes in ``w`` trials. Integer weights on
+    a 0/1 outcome give the frequency-weighted Bernoulli log-likelihood.
+    """
+    keep = w > 0
+    trials = np.round(w[keep])
+    successes = np.round(w[keep] * y[keep])
+    return float(np.sum(stats.binom.logpmf(successes, trials, mu[keep])))
 
 
 def _glm_start(y: np.ndarray, family: str, prior: np.ndarray, theta: float | None = None):
@@ -1080,7 +1159,7 @@ def _fit_negbin(
     def round_change(ll_before: float, ll_after: float, theta_step: float) -> float:
         return abs(ll_before - ll_after) / chisq_sd + abs(theta_step)
 
-    coef, working_w, mu, deviance, working_resid = _glm_irls(
+    coef, working_w, mu, deviance, working_resid, _converged = _glm_irls(
         y, x, "poisson", w, off, eps=eps, maxit=maxit
     )
     # Starting theta: the moment estimate at the Poisson means (?glm.nb).
@@ -1091,7 +1170,7 @@ def _fit_negbin(
     for _round in range(maxit):
         theta_before, ll_before = theta, log_likelihood
         theta, theta_se = _theta_ml(y, mu, w, limit=maxit)
-        coef, working_w, mu, deviance, working_resid = _glm_irls(
+        coef, working_w, mu, deviance, working_resid, _converged = _glm_irls(
             y, x, "negative_binomial", w, off, eps=eps, maxit=maxit, theta=theta, etastart=np.log(mu)
         )
         log_likelihood = _negbin_loglik(theta, mu, y, w)
@@ -1138,7 +1217,7 @@ def _fit_negbin(
 def _binomial_irls(y, x, prior, offset, eps, maxit):
     """Logit IRLS in one compiled loop. The returned pieces match ``_glm_irls``."""
     try:
-        coef, weights, mu, deviance, working, eta = _binomial_irls_numba(
+        coef, weights, mu, deviance, working, eta, converged = _binomial_irls_numba(
             np.ascontiguousarray(y, dtype=np.float64),
             np.ascontiguousarray(x, dtype=np.float64),
             np.ascontiguousarray(prior, dtype=np.float64),
@@ -1151,7 +1230,7 @@ def _binomial_irls(y, x, prior, offset, eps, maxit):
     if not np.all(np.isfinite(coef)):
         # A singular step falls back to the interpreted loop, which uses lstsq.
         return _glm_irls_python(y, x, "binomial", prior, offset, eps=eps, maxit=maxit)
-    return coef, weights, mu, float(deviance), working
+    return coef, weights, mu, float(deviance), working, bool(converged)
 
 
 # Relative pivot below which a Cholesky factor of X'WX is treated as singular
@@ -1190,7 +1269,9 @@ def _weighted_ls_step(x: np.ndarray, z: np.ndarray, root_w: np.ndarray) -> np.nd
 
 
 def _glm_irls_python(y, x, family, prior, offset, *, eps, maxit, theta=None, etastart=None):
-    """IRLS fit of one GLM family. Returns ``(coef, weights, mu, deviance, working_residual)``.
+    """IRLS fit of one GLM family.
+
+    Returns ``(coef, weights, mu, deviance, working_residual, converged)``.
 
     Fisher scoring written as iteratively reweighted least squares (Nelder &
     Wedderburn 1972; McCullagh & Nelder 1989, sec. 2.5, eqs. 2.12-2.13;
@@ -1220,6 +1301,7 @@ def _glm_irls_python(y, x, family, prior, offset, *, eps, maxit, theta=None, eta
     coef = np.zeros(p)
     step_weights = np.zeros(n)
     deviance = last_deviance
+    converged = False
     for _iteration in range(max(int(maxit), 1)):
         slope = mu_eta(eta)
         var = variance(mu)
@@ -1256,7 +1338,7 @@ def _glm_irls_python(y, x, family, prior, offset, *, eps, maxit, theta=None, eta
             break
     with np.errstate(divide="ignore", invalid="ignore"):
         working_residual = (y - mu) / mu_eta(eta)
-    return coef, step_weights, mu, float(deviance), working_residual
+    return coef, step_weights, mu, float(deviance), working_residual, bool(converged)
 
 
 @njit(cache=True)
@@ -1288,7 +1370,7 @@ def _logistic(value):
 def _binomial_irls_numba(y, x, prior, offset, eps, maxit):
     """Logit-link binomial IRLS on contiguous float64 arrays.
 
-    Returns ``(coef, weights, mu, deviance, working_residual, eta)``.
+    Returns ``(coef, weights, mu, deviance, working_residual, eta, converged)``.
 
     The same scoring iteration as ``_glm_irls_python`` (McCullagh & Nelder
     1989, sec. 2.5) specialised to the canonical logit link, where
@@ -1316,6 +1398,7 @@ def _binomial_irls_numba(y, x, prior, offset, eps, maxit):
     rhs = np.empty(p)
     chol = np.empty((p, p))
     iterations = maxit if maxit > 0 else 1
+    converged = False
     for _iteration in range(iterations):
         # Accumulate X'WX and X'Wz over the usable rows.
         gram[:, :] = 0.0
@@ -1343,7 +1426,7 @@ def _binomial_irls_numba(y, x, prior, offset, eps, maxit):
                 if a == b:
                     if not (s > 1e-12 * gram[a, a]) or not np.isfinite(s):
                         coef[:] = np.nan
-                        return coef, step_weights, mu, deviance, mu, eta
+                        return coef, step_weights, mu, deviance, mu, eta, False
                     chol[a, a] = np.sqrt(s)
                 else:
                     chol[a, b] = s / chol[b, b]
@@ -1360,7 +1443,7 @@ def _binomial_irls_numba(y, x, prior, offset, eps, maxit):
         for a in range(p):
             if not np.isfinite(coef[a]):
                 coef[:] = np.nan
-                return coef, step_weights, mu, deviance, mu, eta
+                return coef, step_weights, mu, deviance, mu, eta, False
         for i in range(n):
             s = offset[i]
             for a in range(p):
@@ -1372,7 +1455,7 @@ def _binomial_irls_numba(y, x, prior, offset, eps, maxit):
         while not np.isfinite(deviance):
             if not have_old or halvings >= iterations:
                 coef[:] = np.nan
-                return coef, step_weights, mu, deviance, mu, eta
+                return coef, step_weights, mu, deviance, mu, eta, False
             halvings += 1
             for a in range(p):
                 coef[a] = 0.5 * (coef[a] + last_coef[a])
@@ -1394,7 +1477,7 @@ def _binomial_irls_numba(y, x, prior, offset, eps, maxit):
     for i in range(n):
         slope = mu[i] * (1.0 - mu[i])
         working[i] = (y[i] - mu[i]) / slope if slope != 0.0 else np.inf * (y[i] - mu[i])
-    return coef, step_weights, mu, deviance, working, eta
+    return coef, step_weights, mu, deviance, working, eta, converged
 
 
 def _check_weights(w: np.ndarray | None) -> np.ndarray:
@@ -1429,6 +1512,17 @@ def _from_formula(
     offset: ColumnRef | None,
 ) -> tuple[Design, np.ndarray, np.ndarray | None, np.ndarray]:
     """Response, optional weights, and offset aligned to a Wilkinson design."""
+    design, y, w, off, _terms = _from_formula_terms(data, formula, weights, offset)
+    return design, y, w, off
+
+
+def _from_formula_terms(
+    data: pl.DataFrame,
+    formula: str,
+    weights: ColumnRef | None,
+    offset: ColumnRef | None,
+) -> tuple[Design, np.ndarray, np.ndarray | None, np.ndarray, tuple[Any, ...]]:
+    """As :func:`_from_formula`, plus the formula's ``offset()`` terms."""
     built = model_matrix(formula, data)
     if built.random_effects:
         raise ValueError("random effects belong in fit_mixed, for example (1 | group)")
@@ -1452,7 +1546,7 @@ def _from_formula(
         off = off[keep]
         if w is not None:
             w = w[keep]
-    return design, y, w, off
+    return design, y, w, off, tuple(built.offset_terms)
 
 
 def _subset_design(design: Design, keep: np.ndarray) -> Design:
