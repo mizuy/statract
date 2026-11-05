@@ -7,6 +7,7 @@ and share the coefficients. Cluster-robust covariance is the Lin–Wei estimator
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -378,7 +379,13 @@ def cox_ph(
         offset_terms = ()
         if strata_label is not None:
             strata_names = (strata_label,)
+    if not bool(np.any(event_a & (weight_a > 0))):
+        # survival::coxph stops when there are no events; a fit would report
+        # a zero coefficient with a zero standard error.
+        raise ValueError("no events")
     beta, info, converged, ll = _newton(design.x, time_a, event_a, weight_a, offset_a, entry_a, strata_a, ties)
+    if not converged:
+        warn_not_converged()
     cov = np.linalg.pinv(info)
     # The baseline hazard is not needed for the coefficients. Build it on first use.
     fit = CoxFit(
@@ -485,6 +492,14 @@ def _term_columns(design: Design, names: list[str]) -> list[tuple[str, list[int]
     for j, label in enumerate(labels):
         groups.setdefault(label, []).append(j)
     return list(groups.items())
+
+
+def warn_not_converged() -> None:
+    warnings.warn(
+        f"Newton-Raphson did not converge in {_MAX_ITER} iterations; the coefficients may be unreliable",
+        RuntimeWarning,
+        stacklevel=3,
+    )
 
 
 def _newton(x, time, event, weights, offset, entry, strata, ties):

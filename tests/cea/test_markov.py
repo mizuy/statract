@@ -207,3 +207,30 @@ def test_initial_distribution_is_renormalized() -> None:
     assert res.trace is not None
     np.testing.assert_allclose(res.trace["Healthy"].to_numpy(), np.ones(2))
     np.testing.assert_allclose(res.ly, 2.0)
+
+
+def test_non_integer_ages_raise_instead_of_truncating() -> None:
+    kwargs = dict(
+        states=("Healthy", "Sick", "Dead"),
+        initial={"Healthy": 1.0},
+        transition=_sick_dead_P(),
+        utility={"Healthy": 1.0, "Sick": 0.6, "Dead": 0.0},
+        discount_rate=0.03,
+    )
+    with pytest.raises(ValueError, match="whole numbers"):
+        simulate_cohort_markov(ages=[40.0, 40.5, 41.0], **kwargs)
+    whole = simulate_cohort_markov(ages=[40.0, 41.0, 42.0], **kwargs)
+    ints = simulate_cohort_markov(ages=range(40, 43), **kwargs)
+    assert whole.qaly == pytest.approx(ints.qaly)
+
+
+def test_discount_uses_elapsed_age_for_multi_year_cycles() -> None:
+    res = simulate_cohort_markov(
+        states=("Healthy", "Dead"),
+        initial={"Healthy": 1.0},
+        ages=range(40, 51, 5),
+        transition=np.eye(2),
+        utility={"Healthy": 1.0, "Dead": 0.0},
+        discount_rate=0.03,
+    )
+    assert res.qaly == pytest.approx(1.0 + 1.03**-5 + 1.03**-10)
