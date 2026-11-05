@@ -12,6 +12,7 @@ positive-weight units.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -97,6 +98,12 @@ class MatchedSample:
         ``smd_*`` is the unstandardized difference (cobalt's default). The
         ``distance`` row is always standardized. ``pair_distance`` is the mean
         absolute within-pair difference over the same denominator.
+
+        Columns describe the actual treated and control groups for every
+        estimand. A Boolean is one row coded 0/1; a factor is level
+        indicators (a two-level factor shows its second level).
+        ``variance_ratio_matched`` uses the matching weights, and
+        ``n_matched`` counts units with a positive weight.
         """
         if sd_denominator not in _SD_DENOMS:
             raise ValueError(f"sd_denominator must be one of {sorted(_SD_DENOMS)}")
@@ -221,8 +228,10 @@ def match_sample(
     if reestimate and isinstance(requested, str) and requested in {"logit", "probit"} and np.any(discarded):
         kept = data.filter(~pl.Series(discarded))
         dist2, rows2 = _distance_vector(kept, treat_s.name, names, requested, link)
+        # The refit drops rows with a missing covariate; ``rows2`` indexes
+        # the rows it kept, relative to ``kept``.
         dist = np.full(data.height, np.nan)
-        dist[np.flatnonzero(~discarded)] = dist2
+        dist[np.flatnonzero(~discarded)[np.asarray(rows2, dtype=int)]] = dist2
     if order is None:
         if method == "exact" or matrix:
             order = "data"
@@ -240,7 +249,7 @@ def match_sample(
         weights, subclasses = _subclass_weights(role, _exact_labels(data, covariates if exact is None else exact), estimand=role_estimand)
         pairs = None
     elif method == "subclass":
-        labels = _quantile_subclass(dist, subclass, discarded)
+        labels = _quantile_subclass(dist, subclass, discarded, role if role_estimand == "ATT" else None)
         weights, subclasses = _subclass_weights(role, labels, estimand=role_estimand)
         pairs = None
     elif method == "cem":
@@ -713,6 +722,12 @@ def _optimal(treat, dist, *, ratio, discarded, exact):
         # k:1 optimal matching is full matching with the ratio fixed.
         # Fewer controls than the ratio asks for falls back to 1:1.
         if control.size < ratio * treated.size:
+            warnings.warn(
+                f"optimal matching with ratio={ratio} needs at least {ratio * treated.size} controls "
+                f"but only {control.size} are available; falling back to 1:1 matching",
+                UserWarning,
+                stacklevel=3,
+            )
             return _optimal(treat, dist, ratio=1, discarded=discarded, exact=exact)
         edges, _total = full_match_edges(
             cost, min_controls=ratio, max_controls=ratio, mean_controls=float(ratio)
@@ -875,16 +890,25 @@ def _pairs_from_subclasses(matched: MatchedSample) -> pl.DataFrame:
     )
 
 
-def _quantile_subclass(dist, n_sub, discarded):
+def _quantile_subclass(dist, n_sub, discarded, focal=None):
+    """Subclasses from quantiles of the distance (Stuart 2010, sec. 3.3).
+
+    The cut points are quantiles of the focal group: the treated units for
+    ATT, the controls for ATC (``focal`` marks that group), and every unit for
+    ATE (``focal`` is ``None``). The outer cut points are moved to -inf and
+    inf so every usable unit falls in a subclass. Bins are right-closed, as
+    ``cut(..., include.lowest = TRUE)``.
+    """
     labels = np.zeros(len(dist), dtype=int)
     usable = np.isfinite(dist) & ~discarded
-    if int(usable.sum()) < n_sub:
+    source = usable if focal is None else usable & np.asarray(focal, dtype=bool)
+    if int(source.sum()) < n_sub:
         labels[usable] = 1
         return labels
-    edges = np.quantile(dist[usable], np.linspace(0, 1, n_sub + 1))
+    edges = np.quantile(dist[source], np.linspace(0, 1, n_sub + 1))
     edges[0], edges[-1] = -np.inf, np.inf
-    # right-closed bins, matching cut(..., include.lowest=TRUE) closely enough
-    bin_id = np.searchsorted(edges, dist, side="right") - 1
+    # side="left" gives edges[i] < v <= edges[i + 1]: right-closed bins.
+    bin_id = np.searchsorted(edges, dist, side="left") - 1
     labels[usable] = bin_id[usable] + 1
     return labels
 
@@ -955,7 +979,8 @@ def _coarsen(values: np.ndarray, bins) -> np.ndarray:
     edges = edges.astype(float).copy()
     edges[0] = -np.inf
     edges[-1] = np.inf
-    return np.searchsorted(edges, values, side="right")
+    # Right-closed bins, as ``cut()``: edges[i - 1] < v <= edges[i].
+    return np.searchsorted(edges, values, side="left")
 
 
 def _missing_mask(series: pl.Series) -> np.ndarray:
@@ -999,6 +1024,8 @@ def _distance_vector(data, treatment, covariates, distance, link):
     if distance == "euclidean":
         coords = x
     elif distance == "scaled_euclidean":
+        # A row with a missing covariate keeps missing coordinates, so it is
+        # never matched.
         coords = x / _pooled_sd(x, treat)
     elif distance == "mahalanobis":
         coords = _mahalanobis_coordinates(x, treat)
@@ -1263,8 +1290,11 @@ def _pooled_sd(x: np.ndarray, treat: np.ndarray) -> np.ndarray:
 
     Continuous columns: sqrt(sum of squared deviations from each group's mean
     / (n - number of groups)). A 0/1 column uses ``_binary_pooled_sd``. A
-    zero or non-finite result is replaced by 1.
+    zero or non-finite result is replaced by 1. Rows with a missing value are
+    left out.
     """
+    complete = np.all(np.isfinite(x), axis=1)
+    x, treat = x[complete], np.asarray(treat, dtype=bool)[complete]
     n = x.shape[0]
     groups = int(np.any(treat)) + int(np.any(~treat))
     out = np.empty(x.shape[1])
@@ -1408,45 +1438,75 @@ def _mahalanobis_coordinates(x: np.ndarray, treat: np.ndarray) -> np.ndarray:
 
 
 def _robust_mahalanobis_coordinates(x: np.ndarray, _treat: np.ndarray) -> np.ndarray:
+    """Rank-based Mahalanobis coordinates (Rosenbaum 2010, sec. 8.3).
+
+    Ranks and their covariance use the complete rows only. A row with a
+    missing covariate gets missing coordinates, so it is never matched.
+    """
     from scipy.stats import rankdata
 
-    ranks = np.column_stack([rankdata(x[:, j], method="average") for j in range(x.shape[1])])
+    x = np.asarray(x, dtype=float)
+    complete = np.all(np.isfinite(x), axis=1)
+    out = np.full(x.shape, np.nan)
+    rows = x[complete]
+    if rows.shape[0] < 2:
+        return out
+    ranks = np.column_stack([rankdata(rows[:, j], method="average") for j in range(rows.shape[1])])
     var = np.atleast_2d(np.cov(ranks, rowvar=False, ddof=1))
-    multiplier = np.std(np.arange(1, x.shape[0] + 1), ddof=1) / np.sqrt(np.diag(var))
+    multiplier = np.std(np.arange(1, rows.shape[0] + 1), ddof=1) / np.sqrt(np.diag(var))
     var = var * np.outer(multiplier, multiplier)
-    return _mahalanobis_transform(ranks, var)
+    out[complete] = _mahalanobis_transform(ranks, var)
+    return out
 
 
 def _balance(matched: MatchedSample, *, sd_denominator: str = "pooled", binary: str = "std") -> pl.DataFrame:
+    # Columns always describe the actual treated and control groups, whatever
+    # the estimand, so ``smd`` is treated minus control for ATC too.
     treat = np.asarray(matched.data[matched.treatment].to_numpy(), dtype=float) > 0
-    if matched.estimand == "ATC":
-        focal = ~treat
-    else:
-        focal = treat
     rows = []
-    columns = ["distance", *matched.covariates]
-    for name in columns:
-        if name == "distance":
-            values = matched.distance
-        else:
-            raw = matched.data[name].to_numpy()
-            if not np.issubdtype(np.asarray(raw).dtype, np.number):
-                continue
-            values = np.asarray(raw, dtype=float)
+    columns = [("distance", matched.distance)]
+    for name in matched.covariates:
+        columns.extend(_balance_columns(matched.data[name]))
+    everyone = np.ones(len(treat), dtype=bool)
+    for name, values in columns:
         is_binary = name != "distance" and np.unique(values[np.isfinite(values)]).size == 2
         if is_binary and binary == "raw":
             denom = 1.0
         else:
             denom = _smd_denominator(values, treat, sd_denominator, is_binary)
-        everyone = np.ones(len(focal), dtype=bool)
-        all_row = _one_balance(values, focal, everyone, denom=denom)
-        matched_row = _one_balance(values, focal, everyone, weights=matched.weights, denom=denom)
+        all_row = _one_balance(values, treat, everyone, denom=denom)
+        matched_row = _one_balance(values, treat, everyone, weights=matched.weights, denom=denom)
         if matched._expand_pairs:
             pair = _subclass_pair_balance(values, treat, matched.subclass, denom)
         else:
             pair = _pair_balance(values, matched.pair_table, denom)
         rows.append({"term": name, **_prefix(all_row, "all"), **_prefix(matched_row, "matched"), "pair_distance": pair})
     return pl.DataFrame(rows)
+
+
+def _balance_columns(series: pl.Series) -> list[tuple[str, np.ndarray]]:
+    """Rows of the balance table for one covariate, as float arrays (NaN = missing).
+
+    A numeric column is one row. A Boolean is one row coded 0/1. A factor
+    (Enum, Categorical, String) is coded as level indicators, as in
+    ``balance_table``: a two-level factor shows its second level as
+    ``name_level``, a factor with three or more levels shows every level.
+    """
+    name = series.name
+    if series.dtype == pl.Boolean:
+        return [(name, series.cast(pl.Float64).fill_null(np.nan).to_numpy())]
+    if not _is_factor(series):
+        return [(name, np.asarray(series.cast(pl.Float64).fill_null(np.nan).to_numpy(), dtype=float))]
+    levels = _factor_levels(series, None)
+    missing = series.is_null().to_numpy().astype(bool)
+    codes = _factor_codes(series.fill_null(levels[0]) if levels and missing.any() else series, levels)
+    shown = levels[1:] if len(levels) == 2 else levels
+    out = []
+    for level in shown:
+        indicator = (codes == levels.index(level)).astype(float)
+        indicator[missing] = np.nan
+        out.append((f"{name}_{level}", indicator))
+    return out
 
 
 def _smd_denominator(values, treat, how: str, is_binary: bool) -> float:
@@ -1486,8 +1546,8 @@ def _one_balance(values, focal, mask, weights=None, *, denom: float):
     # One denominator from the unmatched sample for both rows, so the change
     # in SMD reflects the change in means, not in spread.
     smd = (mt - mc) / denom if denom > 0 else float("nan")
-    vt = _wvar(values[ft], np.ones(ft.sum()))
-    vc = _wvar(values[fc], np.ones(fc.sum()))
+    vt = _wvar(values[ft], wt)
+    vc = _wvar(values[fc], wc)
     ratio = vt / vc if vc > 0 else float("nan")
     e_mean, e_max = _ecdf_diff(values[finite & focal], values[finite & ~focal], w[finite & focal], w[finite & ~focal])
     return {
@@ -1497,7 +1557,9 @@ def _one_balance(values, focal, mask, weights=None, *, denom: float):
         "variance_ratio": ratio,
         "ecdf_mean": e_mean,
         "ecdf_max": e_max,
-        "n": int(mask.sum()),
+        # Units with a positive weight: every unit before matching, the
+        # matched units after.
+        "n": int(np.sum(mask & (w > 0))),
     }
 
 
@@ -1517,13 +1579,22 @@ def _wmean(values, weights):
 
 
 def _wvar(values, weights):
+    """Weighted variance with reliability weights.
+
+    ``sum w (x - m)^2 / (W - sum w^2 / W)``, as ``cobalt::col_w_sd``. Equal
+    weights give the ordinary sample variance (n - 1 denominator).
+    """
     if values.size < 2:
         return float("nan")
-    mean = np.average(values, weights=weights)
-    # Constant weights: the ordinary sample variance (n - 1 denominator).
+    weights = np.asarray(weights, dtype=float)
     if np.allclose(weights, weights[0]):
         return float(np.var(values, ddof=1))
-    return float(np.average((values - mean) ** 2, weights=weights))
+    total = float(np.sum(weights))
+    den = total - float(np.sum(weights**2)) / total
+    if not den > 0:
+        return float("nan")
+    mean = np.average(values, weights=weights)
+    return float(np.sum(weights * (values - mean) ** 2) / den)
 
 
 def _wsd(values, weights):

@@ -660,9 +660,11 @@ def mcnemar_test(x, y=None, *, correct: bool = True) -> HTest:
     """McNemar's test for paired categories like ``mcnemar.test``.
 
     ``x`` is a square table of counts, or ``x`` and ``y`` are paired categorical
-    columns. Levels are the sorted distinct values of each column (Enum order
-    when given), matched by position. Tables larger than 2 x 2 give Bowker's test
-    of symmetry. The continuity correction applies only to 2 x 2 tables.
+    columns. Both margins use one level set: the levels present in either
+    column, in Enum order when both are Enums with the same categories,
+    otherwise sorted. Tables larger than 2 x 2 give Bowker's test of symmetry.
+    The continuity correction applies only to 2 x 2 tables and, as in R, is
+    ``(|n12 - n21| - 1)^2 / (n12 + n21)`` without truncation at 0.
     """
     if y is None:
         table = np.asarray(x, dtype=float)
@@ -681,8 +683,9 @@ def mcnemar_test(x, y=None, *, correct: bool = True) -> HTest:
     use_correction = bool(correct) and size == 2
     gap = np.abs(above - below)
     if use_correction:
-        # Edwards (1948): move |n12 - n21| one unit toward 0, but not past it.
-        gap = np.maximum(gap - 1.0, 0.0)
+        # Edwards (1948), as R's mcnemar.test documents it: |n12 - n21| - 1,
+        # squared, with no truncation at 0 (b = c gives 1 / (b + c)).
+        gap = gap - 1.0
     # Bowker (1948): sum over i < j of (n_ij - n_ji)^2 / (n_ij + n_ji). Pairs
     # of cells that are both empty carry no information and are left out.
     used = discordant > 0
@@ -705,17 +708,29 @@ def mcnemar_test(x, y=None, *, correct: bool = True) -> HTest:
     )
 
 
-def _category_levels(series: pl.Series) -> list:
-    """Enum order (present levels only) for a polars Enum, else the sorted distinct values."""
-    present = series.drop_nulls()
-    if isinstance(series.dtype, pl.Enum):
-        seen = set(present.cast(pl.String).to_list())
-        return [level for level in series.dtype.categories.to_list() if level in seen]
-    return sorted(set(present.to_list()))
+def _common_levels(first: pl.Series, second: pl.Series) -> list:
+    """One level set for both margins: the levels present in either column.
+
+    Two Enums with the same categories keep the Enum order; otherwise the
+    levels are sorted. An Enum column is compared by its labels.
+    """
+    same_enum = (
+        isinstance(first.dtype, pl.Enum)
+        and isinstance(second.dtype, pl.Enum)
+        and first.dtype.categories.to_list() == second.dtype.categories.to_list()
+    )
+    values = [s.cast(pl.String) if isinstance(s.dtype, pl.Enum) else s for s in (first, second)]
+    seen = set(values[0].drop_nulls().to_list()) | set(values[1].drop_nulls().to_list())
+    if same_enum:
+        return [level for level in first.dtype.categories.to_list() if level in seen]
+    try:
+        return sorted(seen)
+    except TypeError as exc:
+        raise ValueError("x and y must hold values of one comparable type") from exc
 
 
 def _paired_table(x, y) -> np.ndarray:
-    """Cross-tabulate two paired categorical columns; levels are matched by position."""
+    """Cross-tabulate two paired categorical columns on one common level set."""
     first = x if isinstance(x, pl.Series) else pl.Series(list(x))
     second = y if isinstance(y, pl.Series) else pl.Series(list(y))
     if first.len() != second.len():
@@ -729,18 +744,17 @@ def _paired_table(x, y) -> np.ndarray:
 
     keep = pl.Series(~(missing(first) | missing(second)))
     first, second = first.filter(keep), second.filter(keep)
-    levels_x, levels_y = _category_levels(first), _category_levels(second)
-    if len(levels_x) < 2 or len(levels_x) != len(levels_y):
-        raise ValueError("x and y must have the same number (at least 2) of levels")
+    levels = _common_levels(first, second)
+    if len(levels) < 2:
+        raise ValueError("x and y must take at least 2 distinct values in all")
     if isinstance(first.dtype, pl.Enum):
         first = first.cast(pl.String)
     if isinstance(second.dtype, pl.Enum):
         second = second.cast(pl.String)
-    code_x = {level: i for i, level in enumerate(levels_x)}
-    code_y = {level: i for i, level in enumerate(levels_y)}
-    table = np.zeros((len(levels_x), len(levels_y)))
+    code = {level: i for i, level in enumerate(levels)}
+    table = np.zeros((len(levels), len(levels)))
     for a, b in zip(first.to_list(), second.to_list(), strict=True):
-        table[code_x[a], code_y[b]] += 1.0
+        table[code[a], code[b]] += 1.0
     return table
 
 
