@@ -162,8 +162,8 @@ When there is no intercept, the first factor, counting from the variables regist
 | Type | Handling in a formula |
 |----|----------------|
 | Float, integer | One numeric column |
-| String | Levels are the sorted observed values after dropping missing values. The first is the reference |
-| `pl.Enum`, `pl.Categorical` | Defined order. The first is the reference |
+| String, `pl.Categorical` | Levels are the sorted observed values after dropping missing values. The first is the reference |
+| `pl.Enum` | Defined order. The first is the reference. Use it to set the reference level |
 | Boolean | Levels `FALSE`, `TRUE`. The dummy in `y ~ b + x` is `bTRUE` |
 
 A factor with fewer than 2 levels is an error. In `design_matrix` with a list of column names, booleans and integers are 0/1 numbers. In a formula, booleans become factors.

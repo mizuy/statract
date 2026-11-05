@@ -31,7 +31,7 @@ class CategoricalData:
 
 
 def response_levels(series: pl.Series, levels: Sequence[object] | None) -> list[str]:
-    """Level order: ``levels=``, then Enum / Categorical order, then sorted values."""
+    """Level order: ``levels=``, then Enum order, then sorted values (Categorical included)."""
     if levels is not None:
         return [_level_key(v) for v in levels]
     dtype = series.dtype
