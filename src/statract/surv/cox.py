@@ -17,8 +17,8 @@ from numba import njit
 
 from ..models.design import ColumnRef, Design, build_design, column_series, design_matrix
 from ..models.fit import Fit
-from ..models.formula import is_formula
-from .spec import combine_strata, parse_survival_formula
+from ..models.formula import evaluate_offset, is_formula, offset_columns
+from .spec import _subset_design, combine_strata, drop_missing, parse_survival_formula, present
 
 _MAX_ITER = 25
 _EPS = 1e-9
@@ -105,15 +105,28 @@ class CoxFit:
         )
 
     def survival_curve(self, data: pl.DataFrame | None = None) -> pl.DataFrame:
-        """Subject-specific survival at each row's follow-up time."""
-        survival = self.predict(data, kind="survival")
+        """Subject-specific survival at each row's follow-up time.
+
+        With new data, rows dropped by the model (a missing covariate or
+        offset) are left out, as in :meth:`predict`, and ``time`` holds the
+        follow-up time of each row that is kept.
+        """
         if data is None:
-            time = self.time
-        else:
-            time = _column_or_raise(data, self._time_name)
+            return pl.DataFrame({"time": self.time, "survival": self.predict(kind="survival")})
+        lp, design = self._new_linear_predictor(data)
+        time = _column_or_raise(data, self._time_name)[design.row_index]
+        strata, entry = self._new_strata_entry(data, design)
+        survival = np.exp(-self._expected(time, entry, lp, strata))
         return pl.DataFrame({"time": time, "survival": survival})
 
     def predict(self, data: pl.DataFrame | None = None, *, kind: str = "linear_predictor", times: np.ndarray | None = None) -> np.ndarray:
+        """Linear predictor, risk, expected count, or survival for each row.
+
+        With new data, rows with a missing covariate (or offset) are dropped,
+        so the result has one value per kept row. The offset is added when its
+        columns are in the new data. ``times`` replaces each row's follow-up
+        time; one time applies to every row.
+        """
         if kind not in {"linear_predictor", "risk", "expected", "survival"}:
             raise ValueError("kind must be linear_predictor, risk, expected, or survival")
         if self.ties == "exact" and kind in {"expected", "survival"}:
@@ -121,8 +134,7 @@ class CoxFit:
         if data is None:
             lp = self.x @ self.coefficients + self.offset
         else:
-            design = build_design(data, self.design)
-            lp = design.x @ self.coefficients
+            lp, design = self._new_linear_predictor(data)
         if kind == "linear_predictor":
             return lp
         if kind == "risk":
@@ -133,22 +145,32 @@ class CoxFit:
             expected = self.event.astype(float) - _martingale_residuals(self)
             return expected if kind == "expected" else np.exp(-expected)
         if data is None:
-            time = np.asarray(times, dtype=float)
             strata = self.strata
             entry = self.entry
         else:
-            time = times if times is not None else _column_or_raise(data, self._time_name)
-            strata_names = getattr(self, "_strata_names", None)
-            if strata_names:
-                strata = combine_strata(data, strata_names, design.row_index)
-            else:
-                strata = _optional_aligned(data, self._strata_name, design.row_index, "_")
-            entry = _optional_aligned(data, self._entry_name, design.row_index, 0.0).astype(float)
-            if times is not None:
-                time = np.asarray(times, dtype=float)
-        if kind == "expected":
-            return self._expected(time, entry, lp, strata)
-        return np.exp(-self._expected(time, entry, lp, strata))
+            strata, entry = self._new_strata_entry(data, design)
+        if times is not None:
+            time = _broadcast_times(times, len(lp))
+        else:
+            time = _column_or_raise(data, self._time_name)[design.row_index]
+        expected = self._expected(time, entry, lp, strata)
+        return expected if kind == "expected" else np.exp(-expected)
+
+    def _new_linear_predictor(self, data: pl.DataFrame) -> tuple[np.ndarray, Design]:
+        """Linear predictor on new rows, with the offset when its columns are there."""
+        design, offset = new_design_offset(
+            data, self.design, getattr(self, "_offset_ref", None), getattr(self, "_offset_terms", ())
+        )
+        return design.x @ self.coefficients + offset, design
+
+    def _new_strata_entry(self, data: pl.DataFrame, design: Design) -> tuple[np.ndarray, np.ndarray]:
+        strata_names = getattr(self, "_strata_names", None)
+        if strata_names:
+            strata = combine_strata(data, strata_names, design.row_index)
+        else:
+            strata = _optional_aligned(data, self._strata_name, design.row_index, "_")
+        entry = _optional_aligned(data, self._entry_name, design.row_index, 0.0).astype(float)
+        return strata, entry
 
     def residuals(self, kind: str = "martingale") -> np.ndarray:
         if self.ties == "exact":
@@ -261,7 +283,10 @@ class CoxFit:
         self._ensure_baseline()
         risk = np.exp(lp)
         out = np.zeros(len(time))
-        for i, (t, start, stratum, r) in enumerate(zip(time, entry, strata, risk, strict=False)):
+        for i, (t, start, stratum, r) in enumerate(zip(time, entry, strata, risk, strict=True)):
+            if np.isnan(t):
+                out[i] = np.nan
+                continue
             sel = (self.baseline_strata == stratum) & (self.baseline_time <= t) & (self.baseline_time > start)
             out[i] = r * float(self.baseline_hazard_values[sel].sum())
         return out
@@ -327,6 +352,7 @@ def cox_ph(
         strata_names = parsed.strata_names
         entry_name = parsed.entry_name
         strata_label = strata_names[0] if len(strata_names) == 1 else None
+        offset_terms = parsed.offset_terms
     else:
         if time is None or event is None or predictors is None:
             raise ValueError("time, event, and predictors are required when time is a column")
@@ -335,6 +361,7 @@ def cox_ph(
             if ref is not None:
                 extra.append(ref)
         design = design_matrix(data, predictors, extra=extra, intercept=False)
+        design = drop_missing(data, design, (time, event, entry))
         idx = design.row_index
         time_a = np.asarray(column_series(data, time).gather(idx.tolist()).to_numpy(), dtype=float)
         event_a = np.asarray(column_series(data, event).gather(idx.tolist()).to_numpy(), dtype=float) > 0
@@ -348,6 +375,7 @@ def cox_ph(
         time_name = time if isinstance(time, str) else column_series(data, time).name
         strata_label = strata if isinstance(strata, str) else None
         entry_name = entry if isinstance(entry, str) else None
+        offset_terms = ()
         if strata_label is not None:
             strata_names = (strata_label,)
     beta, info, converged, ll = _newton(design.x, time_a, event_a, weight_a, offset_a, entry_a, strata_a, ties)
@@ -407,6 +435,8 @@ def cox_ph(
     fit._strata_name = strata_label
     fit._strata_names = strata_names
     fit._entry_name = entry_name
+    fit._offset_ref = offset
+    fit._offset_terms = offset_terms
     return fit
 
 
@@ -1492,6 +1522,46 @@ def _numeric_or_zero(data, ref, idx):
     if ref is None:
         return np.zeros(len(idx))
     return np.asarray(column_series(data, ref).gather(idx.tolist()).to_numpy(), dtype=float)
+
+
+def new_design_offset(data: pl.DataFrame, design: Design, offset_ref, offset_terms) -> tuple[Design, np.ndarray]:
+    """A fitted design on new rows and the offset on those rows.
+
+    The offset is the ``offset=`` column plus the formula's ``offset()``
+    terms, each added when its columns are in ``data``. Rows where an added
+    offset is null or NaN are dropped, as in the fit.
+    """
+    design = build_design(data, design)
+    keep = np.ones(design.n_obs, dtype=bool)
+    offset = np.zeros(design.n_obs)
+    rows = design.row_index.tolist()
+    if offset_ref is not None:
+        try:
+            series = column_series(data, offset_ref).gather(rows)
+        except (KeyError, pl.exceptions.PolarsError):
+            series = None
+        if series is not None:
+            keep &= present(series)
+            offset = offset + np.asarray(series.cast(pl.Float64).fill_null(0.0).fill_nan(0.0).to_numpy(), dtype=float)
+    names = offset_columns(offset_terms) if offset_terms else []
+    if offset_terms and all(name in data.columns for name in names):
+        for name in names:
+            keep &= present(data.get_column(name).gather(rows))
+        offset = offset + np.where(keep, evaluate_offset(offset_terms, data, design.row_index), 0.0)
+    if not bool(keep.all()):
+        design = _subset_design(design, keep)
+        offset = offset[keep]
+    return design, offset
+
+
+def _broadcast_times(times, n):
+    """One time per row; a single time applies to every row."""
+    time = np.asarray(times, dtype=float).reshape(-1)
+    if time.size == 1:
+        return np.full(n, float(time[0]))
+    if time.size != n:
+        raise ValueError(f"times has {time.size} values for {n} rows; pass one time or one per row")
+    return time
 
 
 def _column_or_raise(data, name):

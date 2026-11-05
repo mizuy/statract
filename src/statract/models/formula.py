@@ -118,6 +118,7 @@ class FormulaModel:
     surv: SurvResponse | None = None
     strata: tuple[str, ...] = ()
     cluster: str | None = None
+    offset_terms: tuple[Arith, ...] = ()
 
 
 @dataclass
@@ -204,6 +205,22 @@ def group_labels(data: pl.DataFrame, group: str, index: np.ndarray) -> np.ndarra
 
 def is_formula(value: object) -> bool:
     return isinstance(value, str) and "~" in value
+
+
+def offset_columns(terms: Sequence[Arith]) -> list[str]:
+    """Columns read by the ``offset()`` terms of a formula."""
+    return list(dict.fromkeys(name for expr in terms for name in _columns_in(expr)))
+
+
+def evaluate_offset(terms: Sequence[Arith], data: pl.DataFrame, row_index: np.ndarray) -> np.ndarray:
+    """Sum of the ``offset()`` terms on the rows ``row_index`` of ``data``."""
+    rows = data[np.asarray(row_index, dtype=np.int64).tolist()]
+    keep = np.ones(rows.height, dtype=bool)
+    cache = {name: column_series(rows, name).to_numpy() for name in offset_columns(terms)}
+    total = np.zeros(rows.height, dtype=float)
+    for expr in terms:
+        total = total + _eval_arith(expr, cache, keep)
+    return total
 
 
 def rebuild_formula_design(
@@ -398,6 +415,7 @@ def _materialize(response: Arith, response_label: str, terms: list[Term], state:
         response_name=response_name,
         surv=state.surv,
         strata=tuple(state.strata),
+        offset_terms=tuple(expr for _label, expr in state.offsets),
         cluster=state.cluster,
     )
 

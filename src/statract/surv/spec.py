@@ -29,6 +29,7 @@ class SurvivalFormula:
     cluster_name: str | None
     covariate_names: list[str]
     random_effects: tuple = ()
+    offset_terms: tuple = ()
 
 
 def parse_survival_formula(
@@ -73,8 +74,12 @@ def parse_survival_formula(
         if ref is None:
             continue
         values = column_series(data, ref).gather(design.row_index.tolist())
-        keep &= values.is_not_null().to_numpy()
+        keep &= present(values) if key == "entry" else values.is_not_null().to_numpy()
         extra_rows[key] = values.to_numpy()
+    # A NaN time, status, or entry is missing, as a null is.
+    for name in (built.surv.time, built.surv.event, built.surv.entry):
+        if name is not None:
+            keep &= present(column_series(data, name).gather(design.row_index.tolist()))
     if not bool(keep.all()):
         design = _subset_design(design, keep)
         off = off[keep]
@@ -123,7 +128,25 @@ def parse_survival_formula(
         cluster_name=cluster_name,
         covariate_names=_covariate_names(design),
         random_effects=tuple(built.random_effects),
+        offset_terms=tuple(built.offset_terms),
     )
+
+
+def present(series: pl.Series) -> np.ndarray:
+    """True where a value is neither null nor a float NaN."""
+    mask = series.is_not_null()
+    if series.dtype.is_float():
+        mask = mask & series.is_not_nan().fill_null(False)
+    return mask.to_numpy()
+
+
+def drop_missing(data: pl.DataFrame, design: Design, refs) -> Design:
+    """Drop design rows whose ``refs`` columns are null or NaN."""
+    keep = np.ones(design.n_obs, dtype=bool)
+    for ref in refs:
+        if ref is not None:
+            keep &= present(column_series(data, ref).gather(design.row_index.tolist()))
+    return design if bool(keep.all()) else _subset_design(design, keep)
 
 
 def combine_strata(data: pl.DataFrame, names: tuple[str, ...], row_index: np.ndarray) -> np.ndarray:

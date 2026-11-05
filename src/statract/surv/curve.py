@@ -16,6 +16,7 @@ from numba import njit
 from scipy import stats
 
 from ..models.design import ColumnRef, column_series
+from .spec import present
 
 _CONFIDENCE = ("log", "log-log", "plain", "logit", "arcsin")
 _Z_CACHE: dict[float, float] = {}
@@ -249,13 +250,13 @@ def _survival_columns(
         weight_s = data.get_column(str(weights)) if weights is not None else None
         group_s = data.get_column(str(by)) if by is not None else None
         entry_s = data.get_column(str(entry)) if entry is not None else None
-        complete = time_s.null_count() == 0 and event_s.null_count() == 0
+        complete = _no_missing(time_s) and _no_missing(event_s)
         if weight_s is not None:
             complete = complete and weight_s.null_count() == 0
         if group_s is not None:
             complete = complete and group_s.null_count() == 0
         if entry_s is not None:
-            complete = complete and entry_s.null_count() == 0
+            complete = complete and _no_missing(entry_s)
         if complete:
             times = _as_float(time_s)
             events = event_s.to_numpy()
@@ -270,14 +271,14 @@ def _survival_columns(
     weight_s = column_series(data, weights).cast(pl.Float64) if weights is not None else None
     group_s = column_series(data, by) if by is not None else None
     entry_s = column_series(data, entry).cast(pl.Float64) if entry is not None else None
-    mask = time_s.is_not_null() & event_s.is_not_null()
+    # A NaN time, status, or entry is missing, as a null is.
+    keep = present(time_s) & present(event_s)
     if weight_s is not None:
-        mask = mask & weight_s.is_not_null()
+        keep &= weight_s.is_not_null().to_numpy()
     if group_s is not None:
-        mask = mask & group_s.is_not_null()
+        keep &= group_s.is_not_null().to_numpy()
     if entry_s is not None:
-        mask = mask & entry_s.is_not_null()
-    keep = mask.to_numpy()
+        keep &= present(entry_s)
     if bool(keep.all()):
         times = time_s.to_numpy()
         events = event_s.to_numpy()
@@ -295,6 +296,12 @@ def _survival_columns(
         return times, events, np.asarray(w, dtype=float), [None], np.zeros(times.shape[0], dtype=np.int32), entered
     labels, codes = _appearance_codes(gser.to_numpy())
     return times, events, np.asarray(w, dtype=float), labels, codes, None if entered is None else np.asarray(entered, dtype=float)
+
+
+def _no_missing(series: pl.Series) -> bool:
+    if series.null_count():
+        return False
+    return not (series.dtype.is_float() and bool(series.is_nan().any()))
 
 
 def _one_curve(

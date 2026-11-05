@@ -18,7 +18,7 @@ from scipy import stats
 from ..models.design import ColumnRef, column_series, design_matrix
 from ..models.fit import Fit
 from ..models.formula import is_formula
-from .spec import parse_survival_formula
+from .spec import drop_missing, parse_survival_formula
 
 _LOG_TIME = {"weibull", "exponential", "lognormal", "loglogistic"}
 _DISTRIBUTIONS = _LOG_TIME | {"gaussian", "logistic"}
@@ -105,6 +105,7 @@ def accelerated_failure(
             if ref is not None:
                 extra.append(ref)
         design = design_matrix(data, predictors, extra=extra, intercept=True)
+        design = drop_missing(data, design, (time, event))
         idx = design.row_index
         time_a = np.asarray(column_series(data, time).gather(idx.tolist()).to_numpy(), dtype=float)
         event_a = np.asarray(column_series(data, event).gather(idx.tolist()).to_numpy(), dtype=float) > 0

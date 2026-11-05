@@ -18,10 +18,11 @@ import numpy as np
 import polars as pl
 from scipy import optimize, sparse, stats
 
-from ..models.design import ColumnRef, Design, build_design, column_series
+from ..models.design import ColumnRef, Design, column_series
 from ..models.fit import Fit
 from ..models.formula import group_labels
 from ..models.mixed import _effect_columns, _terms_variance_table
+from .cox import new_design_offset
 from .spec import parse_survival_formula
 
 _MAX_NEWTON = 60
@@ -166,8 +167,8 @@ class CoxMixedFit:
             if random:
                 lp = lp + self._z @ self._blups
         else:
-            design = build_design(data, self.design)
-            lp = design.x @ self.coefficients
+            design, offset = new_design_offset(data, self.design, None, getattr(self, "_offset_terms", ()))
+            lp = design.x @ self.coefficients + offset
             if random:
                 for term in self.random_terms:
                     lp = lp + _term_contribution(data, design, term)
@@ -284,6 +285,7 @@ def cox_mixed(
         _blups=problem.lam(result.theta) @ result.u,
     )
     fit._strata_names = parsed.strata_names
+    fit._offset_terms = parsed.offset_terms
     return fit
 
 

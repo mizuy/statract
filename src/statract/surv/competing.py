@@ -33,7 +33,7 @@ from scipy import stats
 
 from ..models.design import ColumnRef, Design, build_design, column_series, design_matrix
 from ..models.formula import is_formula
-from .spec import parse_survival_formula
+from .spec import drop_missing, parse_survival_formula
 
 
 @dataclass
@@ -109,8 +109,9 @@ def cumulative_incidence(
         columns["strata"] = column_series(data, strata)
     frame = pl.DataFrame({key: series.alias(key) for key, series in columns.items()})
     frame = frame.filter(~pl.any_horizontal(pl.all().is_null()))
-    if frame.get_column("time").dtype.is_float():
-        frame = frame.filter(pl.col("time").is_not_nan())
+    for name in ("time", "event"):
+        if frame.get_column(name).dtype.is_float():
+            frame = frame.filter(pl.col(name).is_not_nan())
     if frame.height == 0:
         raise ValueError("no complete rows")
     order = np.argsort(frame["time"].to_numpy(), kind="stable")
@@ -321,6 +322,7 @@ def fine_gray_regression(
         if event is None or predictors is None:
             raise ValueError("time, event, and predictors are required when time is a column")
         design = design_matrix(data, predictors, extra=[time, event] if censor_group is None else [time, event, censor_group], intercept=False)
+        design = drop_missing(data, design, (time, event))
         index = design.row_index.tolist()
         t = np.asarray(column_series(data, time).gather(index).to_numpy(), dtype=float)
         status = np.asarray(column_series(data, event).gather(index).to_list(), dtype=object)
