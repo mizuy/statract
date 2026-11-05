@@ -698,7 +698,7 @@ def _fit_glm_arrays(
         inv = _xtwx_inv(x, working_w)
         cov = inv * model_dispersion
         hat = _hat(x, working_w)
-        log_likelihood = _glm_loglik(family, y, mu, w, scale)
+        log_likelihood = _glm_loglik(family, y, mu, w, scale, deviance)
         # The gamma dispersion counts as a parameter, as in ``glm``.
         n_params = rank if counted else rank + 1
         aic = -2.0 * log_likelihood + 2.0 * n_params
@@ -833,10 +833,14 @@ def _glm_loglik(
     mu: np.ndarray,
     prior: np.ndarray,
     scale: float,
+    deviance: float | None = None,
 ) -> float:
-    """Log-likelihood at the fitted mean, matching ``GLMResults.llf``.
+    """Log-likelihood at the fitted mean, as ``logLik`` on a ``glm``.
 
-    Rows with zero prior weight do not contribute.
+    Rows with zero prior weight do not contribute. For the gamma family the
+    dispersion is the deviance over the total prior weight, as R's
+    ``Gamma()$aic`` (not the Pearson estimate that ``summary.glm`` uses for
+    standard errors), and each row's log density is multiplied by its weight.
     """
     active = prior != 0.0
     if not bool(active.all()):
@@ -847,15 +851,13 @@ def _glm_loglik(
         ll = y * np.log(mu) - mu - special.gammaln(y + 1.0)
         return float(np.sum(prior * ll / scale))
     if family == "gamma":
-        endog_mu = np.clip(y / mu, np.finfo(float).eps, np.inf)
-        weight_scale = prior / scale
-        ll = (
-            weight_scale * np.log(weight_scale * endog_mu)
-            - weight_scale * endog_mu
-            - special.gammaln(weight_scale)
-            - np.log(y)
-        )
-        return float(np.sum(ll))
+        if deviance is None:
+            raise ValueError("the gamma log-likelihood needs the deviance")
+        total = float(np.sum(prior))
+        phi = deviance / total if total > 0.0 else float("nan")
+        shape = 1.0 / phi
+        ll = stats.gamma.logpdf(y, shape, scale=mu * phi)
+        return float(np.sum(prior * ll))
     raise ValueError(family)
 
 
