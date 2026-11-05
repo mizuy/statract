@@ -538,10 +538,8 @@ def fit_general(
         pieces.append(z)
         cursor += width
     if select:
-        for sl, matrix in list(penalties):
-            null_pen = _null_space_penalty(matrix)
-            if null_pen is not None:
-                penalties.append((np.asarray(sl), null_pen))
+        for block in blocks:
+            penalties.extend(_select_penalties(block))
     design = np.column_stack(pieces)
     mp = 1 + len(parametric_spec) + sum(block.null_dim for block in blocks)
     if select:
@@ -1080,8 +1078,44 @@ def _edf_by_block(influence: np.ndarray, penalties) -> np.ndarray:
     return np.asarray(out, dtype=float)
 
 
+def _select_penalties(block: _Block) -> list[tuple[np.ndarray, np.ndarray]]:
+    """The ``select=True`` penalties of one block, one per smooth.
+
+    Marra and Wood (2011) add, for each smooth, ``U0 U0'`` where ``U0`` spans
+    the null space of the smooth's total penalty ``sum_j S_j``. A tensor
+    product is one smooth with one penalty per margin, so it gets a single
+    extra penalty. A factor ``by`` block holds one smooth per level, and the
+    level penalties act on disjoint columns, so each level gets its own.
+    """
+    matrices = [block.penalty, *block.extra_penalties]
+    width = block.penalty.shape[0]
+    supports = [np.flatnonzero(np.any(m != 0.0, axis=0) | np.any(m != 0.0, axis=1)) for m in matrices]
+    groups: list[tuple[set[int], list[int]]] = []
+    for index, support in enumerate(supports):
+        cols = set(support.tolist())
+        merged = [g for g in groups if g[0] & cols]
+        for g in merged:
+            groups.remove(g)
+            cols |= g[0]
+        members = [index] + [i for g in merged for i in g[1]]
+        groups.append((cols, members))
+    if len(groups) == 1:
+        groups = [(set(range(width)), groups[0][1])]
+    out = []
+    for cols, members in groups:
+        local = np.array(sorted(cols), dtype=int)
+        total = np.zeros((local.size, local.size))
+        for i in members:
+            sub = matrices[i][np.ix_(local, local)]
+            total += sub / max(float(np.linalg.norm(sub)), 1e-300)
+        null_pen = _null_space_penalty(total)
+        if null_pen is not None:
+            out.append((np.asarray(block.columns)[local], null_pen))
+    return out
+
+
 def _null_space_penalty(matrix: np.ndarray) -> np.ndarray | None:
-    """Identity on the null space of a penalty, for ``select=True``."""
+    """``U0 U0'`` on the null space of a (total) penalty, for ``select=True``."""
     sym = 0.5 * (matrix + matrix.T)
     eigval, eigvec = np.linalg.eigh(sym)
     tol = max(float(np.max(np.abs(eigval))), 1.0) * 1e-8
