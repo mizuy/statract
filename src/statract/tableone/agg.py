@@ -710,7 +710,12 @@ agg_category = agg_category_np
 
 
 def agg_bool_category(expr: pl.Expr, precision: int = 1) -> pl.Expr:
-    """Aggregate boolean as category (cast to categorical first)."""
+    """Aggregate a Boolean column as category rows ``false`` then ``true``.
+
+    The labels are the String casts of the values (``"false"``/``"true"``), the
+    same labels the P value uses. Both rows are kept even when a level has
+    count 0.
+    """
     return agg_category_np(
-        expr.cast(pl.Categorical(pl.Categories("boolean"))), precision
+        expr.cast(pl.String), precision, enum_categories=["false", "true"]
     )

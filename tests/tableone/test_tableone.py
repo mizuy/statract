@@ -12,6 +12,7 @@ from statract.tableone.table import (
     tableone_raw,
 )
 from statract.tableone.agg import (
+    agg_bool_category,
     agg_category_n,
     agg_category_np,
     agg_category_pnn,
@@ -359,6 +360,41 @@ class TestTableOneAddAll:
 
 class TestTableOneEnum:
     """Test enum type handling in tableone."""
+
+    def test_auto_aggfunc_enum_gives_category_rows(self):
+        df = pl.DataFrame(
+            {
+                "stage": pl.Series(["II", "I", "II", "I", "I"]).cast(pl.Enum(["III", "II", "I"])),
+                "g": ["a", "a", "b", "b", "b"],
+            }
+        )
+        result = tableone_raw(df, {"Stage": ("stage", None)}, hue="g")
+        assert result["name"].to_list() == ["Stage", "  III", "  II", "  I"]
+        row = result.filter(pl.col("name") == "  II")
+        assert row["a"][0] == "1 (50.0%)"
+        assert row["b"][0] == "1 (33.3%)"
+        assert result.filter(pl.col("name") == "  III")["a"][0] == "0 (0.0%)"
+
+    def test_auto_aggfunc_categorical_gives_category_rows(self):
+        df = pl.DataFrame({"c": pl.Series(["x", "y", "x"]).cast(pl.Categorical)})
+        result = tableone_raw(df, {"C": ("c", None)})
+        assert result["name"].to_list() == ["C", "  x", "  y"]
+
+
+class TestTableOneBoolCategory:
+    def test_bool_category_rows(self):
+        df = pl.DataFrame({"b": [True, False, None, True], "g": ["a", "a", "b", "b"]})
+        result = tableone_raw(
+            df, {"B": ("b", agg_bool_category)}, hue="g", add_pvalue=True
+        )
+        assert result["name"].to_list() == ["B", "  false", "  true"]
+        assert result.filter(pl.col("name") == "  false")["b"][0] == "0 (0.0%)"
+        assert result.filter(pl.col("name") == "  true")["b"][0] == "1 (100.0%)"
+        assert result.filter(pl.col("name") == "B")["P value"][0] == "1.00"
+
+    def test_bool_category_public_table(self):
+        df = pl.DataFrame({"b": [True, False, True]})
+        assert isinstance(tableone(df, {"B": ("b", agg_bool_category)}), GT)
 
     def test_bound_enum_categories_keep_order_on_string_column(self):
         from functools import partial

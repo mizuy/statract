@@ -8,7 +8,7 @@ This is the baseline table. `tableone` takes a Polars table and returns a great-
 | Aggregation | `statract.tableone.agg` | Mean, median, proportion, category counts |
 | Tests | `statract.tableone.stat` | Chi-squared, Fisher, ANOVA, Kruskal–Wallis, SMD, odds ratio. Used by `add_pvalue=True` and `add_smd=True` |
 
-`hue` is the group column. Child rows of a category have names that start with two ASCII spaces. In the display, these become full-width spaces. Levels of a `pl.Enum` stay as rows even when their count is 0.
+`hue` is the group column. Child rows of a category have names that start with two ASCII spaces. In the display, these become full-width spaces. Levels of a `pl.Enum` stay as rows even when their count is 0. If you pass `None` as the summary, String, Categorical and Enum columns get one row per level (Enum in its level order). `agg_bool_category` shows a Boolean column as the rows `false` and `true`.
 
 ```python
 import polars as pl
@@ -28,7 +28,7 @@ tableone(
 )
 ```
 
-`add_pvalue=True` adds a column of P values between groups. If you leave out `statfunc`, categories use Fisher, median summaries (such as `agg_median_iqr`) use Kruskal–Wallis, and other numeric rows use ANOVA. You can also pick a test by name, as in `statfunc="kruskal"`. If you pass several columns to `hue`, the test uses the same group combinations as the table columns. Fisher on tables larger than 2×2 uses Monte Carlo. The seed is fixed, so the same table gives the same P value.
+`add_pvalue=True` adds a column of P values between groups. If you leave out `statfunc`, categories use Fisher, median summaries (such as `agg_median_iqr`) use Kruskal–Wallis, and other numeric rows use ANOVA. You can also pick a test by name, as in `statfunc="kruskal"`. If you pass several columns to `hue`, the test uses the same group combinations as the table columns. Fisher on tables larger than 2×2 uses Monte Carlo. The seed is fixed, so the same table gives the same P value. P values follow the NEJM style: two decimals from 0.01 up, three decimals from 0.001 to below 0.01, and `P<.001` below that. When a test cannot be done or gives no P value (for example ANOVA on a constant variable), the cell shows `-`.
 
 `add_smd=True` adds a column of standardized differences (SMD), the same as R's tableone. For numeric rows, it is the difference in means between 2 groups divided by the square root of the mean of the sample variances. For categories, it is the multinomial version by Yang and Dalton. With 3 or more groups, it is the mean over all pairs. The standalone function is `standardized_difference`. The denominator is computed within the table you pass. So the SMD in a Table 1 after matching may not match a balance table (which fixes the denominator before adjustment). A numeric 0/1 column uses the continuous formula when summarized by mean, and the $p(1-p)$ formula when summarized as a category. See the [stat implementation notes](../api/tableone/stat.md#smd) for details.
 

@@ -498,7 +498,7 @@ def _get_auto_aggfunc(column: pl.Expr, df: pl.DataFrame) -> agg.AggFunc:
         return agg.agg_mean_sd
     elif dtype == pl.Boolean:
         return agg.agg_ratio_np
-    elif dtype in (pl.Categorical, pl.String):
+    elif isinstance(dtype, (pl.Categorical, pl.Enum)) or dtype == pl.String:
         return agg.agg_category
     else:
         return agg.agg_count

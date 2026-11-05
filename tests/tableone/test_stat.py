@@ -38,6 +38,27 @@ class TestBasicMath:
         assert format_pvalue(0.005) == "0.005"
         assert format_pvalue(1e-10) == "P<.001"
 
+    def test_format_pvalue_boundaries(self):
+        # NEJM: P >= 0.01 two decimals, 0.001 <= P < 0.01 three, P < 0.001 as P<.001
+        assert format_pvalue(0.01) == "0.01"
+        assert format_pvalue(0.0099999) == "0.010"
+        assert format_pvalue(0.001) == "0.001"
+        assert format_pvalue(0.000999) == "P<.001"
+        assert format_pvalue(0.0) == "P<.001"
+        assert format_pvalue(1.0) == "1.00"
+        assert format_pvalue(0.0005, omit=False) == "0.0005"
+        assert format_pvalue(0.01, omit=False) == "0.01"
+
+    def test_format_pvalue_missing(self):
+        assert format_pvalue(float("nan")) == "-"
+        assert format_pvalue(float("nan"), omit=False) == "-"
+        assert format_pvalue(None) == "-"
+        assert format_pvalue(float("inf")) == "-"
+
+    def test_anova_constant_is_not_significant(self):
+        p = stat_anova(pl.Series([1.0, 1, 1, 1]), pl.Series(["a", "a", "b", "b"]))
+        assert p == "-"
+
 
 class TestExprAggregates:
     def test_notnull_mean_expr(self):
