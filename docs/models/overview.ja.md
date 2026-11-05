@@ -81,7 +81,7 @@ GLM での回帰標準化は `standardize_glm(frame, "y ~ trt * age + sex", valu
 
 事象が少ない、または分離がある二値の結果は `fit_firth(frame, "event ~ arm + age")` です（`logistf`）。既定の `tidy()` はプロファイル罰則付き尤度の区間と尤度比の p 値です。`fit_glm` の係数のプロファイル尤度区間は `profile_interval(fit)` です（`confint.glm`）。
 
-順序のある結果（重症度など）は `ordinal_regression(frame, "grade ~ age + stage", levels=["none", "mild", "severe"])` です。`polr` と `clm` の比例オッズモデルで、`tidy(exponentiate=True)` が累積オッズ比です。比例オッズの仮定は `brant_test(fit)` で調べます。順序のない 3 水準以上の結果は `multinomial_regression(frame, "subtype ~ age + sex")` です（`nnet::multinom`）。最初の水準が基準で、`tidy(exponentiate=True)` が相対リスク比です。両方とも `probabilities()` が水準ごとの予測確率を返します。
+順序のある結果（重症度など）は `ordinal_regression(frame, "grade ~ age + stage", levels=["none", "mild", "severe"])` です。`polr` と `clm` の比例オッズモデルで、`tidy(exponentiate=True)` が累積オッズ比です。比例オッズの仮定は `brant_test(fit)` で調べます。順序のない 3 水準以上の結果は `multinomial_regression(frame, "subtype ~ age + sex")` です（`nnet::multinom`）。最初の水準が基準で、`tidy(exponentiate=True)` が相対リスク比です。`offset()` は受け付けません（1 本のオフセットは水準間で打ち消し合うため）。両方とも `probabilities()` が水準ごとの予測確率を返します。
 
 ### 生存時間
 
@@ -237,7 +237,7 @@ print(rate.tidy(exponentiate=True), rate.theta)
 
 ### 多重代入 {#multiple-imputation}
 
-`impute_chained` は連鎖方程式（MICE）で欠損を `m` 回埋めます。既定の方法は `mice` と同じで、数値は予測平均マッチング（`pmm`、ドナー 5）、2 水準は Bayes ロジスティック（`logreg`）、3 水準以上は多項ロジスティック（`polyreg`）です。各列を他の全列から `n_iter` 回まわして埋めます。論理値と `pl.Enum` は型を保ちます。`pool` は各データで当てたモデルを Rubin のルールでまとめ、自由度は Barnard–Rubin です。`mice::pool` と `summary(pool(...), conf.int = TRUE)` に合わせています。
+`impute_chained` は連鎖方程式（MICE）で欠損を `m` 回埋めます。既定の方法は `mice` と同じで、数値は予測平均マッチング（`pmm`、ドナー 5）、2 水準は Bayes ロジスティック（`logreg`）、3 水準以上は多項ロジスティック（`polyreg`）です。各列を他の全列から `n_iter` 回まわして埋めます。論理値と `pl.Enum` は型を保ちます。`pool` は各データで当てたモデルを Rubin のルールでまとめ、自由度は Barnard–Rubin です。分散のあるパラメータはすべてまとめます。順序回帰では係数の後に閾値（項 `a|b`）、多項ロジスティックでは水準と項ごとに 1 行（`level:term`）です。`mice::pool` と `summary(pool(...), conf.int = TRUE)` に合わせています。
 
 ```python
 from statract import fit_ols, impute_chained

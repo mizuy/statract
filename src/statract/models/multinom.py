@@ -100,7 +100,10 @@ class MultinomialFit:
         )
 
     def predict(self, data: pl.DataFrame | None = None, *, kind: str = "probs") -> np.ndarray:
-        """``kind="probs"`` gives an n by K matrix, ``"class"`` the most likely level."""
+        """``kind="probs"`` gives an n by K matrix, ``"class"`` the most likely level.
+
+        There is no offset to add: ``multinomial_regression`` rejects ``offset()``.
+        """
         if kind not in {"probs", "class"}:
             raise ValueError("kind must be 'probs' or 'class'")
         if data is None:
@@ -165,8 +168,16 @@ def multinomial_regression(
     baseline; the order is ``levels=``, then a ``pl.Enum``'s order, then sorted
     values (numbers numerically). Empty levels are dropped with a warning, as
     ``multinom`` does. ``weights`` are case weights.
+
+    ``offset()`` terms are not supported and raise ``ValueError``: one offset
+    added to every level's linear predictor cancels out of the
+    probabilities, and ``multinom`` takes a matrix with a column per level.
     """
     prepared = categorical_data(data, formula, weights=weights, levels=levels, drop_intercept=False, min_levels=2)
+    if np.any(prepared.offset != 0):
+        raise ValueError(
+            "multinomial_regression does not support offset(): a single offset added to every level cancels out"
+        )
     x = prepared.design.x
     y = prepared.codes
     w = prepared.weights

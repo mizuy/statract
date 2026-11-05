@@ -81,7 +81,7 @@ The risk ratio is `fit_risk_ratio(frame, "event ~ arm + age")`. The default is m
 
 For binary outcomes with few events or with separation, use `fit_firth(frame, "event ~ arm + age")` (`logistf`). The default `tidy()` gives profile penalized likelihood intervals and likelihood ratio p-values. Profile likelihood intervals for `fit_glm` coefficients are `profile_interval(fit)` (`confint.glm`).
 
-For ordered outcomes (such as severity), use `ordinal_regression(frame, "grade ~ age + stage", levels=["none", "mild", "severe"])`. It is the proportional odds model of `polr` and `clm`. `tidy(exponentiate=True)` gives cumulative odds ratios. Check the proportional odds assumption with `brant_test(fit)`. For unordered outcomes with 3 or more levels, use `multinomial_regression(frame, "subtype ~ age + sex")` (`nnet::multinom`). The first level is the baseline, and `tidy(exponentiate=True)` gives relative risk ratios. In both, `probabilities()` returns the predicted probability of each level.
+For ordered outcomes (such as severity), use `ordinal_regression(frame, "grade ~ age + stage", levels=["none", "mild", "severe"])`. It is the proportional odds model of `polr` and `clm`. `tidy(exponentiate=True)` gives cumulative odds ratios. Check the proportional odds assumption with `brant_test(fit)`. For unordered outcomes with 3 or more levels, use `multinomial_regression(frame, "subtype ~ age + sex")` (`nnet::multinom`). The first level is the baseline, and `tidy(exponentiate=True)` gives relative risk ratios. It does not accept `offset()` (a single offset cancels across levels). In both, `probabilities()` returns the predicted probability of each level.
 
 ### Survival
 
@@ -237,7 +237,7 @@ With column names, use `fit_mixed(frame, "y", ["x"], groups="g")`. Random slopes
 
 ### Multiple imputation {#multiple-imputation}
 
-`impute_chained` fills missing values `m` times with chained equations (MICE). The default methods are the same as `mice`: predictive mean matching for numeric columns (`pmm`, 5 donors), Bayesian logistic regression for 2 levels (`logreg`), and multinomial logistic regression for 3 or more levels (`polyreg`). Each column is imputed from all other columns, cycling `n_iter` times. Booleans and `pl.Enum` keep their types. `pool` combines the models fitted to each dataset with Rubin's rules, with Barnard–Rubin degrees of freedom. It matches `mice::pool` and `summary(pool(...), conf.int = TRUE)`.
+`impute_chained` fills missing values `m` times with chained equations (MICE). The default methods are the same as `mice`: predictive mean matching for numeric columns (`pmm`, 5 donors), Bayesian logistic regression for 2 levels (`logreg`), and multinomial logistic regression for 3 or more levels (`polyreg`). Each column is imputed from all other columns, cycling `n_iter` times. Booleans and `pl.Enum` keep their types. `pool` combines the models fitted to each dataset with Rubin's rules, with Barnard–Rubin degrees of freedom. Every parameter with a variance is pooled: an ordinal fit's thresholds (terms `a|b`) follow its coefficients, and a multinomial fit gives one row per level and term (`level:term`). It matches `mice::pool` and `summary(pool(...), conf.int = TRUE)`.
 
 ```python
 from statract import fit_ols, impute_chained

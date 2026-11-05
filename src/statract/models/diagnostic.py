@@ -193,9 +193,9 @@ class DiagnosticAccuracy:
         prev = np.atleast_1d(np.asarray(prevalence, dtype=float))
         if np.any((prev < 0) | (prev > 1)):
             raise ValueError("prevalence must be in [0, 1]")
-        se = self.tp / (self.tp + self.fn)
-        sp = self.tn / (self.tn + self.fp)
         with np.errstate(divide="ignore", invalid="ignore"):
+            se = np.float64(self.tp) / np.float64(self.tp + self.fn)
+            sp = np.float64(self.tn) / np.float64(self.tn + self.fp)
             ppv = se * prev / (se * prev + (1 - sp) * (1 - prev))
             npv = sp * (1 - prev) / (sp * (1 - prev) + (1 - se) * prev)
         return pl.DataFrame({"prevalence": prev, "ppv": ppv, "npv": npv})
