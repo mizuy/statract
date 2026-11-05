@@ -413,7 +413,7 @@ def ramsey_reset_test(fit: Fit, *, power: tuple[int, ...] = (2, 3)) -> TestResul
     rss1 = float(np.sum(np.linalg.lstsq(fit.x, y, rcond=None)[1]))
     rss2 = float(np.sum(np.linalg.lstsq(x_full, y, rcond=None)[1]))
     df1 = float(extra.shape[1])
-    df2 = float(fit.n_obs - x_full.shape[1])
+    df2 = float(fit.x.shape[0] - x_full.shape[1])
     stat = (df2 / df1) * ((rss1 - rss2) / rss2)
     p_value = float(stats.f.sf(stat, df1, df2))
     return TestResult(stat, p_value, (df1, df2), "f", "ramsey_reset")

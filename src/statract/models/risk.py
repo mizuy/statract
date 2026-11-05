@@ -24,6 +24,7 @@ from .covariance import cluster_covariance, hc_covariance
 from .design import ColumnRef, column_series, design_matrix
 from .fit import (
     Fit,
+    _check_weights,
     _from_formula,
     _hat,
     _optional_numeric,
@@ -157,11 +158,13 @@ def _log_binomial(
         y = _outcome_array(_take_aligned(column_series(data, outcome), design.row_index))
         w = _optional_numeric(data, weights, design.row_index)
         off = np.zeros(design.n_obs)
-    w = np.ones(design.n_obs) if w is None else np.asarray(w, dtype=float)
+    w = np.ones(design.n_obs) if w is None else _check_weights(w)
     off = np.asarray(off, dtype=float)
     x = design.x
     coef, working_w, mu, deviance = _log_binomial_irls(y, x, w, off, start)
-    n, rank = x.shape
+    rank = x.shape[1]
+    # Zero-weight rows are not observations (``glm``'s ``n.ok``).
+    n = int(np.count_nonzero(w))
     with np.errstate(divide="ignore", invalid="ignore"):
         working_resid = (y - mu) / mu
     log_likelihood = _r_binomial_loglik(y, mu, w)

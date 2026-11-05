@@ -196,6 +196,8 @@ If the right side has a main effect equal to the response, that term is dropped 
 
 Rows with missing values in any column the formula uses are dropped together. Levels are set from the remaining rows. Missing values in `weights=` and `offset=` also drop the same rows afterward.
 
+In `fit_ols`, `fit_glm` and `fit_risk_ratio`, rows with weight 0 are not observations, as in R's `lm` and `glm`. They do not count in `n_obs`, the residual degrees of freedom, the log-likelihood, AIC, BIC, or the sandwich and cluster covariances, so the fit equals one with those rows removed. They keep their fitted values and residuals. Negative weights raise `ValueError`.
+
 When you pass new data to `predict`, columns are rebuilt with the recipe from fitting. Levels not seen during fitting are an error.
 
 ## Random effects

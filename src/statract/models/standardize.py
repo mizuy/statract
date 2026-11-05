@@ -175,7 +175,7 @@ def standardize_glm(
     if not _uses(fit, exposure):
         raise ValueError(f"the exposure {exposure!r} is not in the formula")
     used = data[fit.row_index.tolist()]
-    n = fit.n_obs
+    n = fit.x.shape[0]
     w = np.asarray(fit.weights, dtype=float)
     labels = None
     if cluster is not None:
