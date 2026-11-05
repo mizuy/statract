@@ -11,7 +11,8 @@ or GCV score.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+import warnings
+from dataclasses import dataclass, field
 
 import numpy as np
 import polars as pl
@@ -65,6 +66,7 @@ class GeneralFit:
     penalties: list | None = None
     null_space_dim: int = 0
     gamma: float = 1.0
+    factor_levels: dict[str, tuple[str, ...]] = field(default_factory=dict, repr=False)
 
     @property
     def smoothing_parameter(self) -> float:
@@ -177,6 +179,9 @@ class GeneralFit:
 
         ``kind="link"`` is the linear predictor. ``kind="response"`` is the mean.
         The standard error is on that same scale (delta method for non-identity links).
+        On new data, a row with a null factor value (a parametric factor or a
+        factor ``by``) predicts NaN, and a level not seen in the fit raises
+        ``ValueError``.
         """
         if kind not in {"link", "response", "terms"}:
             raise ValueError("kind must be link, response, or terms")
@@ -185,6 +190,9 @@ class GeneralFit:
         design = self.x if data is None else _design_from_blocks(
             _columns(data, self.kept.keys()), self.blocks, self.parametric
         )
+        if data is not None and self.factor_levels:
+            design = np.array(design, dtype=float, copy=True)
+            design[_null_factor_rows(data, self.factor_levels)] = np.nan
         if kind == "terms":
             return _term_frame(design, self.coefficients, self.names, self.blocks)
         eta = design @ self.coefficients
@@ -484,6 +492,8 @@ def fit_general(
         raise ValueError(f"method must be one of {sorted(_METHODS)}")
     if not smooths:
         raise ValueError("gam needs at least one smooth")
+    if gamma != 1.0 and method != "gcv":
+        raise ValueError("gamma= is only used by method='gcv'; REML and ML need gamma=1")
     used = _used_columns(smooths, predictors)
     y_name = column_series(data, outcome).name
     keep = complete_rows(data, [y_name, *used, *([weights] if weights else []), *([offset] if offset else [])])
@@ -491,14 +501,17 @@ def fit_general(
     y = np.asarray(column_series(data, outcome).filter(pl.Series(keep)).to_numpy(), dtype=float)
     weight_values = _positive_weights(data, weights, keep)
     offset_values = None if offset is None else _aligned_numeric(data, offset, keep)
-    blocks = [_build_block(spec, kept) for spec in smooths]
+    factor_by = {spec.by for spec in smooths if spec.by is not None and _is_factor_by(data, spec.by)}
+    blocks = [_build_block(spec, kept, spec.by in factor_by, spec.by in (predictors or [])) for spec in smooths]
     parametric = [np.ones(y.shape[0])]
     parametric_names = ["(Intercept)"]
     parametric_spec: list[tuple] = []
+    factor_levels = {name: tuple(_level_labels(kept[name])) for name in factor_by}
     for name in predictors or []:
         series = kept[name]
         if _is_factor(data, name):
             levels = _factor_levels(data, name, series)
+            factor_levels[name] = tuple(str(level) for level in levels)
             for level in levels[1:]:
                 parametric_names.append(f"{name}{level}")
                 parametric.append((np.asarray(series).astype(str) == str(level)).astype(float))
@@ -531,6 +544,9 @@ def fit_general(
                 penalties.append((np.asarray(sl), null_pen))
     design = np.column_stack(pieces)
     mp = 1 + len(parametric_spec) + sum(block.null_dim for block in blocks)
+    if select:
+        # The null-space penalties leave only the parametric columns unpenalized.
+        mp = design.shape[1] - _penalty_rank(design.shape[1], penalties)
     lams, score, beta, sig2, edf, block_edf, converged = _optimize(
         design,
         y,
@@ -569,6 +585,7 @@ def fit_general(
         penalties=penalties,
         null_space_dim=mp,
         gamma=gamma,
+        factor_levels=factor_levels,
     )
 
 
@@ -1081,23 +1098,29 @@ def _total_penalty(width: int, penalties, lam: np.ndarray) -> np.ndarray:
     return penalty
 
 
-def _build_block(spec, kept: dict[str, np.ndarray]) -> _Block:
+def _build_block(spec, kept: dict[str, np.ndarray], factor_by: bool = False, by_in_model: bool = False) -> _Block:
     if spec.basis == "te":
         return _tensor_block(spec, kept)
     if spec.basis == "ti":
         return _tensor_interaction_block(spec, kept)
-    if spec.by is not None and _looks_like_factor(kept[spec.by]):
+    if spec.by is not None and factor_by:
         return _by_factor_block(spec, kept)
     basis, penalty, null_dim, rebuild = _univariate(spec, kept)
+    constrain = null_dim > 0
     if spec.by is not None:
+        # A numeric by gives a varying-coefficient term z * f(x). As in Wood
+        # (2017, section 7.2.3) it is not centred, because f must carry the
+        # z * constant part. It stays centred when z is constant, or when z is
+        # also a parametric term, which already carries that part.
         by = np.asarray(kept[spec.by], dtype=float)
+        constrain = constrain and (bool(np.ptp(by) == 0) or by_in_model)
         basis = basis * by[:, None]
 
         def rebuild(columns, _rebuild=rebuild, by_name=spec.by):
             return _rebuild(columns) * np.asarray(columns[by_name], dtype=float)[:, None]
 
-    basis, q, penalty = _absorb(basis, penalty, null_dim > 0)
-    null_after = max(null_dim - 1, 0) if null_dim else 0
+    basis, q, penalty = _absorb(basis, penalty, constrain)
+    null_after = max(null_dim - 1, 0) if constrain else null_dim
 
     def constrained(columns, _rebuild=rebuild, _q=q):
         return _rebuild(columns) @ _q
@@ -1444,9 +1467,11 @@ def _by_factor_block(spec, kept) -> _Block:
     penalties = []
     nulls: list[int] = []
     kept_levels: list[str] = []
+    dropped: list[str] = []
     for level in levels:
         mask = np.asarray(kept[spec.by]).astype(str) == level
         if int(mask.sum()) < 3:
+            dropped.append(level)
             continue
         full = np.zeros_like(constrained)
         full[mask] = constrained[mask]
@@ -1456,6 +1481,13 @@ def _by_factor_block(spec, kept) -> _Block:
         kept_levels.append(level)
     if not parts:
         raise ValueError(f"by-factor smooth {spec.column!r} has no level with enough rows")
+    if dropped:
+        warnings.warn(
+            f"by-factor smooth {spec.column!r}: levels {dropped} of {spec.by!r} have fewer than 3 rows "
+            "and get no smooth; their rows (and new data at those levels) use the other terms only",
+            UserWarning,
+            stacklevel=4,
+        )
     basis = np.column_stack(parts)
     pens = []
     cursor = 0
@@ -1601,8 +1633,27 @@ def _factor_levels(data: pl.DataFrame, name: str, values: np.ndarray) -> list[st
     return sorted({str(value) for value in values})
 
 
-def _looks_like_factor(values: np.ndarray) -> bool:
-    return values.dtype.kind in {"U", "O", "S"} or np.issubdtype(values.dtype, np.integer)
+def _is_factor_by(data: pl.DataFrame, name: str) -> bool:
+    """A ``by`` column is a factor when it is String, Categorical, Enum, or Boolean.
+
+    Numeric columns, integers included, are numeric ``by`` variables.
+    """
+    dtype = column_series(data, name).dtype
+    return dtype == pl.Boolean or isinstance(dtype, (pl.Enum, pl.Categorical, pl.Utf8, pl.String))
+
+
+def _null_factor_rows(data: pl.DataFrame, factor_levels: dict[str, tuple[str, ...]]) -> np.ndarray:
+    """Rows with a null factor value; raise on a level not seen in the fit."""
+    null = np.zeros(data.height, dtype=bool)
+    for name, levels in factor_levels.items():
+        series = column_series(data, name)
+        missing = series.is_null().to_numpy()
+        null |= missing
+        values = np.asarray(series.to_numpy())[~missing]
+        unknown = sorted({str(value) for value in values} - set(levels))
+        if unknown:
+            raise ValueError(f"factor {name!r} has unseen levels {unknown}")
+    return null
 
 
 def _level_labels(values: np.ndarray) -> list[str]:

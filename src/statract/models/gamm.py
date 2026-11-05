@@ -222,6 +222,8 @@ class GammFit:
     ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
         """Population prediction: parametric terms plus smooths, random effects at zero.
 
+        One value per row of ``data``; a row with a null predictor gives NaN.
+
         ``se=True`` also returns the pointwise standard error from ``covariance``
         (``Vp``), as ``predict(g$gam, se.fit = TRUE)``. For ``kind="response"``
         it is the delta-method SE; a confidence interval is better built on the
@@ -231,7 +233,12 @@ class GammFit:
             raise ValueError("kind must be 'link' or 'response'")
         from .design import build_design
 
-        pieces = [build_design(data, self._parametric_design).x]
+        # build_design drops rows with a null parametric value; put them back as
+        # NaN so the rows line up with the smooth columns.
+        built = build_design(data, self._parametric_design)
+        parametric = np.full((data.height, built.x.shape[1]), np.nan)
+        parametric[built.row_index] = built.x
+        pieces = [parametric]
         for part in self._smooths:
             pieces.append(part.rebuild(np.asarray(column_series(data, part.name).to_numpy(), dtype=float)))
         design = np.column_stack(pieces)

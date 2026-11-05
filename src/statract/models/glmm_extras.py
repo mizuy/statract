@@ -37,8 +37,9 @@ def median_odds_ratio(
 
     Args:
         variance: Cluster (random-intercept) variance, a ``MixedFit`` from
-            ``fit_mixed(..., family="binomial")``, or (experimental) a GPBoost
-            ``GPModel``.
+            ``fit_mixed(..., family="binomial")`` with the logit link and a
+            random intercept (anything else raises ``ValueError``), or
+            (experimental) a GPBoost ``GPModel``.
         std_error: Optional SE of the variance. When omitted, a ``GPModel`` may
             supply one; ``MixedFit`` does not currently report a variance SE.
 
@@ -46,6 +47,10 @@ def median_odds_ratio(
         One-row frame with ``variance`` and ``median_odds_ratio`` (and optional CI).
     """
     se = std_error
+    from .mixed import MixedFit
+
+    if isinstance(variance, MixedFit):
+        _check_mor_fit(variance)
     if not isinstance(variance, (int, float, np.floating)):
         variance, extracted_se = glmm_cluster_variance(variance)
         if se is None:
@@ -72,6 +77,18 @@ def median_odds_ratio(
         row["conf_low"] = float(np.exp(log_mor - 1.96 * se_log))
         row["conf_high"] = float(np.exp(log_mor + 1.96 * se_log))
     return pl.DataFrame(row)
+
+
+def _check_mor_fit(fit: Any) -> None:
+    """The MOR is defined for a logit-scale random intercept only."""
+    if fit.family != "binomial" or (fit.link or "logit") != "logit":
+        raise ValueError("median_odds_ratio needs a binomial fit with the logit link")
+    terms = fit.random_terms or []
+    if len(terms) > 1:
+        raise ValueError("median_odds_ratio needs a fit with one random-effect term; pass the variance instead")
+    names = list(terms[0]["names"]) if terms else list(fit.random_names)
+    if "(Intercept)" not in names:
+        raise ValueError("median_odds_ratio needs a random intercept")
 
 
 def glmm_cluster_variance(model: Any) -> tuple[float, float | None]:
@@ -101,6 +118,13 @@ def glmm_cluster_variance(model: Any) -> tuple[float, float | None]:
     return variance, se
 
 
+def _label_counts(series: pl.Series) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for lab in series.cast(pl.Utf8).to_list():
+        counts[lab] = counts.get(lab, 0) + 1
+    return counts
+
+
 def glmm_random_effects(
     model: Any,
     group: pl.DataFrame | pl.Series | None = None,
@@ -109,8 +133,12 @@ def glmm_random_effects(
 ) -> pl.DataFrame:
     """Unique-group BLUPs from a mixed fit.
 
-    Canonical input is ``MixedFit`` from ``fit_mixed``. The experimental
-    GPBoost ``GPModel`` path still accepts observation-level ``group`` labels.
+    Canonical input is ``MixedFit`` from ``fit_mixed``. With ``group``
+    (observation-level labels) an ``n`` column counts the rows per level. For
+    a fit with several terms or ``ar1()``, pass a frame with one column per
+    grouping column (matched by name); a grouping column not given gets a
+    null ``n``. The experimental GPBoost ``GPModel`` path still accepts
+    observation-level ``group`` labels.
     """
     from .mixed import MixedFit
 
@@ -118,13 +146,24 @@ def glmm_random_effects(
         frame = model.random_effects()
         if group is None:
             return frame
-        if isinstance(group, pl.Series):
-            labels = group.cast(pl.Utf8).to_list()
-        else:
-            labels = group.get_column(group.columns[0]).cast(pl.Utf8).to_list()
-        counts: dict[str, int] = {}
-        for lab in labels:
-            counts[lab] = counts.get(lab, 0) + 1
+        columns = [group] if isinstance(group, pl.Series) else list(group.get_columns())
+        if "level" in frame.columns:
+            # Several terms or ar1(): ``group`` names the grouping column and
+            # ``level`` holds the label. Count each grouping column's labels;
+            # a column not given gets a null count.
+            grouping = frame["group"].unique().to_list()
+            counts_by: dict[str, dict[str, int]] = {}
+            for series in columns:
+                name = series.name
+                if name not in grouping and len(columns) == 1 and len(grouping) == 1:
+                    name = grouping[0]
+                counts_by[name] = _label_counts(series)
+            n_values = [
+                counts_by[g].get(str(level), 0) if g in counts_by else None
+                for g, level in zip(frame["group"].to_list(), frame["level"].to_list(), strict=True)
+            ]
+            return frame.with_columns(pl.Series("n", n_values, dtype=pl.Int64))
+        counts = _label_counts(columns[0])
         n_col = pl.Series("n", [int(counts.get(str(g), 0)) for g in frame["group"].to_list()])
         return frame.with_columns(n_col)
 

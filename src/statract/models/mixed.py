@@ -20,7 +20,7 @@ from scipy import stats
 
 from .design import ColumnRef, Design, _is_factor, column_series, design_matrix
 from .._core.laplace import COUNT_FAMILIES, LAPLACE_FAMILIES, fit_laplace_glmm
-from .formula import group_labels, is_formula, model_matrix, reject_survival_syntax
+from .formula import evaluate_offset, group_labels, is_formula, model_matrix, offset_columns, reject_survival_syntax
 
 _FAMILIES = ("gaussian", "binomial", "poisson", "gamma", "negative_binomial")
 _LME_ENGINES = {"lme", "lme-rs", "lme-python", "lme_python"}
@@ -73,6 +73,7 @@ class MixedFit:
     zero_names: list[str] | None = None
     zero_design: Design | None = field(default=None, repr=False)
     offset_ref: ColumnRef | None = field(default=None, repr=False)
+    offset_terms: tuple[Any, ...] = field(default=(), repr=False)
     ranef_frame: pl.DataFrame | None = field(default=None, repr=False)
     random_terms: list[dict[str, Any]] | None = field(default=None, repr=False)
     raw: Any = field(default=None, repr=False)
@@ -153,6 +154,8 @@ class MixedFit:
         ``kind`` is ``"link"`` or ``"response"``. Gaussian LMMs ignore ``kind``.
         A fit with an offset adds it: the stored one without ``data``, and the
         offset column or the formula's ``offset()`` evaluated on ``data``.
+        New data needs only the fixed-effect and offset columns, not the
+        outcome or the grouping column.
         With a zero part, ``"response"`` is the mean of the whole outcome:
         ``(1 - pi) mu`` for zero inflation and ``(1 - pi) mu / (1 - f(0))``
         for a hurdle. ``"link"`` stays the count part's linear predictor.
@@ -209,10 +212,13 @@ class MixedFit:
         if self.offset_ref is not None:
             series = column_series(data, self.offset_ref).gather(design.row_index.tolist())
             return np.asarray(series.to_numpy(), dtype=float)
-        if self.formula is not None:
-            built = model_matrix(self.formula, data)
-            if built.offset is not None and len(built.offset) == design.n_obs:
-                return np.asarray(built.offset, dtype=float)
+        if self.offset_terms:
+            # Only the offset() columns are read, so new data needs neither
+            # the outcome nor the grouping column. A null offset gives NaN.
+            missing = [name for name in offset_columns(self.offset_terms) if name not in data.columns]
+            if missing:
+                raise ValueError(f"predict on new data needs the offset columns {missing}")
+            return evaluate_offset(self.offset_terms, data, design.row_index)
         raise ValueError("predict on new data needs the offset; refit with offset= or offset() in the formula")
 
 
@@ -277,6 +283,7 @@ def fit_mixed(
         data, outcome, predictors, groups, slopes, offset
     )
     terms = extra.pop("__terms__", None)
+    offset_terms = tuple(extra.pop("__offset_terms__", ()))
     if terms is not None:
         if engine_key != "laplace":
             raise ValueError(
@@ -294,7 +301,7 @@ def fit_mixed(
         if zero_part is not None:
             zero_design = _zero_design(data, design, zero_inflation)
         if terms is not None:
-            return _fit_laplace_terms(
+            fit = _fit_laplace_terms(
                 formula,
                 design,
                 y,
@@ -305,22 +312,25 @@ def fit_mixed(
                 zero_part=zero_part,
                 zero_design=zero_design,
             )
-        return _fit_laplace(
-            formula,
-            design,
-            y,
-            labels,
-            group_name,
-            random_names,
-            extra,
-            offset_values,
-            offset_ref=offset,
-            family=family,
-            n_agq=n_agq,
-            link=link,
-            zero_part=zero_part,
-            zero_design=zero_design,
-        )
+        else:
+            fit = _fit_laplace(
+                formula,
+                design,
+                y,
+                labels,
+                group_name,
+                random_names,
+                extra,
+                offset_values,
+                offset_ref=offset,
+                family=family,
+                n_agq=n_agq,
+                link=link,
+                zero_part=zero_part,
+                zero_design=zero_design,
+            )
+        fit.offset_terms = offset_terms
+        return fit
     if offset is not None or formula_offset is not None:
         raise ValueError("offsets need engine='laplace' (binomial, Poisson, or negative binomial)")
     return _fit_lme(
@@ -846,11 +856,12 @@ def _from_formula(
     offset = None if built.offset is None else np.asarray(built.offset, dtype=float)
     if len(built.random_effects) > 1 or effect.structure != "us":
         terms = [_effect_columns(data, design, one) for one in built.random_effects]
-        return design, np.asarray(built.y, dtype=float), [], effect.group, [], {"__terms__": terms}, offset
+        packed = {"__terms__": terms, "__offset_terms__": built.offset_terms}
+        return design, np.asarray(built.y, dtype=float), [], effect.group, [], packed, offset
     group = column_series(data, effect.group)
     labels = group.gather(idx.tolist()).to_list()
     random_names = ["(Intercept)"] if effect.intercept else []
-    extra: dict[str, np.ndarray] = {}
+    extra: dict[str, Any] = {"__offset_terms__": built.offset_terms}
     expressed = dict(effect.slope_exprs)
     for name in effect.slopes:
         spec = next((item for item in design.predictors if item.name == name), None)
