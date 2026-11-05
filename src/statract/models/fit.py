@@ -325,7 +325,7 @@ def _ols_fields(
     nobs2 = n / 2.0
     log_likelihood = -np.log(rss) * nobs2 - (1.0 + np.log(np.pi / nobs2)) * nobs2
     if not unity:
-        log_likelihood += 0.5 * float(np.sum(np.log(w)))
+        log_likelihood += 0.5 * float(np.sum(np.log(w[w > 0.0])))
     k_constant = _k_constant(x)
     if k_constant:
         center = float(np.average(y, weights=None if unity else w))
@@ -443,6 +443,15 @@ def _ols_via_pinv(y: np.ndarray, x: np.ndarray, w: np.ndarray) -> dict[str, Any]
 
 
 def _solve_ols(y: np.ndarray, x: np.ndarray, w: np.ndarray) -> dict[str, Any]:
+    active = w != 0.0
+    if not bool(active.all()) and bool(active.any()):
+        # Rows with zero weight are not observations, as in ``lm``: fit the
+        # others and give the zero-weight rows their residual and a zero hat.
+        solved = _solve_ols(y[active], x[active], w[active])
+        resid = np.asarray(y, dtype=float) - np.asarray(x, dtype=float) @ solved["coefficients"]
+        hat = np.zeros(x.shape[0])
+        hat[active] = solved["hat"]
+        return {**solved, "residuals": resid, "hat": hat}
     solved = _ols_via_qr(y, x, w)
     if solved is None:
         return _ols_via_pinv(y, x, w)
@@ -487,9 +496,9 @@ def fit_ols(
     prior_w = w
     if w is None:
         w = np.ones(design.n_obs)
-    solved = _solve_ols(response, design.x, np.asarray(w, dtype=float))
-    working_weights = np.asarray(w, dtype=float)
-    n = design.n_obs
+    working_weights = _check_weights(w)
+    solved = _solve_ols(response, design.x, working_weights)
+    n = int(np.count_nonzero(working_weights))
     rss = float(solved["rss"])
     fit = Fit(
         coefficients=solved["coefficients"],
@@ -508,7 +517,7 @@ def fit_ols(
         working_residuals=solved["residuals"],
         working_weights=working_weights,
         hat_values=solved["hat"],
-        dispersion=rss / n,
+        dispersion=rss / n if n else float("nan"),
         deviance=rss,
         scale=solved["sigma2"],
         aic=solved["aic"],
@@ -567,7 +576,7 @@ def fit_glm(
         y,
         design.x,
         family,
-        np.asarray(w, dtype=float),
+        _check_weights(w),
         np.asarray(off, dtype=float),
         list(design.names),
         design.row_index,
@@ -588,8 +597,13 @@ def _fit_glm_arrays(
     row_index: np.ndarray,
     design: Design,
 ) -> Fit:
-    """Fit one GLM on arrays that are already aligned."""
-    n = int(x.shape[0])
+    """Fit one GLM on arrays that are already aligned.
+
+    Rows with zero prior weight are not observations (``glm``'s ``n.ok``):
+    they leave the residual degrees of freedom, the log-likelihood, the BIC
+    and ``n_obs``, and keep their fitted values and residuals.
+    """
+    n = int(np.count_nonzero(w))
     if family == "negative_binomial":
         return _fit_negbin(y, x, w, off, names, row_index, design)
     if family == "gaussian":
@@ -662,18 +676,20 @@ def _gaussian_glm(
     reports it. The scale is the Pearson statistic over the residual degrees
     of freedom.
     """
-    n = y.shape[0]
+    active = w != 0.0
+    n = int(np.count_nonzero(active))
     sw = np.sqrt(w)
     pinv, _singular = _pinv_extended(x * sw[:, None])
     coef = pinv @ ((y - off) * sw)
-    rank = int(np.linalg.matrix_rank(x))
+    rank = int(np.linalg.matrix_rank(x[active])) if n else 0
     resid = y - (x @ coef + off)
     deviance = float(np.sum(w * resid**2))
     df_resid = n - rank
     scale = deviance / df_resid if df_resid else np.nan
-    profile = deviance / n
+    profile = deviance / n if n else np.nan
+    wa = w[active]
     with np.errstate(divide="ignore"):
-        ll = -0.5 * (w * resid**2 / profile + np.log(profile / w) + np.log(2.0 * np.pi))
+        ll = -0.5 * (wa * resid[active] ** 2 / profile + np.log(profile / wa) + np.log(2.0 * np.pi))
     return coef, float(np.sum(ll)), deviance, float(scale), rank
 
 
@@ -757,7 +773,13 @@ def _glm_loglik(
     prior: np.ndarray,
     scale: float,
 ) -> float:
-    """Log-likelihood at the fitted mean, matching ``GLMResults.llf``."""
+    """Log-likelihood at the fitted mean, matching ``GLMResults.llf``.
+
+    Rows with zero prior weight do not contribute.
+    """
+    active = prior != 0.0
+    if not bool(active.all()):
+        y, mu, prior = y[active], mu[active], prior[active]
     if family == "binomial":
         # One trial per row. ``prior`` is the frequency weight.
         ll = (
@@ -1048,7 +1070,6 @@ def _fit_negbin(
     off = np.asarray(off, dtype=float)
     if np.any(y < 0):
         raise ValueError("negative binomial outcomes must be non-negative counts")
-    n = int(x.shape[0])
     n_ok = int(np.count_nonzero(w))
     rank = int(np.linalg.matrix_rank(x[w != 0])) if n_ok else 0
     residual_df = n_ok - rank
@@ -1091,7 +1112,7 @@ def _fit_negbin(
         coefficients=coef,
         covariance=covariance,
         names=names,
-        n_obs=n,
+        n_obs=n_ok,
         log_likelihood=log_likelihood,
         residual_df=residual_df,
         family="negative_binomial",
@@ -1376,6 +1397,14 @@ def _binomial_irls_numba(y, x, prior, offset, eps, maxit):
     return coef, step_weights, mu, deviance, working, eta
 
 
+def _check_weights(w: np.ndarray | None) -> np.ndarray:
+    """Prior weights as floats. Negative weights are refused, as ``lm`` and ``glm`` do."""
+    w = np.asarray(w, dtype=float)
+    if np.any(w < 0.0):
+        raise ValueError("weights must be non-negative")
+    return w
+
+
 def _take_aligned(series: pl.Series, row_index: np.ndarray) -> pl.Series:
     if series.null_count() == 0 and int(row_index.shape[0]) == series.len():
         return series
@@ -1453,7 +1482,7 @@ def _ols_refit(
             response = np.asarray(y, dtype=float)
         ww = np.ones(index.shape[0]) if weight_values is None else weight_values[index]
         solved = _solve_ols(response, x, np.asarray(ww, dtype=float))
-        n = x.shape[0]
+        n = int(np.count_nonzero(ww))
         rss = float(solved["rss"])
         child = Fit(
             coefficients=solved["coefficients"],
@@ -1468,11 +1497,11 @@ def _ols_refit(
             row_index=design.row_index[index],
             design=design,
             weights=ww,
-            offset=np.zeros(n),
+            offset=np.zeros(x.shape[0]),
             working_residuals=solved["residuals"],
             working_weights=ww,
             hat_values=solved["hat"],
-            dispersion=rss / n,
+            dispersion=rss / n if n else float("nan"),
             deviance=rss,
             scale=solved["sigma2"],
         )

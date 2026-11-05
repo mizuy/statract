@@ -18,11 +18,25 @@ from .design import ColumnRef, column_series
 from .fit import Fit, _xtwx_inv
 
 
+def _active(fit) -> np.ndarray:
+    """Rows that are observations: those with nonzero prior weight.
+
+    Zero-weight rows of a :class:`Fit` are not observations (``lm`` and
+    ``glm``), so the estimators below leave them out and agree with a fit on
+    the other rows. Other fits keep every row.
+    """
+    n = int(np.asarray(fit.x).shape[0])
+    if not isinstance(fit, Fit):
+        return np.ones(n, dtype=bool)
+    return np.asarray(fit.weights, dtype=float) != 0.0
+
+
 def meat(fit: Fit, cluster: np.ndarray | None = None) -> np.ndarray:
     """Empirical variance of the scores, divided by ``n``."""
-    scores = fit.score_contributions()
+    active = _active(fit)
+    scores = fit.score_contributions()[active]
     if cluster is not None:
-        scores = _sum_by_cluster(scores, cluster)
+        scores = _sum_by_cluster(scores, np.asarray(cluster)[active])
     return scores.T @ scores / fit.n_obs
 
 
@@ -73,6 +87,8 @@ def cluster_covariance(
     if is_cox and kind not in {"HC0", "HC1"}:
         raise ValueError("a Cox fit takes cluster kind HC0 or HC1")
     groups = _as_groups(fit, cluster, data)
+    active = _active(fit)
+    groups = groups[active]
     if any(_has_null(groups[:, j]) for j in range(groups.shape[1])):
         raise ValueError("cluster has missing values; drop those rows before fitting")
     leverage_power = {"HC2": 0.5, "HC3": 1.0}.get(kind)
@@ -84,6 +100,7 @@ def cluster_covariance(
         scores = scores.reshape(-1, 1)
     if is_cox:
         scores = scores * np.asarray(fit.weights, dtype=float)[:, None]
+    scores = scores[active]
     n, k = scores.shape
     codes = [_label_codes(groups[:, j]) for j in range(groups.shape[1])]
     meat_total = np.zeros((k, k))
@@ -100,7 +117,7 @@ def cluster_covariance(
                 summed = np.zeros((n_cells, k))
                 np.add.at(summed, cells, scores)
             else:
-                summed = _leverage_adjusted_sums(fit, scores, cells, n_cells, leverage_power)
+                summed = _leverage_adjusted_sums(fit, scores, cells, n_cells, leverage_power, active)
             factor = n_cells / (n_cells - 1.0) if adjust and n_cells > 1 else 1.0
             meat_total += sign * factor * (summed.T @ summed)
     meat_matrix = meat_total / n
@@ -127,10 +144,11 @@ def bootstrap_covariance(
     """
     rng = np.random.default_rng(seed)
     coefs = np.zeros((n, len(fit.coefficients)))
+    rows = np.flatnonzero(_active(fit))
     if kind == "xy":
         for draw in range(n):
             if cluster is None:
-                index = rng.integers(0, fit.n_obs, size=fit.n_obs)
+                index = rows[rng.integers(0, rows.size, size=rows.size)]
             else:
                 labels = np.asarray(cluster)
                 unique = np.unique(labels)
@@ -141,9 +159,9 @@ def bootstrap_covariance(
         fitted = fit.x @ fit.coefficients
         resid = fit.working_residuals
         for draw in range(n):
-            shocks = _wild_weights(rng, fit.n_obs, wild)
+            shocks = _wild_weights(rng, fitted.shape[0], wild)
             y_star = fitted + resid * shocks
-            coefs[draw] = fit.refit_rows(np.arange(fit.n_obs), y=y_star).coefficients
+            coefs[draw] = fit.refit_rows(np.arange(fitted.shape[0]), y=y_star).coefficients
     else:
         raise ValueError("kind must be 'xy' or 'wild'")
     centered = coefs - coefs.mean(axis=0)
@@ -152,7 +170,7 @@ def bootstrap_covariance(
 
 def newey_west_covariance(fit: Fit, lags: int | None = None) -> np.ndarray:
     """Bartlett HAC covariance without prewhitening."""
-    scores = fit.score_contributions()
+    scores = fit.score_contributions()[_active(fit)]
     n, k = scores.shape
     if lags is None:
         lags = int(np.floor(4 * (n / 100) ** (2 / 9)))
@@ -196,13 +214,17 @@ def _hc_omega(fit: Fit, kind: str) -> np.ndarray:
         raise ValueError(f"unknown HC kind {kind!r}")
     resid = _score_scalars(fit.score_contributions(), fit.x)
     squared = resid**2
-    n, k = fit.x.shape
+    # Zero-weight rows are not observations: they count neither in ``n`` nor
+    # in the meat.
+    active = _active(fit)
+    k = fit.x.shape[1]
+    n = int(np.count_nonzero(active))
     if kind == "HC0":
         return squared
     if kind == "HC1":
         return squared * n / (n - k)
     if kind == "const":
-        return np.full(n, float(np.sum(squared)) / (n - k))
+        return np.where(active, float(np.sum(squared)) / (n - k), 0.0)
     leverage = np.asarray(fit.hat_values, dtype=float)
     complement = 1.0 - leverage
     if kind == "HC2":
@@ -248,7 +270,7 @@ def _label_codes(labels: np.ndarray) -> np.ndarray:
 
 
 def _leverage_adjusted_sums(
-    fit: Fit, scores: np.ndarray, cells: np.ndarray, n_cells: int, power: float
+    fit: Fit, scores: np.ndarray, cells: np.ndarray, n_cells: int, power: float, active: np.ndarray
 ) -> np.ndarray:
     """Cluster score sums with the HC2 (``power=1/2``) or HC3 (``power=1``) adjustment.
 
@@ -259,8 +281,8 @@ def _leverage_adjusted_sums(
     (Bell & McCaffrey 2002, eq. 3; Cameron & Miller 2015, sec. VI.B). A
     zero eigenvalue of ``I - H_gg`` is dropped (generalised inverse).
     """
-    x = np.asarray(fit.x, dtype=float)
-    weights = np.asarray(fit.weights if fit.family == "ols" else fit.working_weights, dtype=float)
+    x = np.asarray(fit.x, dtype=float)[active]
+    weights = np.asarray(fit.weights if fit.family == "ols" else fit.working_weights, dtype=float)[active]
     root_w = np.sqrt(np.clip(weights, 0.0, None))
     weighted_x = x * root_w[:, None]
     resid = _score_scalars(scores, x)
@@ -297,9 +319,10 @@ def _as_groups(fit: Fit, cluster: ColumnRef | Sequence[ColumnRef] | np.ndarray, 
         groups = np.asarray(cluster)
         if groups.ndim == 1:
             groups = groups.reshape(-1, 1)
-        if groups.shape[0] == fit.n_obs:
+        n_rows = int(np.asarray(fit.x).shape[0])
+        if groups.shape[0] == n_rows:
             return groups
-        if groups.shape[0] > fit.n_obs and fit.row_index.max() < groups.shape[0]:
+        if groups.shape[0] > n_rows and fit.row_index.max() < groups.shape[0]:
             return groups[fit.row_index]
         raise ValueError("cluster array must align with the fitted rows or the original frame")
     if data is None:

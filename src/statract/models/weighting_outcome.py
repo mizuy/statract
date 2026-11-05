@@ -119,7 +119,7 @@ def weighted_glm(
     ps = _PsParts.from_weights(weights)
     frame = weights.data[idx].with_columns(pl.Series(_WEIGHT_COLUMN, ps.w * ps.s))
     fit = fit_glm(frame, formula, family=family, weights=_WEIGHT_COLUMN)
-    if fit.n_obs != idx.size:
+    if fit.x.shape[0] != idx.size:
         raise ValueError(
             "the outcome formula drops rows that have a weight; drop those rows before propensity_weights"
         )
