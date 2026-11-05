@@ -106,6 +106,8 @@ print(model.tidy())
 
 `survival_curve` の既定は Kaplan–Meier で、信頼区間は log です。Nelson–Aalen は `kind="nelson_aalen"` です。Cox の同順位は既定で Efron、`ties="breslow"` も選べます。層は `strata(arm)` か `strata=`、重みは `weights=` です。加速故障時間は `accelerated_failure(frame, "Surv(time, event) ~ x")`、Fine–Gray の展開は `fine_gray(frame, "Surv(time, status) ~ x", cause=1)` です。変量効果（共有 frailty）つきの Cox は `cox_mixed(frame, "Surv(time, status) ~ x + (1 | hospital)")`（`coxme::coxme`）です。交差・入れ子のグループと変量傾きも書けます。frailty の分散は `fit.variance_table()`、施設ごとの BLUP は `fit.random_effects()` です。
 
+生存の関数では、時間・開始時間・状態の NaN も null と同じく欠損として扱い、その行を落とします。Cox の `fit.predict(new, kind=...)` は、`new` のうちモデルが使える行ごとに 1 つの値を返します。共変量が欠損した行は線形予測子と同じく除かれ、`fit.survival_curve(new)` の `time` も同じ行の時間です。オフセット（`offset(...)` か `offset=`）は、その列が `new` にあれば足します。`times=` は各行の追跡時間の代わりに使い、1 つだけ渡すと全行に当てます。
+
 競合リスクの累積発生と Gray 検定は `cumulative_incidence(frame, "time", "status", by="arm")` です（`cmprsk::cuminc`）。`.tests` が原因ごとの検定、`.at([1, 3])` が時点の値です。`crr` と同じ Fine–Gray 回帰は `fine_gray_regression(frame, "Surv(time, status) ~ x + arm", cause=1)` で、SE は打ち切り分布の推定を含むサンドイッチです。`.predict(new)` が共変量ごとの CIF を返します。
 
 連続変数の非線形は、式に `rcs(age, 4)`（`rms::rcs`）、`ns(age, df = 3)`、`bs(age, df = 5)` と書きます。`spline_test(fit, "rcs(age, 4)")` が非線形の検定、`spline_effect(fit, data, "age", at=..., reference=60, exponentiate=True)` が基準値に対する OR や HR の曲線、`plot_spline_effect` がその図です。詳しくは [Wilkinson 式](formula.md#splines) です。

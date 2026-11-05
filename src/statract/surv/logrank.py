@@ -14,6 +14,7 @@ import polars as pl
 from scipy import stats
 
 from ..models.design import ColumnRef, column_series
+from .spec import present
 
 
 @dataclass(frozen=True)
@@ -49,10 +50,10 @@ def log_rank(
     event_s = column_series(data, event)
     group_s = column_series(data, by)
     stratum_s = column_series(data, strata) if strata is not None else None
-    mask = time_s.is_not_null() & event_s.is_not_null() & group_s.is_not_null()
+    # A NaN time or status is missing, as a null is.
+    keep = present(time_s) & present(event_s) & group_s.is_not_null().to_numpy()
     if stratum_s is not None:
-        mask = mask & stratum_s.is_not_null()
-    keep = mask.to_numpy()
+        keep &= stratum_s.is_not_null().to_numpy()
     kept = pl.Series(keep)
     times = time_s.filter(kept).to_numpy().astype(float)
     events = np.asarray(event_s.filter(kept).to_numpy())

@@ -11,7 +11,7 @@ import polars as pl
 
 from ..models.design import ColumnRef, column_series
 from ..models.formula import is_formula, model_matrix
-from .spec import _covariate_names
+from .spec import _covariate_names, present
 
 
 def fine_gray(
@@ -46,6 +46,12 @@ def fine_gray(
         return _fine_gray_formula(data, str(time), cause, entry=entry)
     if event is None or cause is None:
         raise ValueError("time, event, and cause are required when time is a column")
+    # A row with a null or NaN time or entry has no follow-up; drop it.
+    usable = present(column_series(data, time))
+    if entry is not None:
+        usable &= present(column_series(data, entry))
+    if not bool(usable.all()):
+        data = data.filter(pl.Series(usable))
     time_s = column_series(data, time)
     event_s = column_series(data, event)
     stop = np.asarray(time_s.cast(pl.Float64).to_numpy(), dtype=float)
