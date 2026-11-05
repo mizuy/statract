@@ -262,8 +262,8 @@ def plotly_category_orders(df: Any, cols: list[str], *, reverse: bool = False) -
             continue
         series = df[col]
         dtype = getattr(series, "dtype", None)
-        if dtype is not None and dtype.__class__.__name__ in {"Enum", "Categorical"}:
-            cats = series.cat.get_categories().to_list()
+        if dtype is not None and dtype.__class__.__name__ == "Enum":
+            cats = dtype.categories.to_list()
         else:
             cats = series.drop_nulls().unique().to_list()
             with suppress(TypeError):

@@ -75,10 +75,7 @@ def _factor_levels(series: pl.Series, override: Sequence[object] | None) -> list
     dtype = series.dtype
     if isinstance(dtype, pl.Enum):
         return [_level_key(v) for v in dtype.categories.to_list()]
-    if isinstance(dtype, pl.Categorical):
-        cats = dtype.categories
-        if cats is not None:
-            return [_level_key(v) for v in cats.to_list()]
+    # A Categorical has no fixed level order in Polars 2, so it sorts like a string.
     values = series.drop_nulls().unique().to_list()
     return sorted(_level_key(v) for v in values)
 
