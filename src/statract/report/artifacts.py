@@ -21,6 +21,8 @@ _FLOW_EXCLUDED_RE = re.compile(r"^\s+excluded:\s*(.+)$")
 _FLOW_CHECK_RE = re.compile(r"^✔\s+(.+)$")
 _FLOW_TOTAL_RE = re.compile(r"^✔\s+Total:\s*(.+)$")
 _FLOW_NUM_RE = re.compile(r"\d+")
+_HEADING_RE = re.compile(r"^#{1,6}(?:[ \t]+(.*)|$)")
+_FENCE_RE = re.compile(r"^(`{3,}|~{3,})")
 
 
 def report_body_path(out_dir: str | Path) -> Path:
@@ -37,14 +39,28 @@ def write_report_body(out_dir: str | Path, lines: list[str]) -> Path:
     """Write the main Markdown fragment imported by `{stem}_report.md`.
 
     Generated fragments should not own report structure. Leading Markdown heading
-    markers are stripped so the task-level report can control section hierarchy.
+    markers (one to six ``#`` followed by a space) are stripped so the task-level
+    report can control section hierarchy. Lines inside fenced code blocks and
+    text such as ``#1 risk factor`` are kept as they are.
     """
     path = report_body_path(out_dir)
     plain_lines = []
+    fence: str | None = None
     for line in lines:
         stripped = line.lstrip()
-        if stripped.startswith("#"):
-            plain_lines.append(stripped.lstrip("#").strip())
+        fence_match = _FENCE_RE.match(stripped)
+        if fence is not None:
+            if fence_match and fence_match.group(1)[0] == fence[0] and len(fence_match.group(1)) >= len(fence):
+                fence = None
+            plain_lines.append(line)
+            continue
+        if fence_match:
+            fence = fence_match.group(1)
+            plain_lines.append(line)
+            continue
+        heading = _HEADING_RE.match(stripped)
+        if heading:
+            plain_lines.append(re.sub(r"(^|[ \t]+)#+[ \t]*$", "", (heading.group(1) or "").strip()))
         else:
             plain_lines.append(line)
     path.write_text("\n".join(plain_lines), encoding="utf-8")
@@ -367,11 +383,12 @@ def csv_companion_markdown(
     can_embed_rows = max_rows is None or height <= max_rows
     can_embed_columns = max_columns is None or width <= max_columns
     if can_embed_rows and can_embed_columns:
-        df = pl.read_csv(path)
+        # Read every column as text so formatted cells ("0.10", "007") stay as written.
+        df = pl.read_csv(path, infer_schema=False)
         return github_markdown_table_from_polars(df, max_rows=None)
 
     n_head = min(max(head_rows, 0), height)
-    head = pl.read_csv(path, n_rows=head_rows)
+    head = pl.read_csv(path, n_rows=head_rows, infer_schema=False)
     lines = [
         f"`{path.name}` は大きいため、全文は CSV を参照する。",
         "",

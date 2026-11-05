@@ -16,7 +16,7 @@ Figures for estimation results: forest plots of coefficients, ORs, and HRs, Kapl
 | Love plot | `plot_love`, `PropensityWeights.love_plot`, `MatchedSample.love_plot` | `statract.viz.balance`, `statract.models.matching` |
 | Funnel / image concatenation | `funnel_plot`, `concat_images` | `statract.viz.misc` |
 
-For black-and-white figures in a paper, use `style="bw"` for both forest and Kaplan–Meier plots. For coefficient plots, use the forest plot with `layout="table"`. `plot_forest(..., panel="model")` stacks one panel per value of that column, with aligned table columns.
+For black-and-white figures in a paper, use `style="bw"` for both forest and Kaplan–Meier plots. For coefficient plots, use the forest plot with `layout="table"`. `plot_forest(..., panel="model")` stacks one panel per value of that column, with aligned table columns; a null panel name is an error. In `plot_survival`, each curve stops at the last follow-up time of its group, and rows whose `hue` is null are left out (no `None` curve). Forest and balance plots keep a Japanese font set by `japanize-matplotlib` as a fallback, so Japanese labels render.
 
 The numbers behind survival curves (`survival_curve`, Cox, AFT, Fine–Gray) are in `statract.surv`. `statract.viz.km` only draws the figures.
 

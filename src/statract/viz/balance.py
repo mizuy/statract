@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 
-from .forest import _FOREST_RC
+from .forest import _forest_rc
 
 _UNADJUSTED_COLOR = "#E18727"
 _ADJUSTED_COLOR = "#0073C2"
@@ -88,7 +88,7 @@ def plot_love(
     if xlabel is None:
         stat = "Standardized Mean Differences"
         xlabel = f"Absolute {stat}" if absolute else stat
-    with plt.rc_context(_FOREST_RC):
+    with plt.rc_context(_forest_rc()):
         if figsize is None:
             figsize = (5.6, max(1.8, 0.28 * len(labels) + 1.0))
         fig, ax = plt.subplots(figsize=figsize)

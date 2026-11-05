@@ -36,10 +36,10 @@ def agg_size(expr: pl.Expr) -> pl.Expr:
         │ ---   │
         │ u32   │
         ╞═══════╡
-        │ 3     │
+        │ 4     │
         └───────┘
     """
-    return expr.count()
+    return expr.len()
 
 
 def agg_count(expr: pl.Expr) -> pl.Expr:
@@ -101,17 +101,27 @@ def _fixed(x: pl.Expr, precision: int = 1) -> pl.Expr:
 
     Trailing zeros are kept (``11.00``, not ``11.0``), like R's ``sprintf("%.2f")``.
     Ties round half to even on the scaled value. Null and NaN give null.
+    Values too large for a 128-bit integer once scaled use Python's ``%f``
+    formatting instead of becoming null.
     """
     scale = 10**precision
-    scaled = (x * scale).round(0).cast(pl.Int64, strict=False)
+    scaled = (x * scale).round(0).cast(pl.Int128, strict=False)
     whole = (scaled.abs() // scale).cast(pl.String)
     if precision > 0:
         frac = (scaled.abs() % scale).cast(pl.String).str.zfill(precision)
         body = pl.concat_str([whole, pl.lit("."), frac])
     else:
         body = whole
+    huge = x.map_elements(lambda v: f"{v:.{precision}f}", return_dtype=pl.String)
     # Keep the input's output name: `then` decides it, so the plain branch goes first.
-    return pl.when(scaled >= 0).then(body).otherwise(pl.concat_str([pl.lit("-"), body]))
+    return (
+        pl.when(scaled >= 0)
+        .then(body)
+        .when(scaled < 0)
+        .then(pl.concat_str([pl.lit("-"), body]))
+        .when(x.is_finite())
+        .then(huge)
+    )
 
 
 def _format_n(n: pl.Expr, precision: int = 1) -> pl.Expr:

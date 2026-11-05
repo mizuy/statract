@@ -601,7 +601,8 @@ def plot_survival(
         status: Event status column expression (True = event occurred). Required if stime is None.
         stime: Survival time column expression (positive = event, negative = censored).
                Alternative to time/status. If specified, time and status must be None.
-        hue: Group column expression for stratified plots
+        hue: Group column expression for stratified plots. Rows whose
+            group is null are left out (no "None" curve).
         cdf: If True, plot cumulative incidence instead of survival
         at_risk_counts: If True (default), add a number-at-risk table below the
             plot (survminer-style). Gallery / example KM figures should keep
@@ -664,7 +665,8 @@ def plot_survival(
         df = df.with_columns(_col(time).alias(time_col), _col(status).alias(status_col))
 
     if hue is not None:
-        df = df.with_columns(_col(hue).alias(hue_col))
+        # Rows with a missing group label belong to no curve.
+        df = df.with_columns(_col(hue).alias(hue_col)).filter(pl.col(hue_col).is_not_null())
 
     if labels is not None:
         assert hue is not None
@@ -684,6 +686,8 @@ def plot_survival(
             else:
                 label = name
             curves.append(_km_from_group(group_df, time_col, status_col, label))
+    if not curves:
+        raise ValueError("no rows with a non-null hue to plot")
 
     risk_ax = None
     created_fig = ax is None
@@ -712,11 +716,14 @@ def plot_survival(
         extra = dict(plot_defaults)
         extra.pop("color", None)
         extra.pop("linestyle", None)
+        # Each curve stops at its own last follow-up time, as survminer does.
+        durations = curve.durations[np.isfinite(curve.durations)]
+        curve_end = float(durations.max()) if durations.size else time_max
         _plot_km_curve(
             ax,
             curve,
             cdf=cdf,
-            time_max=time_max,
+            time_max=curve_end,
             color=plot_defaults.get("color", colors[i]),
             linestyle=plot_defaults.get("linestyle", linestyles[i]),
             censor_styles=censor_styles,

@@ -6,6 +6,7 @@ rpy2_arrow.polars for efficient data transfer between Python (Polars) and R.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -365,13 +366,8 @@ def _assign_recursive(name: str, obj: Any, *, is_top_level: bool = True) -> None
         return
 
     # Handle basic types
-    if isinstance(obj, str):
-        escaped = _escape_r_string(obj)
-        run(f'{name} <- "{escaped}"')
-    elif isinstance(obj, bool):
-        run(f"{name} <- {'TRUE' if obj else 'FALSE'}")
-    elif isinstance(obj, (int, float)):
-        run(f"{name} <- {obj}")
+    if isinstance(obj, (str, bool, int, float)):
+        run(f"{name} <- {_r_scalar_literal(obj)}")
     else:
         # Final fallback: try to assign as-is
         robjects.r.assign(name, obj)
@@ -665,6 +661,39 @@ def _get_recursive_impl(robj: Any) -> Any:
     return converted
 
 
+_R_INT_MAX = 2**31 - 1
+
+
 def _escape_r_string(value: str) -> str:
-    """Escape special characters in R string literals."""
-    return value.replace('"', '\\"').replace("\\", "\\\\")
+    """Escape special characters in R string literals.
+
+    The backslash goes first, so the backslashes added for quotes are not
+    doubled again.
+    """
+    return (
+        value.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+    )
+
+
+def _r_scalar_literal(obj: str | bool | int | float) -> str:
+    """R source for a Python scalar.
+
+    ``int`` becomes an R integer (``42L``); an int outside R's integer range
+    becomes a double, as R does for such a literal. ``float`` keeps full
+    precision; NaN, inf and -inf become ``NaN``, ``Inf`` and ``-Inf``.
+    """
+    if isinstance(obj, str):
+        return f'"{_escape_r_string(obj)}"'
+    if isinstance(obj, bool):
+        return "TRUE" if obj else "FALSE"
+    if isinstance(obj, int):
+        return f"{obj}L" if abs(obj) <= _R_INT_MAX else f"{float(obj)!r}"
+    if math.isnan(obj):
+        return "NaN"
+    if math.isinf(obj):
+        return "Inf" if obj > 0 else "-Inf"
+    return repr(float(obj))

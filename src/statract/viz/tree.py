@@ -78,11 +78,23 @@ def _format_p(p: float) -> str:
     return "p < 0.001" if p < 0.001 else f"p = {p:.3f}"
 
 
+def _format_cut(value: float, digits: int) -> str:
+    """The split point with ``digits`` significant figures when that is exact.
+
+    Otherwise (or when ``.{digits}g`` would use e-notation) it is the shortest
+    plain decimal that reads back as the same float, so the label is the real cut.
+    """
+    text = f"{value:.{digits}g}"
+    if "e" in text or float(text) != value:
+        text = np.format_float_positional(value, trim="-")
+    return text
+
+
 def _edge_labels(node: _Node, digits: int) -> tuple[str, str]:
     split = node.split
     assert split is not None
     if split.break_at is not None:
-        cut = f"{split.break_at:.{digits}g}"
+        cut = _format_cut(float(split.break_at), digits)
         return f"<= {cut}", f"> {cut}"
     return ", ".join(split.left_levels or ()), ", ".join(split.right_levels or ())
 
@@ -102,7 +114,9 @@ def plot_tree(
 
     ``terminal="auto"`` uses a stacked bar when the outcome is 0/1 and a
     boxplot otherwise. With ``path`` the figure is saved and the path returned;
-    without it the matplotlib ``Figure`` is returned.
+    without it the matplotlib ``Figure`` is returned. A numeric split is
+    labelled with ``digits`` significant figures when that shows the cut
+    exactly, and with all the digits it needs otherwise.
     """
     _root, leaves, inner = _place(tree.root)
     y = np.asarray(tree.y, dtype=float)
