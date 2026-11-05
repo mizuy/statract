@@ -219,9 +219,11 @@ class GeneralFit:
     def check(self) -> pl.DataFrame:
         """Effective degrees of freedom against the basis size, plus a k-index.
 
-        The k-index is the residual variance divided by the variance of residuals
-        differenced along the smooth's covariate. Values well below 1 say ``k``
-        is too small.
+        The k-index (Wood 2017, section 5.9) orders the residuals by the
+        smooth's covariate and divides half the mean squared first difference
+        by the residual variance estimate (residual sum of squares over
+        ``n - edf``). It is near 1 for an adequate basis; values well below 1
+        say ``k`` is too small.
         """
         eta = self.x @ self.coefficients
         if self.offset is not None:
@@ -235,7 +237,9 @@ class GeneralFit:
                     "term": block.name,
                     "k": k,
                     "edf": float(edf),
-                    "k_index": _k_index(resid, self.kept.get(block.name.split("[", 1)[0])),
+                    "k_index": _k_index(
+                        resid, self.kept.get(block.name.split("[", 1)[0]), self.n_obs - self.edf
+                    ),
                 }
             )
         return pl.DataFrame(rows)
@@ -482,9 +486,7 @@ def fit_general(
         raise ValueError("gam needs at least one smooth")
     used = _used_columns(smooths, predictors)
     y_name = column_series(data, outcome).name
-    keep = np.ones(data.height, dtype=bool)
-    for name in [y_name, *used, *([weights] if weights else []), *([offset] if offset else [])]:
-        keep &= column_series(data, name).is_not_null().to_numpy()
+    keep = complete_rows(data, [y_name, *used, *([weights] if weights else []), *([offset] if offset else [])])
     kept = {name: np.asarray(column_series(data, name).filter(pl.Series(keep)).to_numpy()) for name in used}
     y = np.asarray(column_series(data, outcome).filter(pl.Series(keep)).to_numpy(), dtype=float)
     weight_values = _positive_weights(data, weights, keep)
@@ -1519,6 +1521,18 @@ def _offset_vector(fit: GeneralFit, data: pl.DataFrame | None, n: int) -> np.nda
     return np.asarray(column_series(data, fit.offset_name).to_numpy(), dtype=float)
 
 
+def complete_rows(data: pl.DataFrame, names: list[ColumnRef]) -> np.ndarray:
+    """Rows with no null, and no float NaN, in any of ``names``."""
+    keep = np.ones(data.height, dtype=bool)
+    for name in names:
+        series = column_series(data, name)
+        missing = series.is_null()
+        if series.dtype.is_float():
+            missing = missing | series.is_nan().fill_null(False)
+        keep &= ~missing.to_numpy()
+    return keep
+
+
 def _positive_weights(data: pl.DataFrame, name: str | None, keep: np.ndarray) -> np.ndarray | None:
     if name is None:
         return None
@@ -1605,7 +1619,15 @@ def _effect_grid(kept: dict[str, np.ndarray], block: _Block, n: int) -> dict[str
     return grid
 
 
-def _k_index(resid: np.ndarray, covariate: np.ndarray | None) -> float:
+def _k_index(resid: np.ndarray, covariate: np.ndarray | None, residual_df: float) -> float:
+    """Wood's (2017, section 5.9) k-index for one smooth.
+
+    The residuals are ordered by the covariate. The numerator is the mean
+    squared first difference over 2; the denominator is the residual variance
+    estimate, the residual sum of squares over ``residual_df``. Residual
+    pattern left along the covariate makes neighbours alike, so the
+    differences shrink and the index falls below 1.
+    """
     if covariate is None or covariate.dtype.kind not in {"f", "i", "u"}:
         return float("nan")
     order = np.argsort(np.asarray(covariate, dtype=float), kind="mergesort")
@@ -1613,10 +1635,10 @@ def _k_index(resid: np.ndarray, covariate: np.ndarray | None) -> float:
     if ordered.size < 3:
         return float("nan")
     differenced = np.diff(ordered)
-    denom = float(np.var(differenced))
-    if denom <= 0:
+    variance = float(np.sum(ordered**2)) / max(residual_df, 1.0)
+    if variance <= 0:
         return float("nan")
-    return float(np.var(ordered) / denom)
+    return float(np.mean(differenced**2) / 2 / variance)
 
 
 def _rsquared(left: np.ndarray, right: np.ndarray) -> float:

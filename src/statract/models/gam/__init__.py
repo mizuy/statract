@@ -223,9 +223,12 @@ def gam(
             weights=weights,
             offset=offset,
         )
+    from .general import complete_rows
+
     spec = smooths[0]
-    y = np.asarray(column_series(data, outcome).to_numpy(), dtype=float)
-    x_raw = np.asarray(column_series(data, spec.column).to_numpy(), dtype=float)
+    keep = pl.Series(complete_rows(data, [outcome, spec.column]))
+    y = np.asarray(column_series(data, outcome).filter(keep).to_numpy(), dtype=float)
+    x_raw = np.asarray(column_series(data, spec.column).filter(keep).to_numpy(), dtype=float)
     knots = np.quantile(np.unique(x_raw), np.linspace(0, 1, spec.k))
     basis, penalty = _cr_basis(x_raw, knots)
     constrained, q2, penalty_c = _absorb_constraint(basis, penalty)

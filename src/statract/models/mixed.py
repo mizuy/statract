@@ -67,6 +67,7 @@ class MixedFit:
     theta: float | None = None
     theta_std_error: float | None = None
     zero_part: str | None = None
+    link: str | None = None
     zero_coefficients: np.ndarray | None = None
     zero_covariance: np.ndarray | None = None
     zero_names: list[str] | None = None
@@ -177,7 +178,7 @@ class MixedFit:
                 eta = eta + self._new_offset(data, design)
         if kind == "link" or self.family == "gaussian":
             return eta
-        mean = _inv_link(self.family, eta)
+        mean = _inv_link(self.family, eta, self.link)
         if self.zero_part is None:
             return mean
         if data is None:
@@ -464,6 +465,7 @@ def _fit_lme(
         design=design,
         family=family,
         engine="lme",
+        link=None if family == "gaussian" else (link or _DEFAULT_LINKS[family]),
         n_agq=1 if family == "gaussian" else int(n_agq),
         formula=str(raw.formula) if getattr(raw, "formula", None) else formula,
         raw=raw,
@@ -533,6 +535,7 @@ def _fit_laplace(
         design=design,
         family=family,
         engine="laplace",
+        link=link or _DEFAULT_LINKS[family],
         n_agq=int(n_agq),
         formula=formula,
         offset=offset,
@@ -790,14 +793,24 @@ def _ranef_frame(ranef: Sequence[tuple[Any, ...]], group_name: str) -> pl.DataFr
     return frame.sort("blup")
 
 
-def _inv_link(family: str, eta: np.ndarray) -> np.ndarray:
-    if family == "binomial":
+_DEFAULT_LINKS = {"binomial": "logit", "poisson": "log", "negative_binomial": "log", "gamma": "inverse"}
+
+
+def _inv_link(family: str, eta: np.ndarray, link: str | None = None) -> np.ndarray:
+    name = (link or _DEFAULT_LINKS.get(family, "identity")).lower()
+    if name == "logit":
         return 1.0 / (1.0 + np.exp(-eta))
-    if family in COUNT_FAMILIES:
+    if name == "probit":
+        return stats.norm.cdf(eta)
+    if name == "cloglog":
+        return -np.expm1(-np.exp(eta))
+    if name == "log":
         return np.exp(eta)
-    if family == "gamma":
+    if name == "inverse":
         return 1.0 / eta
-    return eta
+    if name == "identity":
+        return eta
+    raise ValueError(f"unknown link {link!r}")
 
 
 def _column_name(data: pl.DataFrame, col: ColumnRef) -> str:
