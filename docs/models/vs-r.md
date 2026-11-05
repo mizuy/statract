@@ -104,7 +104,7 @@
 
 rms の行は `rms.json`（rms 6.7-1、R 4.3.3）です。再生成は `Rscript tests/r_oracle/scripts/rms.R` です。R の乱数は再現しないので、スクリプトは `set.seed` のあとの `sample(n, replace=TRUE)` を B 回くり返して再標本を作り、`predab.resample(debug=TRUE)` が表示する訓練標本の行と一致することを確かめてから書き出します。rms の `lrm.fit` は −2 log L の変化が 0.025 未満で、`cph` は相対変化 1e-4 で止まるので、`statract` も同じところで止めます。ロジスティックと Cox は、どちらも素の Newton–Raphson です。ロジスティックは、変化が 0.025 未満になったあと、もう 1 歩進めると rms の係数と一致します（rtol 1e-12）。Cox は、対数部分尤度の相対変化が 1e-4 未満になった点で止めると一致します（rtol 1e-12）。係数は `fit_glm` や `cox_ph` と小さな標本で 1e-4 程度ずれることがあります。`seed=` だけで呼ぶと numpy の乱数を使うので、値は R と一致しません。
 
-ガンマ GLM の対数尤度は statsmodels の密度を返すため、fixture の比較には入れていません。係数、SE、HC0 は比べています。
+ガンマ GLM の対数尤度は statsmodels の密度を返すため、fixture の比較には入れていません。係数、SE、HC0 は比べています。AIC と BIC は R の `glm` と同じく分散パラメータを 1 つ数えますが、対数尤度が違うので値は R と一致しません。`fit_ols` とガウスの `fit_glm` の AIC と BIC も残差分散を 1 つ数え、R の `AIC(lm)`、`AIC(glm)` と同じです。
 
 ## 呼び出せるが、fixture ではまだ固定していないもの
 

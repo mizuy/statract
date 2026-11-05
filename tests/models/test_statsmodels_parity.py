@@ -1,6 +1,8 @@
 """Fits that used to call statsmodels, checked against values it produced.
 
 The expected numbers come from statsmodels 0.15.0 on the same seeded data.
+AIC and BIC count the residual variance as a parameter, as R's ``AIC(lm)``
+and ``AIC(glm)`` do, so they are statsmodels' values plus 2 and ``log(n)``.
 """
 
 from __future__ import annotations
@@ -52,8 +54,8 @@ def test_gaussian_glm_with_weights_and_offset() -> None:
     assert fit.log_likelihood == pytest.approx(-90.47812467951276, rel=1e-12)
     assert fit.deviance == pytest.approx(81.70029366331164, rel=1e-12)
     assert fit.scale == pytest.approx(1.433338485321257, rel=1e-12)
-    assert fit.aic == pytest.approx(186.95624935902552, rel=1e-12)
-    assert fit.bic == pytest.approx(193.23928304569182, rel=1e-12)
+    assert fit.aic == pytest.approx(188.95624935902552, rel=1e-12)
+    assert fit.bic == pytest.approx(197.3336276079139, rel=1e-12)
     assert fit.residual_df == 57
 
 
@@ -65,7 +67,7 @@ def test_gaussian_glm_rank_deficient_uses_minimum_norm() -> None:
         rtol=1e-10,
     )
     assert fit.log_likelihood == pytest.approx(-90.47812467951276, rel=1e-12)
-    assert fit.aic == pytest.approx(186.95624935902552, rel=1e-12)
+    assert fit.aic == pytest.approx(188.95624935902552, rel=1e-12)
     assert fit.residual_df == 57
 
 
@@ -78,8 +80,8 @@ def test_gaussian_glm_rank_deficient_uses_minimum_norm() -> None:
                 "coef": [0.8798916511029344, -0.19263163020708973, -0.6750207749591686, 0.28975751454498955],
                 "se": [0.1270582365903756, 0.07384467553715358, 0.14098089824563553, 0.05338092865439118],
                 "llf": -82.39498978052873,
-                "aic": 170.78997956105746,
-                "bic": 177.07301324772376,
+                "aic": 172.78997956105746,
+                "bic": 181.16735780994586,
                 "r2": 0.4643784239669698,
                 "adj_r2": 0.4455846844570389,
                 "f": 24.709208282980907,
@@ -91,8 +93,8 @@ def test_gaussian_glm_rank_deficient_uses_minimum_norm() -> None:
                 "coef": [0.8702934761260745, -0.1700336895664365, -0.6407377379498975, 0.3006703588170242],
                 "se": [0.12838006815915118, 0.07341582258588272, 0.13872318983881565, 0.05396443028865167],
                 "llf": -84.9505722048853,
-                "aic": 175.9011444097706,
-                "bic": 182.1841780964369,
+                "aic": 177.9011444097706,
+                "bic": 186.278522658659,
                 "r2": 0.46930021608380157,
                 "adj_r2": 0.45067917103411037,
                 "f": 25.20267873427355,

@@ -40,6 +40,7 @@ _FUNCS = {"log", "exp", "sqrt", "log10", "abs", "I"}
 # Covariance structures for random-effect terms, as glmmTMB's ar1(time + 0 | g).
 _STRUCTURES = {"ar1"}
 _PREC = {"^": 4, "*": 3, "/": 3, "+": 2, "-": 2}
+_UNARY_PREC = 3.5
 
 
 @dataclass(frozen=True)
@@ -764,12 +765,14 @@ def _formula_is_factor(series: pl.Series) -> bool:
 
 
 def _formula_levels(series: pl.Series, observed: np.ndarray) -> tuple[str, ...]:
+    # Levels absent from the kept rows are dropped, as R's drop.unused.levels.
+    present = {_cell_key(value) for value in observed}
     if series.dtype == pl.Boolean:
-        return ("FALSE", "TRUE")
-    if isinstance(series.dtype, (pl.Enum, pl.Categorical)):
-        levels = _factor_levels(series, None)
+        levels = [level for level in ("FALSE", "TRUE") if level in present]
+    elif isinstance(series.dtype, (pl.Enum, pl.Categorical)):
+        levels = [level for level in _factor_levels(series, None) if level in present]
     else:
-        levels = sorted({_cell_key(value) for value in observed})
+        levels = sorted(present)
     if len(levels) < 2:
         raise ValueError(f"factor {series.name!r} needs at least two levels after dropping nulls")
     return tuple(levels)
@@ -955,9 +958,11 @@ def _deparse_at(expr: Arith, parent: int, right: bool) -> str:
     if isinstance(expr, Col):
         return expr.name
     if isinstance(expr, Unary):
-        body = _deparse_at(expr.expr, 5, False)
+        # Unary signs bind looser than ``^`` but tighter than ``*`` and ``/``.
+        body = _deparse_at(expr.expr, _UNARY_PREC, False)
         text = f"{expr.op}{body}"
-        return f"({text})" if parent > 5 or (parent == 5 and right) else text
+        exponent = parent == _PREC["^"] and right
+        return f"({text})" if parent > _UNARY_PREC and not exponent else text
     if isinstance(expr, Bin):
         prec = _PREC[expr.op]
         left = _deparse_at(expr.left, prec, False)
@@ -1153,24 +1158,27 @@ class _Parser:
         return node
 
     def _parse_arith_product(self) -> Arith:
-        node = self._parse_arith_power()
+        node = self._parse_arith_unary()
         while self._peek() in {"*", "/"}:
             op = self._pop()
-            node = Bin(op, node, self._parse_arith_power())
-        return node
-
-    def _parse_arith_power(self) -> Arith:
-        node = self._parse_arith_unary()
-        if self._peek() == "^":
-            self._pop()
-            node = Bin("^", node, self._parse_arith_unary())
+            node = Bin(op, node, self._parse_arith_unary())
         return node
 
     def _parse_arith_unary(self) -> Arith:
+        # As in R and Python, unary minus binds looser than ``^``:
+        # ``-x^2`` is ``-(x^2)``.
         if self._peek() in {"+", "-"}:
             op = self._pop()
             return Unary(op, self._parse_arith_unary())
-        return self._parse_arith_primary()
+        return self._parse_arith_power()
+
+    def _parse_arith_power(self) -> Arith:
+        node = self._parse_arith_primary()
+        if self._peek() == "^":
+            self._pop()
+            # ``^`` is right-associative and its exponent may carry a sign.
+            node = Bin("^", node, self._parse_arith_unary())
+        return node
 
     def _parse_arith_primary(self) -> Arith:
         tok = self._pop()

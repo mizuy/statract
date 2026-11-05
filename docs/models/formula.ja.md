@@ -184,7 +184,7 @@ built.offset         # offset() の和。無ければ None
 
 `offset()` の値は、引数を足したベクトルとして `FormulaModel.offset` に入ります。設計行列にはその列を作りません。`y ~ offset(z) + x` と `y ~ x * offset(z)` の列はどちらも `(Intercept)`, `x` で、offset は `z` です。`offset(z)` はドットから `z` を除きません。
 
-`fit_ols` と `fit_glm` は、式の `offset()` と引数 `offset=` を足します。`fit_mixed` も二項、Poisson、負の二項では同じです。ガウスとガンマではエラーです。当てはめた行への `predict()` は、線形予測子に offset を足します。新しいデータへの `predict(data)` は、設計行列と係数の積です。
+`fit_ols` と `fit_glm` は、式の `offset()` と引数 `offset=` を足します。`fit_mixed` も二項、Poisson、負の二項では同じです。ガウスとガンマではエラーです。当てはめた行への `predict()` は、線形予測子に offset を足します。新しいデータへの `predict(data)` も、R の `predict.glm` と同じく offset を足します。`offset=` の列と各 `offset()` 項は、その列が `data` にあれば足します。無ければ設計行列と係数の積です。予測子か offset が欠損した行は落とすので、結果は `data` より短くなることがあります。
 
 ## ドット
 
@@ -194,7 +194,7 @@ built.offset         # offset() の和。無ければ None
 
 ## 欠損と新しいデータ
 
-式が使う列に欠損がある行は、まとめて落とします。水準は残った行から決めます。`weights=` と `offset=` の欠損も、そのあとで同じ行を落とします。
+式が使う列に欠損がある行は、まとめて落とします。水準は残った行から決めます。データに無い `Enum` のカテゴリなど、残った行に現れない水準は R の `drop.unused.levels` と同じく落とし、残った最初の水準を基準にします。残った水準が 2 つ未満の因子や論理値はエラーです。`weights=` と `offset=` の欠損も、そのあとで同じ行を落とします。
 
 `fit_ols`、`fit_glm`、`fit_risk_ratio` では、重みが 0 の行は R の `lm` や `glm` と同じく観測に数えません。`n_obs`、残差自由度、対数尤度、AIC、BIC、サンドイッチ分散とクラスター分散のどれにも入らないので、その行を除いた当てはめと同じ結果になります。当てはめ値と残差はその行にも残ります。負の重みは `ValueError` です。
 

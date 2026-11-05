@@ -29,6 +29,7 @@ from .fit import (
     _hat,
     _optional_numeric,
     _outcome_array,
+    _r_binomial_loglik,
     _take_aligned,
     _xtwx_inv,
     fit_glm,
@@ -168,14 +169,13 @@ def _log_binomial(
     with np.errstate(divide="ignore", invalid="ignore"):
         working_resid = (y - mu) / mu
     log_likelihood = _r_binomial_loglik(y, mu, w)
-    wnobs = float(np.sum(w))
     return Fit(
         coefficients=coef,
         covariance=_xtwx_inv(x, working_w),
         names=list(design.names),
         n_obs=int(n),
         log_likelihood=log_likelihood,
-        residual_df=int(wnobs - rank),
+        residual_df=int(n - rank),
         family="binomial_log",
         x=x,
         y=y,
@@ -190,19 +190,8 @@ def _log_binomial(
         deviance=deviance,
         scale=1.0,
         aic=-2.0 * log_likelihood + 2.0 * rank,
-        bic=-2.0 * log_likelihood + rank * np.log(wnobs),
+        bic=-2.0 * log_likelihood + rank * np.log(n),
     )
-
-
-def _r_binomial_loglik(y: np.ndarray, mu: np.ndarray, w: np.ndarray) -> float:
-    """``logLik`` of a binomial ``glm``: weights are trial counts, rounded as ``binomial()$aic`` does.
-
-    Integer weights give the frequency-weighted log-likelihood.
-    """
-    keep = w > 0
-    trials = np.round(w[keep])
-    successes = np.round(w[keep] * y[keep])
-    return float(np.sum(stats.binom.logpmf(successes, trials, mu[keep])))
 
 
 def _binomial_deviance(y: np.ndarray, mu: np.ndarray, w: np.ndarray) -> float:

@@ -122,6 +122,23 @@ def _unknown_labels(series: pl.Series, codes: np.ndarray) -> list[str]:
     return sorted(set(labels))
 
 
+def _drop_unused(name: str, levels: Sequence[str], codes: np.ndarray) -> tuple[list[str], np.ndarray]:
+    """Drop levels absent from the kept rows, as R's ``drop.unused.levels``.
+
+    The remaining levels keep their order, so the reference is the first level
+    that occurs. Codes are renumbered to match.
+    """
+    present = np.zeros(len(levels), dtype=bool)
+    present[codes[codes >= 0]] = True
+    if not present.all():
+        remap = np.cumsum(present) - 1
+        codes = np.where(codes >= 0, remap[np.maximum(codes, 0)], -1).astype(np.int32)
+        levels = [level for level, used in zip(levels, present, strict=True) if used]
+    if len(levels) < 2:
+        raise ValueError(f"factor {name!r} needs at least two levels after dropping nulls")
+    return list(levels), codes
+
+
 def _scatter_dummies(codes: np.ndarray, n_levels: int, out: np.ndarray) -> None:
     """Write treatment-contrast columns for every level after the reference."""
     out.fill(0.0)
@@ -186,6 +203,7 @@ def design_matrix(
             if len(fac_levels) < 2:
                 raise ValueError(f"factor {name!r} needs at least two levels after dropping nulls")
             codes = _factor_codes(kept, fac_levels)
+        fac_levels, codes = _drop_unused(name, fac_levels, codes)
         planned.append((name, codes, tuple(fac_levels)))
         n_cols += len(fac_levels) - 1
 
@@ -317,6 +335,8 @@ def _design_complete(
         coded = np.column_stack(columns) if len(columns) > 1 else columns[0].reshape(-1, 1)
         if np.any(coded < 0):
             return None
+        for j, name in enumerate(fac_names):
+            fac_levels[name], coded[:, j] = _drop_unused(name, fac_levels[name], coded[:, j])
     n_cols = (1 if intercept else 0) + len(num_names)
     for name in fac_names:
         n_cols += len(fac_levels[name]) - 1
@@ -430,6 +450,20 @@ def _design_columns(
         coded_cols = [np.asarray(block[f"__c_{name}"].to_numpy(), dtype=np.int32) for name in fac_names]
         coded = np.column_stack(coded_cols) if len(coded_cols) > 1 else coded_cols[0].reshape(-1, 1)
         fac_kept = coded if bool(keep.all()) else coded[keep]
+    fac_codes: dict[str, np.ndarray] = {}
+    for j, name in enumerate(fac_names):
+        codes = np.asarray(fac_kept[:, j], dtype=np.int32)
+        if np.any(codes < 0):
+            kept = data.get_column(name).filter(pl.Series(keep))
+            if name in level_map:
+                unknown = _unknown_labels(kept, codes)
+                raise ValueError(f"factor {name!r} has levels outside levels=: {unknown[:5]}")
+            levels_now = _factor_levels(data.get_column(name), None)
+            if len(levels_now) < 2:
+                raise ValueError(f"factor {name!r} needs at least two levels after dropping nulls")
+            codes = _factor_codes(kept, levels_now)
+            fac_levels[name] = levels_now
+        fac_levels[name], fac_codes[name] = _drop_unused(name, fac_levels[name], codes)
     n_cols = (1 if intercept else 0) + len(num_names)
     for name in fac_names:
         n_cols += len(fac_levels[name]) - 1
@@ -447,18 +481,7 @@ def _design_columns(
     for name in predictors:
         if name in fac_levels:
             levels_now = fac_levels[name]
-            j = fac_names.index(name)
-            codes = np.asarray(fac_kept[:, j], dtype=np.int32)
-            if np.any(codes < 0):
-                kept = data.get_column(name).filter(pl.Series(keep))
-                if name in level_map:
-                    unknown = _unknown_labels(kept, codes)
-                    raise ValueError(f"factor {name!r} has levels outside levels=: {unknown[:5]}")
-                levels_now = _factor_levels(data.get_column(name), None)
-                fac_levels[name] = levels_now
-                if len(levels_now) < 2:
-                    raise ValueError(f"factor {name!r} needs at least two levels after dropping nulls")
-                codes = _factor_codes(kept, levels_now)
+            codes = fac_codes[name]
             reference = levels_now[0]
             specs.append(Predictor(name=name, kind="factor", levels=tuple(levels_now), reference=reference))
             width = len(levels_now) - 1
