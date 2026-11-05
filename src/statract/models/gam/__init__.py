@@ -35,9 +35,16 @@ def smooth(column: str, *, k: int = 10, basis: str = "cr", by: str | None = None
     """A univariate smooth.
 
     ``basis`` is ``cr`` (cubic regression), ``tp`` (thin plate), ``cc``
-    (cyclic cubic), ``ps`` (P-spline), or ``re`` (random effect). ``by`` is a
-    factor, which fits one smooth per level, or a numeric column, which
-    multiplies the basis.
+    (cyclic cubic), ``ps`` (P-spline), or ``re`` (random effect).
+
+    ``by`` names a column. A String, Categorical, Enum, or Boolean column is a
+    factor: one centred smooth per level, each with its own smoothing
+    parameter. Levels with fewer than 3 rows get no smooth, with a warning.
+    Any numeric column, integers included, is a numeric ``by`` ``z``: the
+    varying-coefficient term ``z * f(x)``. As in mgcv (Wood 2017, section
+    7.2.3) it is not centred, so ``f`` also carries ``z`` times a constant;
+    it is centred only when ``z`` is constant or is also in ``predictors``.
+    Cast an integer code to String to use it as a factor.
     """
     if basis not in {"cr", "tp", "cc", "ps", "re"}:
         raise ValueError("basis must be cr, tp, cc, ps, or re")
@@ -194,6 +201,14 @@ def gam(
     offsets, and ``ml`` / ``gcv`` use the penalized score. A tensor or a
     factor ``by`` has one smoothing parameter per margin or level.
     ``weights`` and ``offset`` are column names.
+
+    ``gamma`` multiplies the edf in the GCV score; values above 1 give
+    smoother fits. It is used with ``method="gcv"`` only. For REML and ML,
+    ``gamma`` other than 1 raises ``ValueError``.
+
+    ``select=True`` adds a penalty on the null space of each smooth, so a
+    smooth can be shrunk to zero; only the parametric terms then count as
+    unpenalized in the REML and ML scores.
     """
     simple = (
         family == "gaussian"
