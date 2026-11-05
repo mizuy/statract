@@ -175,6 +175,12 @@ def match_sample(
     default and measures the caliper on the probability scale.
     Exact and CEM do not need that score for their weights, so the fit waits
     until ``frame``, ``pairs``, or ``balance`` reads the distance.
+
+    ``estimand="ATE"`` is available for ``full``, ``subclass``, ``exact`` and
+    ``cem`` (subclass weights ``n_s / n_treated_s`` and ``n_s / n_control_s``);
+    ``nearest`` and ``optimal`` raise ``ValueError``. A missing treatment value
+    raises ``ValueError``; a row missing an ``exact`` or CEM variable is left
+    unmatched.
     """
     if method not in _METHODS:
         raise ValueError(f"method must be one of {sorted(_METHODS)}")
@@ -182,12 +188,24 @@ def match_sample(
         raise ValueError("estimand must be ATT, ATC, or ATE")
     if ratio < 1:
         raise ValueError("ratio must be at least 1")
+    if estimand == "ATE" and method in {"nearest", "optimal"}:
+        raise ValueError(
+            f"estimand='ATE' is not available for method='{method}' (pair matching estimates ATT or ATC); "
+            "use method='full', 'subclass', 'exact' or 'cem', or IPTW"
+        )
     treat_s = column_series(data, treatment)
+    if int(_missing_mask(treat_s).sum()) > 0:
+        raise ValueError(
+            f"treatment column '{treat_s.name}' has {int(_missing_mask(treat_s).sum())} missing value(s); "
+            "drop those rows before matching"
+        )
     treat = np.asarray(treat_s.to_numpy(), dtype=float) > 0
     names = [_column_name(data, col) for col in covariates]
     focal = treat if estimand != "ATC" else ~treat
-    # ATC swaps the roles and the returned weights are mapped back.
+    # ATC swaps the roles and the returned weights are mapped back, so the
+    # weight helpers only see ATT (on ``role``) or ATE.
     role = treat if estimand != "ATC" else ~treat
+    role_estimand = "ATE" if estimand == "ATE" else "ATT"
     requested = "logit" if distance is None else distance
     defer_distance = distance is None and method in {"exact", "cem"} and discard == "none"
     if defer_distance:
@@ -219,20 +237,20 @@ def match_sample(
             std_caliper=std_caliper, discarded=discarded, exact=_exact_labels(data, exact), seed=seed,
         )
     elif method == "exact":
-        weights, subclasses = _subclass_weights(role, _exact_labels(data, covariates if exact is None else exact), estimand="ATT")
+        weights, subclasses = _subclass_weights(role, _exact_labels(data, covariates if exact is None else exact), estimand=role_estimand)
         pairs = None
     elif method == "subclass":
         labels = _quantile_subclass(dist, subclass, discarded)
-        weights, subclasses = _subclass_weights(role, labels, estimand="ATT")
+        weights, subclasses = _subclass_weights(role, labels, estimand=role_estimand)
         pairs = None
     elif method == "cem":
         labels = _cem_labels(data, names, role, cutpoints)
-        weights, subclasses = _subclass_weights(role, labels, estimand="ATT")
+        weights, subclasses = _subclass_weights(role, labels, estimand=role_estimand)
         pairs = None
     elif method == "optimal":
         pairs, weights, subclasses = _optimal(role, dist, ratio=ratio, discarded=discarded, exact=_exact_labels(data, exact))
     else:
-        pairs, weights, subclasses = _full(role, dist, discarded=discarded)
+        pairs, weights, subclasses = _full(role, dist, discarded=discarded, estimand=role_estimand)
     if estimand == "ATC":
         weights = _swap_roles(weights, treat)
         if pairs is not None:
@@ -267,6 +285,8 @@ def match_sample(
 
 def _nearest(treat, dist, *, ratio, replace, order, caliper, std_caliper, discarded, exact, seed):
     usable = _usable_rows(dist)
+    if exact is not None:
+        usable = usable & (np.asarray(exact) > 0)
     treated = np.flatnonzero(treat & ~discarded & usable)
     control = np.flatnonzero(~treat & ~discarded & usable)
     treated = _order_units(treated, dist, order, seed)
@@ -640,7 +660,13 @@ def _scan_matrix(treated, control, dist, ratio, replace, has_limit, limit, has_e
 
 
 def estimand_weights_from_pairs(treat, pair_t, pair_c, weights, subclasses, replace):
-    """ATT weights: matched treated units weigh 1, controls weigh their reuse count."""
+    """ATT weights for k:1 matching (Stuart 2010).
+
+    Each matched treated unit weighs 1. Treated unit ``i`` matched to ``k_i``
+    controls gives each of them ``1 / k_i``; a control's weight is the sum over
+    the treated units it serves. ``_normalize_to_counts`` then rescales the
+    controls to sum to their number.
+    """
     weights[treat] = 0
     if not pair_t:
         return True
@@ -648,8 +674,9 @@ def estimand_weights_from_pairs(treat, pair_t, pair_c, weights, subclasses, repl
     pair_c = np.asarray(pair_c, dtype=int)
     treated_ids, inverse = np.unique(pair_t, return_inverse=True)
     weights[treated_ids] = 1
-    controls, counts = np.unique(pair_c, return_counts=True)
-    weights[controls] = counts.astype(float) if replace or int(counts.max()) > 1 else 1.0
+    k = np.bincount(inverse).astype(float)
+    weights[np.unique(pair_c)] = 0.0
+    np.add.at(weights, pair_c, 1.0 / k[inverse])
     # Subclass ids follow the sorted treated units. A reused control keeps the
     # id of the later treated unit, which is the last write in that order.
     subclasses[treated_ids] = np.arange(1, len(treated_ids) + 1)
@@ -660,6 +687,8 @@ def estimand_weights_from_pairs(treat, pair_t, pair_c, weights, subclasses, repl
 
 def _optimal(treat, dist, *, ratio, discarded, exact):
     usable = _usable_rows(dist)
+    if exact is not None:
+        usable = usable & (np.asarray(exact) > 0)
     treated = np.flatnonzero(treat & ~discarded & usable)
     control = np.flatnonzero(~treat & ~discarded & usable)
     if treated.size == 0 or control.size == 0:
@@ -697,8 +726,8 @@ def _optimal(treat, dist, *, ratio, discarded, exact):
     return pairs, weights, subclasses
 
 
-def _full(treat, dist, *, discarded):
-    """Full matching by minimum-cost flow, then ATT subclass weights."""
+def _full(treat, dist, *, discarded, estimand="ATT"):
+    """Full matching by minimum-cost flow, then ATT or ATE subclass weights."""
     usable = _usable_rows(dist)
     treated = np.flatnonzero(treat & ~discarded & usable)
     control = np.flatnonzero(~treat & ~discarded & usable)
@@ -710,7 +739,7 @@ def _full(treat, dist, *, discarded):
     edges, _total = full_match_edges(_pair_cost(dist, treated, control))
     pair_t = [int(treated[i]) for i, _j in edges]
     pair_c = [int(control[j]) for _i, j in edges]
-    weights, subclasses = _weights_from_full(treat, pair_t, pair_c)
+    weights, subclasses = _weights_from_full(treat, pair_t, pair_c, estimand=estimand)
     pairs = pl.DataFrame({"treated": pair_t, "control": pair_c}) if pair_t else empty
     return pairs, weights, subclasses
 
@@ -723,8 +752,12 @@ def _pair_cost(dist: np.ndarray, treated: np.ndarray, control: np.ndarray) -> np
     return np.sqrt(np.sum(diff * diff, axis=2))
 
 
-def _weights_from_full(treat, pair_t, pair_c):
-    """ATT full-matching weights from the subclass sizes."""
+def _weights_from_full(treat, pair_t, pair_c, *, estimand="ATT"):
+    """Full-matching weights from the subclass sizes.
+
+    ATT: treated 1, controls ``n_treated_s / n_control_s``. ATE (Hansen 2004,
+    Stuart 2010): treated ``n_s / n_treated_s``, controls ``n_s / n_control_s``.
+    """
     weights = np.zeros(len(treat))
     subclasses = np.zeros(len(treat), dtype=int)
     if not pair_t:
@@ -755,20 +788,28 @@ def _weights_from_full(treat, pair_t, pair_c):
             members_c[sid].append(c)
     for sid, ts in members_t.items():
         cs = members_c[sid]
+        if estimand == "ATE":
+            size = len(ts) + len(cs)
+            w_t, w_c = size / len(ts), size / len(cs)
+        else:
+            w_t, w_c = 1.0, len(ts) / len(cs)
         for t in ts:
             subclasses[t] = sid
-            weights[t] = 1.0
+            weights[t] = w_t
         for c in cs:
             subclasses[c] = sid
-            weights[c] = len(ts) / len(cs)
+            weights[c] = w_c
     return weights, subclasses
 
 
 def _subclass_weights(treat, labels, *, estimand):
     """Weights for exact, subclass, and CEM. ``labels`` <= 0 means unmatched.
 
-    A cell contributes only when it holds both classes. Weights are the
-    within-cell size ratio. The pair list is not built here.
+    A cell contributes only when it holds both classes. ``estimand`` is
+    ``"ATT"`` (relative to ``treat``; ATC callers swap the roles) or
+    ``"ATE"``. ATT gives ``treat`` weight 1 and the others the within-cell
+    size ratio; ATE gives each arm ``n_s / n_arm_s``. The pair list is not
+    built here.
     """
     weights = np.zeros(len(treat))
     subclasses = np.zeros(len(treat), dtype=np.int64)
@@ -781,9 +822,11 @@ def _subclass_weights(treat, labels, *, estimand):
     n_role = np.bincount(inverse_pos, weights=role.astype(float), minlength=len(uniq))
     n_other = np.bincount(inverse_pos, weights=(~role).astype(float), minlength=len(uniq))
     both = (n_role > 0) & (n_other > 0)
-    if estimand == "ATC":
-        role_w = np.divide(n_other, n_role, out=np.zeros_like(n_role), where=n_role > 0)
-        other_w = np.ones_like(n_other)
+    if estimand == "ATE":
+        # Within cell s: treated n_s / n_treated_s, control n_s / n_control_s.
+        size = n_role + n_other
+        role_w = np.divide(size, n_role, out=np.zeros_like(n_role), where=n_role > 0)
+        other_w = np.divide(size, n_other, out=np.zeros_like(n_other), where=n_other > 0)
     else:
         role_w = np.ones_like(n_role)
         other_w = np.divide(n_role, n_other, out=np.zeros_like(n_other), where=n_other > 0)
@@ -847,17 +890,31 @@ def _quantile_subclass(dist, n_sub, discarded):
 
 
 def _cem_labels(data, names, treat, cutpoints):
+    """CEM strata. A row with a missing value in any CEM variable is left
+    unmatched (label 0), and cutpoints come from the complete rows only."""
+    n = len(treat)
+    complete = np.ones(n, dtype=bool)
+    for name in names:
+        complete &= ~_missing_mask(data[name])
+    if not names:
+        return np.ones(n, dtype=int)
+    labels = np.zeros(n, dtype=np.int64)
+    if not np.any(complete):
+        return labels
     codes = []
     for name in names:
-        values = np.asarray(data[name].to_numpy())
+        values = np.asarray(data[name].to_numpy())[complete]
         if np.issubdtype(values.dtype, np.number):
             bins = cutpoints.get(name, "sturges") if isinstance(cutpoints, dict) else cutpoints
             codes.append(_coarsen(values.astype(float), bins))
         else:
             levels, inverse = np.unique(values.astype(str), return_inverse=True)
             codes.append(inverse.astype(int))
-    if not codes:
-        return np.ones(len(treat), dtype=int)
+    labels[complete] = _cem_groups(codes, np.asarray(treat)[complete])
+    return labels
+
+
+def _cem_groups(codes, treat):
     stacked = np.ascontiguousarray(np.column_stack(codes), dtype=np.int64)
     if stacked.shape[0] == 0:
         return np.zeros(0, dtype=np.int64)
@@ -899,6 +956,14 @@ def _coarsen(values: np.ndarray, bins) -> np.ndarray:
     edges[0] = -np.inf
     edges[-1] = np.inf
     return np.searchsorted(edges, values, side="right")
+
+
+def _missing_mask(series: pl.Series) -> np.ndarray:
+    """Null, or NaN in a float column."""
+    mask = series.is_null().to_numpy().astype(bool)
+    if series.dtype.is_float():
+        mask |= series.is_nan().fill_null(False).to_numpy().astype(bool)
+    return mask
 
 
 def _distance_vector(data, treatment, covariates, distance, link):
@@ -1030,15 +1095,21 @@ def _discard_mask(dist, treat, discard):
 
 
 def _exact_labels(data, exact):
+    """Packed exact-match codes (>= 1). A row with a missing value in any exact
+    variable gets 0, so it is never matched."""
     if not exact:
         return None
     parts = []
+    missing = np.zeros(data.height, dtype=bool)
     for col in exact:
         series = column_series(data, col)
+        missing |= _missing_mask(series)
         values = series.to_numpy()
         _, inverse = np.unique(values.astype(str), return_inverse=True)
         parts.append(inverse)
-    return np.column_stack(parts).dot(np.array([1, *np.cumprod([len(np.unique(p)) for p in parts[:-1]])])) if False else _pack(parts)
+    code = _pack(parts)
+    code[missing] = 0
+    return code
 
 
 def _pack(parts: list[np.ndarray]) -> np.ndarray:
