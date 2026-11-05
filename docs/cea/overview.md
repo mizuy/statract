@@ -41,7 +41,7 @@ flowchart LR
 
 ### `markov` — cohort core
 
-`simulate_cohort_markov(...)` steps the state distribution forward in 1-year (or any length) cycles. It returns discounted costs, QALYs, and LYs. Interventions such as tests or resections go inside `on_cycle(age, mass) -> (mass, extra_cost, extra_qaly)` (`extra_*` are **undiscounted**. The core applies discounting).
+`simulate_cohort_markov(...)` steps the state distribution forward one cycle per entry of `ages`. Ages are whole numbers, and discounting uses the elapsed age `age - ages[0]` with `discount_rate` per unit of age: with ages in years, `range(40, 101)` gives 1-year cycles and `range(40, 101, 5)` 5-year cycles. For cycles shorter than a year, number the cycles and pass a per-cycle rate. A non-integer age raises `ValueError` instead of being truncated. It returns discounted costs, QALYs, and LYs. Interventions such as tests or resections go inside `on_cycle(age, mass) -> (mass, extra_cost, extra_qaly)` (`extra_*` are **undiscounted**. The core applies discounting).
 
 The initial distribution is normalized to 1 when it is finite, non-negative, and has a positive sum. A negative mass, an initial distribution whose sum is not positive, or a non-finite or negative `discount_rate` raises `ValueError`. Each row of the transition matrix must be non-negative and sum to 1. The mass returned by a callable or by `on_cycle` must keep the cohort total. The core does not clip negative mass to 0 and carry on.
 

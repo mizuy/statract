@@ -112,40 +112,81 @@ class SurvivalCurve:
             columns["state"] = out_state
         return pl.DataFrame(columns)
 
-    def quantile(self, p: float | list[float] = 0.5) -> pl.DataFrame:
-        """Brookmeyer–Crowley quantiles of a survival curve."""
+    def quantile(self, p: float | list[float] = 0.5, *, cause: object | None = None) -> pl.DataFrame:
+        """Quantiles with Brookmeyer–Crowley confidence limits, as ``quantile.survfit``.
+
+        For a survival curve the ``p`` quantile is the first time ``S(t) <= p``.
+        When ``S`` equals ``p`` over a flat stretch, it is the midpoint of that
+        stretch (the time ``S`` reaches ``p`` and the time it next drops). The
+        lower limit applies the same rule to the lower confidence band and the
+        upper limit to the upper band. A limit (or the quantile) is NaN when
+        that curve never falls to ``p``.
+
+        For an Aalen–Johansen curve the quantile is the first time the
+        cumulative incidence reaches ``p``. The lower limit uses the upper band
+        and the upper limit the lower band. ``cause`` picks the state; it is
+        required when the curve has more than one cause.
+        """
         probs = np.atleast_1d(np.asarray(p, dtype=float))
-        groups = self.table["group"].unique(maintain_order=True).to_list() if "group" in self.table.columns else [None]
+        incidence = self.kind == "aalen_johansen"
+        table = self.table
+        if "state" in table.columns:
+            states = table["state"].unique(maintain_order=True).to_list()
+            if cause is None:
+                if len(states) > 1:
+                    raise ValueError(f"the curve has several causes {states}; pass cause=")
+            else:
+                wanted = str(_cause_key(cause))
+                if wanted not in states:
+                    raise ValueError(f"cause {cause!r} is not in the curve; causes are {states}")
+                table = table.filter(pl.col("state") == wanted)
+        elif cause is not None:
+            raise ValueError("cause= applies to an Aalen–Johansen curve")
+        groups = table["group"].unique(maintain_order=True).to_list() if "group" in table.columns else [None]
         rows = []
         for group in groups:
-            part = self.table if group is None else self.table.filter(pl.col("group") == group)
-            if "state" in part.columns:
-                part = part.filter(pl.col("state") == part["state"][0])
+            part = table if group is None else table.filter(pl.col("group") == group)
             time = part["time"].to_numpy()
             est = part["estimate"].to_numpy()
             low = part["conf_low"].to_numpy()
             high = part["conf_high"].to_numpy()
+            if incidence:
+                # F rises, so first F >= p is first -F <= -p; the upper band crosses first.
+                est, low, high = -est, -high, -low
             for prob in probs:
-                target = 1 - float(prob) if self.kind == "aalen_johansen" else float(prob)
-                # survival quantile: smallest t with S(t) <= prob. Incidence: smallest t with F(t) >= prob.
-                if self.kind == "aalen_johansen":
-                    hit = np.flatnonzero(est >= float(prob))
-                else:
-                    hit = np.flatnonzero(est <= float(prob))
-                q = float(time[hit[0]]) if len(hit) else float("nan")
-                # Brookmeyer–Crowley: times where the pointwise interval covers the target survival.
-                if self.kind == "aalen_johansen":
-                    cover = (low <= float(prob)) & (high >= float(prob))
-                else:
-                    cover = (low <= target) & (high >= target)
-                covered = time[cover]
-                lo = float(covered[0]) if len(covered) else float("nan")
-                hi = float(covered[-1]) if len(covered) else float("nan")
-                row = {"probability": float(prob), "quantile": q, "conf_low": lo, "conf_high": hi}
+                target = -float(prob) if incidence else float(prob)
+                row = {
+                    "probability": float(prob),
+                    "quantile": _first_crossing(time, est, target),
+                    "conf_low": _first_crossing(time, low, target),
+                    "conf_high": _first_crossing(time, high, target),
+                }
                 if group is not None:
                     row["group"] = group
                 rows.append(row)
         return pl.DataFrame(rows)
+
+
+def _first_crossing(time: np.ndarray, curve: np.ndarray, target: float) -> float:
+    """First time a decreasing step curve is <= target, with the flat-stretch midpoint.
+
+    Values within a small tolerance of ``target`` count as equal to it, as in
+    ``quantile.survfit``. NaN values never cross.
+    """
+    tol = 1e-8 * max(1.0, abs(target))
+    with np.errstate(invalid="ignore"):
+        hit = np.flatnonzero(curve <= target + tol)
+    if hit.size == 0:
+        return float("nan")
+    first = int(hit[0])
+    if abs(curve[first] - target) > tol:
+        return float(time[first])
+    with np.errstate(invalid="ignore"):
+        below = np.flatnonzero(curve[first:] < target - tol)
+    if below.size == 0:
+        # The curve stays at the target to its end, so the stretch has no end.
+        return float(time[first])
+    return 0.5 * (float(time[first]) + float(time[first + int(below[0])]))
 
 
 def survival_curve(
@@ -166,6 +207,11 @@ def survival_curve(
     ``kind="aalen_johansen"`` it is a cause code, with 0 meaning censored.
     ``entry`` is the left-truncation time: the risk set at ``t`` is
     ``entry < t <= time``.
+
+    ``confidence`` names the transform of the survival estimate, for
+    Nelson–Aalen too (its ``estimate`` is ``exp(-H)``): there ``"log"`` is the
+    plain interval ``H ± z se(H)``, ``"log-log"`` is the log interval
+    ``H exp(±z se(H) / H)``, and ``"plain"`` is ``S ± z S se(H)``.
 
     For Aalen–Johansen, ``std_error`` is the infinitesimal-jackknife standard
     error of each cumulative incidence, as in a multi-state ``survfit``, and
@@ -361,7 +407,11 @@ def _curve_arrays(
         cumulative = np.cumsum(jumps)
         std_error = np.sqrt(np.cumsum(var))
         survival = np.exp(-cumulative)
-        low, high = _hazard_interval(cumulative, std_error, survival, confidence, level)
+        # se(log S) = se(H) when S = exp(-H), so the survival interval
+        # transforms apply directly, as survfit does for the Nelson–Aalen
+        # (Fleming–Harrington) curve. On the hazard scale "log" is H ± z se,
+        # "log-log" is H exp(±z se / H), and "plain" is S ± z S se.
+        low, high = _survival_interval(survival, std_error, confidence, level)
         estimate = survival
     return {
         "time": uniq,
@@ -439,24 +489,6 @@ def _survival_interval(survival: np.ndarray, std_log: np.ndarray, confidence: st
         low = np.sin(np.clip(angle - half, 0, np.pi / 2)) ** 2
         high = np.sin(np.clip(angle + half, 0, np.pi / 2)) ** 2
     return np.clip(low, 0, 1), np.clip(high, 0, 1)
-
-
-def _hazard_interval(
-    cumulative: np.ndarray,
-    std_h: np.ndarray,
-    survival: np.ndarray,
-    confidence: str,
-    level: float,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Transform a cumulative-hazard interval into a survival interval."""
-    z = _norm_z(level)
-    if confidence == "log":
-        se_log = std_h  # se(log S) = se(H) when S = exp(-H)
-        return _survival_interval(survival, se_log, "log", level)
-    low_h = np.clip(cumulative - z * std_h, 0, None)
-    high_h = cumulative + z * std_h
-    # plain hazard interval, mapped through exp(-H), so the bounds swap
-    return np.exp(-high_h), np.exp(-low_h)
 
 
 def _truncated_counts(
@@ -560,6 +592,8 @@ def _aalen_johansen(
     deaths = np.zeros((n_cause, n_stamp))
     died = codes >= 0
     np.add.at(deaths, (codes[died], last[died] - 1), weights[died])
+    n_censor = np.zeros(n_stamp)
+    np.add.at(n_censor, last[~died] - 1, weights[~died])
     variance, cif = _aj_ij_variance(n_risk, deaths, first.astype(np.int64), last.astype(np.int64), codes, weights)
     frames = []
     for k, cause in enumerate(causes):
@@ -578,7 +612,7 @@ def _aalen_johansen(
                     "state": [str(cause)] * n_stamp,
                     "n_risk": n_risk,
                     "n_event": deaths[k],
-                    "n_censor": np.zeros(n_stamp),
+                    "n_censor": n_censor,
                     "estimate": p,
                     "std_error": se,
                     "conf_low": low,

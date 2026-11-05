@@ -27,7 +27,8 @@ def fine_gray(
     Inputs: ``time`` (column or ``Surv(...) ~ covariates`` formula), ``event``
     (cause code, ``0`` = censored), ``cause`` (event of interest) and optional
     ``entry``. Output: a polars frame with the covariate columns plus
-    ``fgstart``, ``fgstop``, ``fgstatus`` and ``fgwt``.
+    ``fgstart``, ``fgstop``, ``fgstatus`` and ``fgwt``. Rows whose time,
+    event, or entry is null or NaN are dropped.
 
     A row that fails from a competing cause at T stays in the risk set after T
     with weight G(t-)/G(T-), G being the Kaplan–Meier estimate of the
@@ -46,8 +47,9 @@ def fine_gray(
         return _fine_gray_formula(data, str(time), cause, entry=entry)
     if event is None or cause is None:
         raise ValueError("time, event, and cause are required when time is a column")
-    # A row with a null or NaN time or entry has no follow-up; drop it.
-    usable = present(column_series(data, time))
+    # A row with a null or NaN time, event, or entry is missing; drop it, as
+    # the formula path does.
+    usable = present(column_series(data, time)) & present(column_series(data, event))
     if entry is not None:
         usable &= present(column_series(data, entry))
     if not bool(usable.all()):
@@ -78,7 +80,7 @@ def fine_gray(
 
 
 def _event_codes(series: pl.Series) -> np.ndarray:
-    """Integer event codes: null/NaN is 0 (censored), booleans are 0/1."""
+    """Integer event codes; booleans are 0/1. Missing rows are dropped before this."""
     if series.dtype == pl.Boolean:
         return series.fill_null(False).cast(pl.Int64).to_numpy()
     if series.dtype in (pl.Utf8, pl.Categorical) or isinstance(series.dtype, pl.Enum):
@@ -206,8 +208,14 @@ def split_follow_up(
 
     The time column becomes the end of the interval. A ``tstart`` column and
     an ``episode`` column are added. The event is kept only on the interval
-    that contains it.
+    that contains it. Rows whose time, event, or entry is null or NaN are
+    dropped.
     """
+    usable = present(column_series(data, time)) & present(column_series(data, event))
+    if entry is not None:
+        usable &= present(column_series(data, entry))
+    if not bool(usable.all()):
+        data = data.filter(pl.Series(usable))
     time_s = column_series(data, time)
     event_s = column_series(data, event)
     time_a = np.asarray(time_s.to_numpy(), dtype=float)

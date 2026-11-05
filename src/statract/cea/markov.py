@@ -57,6 +57,14 @@ def _as_reward_vector(
     return arr
 
 
+def _whole_age(value: object) -> int:
+    """An age as an int. A fractional age raises instead of being truncated."""
+    number = float(value)  # type: ignore[arg-type]
+    if not np.isfinite(number) or not number.is_integer():
+        raise ValueError(f"ages must be whole numbers, got {value!r}")
+    return int(number)
+
+
 def _check_finite(arr: np.ndarray, *, name: str) -> None:
     if not np.all(np.isfinite(arr)):
         raise ValueError(f"{name} must contain only finite values")
@@ -156,6 +164,11 @@ def simulate_cohort_markov(
         initial: Initial distribution. Non-negative values with a positive
             total are renormalized to sum to 1. Negative mass is rejected.
         ages: Inclusive calendar ages, one per cycle (e.g. ``range(40, 101)``).
+            Ages are whole numbers (a non-integer age raises ``ValueError``).
+            Discounting uses the elapsed age ``ages[i] - ages[0]``, so with
+            ages in years ``range(40, 101, 5)`` gives 5-year cycles. For
+            cycles shorter than a year, number the cycles instead and pass a
+            per-cycle ``discount_rate``.
         transition: Constant matrix, age→matrix map, or callable returning
             mass or matrix. Entries must be finite and non-negative, and matrix
             rows must sum to 1. Mass after a transition must conserve the
@@ -163,8 +176,9 @@ def simulate_cohort_markov(
             in the simulation.
         utility: Per-cycle utility of each state.
         cost: Per-cycle cost of each state.
-        discount_rate: Annual discount rate applied as ``1 / (1 + r)**t``.
-            Finite and >= 0.
+        discount_rate: Discount rate per unit of age (annual when ages are in
+            years), applied as ``1 / (1 + r)**(age - ages[0])``. Finite and
+            >= 0.
         living_mask: Which states count toward LY. Default: all states whose
             name does not start with ``death`` and is not ``dead`` (both
             case-insensitive).
@@ -179,7 +193,7 @@ def simulate_cohort_markov(
         raise ValueError("states must be non-empty")
     if len(set(state_list)) != n:
         raise ValueError("state names must be unique")
-    age_list = [int(a) for a in ages]
+    age_list = [_whole_age(a) for a in ages]
     if not age_list:
         raise ValueError("ages must be non-empty")
 

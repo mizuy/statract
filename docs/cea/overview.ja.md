@@ -41,7 +41,7 @@ flowchart LR
 
 ### `markov` — cohort 核
 
-`simulate_cohort_markov(...)` が 1 年（または任意）サイクルの状態分布を進め、割引済み費用・QALY・LY を返します。検査・切除などの介入は `on_cycle(age, mass) -> (mass, extra_cost, extra_qaly)` に閉じます（`extra_*` は**未割引**。割引は核が掛ける）。
+`simulate_cohort_markov(...)` は `ages` の各要素につき 1 サイクルずつ状態分布を進め、割引済み費用・QALY・LY を返します。検査・切除などの介入は `on_cycle(age, mass) -> (mass, extra_cost, extra_qaly)` に閉じます（`extra_*` は**未割引**。割引は核が掛ける）。年齢は整数で、割引は経過年齢 `age - ages[0]` と年齢 1 単位あたりの `discount_rate` で計算します。年単位なら `range(40, 101)` で 1 年サイクル、`range(40, 101, 5)` で 5 年サイクルです。1 年より短いサイクルはサイクル番号を年齢として渡し、サイクルあたりの割引率を使います。整数でない年齢は切り捨てずに `ValueError` にします。
 
 初期分布は、有限で非負かつ合計が正のとき 1 に正規化します。負の mass、合計が正でない初期分布、非有限または負の `discount_rate` は `ValueError` です。推移行列の各行は非負で和が 1、callable や `on_cycle` が返す mass はコホートの合計を保つ必要があります。負の mass を 0 に切り詰めて計算は続けません。
 

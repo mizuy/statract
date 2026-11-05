@@ -19,7 +19,7 @@ from numba import njit
 
 from ..models.design import ColumnRef, Design, column_series, design_matrix
 from ..models.formula import is_formula, model_matrix
-from .cox import CoxFit, _EPS, _MAX_ITER, _newton
+from .cox import CoxFit, _EPS, _MAX_ITER, _newton, warn_not_converged
 from .spec import _drop_intercept, _subset_design, combine_strata
 
 _METHODS = ("exact", "approximate", "efron", "breslow")
@@ -45,7 +45,7 @@ def conditional_logit(
     likelihood.
     """
     ties = _ties(method)
-    design, y, weight, off, strata_a, cluster_a, strata_names, strata_label = _design(
+    design, y, weight, off, strata_a, cluster_a, strata_names, strata_label, offset_terms = _design(
         data,
         outcome,
         predictors,
@@ -59,6 +59,8 @@ def conditional_logit(
     if ties == "exact":
         beta, info, converged, ll = _exact_newton(design.x, event, off, strata_a)
     else:
+        if not bool(np.any(event)):
+            raise ValueError("no events")
         beta, info, converged, ll = _newton(
             design.x,
             np.ones(design.n_obs),
@@ -69,6 +71,8 @@ def conditional_logit(
             strata_a,
             ties,
         )
+    if not converged:
+        warn_not_converged()
     fit = _as_cox(
         design,
         beta,
@@ -95,10 +99,15 @@ def conditional_logit(
             strata_a,
             ties,
         )
+    # As cox_ph and survival::coxph: the Lin–Wei variance with a cluster, or
+    # with case weights that are not all whole numbers. Whole-number weights
+    # are frequency weights and keep the model-based covariance.
     if ties != "exact" and cluster_a is not None:
         _apply_cluster(fit, cluster_a, weight)
-    elif ties != "exact" and weights is not None:
+    elif ties != "exact" and weights is not None and bool(np.any(weight != np.floor(weight))):
         _apply_cluster(fit, np.arange(design.n_obs), weight)
+    fit._offset_ref = offset
+    fit._offset_terms = offset_terms
     return fit
 
 
@@ -120,7 +129,10 @@ def _design(
     weights: ColumnRef | None,
     offset: ColumnRef | None,
     ties: str,
-) -> tuple[Design, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray | None, tuple[str, ...], str | None]:
+) -> tuple[
+    Design, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray | None, tuple[str, ...], str | None, tuple
+]:
+    offset_terms: tuple = ()
     if is_formula(outcome):
         if predictors is not None:
             raise ValueError("pass a Wilkinson formula or predictors, not both")
@@ -138,6 +150,7 @@ def _design(
         design = _drop_intercept(built.design)
         y = _as_binary(built.y)
         off = np.zeros(design.n_obs) if built.offset is None else np.asarray(built.offset, dtype=float)
+        offset_terms = tuple(built.offset_terms)
         strata_names = tuple(built.strata)
         cluster_name = built.cluster
     else:
@@ -198,7 +211,7 @@ def _design(
     weight = np.ones(design.n_obs) if weights is None else np.asarray(extra_values["weights"], dtype=float)
     if np.any(weight <= 0) or not np.isfinite(weight).all():
         raise ValueError("weights must be positive and finite")
-    return design, y, weight, off, strata_a, cluster_a, strata_names, strata_label
+    return design, y, weight, off, strata_a, cluster_a, strata_names, strata_label, offset_terms
 
 
 def _as_binary(y: np.ndarray) -> np.ndarray:
