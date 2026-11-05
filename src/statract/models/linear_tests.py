@@ -396,24 +396,58 @@ def durbin_watson_test(fit: Fit, *, alternative: str = "greater") -> TestResult:
 
 
 def ramsey_reset_test(fit: Fit, *, power: tuple[int, ...] = (2, 3)) -> TestResult:
-    """Ramsey RESET test using powers of the fitted values."""
+    """Ramsey RESET test using powers of the fitted values.
+
+    Ramsey (1969), *JRSS B* 31:350: add powers of the fitted values to the
+    design and F-test them. A weighted fit is tested by weighted least squares
+    with its prior weights (zero-weight rows are left out), and the fitted
+    values include the offset. Degrees of freedom use the numerical rank, so
+    an aliased design column is not counted. Raises ``ValueError`` when the
+    powers add nothing to the design's column space.
+    """
     if fit.family != "ols":
         raise ValueError("ramsey_reset_test expects an ordinary least-squares fit")
-    y = fit.y.copy()
+    x = np.asarray(fit.x, dtype=float)
+    y = np.asarray(fit.y, dtype=float).copy()
+    n = y.size
+    weights = np.ones(n) if fit.weights is None else np.asarray(fit.weights, dtype=float)
+    offset = np.zeros(n) if fit.offset is None else np.asarray(fit.offset, dtype=float)
+    keep = weights > 0
+    x, y, weights, offset = x[keep], y[keep], weights[keep], offset[keep]
+    root_w = np.sqrt(weights)
+    has_offset = bool(np.any(offset != 0))
     has_intercept = "(Intercept)" in fit.names
-    if has_intercept:
+    if has_intercept and not has_offset:
+        # The fitted values lie in the design's span, which holds the
+        # intercept, so an affine rescaling of y leaves the test unchanged
+        # and keeps the powers well conditioned.
         y = y - y.mean()
         scale = float(y.std(ddof=1))
         if scale > 0:
             y = y / scale
-    fitted = fit.x @ np.linalg.lstsq(fit.x, y, rcond=None)[0]
-    powers = [fitted**p for p in power]
-    extra = np.column_stack(powers)
-    x_full = np.column_stack([fit.x, extra])
-    rss1 = float(np.sum(np.linalg.lstsq(fit.x, y, rcond=None)[1]))
-    rss2 = float(np.sum(np.linalg.lstsq(x_full, y, rcond=None)[1]))
-    df1 = float(extra.shape[1])
-    df2 = float(fit.x.shape[0] - x_full.shape[1])
+    response = y - offset
+    xw = x * root_w[:, None]
+    coef = np.linalg.lstsq(xw, response * root_w, rcond=None)[0]
+    fitted = x @ coef + offset
+    if has_offset:
+        # Rescaling (without centring) keeps the span of each power.
+        size = float(np.sqrt(np.mean(fitted**2)))
+        if size > 0:
+            fitted = fitted / size
+    extra = np.column_stack([fitted**p for p in power])
+    x_full = np.column_stack([x, extra])
+    xw_full = x_full * root_w[:, None]
+    coef_full = np.linalg.lstsq(xw_full, response * root_w, rcond=None)[0]
+    rss1 = float(np.sum((response * root_w - xw @ coef) ** 2))
+    rss2 = float(np.sum((response * root_w - xw_full @ coef_full) ** 2))
+    rank1 = int(np.linalg.matrix_rank(xw))
+    rank2 = int(np.linalg.matrix_rank(xw_full))
+    df1 = float(rank2 - rank1)
+    df2 = float(x.shape[0] - rank2)
+    if df1 <= 0:
+        raise ValueError("the powers of the fitted values are collinear with the design; RESET is not defined")
+    if df2 <= 0 or not rss2 > 0:
+        raise ValueError("no residual degrees of freedom left for the RESET regression")
     stat = (df2 / df1) * ((rss1 - rss2) / rss2)
     p_value = float(stats.f.sf(stat, df1, df2))
     return TestResult(stat, p_value, (df1, df2), "f", "ramsey_reset")
