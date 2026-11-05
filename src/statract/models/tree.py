@@ -53,7 +53,12 @@ class ConditionalTree:
     y: np.ndarray
 
     def predict(self, data: pl.DataFrame | None = None) -> np.ndarray:
-        """Mean response in the terminal node of each row."""
+        """Mean response in the terminal node of each row.
+
+        A row whose split variable is null or NaN, or has a level not seen at
+        that split, reaches no terminal node and gets NaN (``partykit`` would
+        send it to the majority side).
+        """
         if data is None:
             columns = self.columns
         else:
@@ -138,7 +143,8 @@ def conditional_tree(
 
     Predictors are column names. Strings are unordered factors and are split
     by a binary partition of the levels. Numeric columns are split at an
-    observed value, and values equal to the break go left.
+    observed value, and values equal to the break go left. Rows with a null
+    or NaN in the outcome or any predictor are dropped before fitting.
 
     As in partykit, a split search at a node of size n needs at least
     ``max(minbucket, ceil(minprob * n))`` rows on each side, and when the most
@@ -150,9 +156,9 @@ def conditional_tree(
     if not 0 < alpha < 1:
         raise ValueError("alpha must be between 0 and 1")
     y_series = column_series(data, outcome)
-    keep = y_series.is_not_null().to_numpy()
+    keep = _present(y_series)
     for name in predictors:
-        keep &= column_series(data, name).is_not_null().to_numpy()
+        keep &= _present(column_series(data, name))
     y = np.asarray(y_series.filter(pl.Series(keep)).to_numpy(), dtype=float)
     if y.size < 2 or not np.all(np.isfinite(y)):
         raise ValueError("the outcome needs at least two finite observations")
@@ -162,6 +168,14 @@ def conditional_tree(
     factors = {name for name, values in columns.items() if values.dtype.kind in {"U", "O", "S"}}
     root = _grow(y, columns, factors, alpha, minsplit, minbucket, minprob, splittry)
     return ConditionalTree(root=root, predictors=list(predictors), columns=columns, outcome=y_series.name, y=y)
+
+
+def _present(series: pl.Series) -> np.ndarray:
+    """Rows that are neither null nor NaN; NaN is treated as missing, like null."""
+    keep = series.is_not_null()
+    if series.dtype.is_float():
+        keep &= ~series.is_nan().fill_null(False)
+    return keep.to_numpy()
 
 
 def _grow(y, columns, factors, alpha, minsplit, minbucket, minprob, splittry) -> _Node:

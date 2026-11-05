@@ -358,9 +358,13 @@ def pool(
     """Pool estimates across imputations by Rubin's rules, as ``mice::pool``.
 
     Each fit needs ``names``, ``coefficients``, and ``covariance`` (any
-    statract model). ``dfcom`` is the complete-data degrees of freedom;
+    statract model). Every parameter in ``covariance`` is pooled: for an
+    ordinal fit the coefficients then the thresholds (terms ``"a|b"``); for a
+    multinomial fit each non-baseline level's coefficients in turn, with
+    terms ``"level:term"``. ``dfcom`` is the complete-data degrees of freedom;
     by default the residual df of a linear model or GLM, the number of
-    events minus parameters for a Cox model, and ``n - p`` otherwise.
+    events minus parameters for a Cox model, and ``n - p`` otherwise (``p``
+    counts thresholds too).
 
     Columns: ``term``, ``m``, ``estimate``, ``ubar`` (within variance), ``b``
     (between variance), ``t`` (total variance), ``dfcom``, ``df``
@@ -373,14 +377,15 @@ def pool(
     m = len(fits)
     if m < 2:
         raise ValueError("pool needs at least two fits")
-    names = list(fits[0].names)
-    for fit in fits[1:]:
-        if list(fit.names) != names:
+    parameters = [_pool_parameters(f) for f in fits]
+    names = parameters[0][0]
+    for other, _ in parameters[1:]:
+        if other != names:
             raise ValueError("every fit must have the same terms in the same order")
-    estimates = np.vstack([np.asarray(f.coefficients, dtype=float) for f in fits])
+    estimates = np.vstack([est for _, est in parameters])
     variances = np.vstack([np.diag(np.asarray(f.covariance, dtype=float)) for f in fits])
     if dfcom is None:
-        dfcom = _complete_df(fits[0])
+        dfcom = _complete_df(fits[0], len(names))
     qbar = estimates.mean(axis=0)
     ubar = variances.mean(axis=0)
     b = estimates.var(axis=0, ddof=1)
@@ -421,12 +426,42 @@ def pool(
     return frame
 
 
-def _complete_df(fit: Any) -> float:
-    """Complete-data degrees of freedom: residual df, Cox events minus p, else n minus p."""
+def _pool_parameters(fit: Any) -> tuple[list[str], np.ndarray]:
+    """Term names and estimates in the order of ``fit.covariance``.
+
+    An ordinal fit adds its thresholds after the coefficients (named
+    ``"a|b"``, as ``tidy``); a multinomial fit is flattened level by level,
+    with terms named ``"level:term"``, as ``vcov(multinom)``.
+    """
+    coef = np.asarray(fit.coefficients, dtype=float)
+    names = [str(name) for name in fit.names]
+    thresholds = getattr(fit, "thresholds", None)
+    if thresholds is not None and getattr(fit, "threshold_names", None) is not None:
+        names = names + [str(name) for name in fit.threshold_names]
+        coef = np.concatenate([coef.reshape(-1), np.asarray(thresholds, dtype=float).reshape(-1)])
+    elif coef.ndim == 2:
+        levels = getattr(fit, "levels", None)
+        if levels is None or len(levels) != coef.shape[0] + 1 or coef.shape[1] != len(names):
+            raise ValueError("pool does not support this model: cannot name its coefficient matrix")
+        names = [f"{level}:{term}" for level in levels[1:] for term in names]
+        coef = coef.reshape(-1)
+    n_cov = np.shape(fit.covariance)[0]
+    if coef.ndim != 1 or len(coef) != len(names) or len(coef) != n_cov:
+        raise ValueError(
+            f"pool does not support this model: {len(coef)} estimates but a {n_cov} x {n_cov} covariance"
+        )
+    return names, coef
+
+
+def _complete_df(fit: Any, p: int) -> float:
+    """Complete-data degrees of freedom: residual df, Cox events minus p, else n minus p.
+
+    ``p`` counts every pooled parameter (thresholds of an ordinal fit
+    included), as ``df.residual`` of ``polr`` and ``multinom``.
+    """
     residual = getattr(fit, "residual_df", None)
     if residual is not None:
         return float(max(residual, 1))
-    p = len(fit.coefficients)
     if getattr(fit, "family", None) == "cox" and getattr(fit, "event", None) is not None:
         return float(max(int(np.sum(np.asarray(fit.event) > 0)) - p, 1))
     n_obs = getattr(fit, "n_obs", None)

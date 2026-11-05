@@ -1026,6 +1026,10 @@ def calibrate_cox(
     (``what = "observed"``). Same as calling ``cph(..., surv = TRUE, time.inc = u)``
     before ``calibrate``. ``indices`` and ``seed`` work as in
     :func:`validate_logistic`.
+
+    A repetition is skipped when its resample ends before ``u``, its fit
+    fails, or it has too few events; the ``n`` column counts the repetitions
+    used. If every repetition is skipped, a ``ValueError`` is raised.
     """
     if what not in {"observed-predicted", "observed"}:
         raise ValueError("what must be 'observed-predicted' or 'observed'")
@@ -1050,7 +1054,7 @@ def calibrate_cox(
     for train in resamples:
         tt, ee = t[train], e[train]
         if u > tt.max():
-            raise ValueError("a bootstrap sample ends before u")
+            continue  # this resample has no follow-up at u: skipped like a failed fit
         f = _cox_fit(x[train], tt, ee, efron=efron)
         if np.any(np.isnan(f.coefficients)):
             continue
@@ -1061,6 +1065,8 @@ def calibrate_cox(
             continue
         te = _calibration_gap(fs0 ** np.exp(xb - fcenter), t, e, u, cuts, what)
         rows.append((tr[0], np.full(index_orig.size, np.nan) if te is None else te[0]))
+    if not rows:
+        raise ValueError("every bootstrap repetition failed (no follow-up at u, failed fit, or too few events)")
     training, test, optimism, num = _accumulate(rows, index_orig)
     table = pl.DataFrame(
         {
