@@ -69,6 +69,20 @@ _FOREST_RC = {
 }
 
 
+def _forest_rc() -> dict[str, Any]:
+    """``_FOREST_RC`` plus the fonts already in ``font.family`` as fallbacks.
+
+    Latin text uses the sans-serif list above. A font set before (such as the
+    Japanese font from ``japanize-matplotlib``) stays in ``font.family``, so
+    matplotlib falls back to it for glyphs DejaVu Sans lacks.
+    """
+    family = plt.rcParams["font.family"]
+    if isinstance(family, str):
+        family = [family]
+    rest = [f for f in family if f != "sans-serif"]
+    return {**_FOREST_RC, "font.family": ["sans-serif", *rest]}
+
+
 def _pick_columns(
     frame: pl.DataFrame,
     *,
@@ -110,12 +124,20 @@ def _pick_columns(
     )
 
 
+def _fixed_digits(value: float, digits: int) -> str:
+    """``f"{value:.{digits}f}"`` without a negative zero (``-0.001`` → ``0.00``)."""
+    text = f"{value:.{digits}f}"
+    if text.startswith("-") and float(text) == 0.0:
+        return text[1:]
+    return text
+
+
 def _format_estimate(est: float, lo: float, hi: float, *, digits: int = 2) -> str:
     if not np.isfinite(est):
         return "—"
-    lo_s = f"{lo:.{digits}f}" if np.isfinite(lo) else "—"
-    hi_s = f"{hi:.{digits}f}" if np.isfinite(hi) else "—"
-    return f"{est:.{digits}f} ({lo_s}–{hi_s})"
+    lo_s = _fixed_digits(lo, digits) if np.isfinite(lo) else "—"
+    hi_s = _fixed_digits(hi, digits) if np.isfinite(hi) else "—"
+    return f"{_fixed_digits(est, digits)} ({lo_s}–{hi_s})"
 
 
 def _override_texts(frame: pl.DataFrame, texts: list[str], column: str = "estimate_text") -> list[str]:
@@ -184,6 +206,8 @@ def _prepare_frame(
     if panel is not None:
         if panel not in tidy.columns:
             raise ValueError(f"panel column {panel!r} not in tidy frame")
+        if tidy[panel].null_count():
+            raise ValueError(f"panel column {panel!r} has null values; give every row a panel name")
         exprs.append(pl.col(panel).cast(pl.Utf8).alias("_panel"))
     seen = {"term", "estimate", "conf_low", "conf_high", "p_value", "pvalue", "_panel", "estimate_text", "p_text", "row_style", *REF_COLS}
     for col in extra_cols:
@@ -643,7 +667,8 @@ def plot_forest(
             first appearance). Each panel gets its own x-axis (``xlim`` applies to
             all panels when given, otherwise each is fitted to its own rows); the
             table columns are aligned across panels and the panel name replaces the
-            "Term" header. Requires ``layout="table"``.
+            "Term" header. Requires ``layout="table"``. A null panel name
+            raises ``ValueError``.
         estimate_header: Header of the estimate column (default
             ``"HR (95% CI)"`` / ``"OR (95% CI)"`` / ``"Estimate (95% CI)"``
             from ``xlabel``).
@@ -724,7 +749,7 @@ def plot_forest(
     header_y = (n - 0.22) if layout == "table" else None
     resolved_xlim = xlim if xlim is not None else _auto_xlim(lo, hi, ref=ref, use_log=use_log)
 
-    with plt.rc_context(_FOREST_RC):
+    with plt.rc_context(_forest_rc()):
         if panel is not None:
             fig = _plot_forest_panels(
                 frame,

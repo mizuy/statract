@@ -69,7 +69,7 @@ def _tableone_group_counts(df: pl.DataFrame, hue: list[pl.Expr] | None) -> dict[
     if hue is None:
         return {"All": df.height}
 
-    grouped = df.group_by(hue, maintain_order=True).len()
+    grouped = _drop_null_hue(df, hue).group_by(hue, maintain_order=True).len()
     counts: dict[str, int] = {}
     for row in grouped.iter_rows(named=True):
         counts[_get_hue_key(hue, row)] = int(row["len"])
@@ -138,22 +138,14 @@ def tableone_gt_from_frame(
         pl.col("name").str.replace("^  ", style["indent_display"], literal=False).alias("name"),
     )
     # ``Group | item`` はグループ名だけの見出し行にし、項目は字下げする。
-    has_row_group = bool(
-        result_visible.height
-        and result_visible.select(pl.col("name").str.contains(" | ", literal=True).all()).item()
-    )
-    if has_row_group:
-        split = pl.col("name").str.split_exact(" | ", 1)
-        item = split.struct.field("field_1")
-        # カテゴリの要素（``"  "`` 始まり）は、変数名の行よりさらに一段下げる。
-        child = item.str.starts_with("  ")
-        indent = style["indent_display"]
+    # カテゴリの要素の行（``"  F"``）は " | " を持たず、直前の項目のグループに入る。
+    row_groups = _split_row_groups(table["name"].to_list(), style["indent_display"])
+    has_row_group = row_groups is not None
+    if row_groups is not None:
+        groups, names = row_groups
         result_visible = result_visible.with_columns(
-            split.struct.field("field_0").alias("row_group"),
-            pl.when(child)
-            .then(pl.lit(indent * 2) + item.str.strip_chars_start())
-            .otherwise(pl.lit(indent) + item)
-            .alias("name"),
+            pl.Series("row_group", groups, dtype=pl.String),
+            pl.Series("name", names, dtype=pl.String),
         )
 
     labels: dict[str, str] = {"name": ""}
@@ -206,6 +198,34 @@ def tableone_gt_from_frame(
         if present:
             gt = gt.tab_spanner(label=label, columns=present)
     return gt
+
+
+def _split_row_groups(names: list[str], indent: str) -> tuple[list[str], list[str]] | None:
+    """Split ``"Group | item"`` names into (row groups, indented display names).
+
+    Category level rows (``"  F"``) may omit the group and then belong to the
+    item above them. Returns None unless every other row has the form
+    ``"Group | item"``.
+    """
+    if not names or names[0].startswith("  "):
+        return None
+    groups: list[str] = []
+    display: list[str] = []
+    current: str | None = None
+    for name in names:
+        if name.startswith("  ") and current is not None:
+            item = name
+        elif " | " in name:
+            current, item = name.split(" | ", 1)
+        else:
+            return None
+        groups.append(current)
+        # カテゴリの要素（``"  "`` 始まり）は、変数名の行よりさらに一段下げる。
+        if item.startswith("  "):
+            display.append(indent * 2 + item.lstrip(" "))
+        else:
+            display.append(indent + item)
+    return groups, display
 
 
 def tableone(
@@ -587,6 +607,7 @@ def _compute_pvalue(df: pl.DataFrame, param: TableOneParam, hue: list[pl.Expr]) 
         return "-"
     try:
         # Groups are labels, so a numeric hue (0/1) is compared as groups, not as a number.
+        # Rows with a missing group label are not a group (the tests drop them).
         hue_series = _hue_series(df, hue).cast(pl.String)
         return resolved(col_series, hue_series)
     except Exception:  # noqa: BLE001
@@ -620,6 +641,28 @@ def _add_column_to_rows(
         )
         for row_name, row_data in all_rows
     ]
+
+
+def _drop_null_hue(df: pl.DataFrame, hue: list[pl.Expr]) -> pl.DataFrame:
+    """Rows whose group label is missing belong to no group column."""
+    return df.filter(pl.all_horizontal([h.is_not_null() for h in hue]))
+
+
+def _hue_key_order(df: pl.DataFrame, hue: list[pl.Expr]) -> list[str]:
+    """Group column keys in display order.
+
+    Numbers sort as numbers, Enum levels keep their Enum order, and Strings and
+    Categoricals sort as strings. Several hue columns sort by each in turn.
+    """
+    keys = _drop_null_hue(df, hue).select(hue).unique()
+    sort_cols = []
+    for name, dtype in keys.schema.items():
+        if isinstance(dtype, pl.Enum) or dtype.is_numeric() or dtype == pl.Boolean or dtype.is_temporal():
+            sort_cols.append(pl.col(name))
+        else:
+            sort_cols.append(pl.col(name).cast(pl.String))
+    keys = keys.sort(sort_cols)
+    return [_get_hue_key(hue, row) for row in keys.iter_rows(named=True)]
 
 
 def _get_hue_key(hue: list[pl.Expr], row: dict) -> str:
@@ -659,7 +702,7 @@ def _grouped_results(df: pl.DataFrame, agg_expr: pl.Expr, hue: list[pl.Expr] | N
         values = result["_result"].to_list()
         return {"All": values[0] if values else None}
 
-    grouped = df.group_by(hue, maintain_order=True).agg(agg_expr.alias("_result"))
+    grouped = _drop_null_hue(df, hue).group_by(hue, maintain_order=True).agg(agg_expr.alias("_result"))
     out: dict[str, object] = {}
     for row in grouped.iter_rows(named=True):
         out[_get_hue_key(hue, row)] = row["_result"]
@@ -722,6 +765,15 @@ def _compute_aggregation_category(
     else:
         categories_to_sort = sorted(all_categories)
 
+    missing = [cat for cat in categories_to_sort if any(cat not in m for m in group_results.values())]
+    if hue is not None and missing:
+        # A level absent from a group gets the same format as the other cells (``0 (0.0%)``).
+        zero_cells = _zero_level_cells(df, column, aggfunc, hue, missing)
+        for group_key, cat_map in group_results.items():
+            for cat in missing:
+                if cat not in cat_map:
+                    cat_map[cat] = zero_cells.get(group_key, {}).get(cat, "0")
+
     rows: list[tuple[str, dict[str, str]]] = []
     rows.append((param_name, dict.fromkeys(group_results, "")))
     group_keys = list(group_results)
@@ -733,6 +785,35 @@ def _compute_aggregation_category(
         for cat_value in categories_to_sort
     )
     return rows
+
+
+def _zero_level_cells(
+    df: pl.DataFrame,
+    column: pl.Expr,
+    aggfunc: agg.AggFunc,
+    hue: list[pl.Expr],
+    levels: list[str],
+) -> dict[str, dict[str, str]]:
+    """Format ``levels`` in each group with the aggfunc itself, via ``enum_categories``.
+
+    Only used for levels a group does not have, so their count is 0 there. An
+    aggfunc that does not take ``enum_categories`` gives ``{}`` (the caller
+    shows ``"0"``).
+    """
+    try:
+        expr = aggfunc(column.cast(pl.String), enum_categories=levels)  # type: ignore[call-arg]
+        grouped = _grouped_results(df, expr, hue)
+    except Exception:  # noqa: BLE001
+        return {}
+    out: dict[str, dict[str, str]] = {}
+    for group_key, raw in grouped.items():
+        cells: dict[str, str] = {}
+        for item in _normalize_category_list(raw):
+            values = list(item.values())
+            if len(values) >= 2:
+                cells[str(values[0])] = str(values[1])
+        out[group_key] = cells
+    return out
 
 
 def _compute_aggregation_regular(
@@ -786,13 +867,14 @@ def _compute_aggregation(
     return _compute_aggregation_regular(df, param_name, column, aggfunc, hue)
 
 
-def _format_table(rows: list[tuple[str, dict[str, str]]]) -> pl.DataFrame:
+def _format_table(rows: list[tuple[str, dict[str, str]]], group_order: Sequence[str] | None = None) -> pl.DataFrame:
     """
     Format table rows into a Polars DataFrame.
 
     This function converts a list of row tuples into a structured DataFrame
     with "name" column and data columns for each hue group. The "All" column
-    (if present) is placed first, followed by other hue columns in alphabetical order.
+    (if present) is placed first, followed by the hue columns in ``group_order``
+    (alphabetical for keys not in it).
 
     Args:
         rows: List of tuples where each tuple contains:
@@ -863,7 +945,8 @@ def _format_table(rows: list[tuple[str, dict[str, str]]]) -> pl.DataFrame:
 
     # Sort hue keys ("All" first, then alphabetical), but always place "P value" last
     # when add_pvalue=True injected it.
-    hue_keys = sorted(all_hue_keys, key=lambda x: (x != "All", x))
+    rank = {k: i for i, k in enumerate(group_order or ())}
+    hue_keys = sorted(all_hue_keys, key=lambda x: (x != "All", x not in rank, rank.get(x, 0), x))
     trailing = [k for k in ("P value", "SMD") if k in hue_keys]
     hue_keys = [k for k in hue_keys if k not in trailing] + trailing
 
@@ -994,6 +1077,7 @@ def tableone_raw(  # noqa: C901
 
     # P values and SMDs compare the hue groups. Several hue columns are crossed,
     # so the test compares the same groups as the table's columns.
+    group_order = None if normalized_hue is None else _hue_key_order(df, normalized_hue)
     if add_pvalue and normalized_hue is not None:
         pvalues = {name: _compute_pvalue(df, param, normalized_hue) for name, param in normalized_params.items()}
         all_rows = _add_column_to_rows(all_rows, "P value", pvalues)
@@ -1002,4 +1086,4 @@ def tableone_raw(  # noqa: C901
         all_rows = _add_column_to_rows(all_rows, "SMD", smds)
 
     # Format and return
-    return _format_table(all_rows)
+    return _format_table(all_rows, group_order)

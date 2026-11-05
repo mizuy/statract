@@ -16,7 +16,7 @@
 | Love plot | `plot_love`、`PropensityWeights.love_plot`、`MatchedSample.love_plot` | `statract.viz.balance`、`statract.models.matching` |
 | funnel / 画像の連結 | `funnel_plot`、`concat_images` | `statract.viz.misc` |
 
-論文の白黒は forest と Kaplan–Meier とも `style="bw"` です。係数図は `layout="table"` の forest を使います。`plot_forest(..., panel="model")` は、その列の値ごとにパネルを縦に並べ、表の列をそろえます。
+論文の白黒は forest と Kaplan–Meier とも `style="bw"` です。係数図は `layout="table"` の forest を使います。`plot_forest(..., panel="model")` は、その列の値ごとにパネルを縦に並べ、表の列をそろえます。パネル名が null の行はエラーです。`plot_survival` の曲線は群ごとの最後の追跡時間で終わり、`hue` が null の行は除きます（`None` の曲線はできません）。forest と balance の図は `japanize-matplotlib` の日本語フォントを代替に残すので、日本語のラベルも表示できます。
 
 生存曲線の数値（`survival_curve`、Cox、AFT、Fine–Gray）は `statract.surv` です。`statract.viz.km` は図だけです。
 

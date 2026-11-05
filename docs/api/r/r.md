@@ -38,9 +38,10 @@ entity = int | float | str | bool | pl.DataFrame | list[entity] | dict[entity]
 
 | Python Type | R Type | Conversion Method |
 |------------|--------|-------------------|
-| `int` | `integer` | Direct assignment |
-| `float` | `numeric` | Direct assignment |
-| `str` | `character` | Escaped string assignment |
+| `int` | `integer` | `42L` (an int outside R's integer range becomes `numeric`) |
+| `float` | `numeric` | Full precision; `nan`, `inf`, `-inf` become `NaN`, `Inf`, `-Inf` |
+| `str` | `character` | Escaped string assignment (`\`, `"`, newline, tab, carriage return) |
+| `None` | `NULL` | Direct assignment |
 | `bool` | `logical` | `TRUE`/`FALSE` |
 | `pl.DataFrame` | `tbl_df` (tibble) | Via `rpy2_arrow.polars` → `as_tibble()` |
 | `list[entity]` | `list` | Recursive conversion |

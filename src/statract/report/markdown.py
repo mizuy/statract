@@ -22,7 +22,11 @@ def format_sigfigs(value: SupportsFloat | None, *, digits: int = 4) -> str:
     """Format a float for report tables with at most ``digits`` significant figures.
 
     Integers that are exact (e.g. 365.0) are shown without a trailing ``.0``.
-    Non-finite values fall back to ``str(...)``. ``None`` becomes ``""``.
+    Values with more than ``digits`` integer digits are rounded to a whole
+    number and keep all their integer digits (``12345.0`` → ``"12345"``,
+    ``123456.78`` → ``"123457"``), as R's ``format(x, digits=)`` does, rather
+    than switching to e-notation. Non-finite values fall back to ``str(...)``.
+    ``None`` becomes ``""``.
     """
     if value is None:
         return ""
@@ -32,6 +36,8 @@ def format_sigfigs(value: SupportsFloat | None, *, digits: int = 4) -> str:
     if x == 0.0:
         return "0"
     text = f"{x:.{digits}g}"
+    if "e+" in text:
+        return f"{x:.0f}"
     return text
 
 

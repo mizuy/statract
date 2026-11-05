@@ -356,7 +356,8 @@ def stat_anova(col_interval: pl.Series, col_nominal: pl.Series) -> str:
         >>> print(pvalue)
     """
     # Group by nominal variable and get interval values
-    df = pl.DataFrame({"_interval": col_interval, "_nominal": col_nominal})
+    # Rows with a missing group are not a group of their own (as in stat_kruskal).
+    df = pl.DataFrame({"_interval": col_interval, "_nominal": col_nominal}).filter(pl.col("_nominal").is_not_null())
     grouped = df.group_by("_nominal").agg(pl.col("_interval"))
     groups = []
     for row in grouped.iter_rows(named=True):
@@ -398,6 +399,7 @@ def stat_chisq(col_nominal0: pl.Series, col_nominal1: pl.Series) -> str:
     # Create contingency table from two Series
     ct = (
         pl.DataFrame({"col0": col_nominal0, "col1": col_nominal1})
+        .drop_nulls()
         .with_columns(pl.lit(1).alias("_v"))
         .pivot(
             index="col0",
@@ -408,7 +410,8 @@ def stat_chisq(col_nominal0: pl.Series, col_nominal1: pl.Series) -> str:
         .fill_null(0)
     )
 
-    if ct.height < 2 or ct.width < 2:
+    # ``ct`` holds the ``col0`` index column plus one column per group.
+    if ct.height < 2 or ct.width - 1 < 2:
         return "-"
 
     # Convert to numpy array for scipy
@@ -441,7 +444,8 @@ def stat_fisher(col_nominal0: pl.Series, col_nominal1: pl.Series) -> str:
         .fill_null(0)
     )
 
-    if ct.height < 2 or ct.width < 2:
+    # ``ct`` holds the ``col0`` index column plus one column per group.
+    if ct.height < 2 or ct.width - 1 < 2:
         return "-"
 
     # Convert to numpy counts matrix.
