@@ -302,24 +302,34 @@ def cohen_d(x: pl.Expr, y: pl.Expr) -> pl.Expr:
     return (x.mean() - y.mean()) / pooled_sd
 
 
-def format_pvalue(pvalue: float, *, omit: bool = True) -> str:
+def format_pvalue(pvalue: float | None, *, omit: bool = True) -> str:
     """Format p-value according to NEJM guidelines.
+
+    P >= 0.01 is shown with two decimals, 0.001 <= P < 0.01 with three
+    decimals, and P < 0.001 as ``"P<.001"``. A missing or non-finite P value
+    (for example ANOVA on a constant variable) gives ``"-"``, the same
+    placeholder used when a test cannot be performed.
 
     Args:
         pvalue: P-value to format
-        omit: If True, use P<.001 for very small values
+        omit: If True, use P<.001 for very small values. If False, show them
+            with two significant digits.
 
     Returns:
         Formatted p-value string
     """
-    if pvalue > 0.01:
+    if pvalue is None:
+        return "-"
+    pvalue = float(pvalue)
+    if not math.isfinite(pvalue):
+        return "-"
+    if pvalue >= 0.01:
         return f"{pvalue:.2f}"
-    elif 0.01 > pvalue > 0.001:
+    if pvalue >= 0.001:
         return f"{pvalue:.3f}"
-    elif omit:
+    if omit:
         return "P<.001"
-    else:
-        return f"{pvalue:.2g}"
+    return f"{pvalue:.2g}"
 
 
 def stat_anova(col_interval: pl.Series, col_nominal: pl.Series) -> str:

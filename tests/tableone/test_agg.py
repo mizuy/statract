@@ -4,6 +4,7 @@ import numpy as np
 import polars as pl
 
 from statract.tableone.agg import (
+    agg_bool_category,
     agg_bool_np,
     agg_bool_pnn,
     agg_category_base,
@@ -333,3 +334,21 @@ class TestNumberFormat:
         assert (
             df.select(agg_bool_pnn(pl.col("b"), precision=2)).item() == "12.50% (1/8)"
         )
+
+
+class TestAggBoolCategory:
+    def test_boolean_column(self):
+        df = pl.DataFrame({"b": [True, False, None, True]})
+        out = df.select(agg_bool_category(pl.col("b"))).item()
+        assert [tuple(d.values()) for d in out] == [
+            ("false", "1 (33.3%)"),
+            ("true", "2 (66.7%)"),
+        ]
+
+    def test_missing_level_kept(self):
+        df = pl.DataFrame({"b": [True, True]})
+        out = df.select(agg_bool_category(pl.col("b"))).item()
+        assert [tuple(d.values()) for d in out] == [
+            ("false", "0 (0.0%)"),
+            ("true", "2 (100.0%)"),
+        ]
