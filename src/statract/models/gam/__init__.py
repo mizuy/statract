@@ -207,7 +207,9 @@ def gam(
     ``gamma`` other than 1 raises ``ValueError``.
 
     ``select=True`` adds a penalty on the null space of each smooth, so a
-    smooth can be shrunk to zero; only the parametric terms then count as
+    smooth can be shrunk to zero (Marra and Wood 2011). The null space is that
+    of the smooth's total penalty, so a tensor product gets one extra penalty,
+    not one per margin; only the parametric terms then count as
     unpenalized in the REML and ML scores.
     """
     simple = (

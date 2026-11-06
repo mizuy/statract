@@ -259,3 +259,31 @@ def test_gamma_aic_counts_dispersion() -> None:
     fit = fit_glm(pl.DataFrame({"y": y, "x": x}), "y ~ x", family="gamma")
     assert fit.aic == pytest.approx(-2 * fit.log_likelihood + 2 * 3, rel=1e-12)
     assert fit.bic == pytest.approx(-2 * fit.log_likelihood + np.log(n) * 3, rel=1e-12)
+
+
+# Gamma logLik uses phi = deviance / sum(w), as R's Gamma()$aic.
+@pytest.mark.parametrize("weighted", [False, True])
+def test_gamma_loglik_uses_deviance_dispersion(weighted) -> None:
+    from scipy import stats as sps
+
+    rng = np.random.default_rng(31)
+    n = 60
+    x = rng.normal(size=n)
+    mu = np.exp(0.5 + 0.3 * x)
+    y = rng.gamma(3.0, mu / 3.0)
+    w = rng.uniform(0.5, 2.5, size=n) if weighted else np.ones(n)
+    w[:3] = 0.0 if weighted else 1.0
+    data = pl.DataFrame({"y": y, "x": x, "w": w})
+    fit = fit_glm(data, "y ~ x", family="gamma", weights="w" if weighted else None)
+    fitted = 1.0 / (fit.coefficients[0] + fit.coefficients[1] * x)
+    unit_dev = -2.0 * (np.log(y / fitted) - (y - fitted) / fitted)
+    deviance = float(np.sum(w * unit_dev))
+    assert fit.deviance == pytest.approx(deviance, rel=1e-10)
+    phi = deviance / w.sum()
+    expected = float(np.sum(w * sps.gamma.logpdf(y, 1.0 / phi, scale=fitted * phi)))
+    assert fit.log_likelihood == pytest.approx(expected, rel=1e-10)
+    assert fit.aic == pytest.approx(-2.0 * expected + 2.0 * 3, rel=1e-10)
+    # Standard errors keep the Pearson dispersion of summary.glm (R takes it
+    # from the last IRLS working weights, so it is close but not exact here).
+    pearson = float(np.sum(w * (y - fitted) ** 2 / fitted**2) / (np.count_nonzero(w) - 2))
+    assert fit.scale == pytest.approx(pearson, rel=1e-3)

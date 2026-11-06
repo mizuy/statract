@@ -174,3 +174,50 @@ def test_median_odds_ratio_checks_fit():
         median_odds_ratio(slope_only)
     logit = fit_mixed(binary, "yb ~ x + (1|g)", family="binomial")
     assert median_odds_ratio(logit)["median_odds_ratio"][0] >= 1.0
+
+
+def test_select_tensor_gets_one_null_space_penalty():
+    from statract.models.gam import tensor_smooth
+
+    rng = np.random.default_rng(3)
+    n = 300
+    x = rng.uniform(0, 1, n)
+    z1 = rng.uniform(0, 1, n)
+    z2 = rng.uniform(0, 1, n)
+    y = np.sin(2 * np.pi * x) + rng.normal(0, 0.3, n)
+    df = pl.DataFrame({"x": x, "z1": z1, "z2": z2, "y": y})
+    plain = gam(df, "y", [smooth("x"), tensor_smooth("z1", "z2", k=(5, 5))])
+    fit = gam(df, "y", [smooth("x"), tensor_smooth("z1", "z2", k=(5, 5))], select=True)
+    te_cols = fit.blocks[1].columns
+    te_pens = [m for sl, m in fit.penalties if np.array_equal(sl, te_cols)]
+    # Two marginal penalties plus exactly one null-space penalty.
+    assert len(plain.penalties) == 3
+    assert len(te_pens) == 3
+    assert len(fit.penalties) == len(plain.penalties) + 2
+    # The extra penalty spans the null space of the summed marginal penalties.
+    total = te_pens[0] / np.linalg.norm(te_pens[0]) + te_pens[1] / np.linalg.norm(te_pens[1])
+    null_dim = te_cols.size - np.linalg.matrix_rank(total, hermitian=True)
+    assert np.linalg.matrix_rank(te_pens[2], hermitian=True) == null_dim
+    # Only the intercept is left unpenalized.
+    p = fit.x.shape[1]
+    assert _penalty_rank(p, fit.penalties) == p - 1
+    assert fit.null_space_dim == 1
+    # The pure-noise tensor term is shrunk to (near) zero edf.
+    assert fit.block_edf[1] < 0.05
+    assert fit.block_edf[0] > 4.0
+
+
+def test_select_factor_by_gets_one_null_space_penalty_per_level():
+    rng = np.random.default_rng(6)
+    n = 300
+    x = rng.uniform(0, 1, n)
+    arm = rng.choice(["a", "b", "c"], n)
+    y = np.sin(2 * np.pi * x) + rng.normal(0, 0.3, n)
+    df = pl.DataFrame({"x": x, "arm": arm, "y": y})
+    plain = gam(df, "y", [smooth("x", by="arm")], predictors=["arm"])
+    fit = gam(df, "y", [smooth("x", by="arm")], predictors=["arm"], select=True)
+    extra = fit.penalties[len(plain.penalties) :]
+    assert len(extra) == 3
+    assert [sl.size for sl, _m in extra] == [sl.size // 3 for sl in [fit.blocks[0].columns]] * 3
+    p = fit.x.shape[1]
+    assert fit.null_space_dim == p - _penalty_rank(p, fit.penalties) == 3
