@@ -1066,14 +1066,19 @@ def _covariance(design, y, beta, penalties, lam, family, sig2, weights=None, off
 
 
 def _edf_by_block(influence: np.ndarray, penalties) -> np.ndarray:
-    """One effective-df per smooth. Penalties that share a column slice are one smooth."""
-    seen: list[tuple[int, int, int]] = []
+    """One effective-df per smooth.
+
+    Penalties whose columns lie inside an earlier penalty's columns belong to
+    that smooth: a tensor margin, or a ``select=True`` null-space penalty on
+    one level of a factor ``by`` block.
+    """
+    seen: list[tuple[int, int]] = []
     out: list[float] = []
     for sl, _matrix in penalties:
-        key = (int(sl[0]), int(sl[-1]), int(sl.size))
-        if key in seen:
+        first, last = int(np.min(sl)), int(np.max(sl))
+        if any(start <= first and last <= end for start, end in seen):
             continue
-        seen.append(key)
+        seen.append((first, last))
         out.append(float(np.trace(influence[np.ix_(sl, sl)])))
     return np.asarray(out, dtype=float)
 

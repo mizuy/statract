@@ -317,6 +317,59 @@ def _gam_sample(seed: int, n: int) -> pl.DataFrame:
     return pl.DataFrame({"x": x, "z": z, "w": w, "off": off, "y": y, "cost": cost})
 
 
+def _gam_bases_sample(seed: int, n: int) -> pl.DataFrame:
+    """Gaussian and count outcomes for the bases, tensors, factor ``by``, and ``select``.
+
+    ``hour`` is cyclic on [0, 24); ``site`` is a random-effect factor; ``noise``
+    has no effect, so ``select=True`` should shrink its smooth.
+    """
+    rng = np.random.default_rng(seed)
+    x = np.round(rng.uniform(0, 1, n), 4)
+    z = np.round(rng.uniform(0, 1, n), 4)
+    noise = np.round(rng.uniform(0, 1, n), 4)
+    hour = np.round(rng.uniform(0, 24, n), 3)
+    grp = rng.choice(["a", "b", "c"], size=n)
+    site = rng.integers(1, 13, n)
+    site_effect = rng.normal(0, 0.4, 12)[site - 1]
+    by_effect = np.select([grp == "a", grp == "b"], [np.sin(2 * np.pi * x), 2 * x], -np.cos(np.pi * x))
+    signal = by_effect + 0.6 * np.cos(2 * np.pi * hour / 24) + np.sin(3 * x * z) + site_effect
+    y = np.round(signal + rng.normal(0, 0.4, n), 4)
+    count = rng.poisson(np.exp(0.3 + 0.5 * signal))
+    return pl.DataFrame(
+        {"x": x, "z": z, "noise": noise, "hour": hour, "grp": grp, "site": [f"s{v:02d}" for v in site], "y": y, "count": count}
+    )
+
+
+def _clogit_sample(seed: int, n_sets: int) -> pl.DataFrame:
+    """Matched sets of 2-5 rows; some sets have two cases, so exact and Breslow differ.
+
+    ``w`` is a whole-number weight, ``wf`` a fractional one, ``o`` an offset.
+    """
+    rng = np.random.default_rng(seed)
+    rows = []
+    for s in range(n_sets):
+        size = int(rng.integers(2, 6))
+        n_case = 2 if size >= 4 and rng.uniform() < 0.3 else 1
+        x = rng.normal(size=size)
+        z = rng.choice(["lo", "mid", "hi"], size=size)
+        score = 0.8 * x + np.where(z == "hi", 0.7, np.where(z == "mid", 0.3, 0.0)) + rng.gumbel(size=size)
+        case = np.zeros(size, dtype=int)
+        case[np.argsort(-score)[:n_case]] = 1
+        for i in range(size):
+            rows.append(
+                {
+                    "set": f"m{s:03d}",
+                    "case": int(case[i]),
+                    "x": round(float(x[i]), 4),
+                    "z": str(z[i]),
+                    "o": round(float(rng.normal(0, 0.3)), 4),
+                    "w": int(rng.integers(1, 4)),
+                    "wf": round(float(rng.uniform(0.5, 2.0)), 3),
+                }
+            )
+    return pl.DataFrame(rows)
+
+
 def _stdreg_sample(seed: int, n: int, *, exposure: str, whole_tenths: bool, max_follow_up: float) -> pl.DataFrame:
     """Cox data for standardization: a binary ``ope`` or a continuous ``dose``."""
     rng = np.random.default_rng(seed)
@@ -585,6 +638,8 @@ def main() -> None:
     _gamm_binary(20261023, 800, 25).write_csv(DATA / "gamm_binary_a.csv")
     # Additive models: weighted Gaussian and gamma outcomes (mgcv summaries).
     _gam_sample(20261043, 300).write_csv(DATA / "gam_a.csv")
+    _gam_bases_sample(20261108, 400).write_csv(DATA / "gam_b.csv")
+    _clogit_sample(20261109, 120).write_csv(DATA / "clogit_a.csv")
     # Cox standardization: tied times with sites, a continuous exposure, and
     # untied times for the restricted mean.
     _stdreg_sample(20261024, 300, exposure="ope", whole_tenths=True, max_follow_up=8.0).write_csv(DATA / "stdreg_a.csv")
