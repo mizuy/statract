@@ -321,6 +321,7 @@ class _RiskSets:
         idx_t = np.full(n, -1)
         idx_e = np.full(n, -1)
         base = np.full(n, -1)
+        spans = np.zeros(n, dtype=bool)
         slices = []
         offset = 0
         for s in range(sid.max() + 1 if n else 0):
@@ -332,10 +333,12 @@ class _RiskSets:
             idx_t[rows] = np.where(kt >= 0, kt + offset, -1)
             idx_e[rows] = np.where((ke >= 0) & (ke < kt), ke + offset, -1)
             base[rows] = np.where(ke >= 0, ke + offset, offset - 1)
+            # Rows whose (entry, time] holds no death time are in no risk set.
+            spans[rows] = (kt >= 0) & (ke < kt)
             slices.append(slice(offset, offset + len(tau)))
             offset += len(tau)
         k_total = offset
-        live = (idx_t >= 0) & (idx_t > idx_e)
+        live = spans
         rows_t = np.flatnonzero(live)
         rows_e = np.flatnonzero(live & (idx_e >= 0))
         self.bucket = sparse.csr_matrix(

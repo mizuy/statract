@@ -99,3 +99,25 @@ def test_errors(data) -> None:
         cox_mixed(data, "Surv(time, status) ~ x + (1 + x | hosp)", variances=[0.1])
     with pytest.raises(ValueError, match="cox_mixed only"):
         fit_mixed(data.with_columns(y=pl.col("status")), "y ~ x + (1 | hosp/ward)", family="binomial")
+
+
+def test_cox_mixed_split_follow_up_invariant():
+    """Splitting follow-up leaves the fit unchanged, including rows whose interval holds no death time."""
+    import numpy as np
+    import polars as pl
+
+    from statract.surv.cox_mixed import cox_mixed
+    from statract.surv.fine_gray import split_follow_up
+
+    rng = np.random.default_rng(1)
+    n = 400
+    g = rng.integers(0, 8, n)
+    x = rng.normal(size=n)
+    t = rng.exponential(1 / np.exp(0.5 * x + rng.normal(scale=0.5, size=8)[g]))
+    c = rng.exponential(1.5, n)
+    d = pl.DataFrame({"time": np.minimum(t, c), "status": (t <= c).astype(int), "x": x, "g": g.astype(str)})
+    whole = cox_mixed(d, "Surv(time, status) ~ x + (1 | g)")
+    cuts = d.filter(pl.col("status") == 1)["time"].unique().sort().to_list()[::3]
+    split = cox_mixed(split_follow_up(d, "time", "status", cuts), "Surv(tstart, time, status) ~ x + (1 | g)")
+    np.testing.assert_allclose(split.coefficients, whole.coefficients, rtol=1e-6)
+    np.testing.assert_allclose(split.log_likelihood, whole.log_likelihood, rtol=1e-9)
