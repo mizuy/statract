@@ -309,3 +309,36 @@ def test_plot_forest_table_layout_default(tmp_path: Path) -> None:
     import matplotlib.pyplot as plt
 
     plt.close(fig)
+
+
+def test_plot_survival_cause_draws_aalen_johansen_cif() -> None:
+    """With ``cause`` the curve is the Aalen–Johansen CIF, not 1 − KM."""
+    import matplotlib.pyplot as plt
+
+    rng = np.random.default_rng(1)
+    n = 200
+    df = pl.DataFrame({"time": rng.uniform(0.1, 5.0, n), "cause": rng.choice([0, 1, 2], n, p=[0.4, 0.3, 0.3])})
+    ax = plot_survival(df, time="time", status="cause", cause=1, ci_show=False, show_censors=False)
+    y = ax.get_lines()[0].get_ydata()
+    aj = survival_curve(df, "time", "cause", kind="aalen_johansen").frame().filter(pl.col("state") == "1")
+    km = survival_curve(df.with_columns(pl.col("cause") == 1), "time", "cause").frame()
+    assert y[-1] == pytest.approx(float(aj["estimate"][-1]))
+    assert y[-1] < 1.0 - float(km["estimate"][-1])  # competing deaths lower the CIF below 1 − KM
+    assert getattr(ax, "_statract_at_risk_texts", [])
+    plt.close(ax.figure)
+
+
+def test_plot_survival_cause_rejects_stime() -> None:
+    df = pl.DataFrame({"stime": [1.0, -2.0, 3.0]})
+    with pytest.raises(ValueError, match="cause"):
+        plot_survival(df, stime="stime", cause=1)
+
+
+def test_plot_survival_at_risk_color_overrides_group_colors() -> None:
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import to_hex
+
+    ax = plot_survival(_surv_frame(), time="time", status="event", hue="group", at_risk_color="black")
+    assert {to_hex(t.get_color()) for t in ax._statract_at_risk_texts} == {"#000000"}
+    assert {to_hex(t.get_color()) for t in ax._statract_at_risk_ax.get_yticklabels()} == {"#000000"}
+    plt.close(ax.figure)

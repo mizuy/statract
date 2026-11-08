@@ -172,7 +172,7 @@ def _apply_survminer_axes(ax: Any, *, cdf: bool) -> None:
 def _new_km_axes(*, n_groups: int, at_risk_counts: bool) -> tuple[Any, Any]:
     import matplotlib.pyplot as plt
 
-    extra = (1.0 + 0.12 * n_groups) if at_risk_counts else 0.0
+    extra = (0.75 + _RISK_ROW_IN * n_groups) if at_risk_counts else 0.0
     fig, ax = plt.subplots(figsize=(7.2, 4.9 + extra), facecolor="white")
     fig.patch.set_facecolor("white")
     # Risk panel is appended from this axes (same spine x0/x1). Returning
@@ -208,10 +208,13 @@ def _sync_xlim(src: Any, dest: Any) -> None:
     src.callbacks.connect("xlim_changed", _on_xlim)
 
 
+_RISK_ROW_IN = 0.2  # height of one at-risk row in inches (about 1.6 lines at 8 pt)
+
+
 def _append_risk_axes(ax: Any, n_groups: int) -> Any:
     """Panel under ``ax`` with the same display width (aligned spines), not twiny."""
     divider = make_axes_locatable(ax)
-    size_in = max(0.7, 0.32 * n_groups + 0.28)
+    size_in = max(0.4, _RISK_ROW_IN * n_groups + 0.05)
     # Do not sharex: sharing hides the KM tick labels when the table turns them off.
     return divider.append_axes("bottom", size=size_in, pad=0.55)
 
@@ -474,16 +477,31 @@ def _logrank_batch(s: pl.Series) -> float:
     return float(log_rank(frame, "t", "e", "g").p_value)
 
 
-def _km_from_group(df: pl.DataFrame, time_col: str, status_col: str, label: str) -> KmPlotCurve:
-    fitted = survival_curve(df, time_col, status_col)
-    table = fitted.frame()
+def _km_from_group(
+    df: pl.DataFrame, time_col: str, status_col: str, label: str, cause: int | None = None
+) -> KmPlotCurve:
+    """KM curve, or with ``cause`` the Aalen–Johansen CIF stored as ``1 − CIF``.
+
+    Storing the CIF on the survival scale lets ``_plot_km_curve(cdf=True)``
+    draw both estimators with one code path.
+    """
+    if cause is None:
+        table = survival_curve(df, time_col, status_col).frame()
+        estimate, low, high = table["estimate"], table["conf_low"], table["conf_high"]
+    else:
+        table = (
+            survival_curve(df, time_col, status_col, kind="aalen_johansen")
+            .frame()
+            .filter(pl.col("state").cast(pl.String) == str(cause))
+        )
+        estimate, low, high = 1.0 - table["estimate"], 1.0 - table["conf_high"], 1.0 - table["conf_low"]
     return KmPlotCurve(
         label=str(label),
         durations=np.asarray(df[time_col].to_numpy(), dtype=float),
         time=np.asarray(table["time"].to_numpy(), dtype=float),
-        survival=np.asarray(table["estimate"].to_numpy(), dtype=float),
-        conf_low=np.asarray(table["conf_low"].to_numpy(), dtype=float),
-        conf_high=np.asarray(table["conf_high"].to_numpy(), dtype=float),
+        survival=np.asarray(estimate.to_numpy(), dtype=float),
+        conf_low=np.asarray(low.to_numpy(), dtype=float),
+        conf_high=np.asarray(high.to_numpy(), dtype=float),
         n_censor=np.asarray(table["n_censor"].to_numpy(), dtype=float),
     )
 
@@ -584,6 +602,8 @@ def plot_survival(
     ax: Any = None,
     labels: list[str] | dict[str, str] | None = None,
     style: SurvivalPlotStyle = "color",
+    cause: int | None = None,
+    at_risk_color: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """Plot Kaplan–Meier curves with publication-ready survminer-like defaults.
@@ -611,6 +631,12 @@ def plot_survival(
             matching risk-table panel)
         labels: Labels for groups (list or dict mapping group values to labels)
         style: ``"color"`` (screen/docs default) or ``"bw"`` (grayscale print)
+        cause: Competing risks. ``status`` is then a cause code (0 = censored,
+            1, 2, ... = event types) and the plot shows the Aalen–Johansen
+            cumulative incidence of this cause, treating the other causes as
+            competing events. Implies ``cdf=True``. Not combinable with ``stime``.
+        at_risk_color: One color for every row of the number-at-risk table
+            (e.g. ``"black"``). Default: each row in its curve's color.
         **kwargs: Plot overrides (``ci_show``, ``show_censors``, ``censor_styles``,
             ``ci_alpha``, ``lw``, plus matplotlib ``step`` kwargs). Explicit
             kwargs override the publication defaults.
@@ -642,6 +668,10 @@ def plot_survival(
     """
     if style not in {"color", "bw"}:
         raise ValueError('style must be "color" or "bw"')
+    if cause is not None:
+        if stime is not None:
+            raise ValueError("cause needs a cause-coded status column, not stime")
+        cdf = True
 
     df = data
     time_col = "time_"
@@ -674,7 +704,7 @@ def plot_survival(
 
     curves: list[KmPlotCurve] = []
     if hue is None:
-        curves.append(_km_from_group(df, time_col, status_col, "All"))
+        curves.append(_km_from_group(df, time_col, status_col, "All", cause))
     else:
         for i, item in enumerate(df.group_by(hue_col, maintain_order=True)):
             group_df = item[1] if isinstance(item, tuple) else item
@@ -685,7 +715,7 @@ def plot_survival(
                 label = labels.get(name)
             else:
                 label = name
-            curves.append(_km_from_group(group_df, time_col, status_col, label))
+            curves.append(_km_from_group(group_df, time_col, status_col, label, cause))
     if not curves:
         raise ValueError("no rows with a non-null hue to plot")
 
@@ -749,7 +779,7 @@ def plot_survival(
             ax=ax,
             xticks=xticks,
             risk_ax=risk_ax,
-            colors=colors,
+            colors=[at_risk_color] * len(curves) if at_risk_color else colors,
         )
 
     return ax
