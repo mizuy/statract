@@ -340,6 +340,36 @@ def _gam_bases_sample(seed: int, n: int) -> pl.DataFrame:
     )
 
 
+def _clogit_sample(seed: int, n_sets: int) -> pl.DataFrame:
+    """Matched sets of 2-5 rows; some sets have two cases, so exact and Breslow differ.
+
+    ``w`` is a whole-number weight, ``wf`` a fractional one, ``o`` an offset.
+    """
+    rng = np.random.default_rng(seed)
+    rows = []
+    for s in range(n_sets):
+        size = int(rng.integers(2, 6))
+        n_case = 2 if size >= 4 and rng.uniform() < 0.3 else 1
+        x = rng.normal(size=size)
+        z = rng.choice(["lo", "mid", "hi"], size=size)
+        score = 0.8 * x + np.where(z == "hi", 0.7, np.where(z == "mid", 0.3, 0.0)) + rng.gumbel(size=size)
+        case = np.zeros(size, dtype=int)
+        case[np.argsort(-score)[:n_case]] = 1
+        for i in range(size):
+            rows.append(
+                {
+                    "set": f"m{s:03d}",
+                    "case": int(case[i]),
+                    "x": round(float(x[i]), 4),
+                    "z": str(z[i]),
+                    "o": round(float(rng.normal(0, 0.3)), 4),
+                    "w": int(rng.integers(1, 4)),
+                    "wf": round(float(rng.uniform(0.5, 2.0)), 3),
+                }
+            )
+    return pl.DataFrame(rows)
+
+
 def _stdreg_sample(seed: int, n: int, *, exposure: str, whole_tenths: bool, max_follow_up: float) -> pl.DataFrame:
     """Cox data for standardization: a binary ``ope`` or a continuous ``dose``."""
     rng = np.random.default_rng(seed)
@@ -609,6 +639,7 @@ def main() -> None:
     # Additive models: weighted Gaussian and gamma outcomes (mgcv summaries).
     _gam_sample(20261043, 300).write_csv(DATA / "gam_a.csv")
     _gam_bases_sample(20261108, 400).write_csv(DATA / "gam_b.csv")
+    _clogit_sample(20261109, 120).write_csv(DATA / "clogit_a.csv")
     # Cox standardization: tied times with sites, a continuous exposure, and
     # untied times for the restricted mean.
     _stdreg_sample(20261024, 300, exposure="ope", whole_tenths=True, max_follow_up=8.0).write_csv(DATA / "stdreg_a.csv")
