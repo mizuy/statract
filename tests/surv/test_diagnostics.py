@@ -365,3 +365,16 @@ def test_plot_survival_time_step_sets_at_risk_columns() -> None:
     plt.close(ax.figure)
     with pytest.raises(ValueError, match="time_step"):
         plot_survival(_surv_frame(), time="time", status="event", time_step=0)
+
+
+def test_plot_survival_colors_by_group_value() -> None:
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import to_hex
+
+    colors = {"A": "#ff0000", "B": "#0000ff"}
+    ax = plot_survival(_surv_frame(), time="time", status="event", hue="group", colors=colors, at_risk_color=None)
+    legend = {t.get_text(): to_hex(h.get_color()) for t, h in zip(ax.get_legend().get_texts(), ax.get_legend().legend_handles, strict=True)}
+    assert legend == colors
+    rows = {t.get_text(): to_hex(t.get_color()) for t in ax._statract_at_risk_ax.get_yticklabels()}
+    assert rows == colors
+    plt.close(ax.figure)

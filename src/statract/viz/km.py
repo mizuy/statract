@@ -605,6 +605,7 @@ def plot_survival(
     cause: int | None = None,
     at_risk_color: str | None = "black",
     time_step: float | None = None,
+    colors: list[str] | dict[Any, str] | None = None,
     **kwargs: Any,
 ) -> Any:
     """Plot Kaplan–Meier curves with publication-ready survminer-like defaults.
@@ -642,6 +643,9 @@ def plot_survival(
         time_step: Spacing of the time ticks and of the number-at-risk
             columns (e.g. ``1`` for every year). Default: chosen from the
             follow-up length (about 6 to 10 ticks).
+        colors: Curve colors, as a list in group order or a dict keyed by
+            group value (the ``hue`` value, before ``labels``). Default: the
+            ``style`` palette.
         **kwargs: Plot overrides (``ci_show``, ``show_censors``, ``censor_styles``,
             ``ci_alpha``, ``lw``, plus matplotlib ``step`` kwargs). Explicit
             kwargs override the publication defaults.
@@ -708,8 +712,10 @@ def plot_survival(
         assert df[hue_col].n_unique() == len(labels)
 
     curves: list[KmPlotCurve] = []
+    group_keys: list[Any] = []
     if hue is None:
         curves.append(_km_from_group(df, time_col, status_col, "All", cause))
+        group_keys.append(None)
     else:
         for i, item in enumerate(df.group_by(hue_col, maintain_order=True)):
             group_df = item[1] if isinstance(item, tuple) else item
@@ -721,6 +727,7 @@ def plot_survival(
             else:
                 label = name
             curves.append(_km_from_group(group_df, time_col, status_col, label, cause))
+            group_keys.append(name)
     if not curves:
         raise ValueError("no rows with a non-null hue to plot")
 
@@ -729,7 +736,12 @@ def plot_survival(
     if created_fig:
         ax, risk_ax = _new_km_axes(n_groups=len(curves), at_risk_counts=at_risk_counts)
 
+    custom_colors = colors
     colors, linestyles, censor_cycle = _km_group_styles(style, len(curves))
+    if isinstance(custom_colors, dict):
+        colors = [custom_colors.get(key, c) for key, c in zip(group_keys, colors, strict=True)]
+    elif custom_colors is not None:
+        colors = _cycle(tuple(custom_colors), len(curves))
     plot_defaults: dict[str, Any] = {
         "ci_show": True,
         "show_censors": True,
