@@ -606,6 +606,7 @@ def plot_survival(
     at_risk_color: str | None = "black",
     time_step: float | None = None,
     colors: list[str] | dict[Any, str] | None = None,
+    xmax: float | None = None,
     **kwargs: Any,
 ) -> Any:
     """Plot Kaplan–Meier curves with publication-ready survminer-like defaults.
@@ -646,6 +647,10 @@ def plot_survival(
         colors: Curve colors, as a list in group order or a dict keyed by
             group value (the ``hue`` value, before ``labels``). Default: the
             ``style`` palette.
+        xmax: Last time shown. The x-axis, its ticks and the number-at-risk
+            columns stop here, and curves are cut at the axis edge, so
+            panels with different follow-up share one axis. Default: the
+            longest follow-up.
         **kwargs: Plot overrides (``ci_show``, ``show_censors``, ``censor_styles``,
             ``ci_alpha``, ``lw``, plus matplotlib ``step`` kwargs). Explicit
             kwargs override the publication defaults.
@@ -781,15 +786,18 @@ def plot_survival(
             extra=extra,
         )
 
+    axis_max = time_max if xmax is None else float(xmax)
     if time_step is not None:
         if time_step <= 0:
             raise ValueError("time_step must be positive")
-        xticks = np.arange(0.0, time_max + time_step * 0.51, time_step)
+        xticks = np.arange(0.0, axis_max + time_step * (0.01 if xmax is not None else 0.51), time_step)
     else:
-        xticks = default_at_risk_xticks(time_max)
+        xticks = default_at_risk_xticks(axis_max)
+        if xmax is not None:
+            xticks = xticks[xticks <= axis_max + 1e-9]
     ax.xaxis.set_major_locator(FixedLocator(xticks))
     ax.xaxis.set_major_formatter(FuncFormatter(_format_time_tick))
-    ax.set_xlim(*_padded_xlim(xticks, time_max))
+    ax.set_xlim(*_padded_xlim(xticks, axis_max))
     ax.tick_params(axis="x", labelbottom=True, length=3.5)
     ax.set_xlabel("Time")
     ax.legend()

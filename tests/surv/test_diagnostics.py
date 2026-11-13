@@ -378,3 +378,12 @@ def test_plot_survival_colors_by_group_value() -> None:
     rows = {t.get_text(): to_hex(t.get_color()) for t in ax._statract_at_risk_ax.get_yticklabels()}
     assert rows == colors
     plt.close(ax.figure)
+
+
+def test_plot_survival_xmax_cuts_axis_and_at_risk_columns() -> None:
+    import matplotlib.pyplot as plt
+
+    ax = plot_survival(_surv_frame(), time="time", status="event", hue="group", time_step=500.0, xmax=1500.0)
+    assert list(ax._statract_at_risk_xticks) == [0.0, 500.0, 1000.0, 1500.0]
+    assert ax.get_xlim()[1] < 2000.0
+    plt.close(ax.figure)
