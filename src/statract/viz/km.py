@@ -603,7 +603,8 @@ def plot_survival(
     labels: list[str] | dict[str, str] | None = None,
     style: SurvivalPlotStyle = "color",
     cause: int | None = None,
-    at_risk_color: str | None = None,
+    at_risk_color: str | None = "black",
+    time_step: float | None = None,
     **kwargs: Any,
 ) -> Any:
     """Plot Kaplan–Meier curves with publication-ready survminer-like defaults.
@@ -635,8 +636,12 @@ def plot_survival(
             1, 2, ... = event types) and the plot shows the Aalen–Johansen
             cumulative incidence of this cause, treating the other causes as
             competing events. Implies ``cdf=True``. Not combinable with ``stime``.
-        at_risk_color: One color for every row of the number-at-risk table
-            (e.g. ``"black"``). Default: each row in its curve's color.
+        at_risk_color: One color for the labels and counts of the
+            number-at-risk table. Default ``"black"``; ``None`` colors each
+            row like its curve.
+        time_step: Spacing of the time ticks and of the number-at-risk
+            columns (e.g. ``1`` for every year). Default: chosen from the
+            follow-up length (about 6 to 10 ticks).
         **kwargs: Plot overrides (``ci_show``, ``show_censors``, ``censor_styles``,
             ``ci_alpha``, ``lw``, plus matplotlib ``step`` kwargs). Explicit
             kwargs override the publication defaults.
@@ -764,7 +769,12 @@ def plot_survival(
             extra=extra,
         )
 
-    xticks = default_at_risk_xticks(time_max)
+    if time_step is not None:
+        if time_step <= 0:
+            raise ValueError("time_step must be positive")
+        xticks = np.arange(0.0, time_max + time_step * 0.51, time_step)
+    else:
+        xticks = default_at_risk_xticks(time_max)
     ax.xaxis.set_major_locator(FixedLocator(xticks))
     ax.xaxis.set_major_formatter(FuncFormatter(_format_time_tick))
     ax.set_xlim(*_padded_xlim(xticks, time_max))
