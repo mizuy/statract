@@ -334,11 +334,47 @@ def test_plot_survival_cause_rejects_stime() -> None:
         plot_survival(df, stime="stime", cause=1)
 
 
-def test_plot_survival_at_risk_color_overrides_group_colors() -> None:
+def test_plot_survival_at_risk_table_is_black_by_default() -> None:
     import matplotlib.pyplot as plt
     from matplotlib.colors import to_hex
 
-    ax = plot_survival(_surv_frame(), time="time", status="event", hue="group", at_risk_color="black")
+    ax = plot_survival(_surv_frame(), time="time", status="event", hue="group")
     assert {to_hex(t.get_color()) for t in ax._statract_at_risk_texts} == {"#000000"}
     assert {to_hex(t.get_color()) for t in ax._statract_at_risk_ax.get_yticklabels()} == {"#000000"}
+    plt.close(ax.figure)
+
+
+def test_plot_survival_at_risk_color_none_uses_curve_colors() -> None:
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import to_hex
+
+    ax = plot_survival(_surv_frame(), time="time", status="event", hue="group", at_risk_color=None)
+    labels = [to_hex(t.get_color()) for t in ax._statract_at_risk_ax.get_yticklabels()]
+    assert len(set(labels)) == len(labels) > 1  # one color per curve
+    assert "#000000" not in labels
+    plt.close(ax.figure)
+
+
+def test_plot_survival_time_step_sets_at_risk_columns() -> None:
+    import matplotlib.pyplot as plt
+
+    ax = plot_survival(_surv_frame(), time="time", status="event", hue="group", time_step=500.0)
+    ticks = list(ax._statract_at_risk_xticks)
+    assert ticks[:3] == [0.0, 500.0, 1000.0]
+    assert np.diff(ticks) == pytest.approx([500.0] * (len(ticks) - 1))
+    plt.close(ax.figure)
+    with pytest.raises(ValueError, match="time_step"):
+        plot_survival(_surv_frame(), time="time", status="event", time_step=0)
+
+
+def test_plot_survival_colors_by_group_value() -> None:
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import to_hex
+
+    colors = {"A": "#ff0000", "B": "#0000ff"}
+    ax = plot_survival(_surv_frame(), time="time", status="event", hue="group", colors=colors, at_risk_color=None)
+    legend = {t.get_text(): to_hex(h.get_color()) for t, h in zip(ax.get_legend().get_texts(), ax.get_legend().legend_handles, strict=True)}
+    assert legend == colors
+    rows = {t.get_text(): to_hex(t.get_color()) for t in ax._statract_at_risk_ax.get_yticklabels()}
+    assert rows == colors
     plt.close(ax.figure)

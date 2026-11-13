@@ -67,7 +67,7 @@ HR / OR / 係数の forest は再実装した `plot_forest(..., layout="table")`
 
 | 要素 | 方針 |
 |------|------|
-| KM | `plot_survival` 既定の **number-at-risk**（in-house `survival_curve`）。NAR は曲線と **同じ x 軸**（`sharex` の表パネル）。`style="bw"` で白黒（線種+打点） |
+| KM | `plot_survival` 既定の **number-at-risk**（in-house `survival_curve`）。NAR は曲線と **同じ x 軸**（`sharex` の表パネル）。NAR の文字は既定で黒（`at_risk_color=None` で曲線の色）。`time_step=1` で 1 年おきなど刻みを指定。`style="bw"` で白黒（線種+打点） |
 | Forest | `plot_forest` 既定の **表一体**（`layout="table"`）。`style="bw"` で白黒（黒マーカー＋ヒゲ） |
 | PH | `proportional_hazards_test` |
 | 診断 | survminer 風スイート（`write_cox_diagnostic_suite`: Schoenfeld / log-log / dfbeta / martingale / deviance 等） |
