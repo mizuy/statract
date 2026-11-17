@@ -2,6 +2,11 @@
 version: '3'
 
 tasks:
+  r:setup:
+    desc: Install R 4.3.3 and every R package used by the R oracle and benchmarks (Ubuntu 24.04 cloud sessions; CRAN-only packages are built from github.com/cran)
+    cmds:
+      - bash scripts/cloud-install-r.sh
+
   r-oracle:
     desc: Regenerate R oracle fixtures, show the diff, and run their tests (`task r-oracle -- ordinal gamm4` for some)
     cmds:
