@@ -40,4 +40,14 @@ fi
 
 $sudo Rscript "$(dirname "$0")/install_cran_git.R" "${GIT_PKGS[@]}"
 
+# The benchmark's raw data hosts (UCI, hbiostat, Harvard Dataverse) are
+# blocked in cloud sessions. If a copy of the raw files exists, put it where
+# bench/prepare.py looks, so `uv run python bench/run_all.py` works offline.
+bench_raw="${BENCH_RAW:-/mnt/project-files/bench-raw}"
+if [ -d "$bench_raw" ]; then
+  mkdir -p /tmp/statract-bench/raw
+  cp -n "$bench_raw"/* /tmp/statract-bench/raw/
+  echo "copied benchmark raw data from $bench_raw"
+fi
+
 R --version | head -1
