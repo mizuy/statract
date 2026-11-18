@@ -751,17 +751,52 @@ def _fit_glm_weighted(design, y, penalty, rank, penalties, family, method, mp, g
     return score, beta, float(sig2), float(edf), block_edf
 
 
-def _pirls_offset(design, y, penalty, family, prior, offset, iterations: int = 25) -> np.ndarray:
+def _pirls_offset(design, y, penalty, family, prior, offset, iterations: int = 100) -> np.ndarray:
+    return _pirls_core(design, y, penalty, family, prior, offset, iterations)
+
+
+def _penalized_deviance(design, y, penalty, family, prior, offset, beta) -> float:
+    eta = design @ beta + offset
+    if not np.all(np.isfinite(eta)):
+        return np.inf
+    mu = _mean(family, np.clip(eta, -30, 30))
+    return _unit_deviance_sum(family, y, mu, prior) + float(beta @ penalty @ beta)
+
+
+def _unit_deviance_sum(family, y, mu, prior) -> float:
+    if prior is None:
+        return _deviance(family, y, mu)
+    # Weighted deviance: the unit deviances times the prior weights.
+    total = 0.0
+    for value in np.unique(prior):
+        rows = prior == value
+        total += float(value) * _deviance(family, y[rows], mu[rows])
+    return total
+
+
+def _pirls_core(design, y, penalty, family, prior, offset, iterations: int = 100) -> np.ndarray:
+    """Penalized IRLS with step halving on the penalized deviance, as mgcv's
+    ``gam.fit3``: a step that raises the penalized deviance (or gives a
+    non-finite fit) is halved until it does not. Without halving, a weakly
+    penalized fit can overshoot and never converge."""
+    off = np.zeros(y.shape[0]) if offset is None else offset
     beta = np.zeros(design.shape[1])
     beta[0] = _intercept_start(family, y)
+    old = _penalized_deviance(design, y, penalty, family, prior, off, beta)
     for _ in range(iterations):
-        eta = np.clip(design @ beta + offset, -20, 20)
+        eta = np.clip(design @ beta + off, -20, 20)
         z, fisher = _working(family, y, eta)
-        w = fisher * prior
-        updated = solve(design.T @ (w[:, None] * design) + penalty, design.T @ (w * (z - offset)), assume_a="pos")
-        if np.max(np.abs(updated - beta)) < 1e-8:
+        w = fisher if prior is None else fisher * prior
+        updated = solve(design.T @ (w[:, None] * design) + penalty, design.T @ (w * (z - off)), assume_a="pos")
+        new = _penalized_deviance(design, y, penalty, family, prior, off, updated)
+        halvings = 0
+        while not (new <= old + 1e-10 * (abs(old) + 1)) and halvings < 30:
+            updated = (updated + beta) / 2
+            new = _penalized_deviance(design, y, penalty, family, prior, off, updated)
+            halvings += 1
+        if np.max(np.abs(updated - beta)) < 1e-8 or abs(new - old) < 1e-12 * (abs(new) + 0.1):
             return updated
-        beta = updated
+        beta, old = updated, new
     return beta
 
 
@@ -779,18 +814,8 @@ def _penalized_weighted(design, y, penalty, penalties, beta, family):
     return beta, rss, pen, edf, block_edf
 
 
-def _pirls(design, y, penalty, family, iterations: int = 25) -> np.ndarray:
-    beta = np.zeros(design.shape[1])
-    beta[0] = _intercept_start(family, y)
-    for _ in range(iterations):
-        eta = np.clip(design @ beta, -20, 20)
-        z, w = _working(family, y, eta)
-        sys = design.T @ (w[:, None] * design) + penalty
-        updated = solve(sys, design.T @ (w * z), assume_a="pos")
-        if np.max(np.abs(updated - beta)) < 1e-8:
-            return updated
-        beta = updated
-    return beta
+def _pirls(design, y, penalty, family, iterations: int = 100) -> np.ndarray:
+    return _pirls_core(design, y, penalty, family, None, None, iterations)
 
 
 def _working(family: str, y: np.ndarray, eta: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
