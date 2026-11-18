@@ -343,13 +343,26 @@ def gamm(
     mu = special.expit(eta) if family == "binomial" else np.exp(eta)
     w = mu * (1 - mu) if family == "binomial" else mu
     xvx = _xt_vinv_x(x_gam, w, term_cols, result.group_covariances[:n_other])
+    # Work in each smooth's (null, scaled range) basis, where the penalty is
+    # I / variance on the range part. When a smooth's variance is near zero
+    # the penalty is huge; there it only sits on the diagonal, so scaling to a
+    # unit diagonal keeps the inverse accurate. The change of basis is block
+    # diagonal, so the block traces (edf) are the same in both bases.
+    transform = np.eye(xvx.shape[0])
     penalty = np.zeros_like(xvx)
     for part, sl, var in zip(parts, slices, smooth_var, strict=True):
-        penalty[sl, sl] = part.s_c / var
-    vb = np.linalg.inv(xvx + penalty)
-    vb = 0.5 * (vb + vb.T)
-    influence = vb @ xvx
+        transform[sl, sl] = np.column_stack([part.null, part.range * part.range_scale])
+        idx = np.arange(sl.start + part.null.shape[1], sl.stop)
+        penalty[idx, idx] = 1.0 / var
+    xvx_t = transform.T @ xvx @ transform
+    a = xvx_t + penalty
+    scale = 1.0 / np.sqrt(np.diag(a))
+    vb_t = scale[:, None] * np.linalg.inv(scale[:, None] * a * scale[None, :]) * scale[None, :]
+    vb_t = 0.5 * (vb_t + vb_t.T)
+    influence = vb_t @ xvx_t
     edf = np.array([float(np.trace(influence[sl, sl])) for sl in slices])
+    vb = transform @ vb_t @ transform.T
+    vb = 0.5 * (vb + vb.T)
     smooth_tests = []
     for sl, ref in zip(slices, edf, strict=True):
         stat, p_value = wood_test(coefficients[sl], vb[sl, sl], x_gam[:, sl] * np.sqrt(w)[:, None], ref, None)
