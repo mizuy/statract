@@ -73,6 +73,11 @@ def _wood_pair(beta, covariance, basis, rank):
     k = min(k, int(np.sum(eigval > eigval[0] * np.finfo(float).eps * len(eigval))))
     nu = min(rank - k + 1, 1.0)
     d = eigvec.T @ (r_factor @ beta)
+    if k < 2:
+        # Only one direction has positive variance (a smooth penalized down to
+        # its linear part): a one degree of freedom Wald test.
+        statistic = float(d[0] ** 2 / eigval[0])
+        return statistic, statistic, [1.0, 1.0, 0.0], [0, 1, 1]
     lead = float(np.sum(d[: k - 2] ** 2 / eigval[: k - 2])) if k > 2 else 0.0
     rho = np.sqrt(max(nu * (1 - nu), 0.0) / 2)
     scale = eigval[k - 2 : k] ** -0.5

@@ -197,6 +197,15 @@ class FirthFit:
         free = np.array([k for k in range(len(self.names)) if k != j], dtype=np.int64)
         begin = np.array(start, dtype=float)
         begin[j] = value
+        if free.size:
+            # Start the free coefficients where the linear predictor is closest
+            # to that of ``start``. Only moving beta_j can push every fitted
+            # probability to 0 or 1 when x_j is far from zero (sodium near 140,
+            # say), and the information matrix is then singular.
+            root = np.sqrt(self.weights)
+            target = self.x @ np.asarray(start, dtype=float) - self.x[:, j] * value
+            sol, *_ = linalg.lstsq(self.x[:, free] * root[:, None], target * root)
+            begin[free] = sol
         return _restricted(self.x, self.y, self.weights, self.offset, begin, free)
 
     def likelihood_ratio(self) -> np.ndarray:
@@ -369,7 +378,21 @@ def fit_firth(
     if p == 0:
         raise ValueError("the design has no columns")
 
-    main = _newton(x, y, w, off, np.zeros(p), np.arange(p), maxit=maxit, maxstep=maxstep, maxhs=maxhs, tol=tol)
+    # Newton runs with the non-intercept columns centred, then maps back. The
+    # penalized likelihood is invariant to this change, but steps capped at
+    # ``maxstep`` would otherwise need many iterations to move the intercept
+    # when a covariate sits far from zero (calendar year, say).
+    names = list(design.names)
+    shift = np.eye(p)
+    if "(Intercept)" in names:
+        i0 = names.index("(Intercept)")
+        means = (w @ x) / max(float(np.sum(w)), np.finfo(float).tiny)
+        means[i0] = 0.0
+        shift[i0, :] = -means
+        shift[i0, i0] = 1.0
+    main = _newton(x @ shift, y, w, off, np.zeros(p), np.arange(p), maxit=maxit, maxstep=maxstep, maxhs=maxhs, tol=tol)
+    beta = shift @ main.beta
+    main = _Newton(beta, _penalized_loglik(beta, x, y, w, off), main.iterations, main.converged)
     if not main.converged:
         warnings.warn(
             f"fit_firth did not converge in {maxit} iterations; raise maxit",
@@ -380,7 +403,6 @@ def fit_firth(
     covariance = linalg.inv(info)
     covariance = (covariance + covariance.T) / 2.0
 
-    names = list(design.names)
     if "(Intercept)" in names:
         start = np.zeros(p)
         free = np.array([names.index("(Intercept)")], dtype=np.int64)
