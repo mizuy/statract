@@ -11,10 +11,11 @@ sec. 2.4 keeps the work in the smooth's coefficient dimension.
 Two choices the paper leaves open follow ``?summary.gam`` and agree with its
 ``s.table``: the rows of the basis are weighted by the square roots of the
 working weights ("the components of the test statistic are weighted by the
-iterative fitting weights"), and the signs of the last two eigenvectors are
-taken so that the cross term of the 2 x 2 block is not negative. The
-paper's statistic changes with those signs, which an eigen solver leaves
-arbitrary.
+iterative fitting weights"), and the signs that the paper leaves open are
+handled as ``mgcv:::testStat`` does: each eigenvector is signed so that its
+first element is positive, the statistic is the one with those signs, and
+the p-value is the mean of the p-values of that statistic and of the one
+with the cross term of the 2 x 2 block negated (:func:`wood_test`).
 """
 
 from __future__ import annotations
@@ -39,6 +40,24 @@ def wood_statistic(beta: np.ndarray, covariance: np.ndarray, basis: np.ndarray, 
     ``(statistic, weights, dofs)``: under the null hypothesis the statistic
     is ``sum(weights[i] * chi2(dofs[i]))``.
     """
+    statistic, _flipped, weights, dofs = _wood_pair(beta, covariance, basis, rank)
+    return statistic, weights, dofs
+
+
+def wood_test(beta: np.ndarray, covariance: np.ndarray, basis: np.ndarray, rank: float, residual_df: float | None):
+    """``(statistic, p_value)`` as ``mgcv:::testStat(type = 0)``.
+
+    The p-value averages those of the statistic and of its twin with the
+    cross term of the 2 x 2 block negated, as mgcv does.
+    """
+    statistic, flipped, weights, dofs = _wood_pair(beta, covariance, basis, rank)
+    p = 0.5 * (
+        smooth_p_value(statistic, weights, dofs, residual_df) + smooth_p_value(flipped, weights, dofs, residual_df)
+    )
+    return statistic, p
+
+
+def _wood_pair(beta, covariance, basis, rank):
     rank = max(float(rank), 1.0)
     _q, r_factor = np.linalg.qr(basis)
     middle = r_factor @ covariance @ r_factor.T
@@ -46,6 +65,10 @@ def wood_statistic(beta: np.ndarray, covariance: np.ndarray, basis: np.ndarray, 
     eigval, eigvec = np.linalg.eigh(middle)
     order = np.argsort(eigval)[::-1]
     eigval, eigvec = eigval[order], eigvec[:, order]
+    # mgcv signs each eigenvector so that its first element is positive.
+    signs = np.sign(eigvec[0])
+    signs[signs == 0] = 1.0
+    eigvec = eigvec * signs
     k = int(np.floor(rank)) + 1
     k = min(k, int(np.sum(eigval > eigval[0] * np.finfo(float).eps * len(eigval))))
     nu = min(rank - k + 1, 1.0)
@@ -54,13 +77,14 @@ def wood_statistic(beta: np.ndarray, covariance: np.ndarray, basis: np.ndarray, 
     rho = np.sqrt(max(nu * (1 - nu), 0.0) / 2)
     scale = eigval[k - 2 : k] ** -0.5
     block = np.outer(scale, scale) * np.array([[1.0, rho], [rho, nu]])
-    tail = np.abs(d[k - 2 : k])
+    tail = d[k - 2 : k]
     statistic = lead + float(tail @ block @ tail)
+    flipped = lead + float(tail @ (block * np.array([[1.0, -1.0], [-1.0, 1.0]])) @ tail)
     nu1 = (nu + 1 + np.sqrt(max(1 - nu * nu, 0.0))) / 2
     nu2 = nu + 1 - nu1
     weights = [1.0, nu1, nu2]
     dofs = [k - 2, 1, 1]
-    return statistic, weights, dofs
+    return statistic, flipped, weights, dofs
 
 
 _NODES, _WEIGHTS = np.polynomial.legendre.leggauss(96)

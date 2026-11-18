@@ -28,7 +28,7 @@ from scipy import special, stats
 from .._core.laplace import RandomTerm, fit_laplace_terms, term_parameter_profile
 from .design import ColumnRef, column_series, design_matrix
 from .gam import Smooth
-from .gam.smooth_test import smooth_p_value, wood_statistic
+from .gam.smooth_test import wood_test
 
 _FAMILIES = ("binomial", "poisson")
 _TP_MAX_KNOTS = 2000
@@ -352,8 +352,8 @@ def gamm(
     edf = np.array([float(np.trace(influence[sl, sl])) for sl in slices])
     smooth_tests = []
     for sl, ref in zip(slices, edf, strict=True):
-        stat, chi_weights, dofs = wood_statistic(coefficients[sl], vb[sl, sl], x_gam[:, sl] * np.sqrt(w)[:, None], ref)
-        smooth_tests.append((float(ref), stat, smooth_p_value(stat, chi_weights, dofs, None)))
+        stat, p_value = wood_test(coefficients[sl], vb[sl, sl], x_gam[:, sl] * np.sqrt(w)[:, None], ref, None)
+        smooth_tests.append((float(ref), stat, p_value))
 
     random_terms = []
     frames = []

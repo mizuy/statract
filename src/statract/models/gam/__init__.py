@@ -130,15 +130,15 @@ class GamFit:
 
     def smooth_table(self) -> pl.DataFrame:
         """edf, smoothing parameter, and the Wood (2013) F test that the smooth is zero."""
-        from .smooth_test import reference_df, smooth_p_value, wood_statistic
+        from .smooth_test import reference_df, wood_test
 
         columns = np.arange(1, self.x.shape[1])
         influence = self.covariance @ (self.x.T @ self.x) / self.sig2
         ref = reference_df(influence, columns)
-        stat, weights, dofs = wood_statistic(
-            self.coefficients[columns], self.covariance[np.ix_(columns, columns)], self.x[:, columns], ref
+        stat, p_value = wood_test(
+            self.coefficients[columns], self.covariance[np.ix_(columns, columns)], self.x[:, columns], ref,
+            self.n_obs - self.edf,
         )
-        p_value = smooth_p_value(stat, weights, dofs, self.n_obs - self.edf)
         return pl.DataFrame(
             {
                 "term": ["s"],

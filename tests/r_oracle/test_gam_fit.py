@@ -11,8 +11,9 @@ mgcv's. statract bounds each log smoothing parameter, so a factor ``by``
 level that mgcv shrinks to a straight line (edf 1) keeps an edf a little
 above 1 here; that is most of the slack.
 
-A factor ``by`` smooth is one block in statract (one edf and one test over
-all levels), so its edf is compared with the sum of mgcv's per-level edfs.
+A factor ``by`` smooth is one block in statract, so its block edf is compared
+with the sum of mgcv's per-level edfs; ``smooth_table`` has one row per level,
+compared with mgcv's per-level edfs.
 
 The criterion of a ``tp`` smooth differs from mgcv's by a constant that does
 not depend on the smoothing parameter (the scaling of the unpenalized
@@ -108,4 +109,14 @@ def test_smooth_table_with_select_and_factor_by() -> None:
     fit, _groups, _exact = _fit("select_by_factor")
     table = fit.smooth_table()
     assert table.height == 3
-    np.testing.assert_allclose(table["edf"].to_numpy(), fit.block_edf[0])
+    np.testing.assert_allclose(table["edf"].sum(), fit.block_edf[0])
+
+
+@pytest.mark.parametrize("name", ["by_factor", "poisson_by_cc"])
+def test_smooth_table_factor_by_rows_per_level(name: str) -> None:
+    """One row per level of a factor ``by``, with that level's edf, as ``summary.gam``."""
+    fit, _groups, _exact = _fit(name)
+    table = fit.smooth_table()
+    want = np.asarray(FIXTURE[name]["edf"])[:3]
+    assert table["term"].to_list()[:3] == ["x|grp[a]", "x|grp[b]", "x|grp[c]"]
+    np.testing.assert_allclose(table["edf"].to_numpy()[:3], want, atol=2e-2)
