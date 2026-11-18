@@ -102,7 +102,18 @@ cases <- list(
   many_levels = case("coxme_b", "Surv(time, status) ~ x + arm + sex + (1 | hosp)",
     "Surv(time, status) ~ x + arm + sex + (1 | hosp)", list("hosp"), sparse = exact),
   many_levels_sparse = case("coxme_b", "Surv(time, status) ~ x + arm + sex + (1 | hosp)",
-    "Surv(time, status) ~ x + arm + sex + (1 | hosp)", list("hosp"), fixed = FALSE)
+    "Surv(time, status) ~ x + arm + sex + (1 | hosp)", list("hosp"), fixed = FALSE),
+  # coxme_a and coxme_b split at times off the event grid. Rows whose
+  # (start, time] holds no event time drop out, so each fit equals the
+  # unsplit one (intercept, breslow, crossed + strata, counting).
+  split = case("coxme_c", "Surv(start, time, status) ~ x + arm + (1 | hosp)",
+    "Surv(start, time, status) ~ x + arm + (1 | hosp)", list("hosp")),
+  split_breslow = case("coxme_c", "Surv(start, time, status) ~ x + arm + (1 | hosp)",
+    "Surv(start, time, status) ~ x + arm + (1 | hosp)", list("hosp"), ties = "breslow"),
+  split_crossed_strata = case("coxme_c", "Surv(start, time, status) ~ x + arm + strata(sex) + (1 | hosp) + (1 | surgeon)",
+    "Surv(start, time, status) ~ x + arm + strata(sex) + (1 | hosp) + (1 | surgeon)", list("hosp", "surgeon")),
+  split_counting = case("coxme_d", "Surv(start, time, status) ~ x + arm + (1 | hosp)",
+    "Surv(start, time, status) ~ x + arm + (1 | hosp)", list("hosp"), sparse = exact)
 )
 meta <- list(
   r = R.version.string,

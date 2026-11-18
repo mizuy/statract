@@ -5,6 +5,7 @@ Run from the repository root: ``uv run python tests/r_oracle/scripts/make_data.p
 
 from __future__ import annotations
 
+from itertools import pairwise
 from pathlib import Path
 
 import numpy as np
@@ -171,6 +172,26 @@ def _mi_sample(seed: int, n: int) -> pl.DataFrame:
         pl.when(pl.Series(rng.uniform(size=n) < 0.15)).then(None).otherwise(pl.col("g")).alias("g"),
         pl.when(pl.Series(rng.uniform(size=n) < 0.15)).then(None).otherwise(pl.col("b")).alias("b"),
     )
+
+
+def _split_at(frame: pl.DataFrame, cuts: list[float]) -> pl.DataFrame:
+    """Split each subject's follow-up at ``cuts`` into counting-process rows.
+
+    Adds ``id`` and ``start`` (0 when the frame has no entry time). Only the
+    last row of a subject keeps its status. Cuts that fall between event times
+    give rows whose (start, time] holds no event time.
+    """
+    if "start" not in frame.columns:
+        frame = frame.with_columns(pl.lit(0.0).alias("start"))
+    frame = frame.with_row_index("id")
+    rows = []
+    for row in frame.iter_rows(named=True):
+        inside = [c for c in cuts if row["start"] < c < row["time"]]
+        bounds = [row["start"], *inside, row["time"]]
+        for k, (lo, hi) in enumerate(pairwise(bounds)):
+            last = k == len(bounds) - 2
+            rows.append({**row, "start": lo, "time": hi, "status": row["status"] if last else 0})
+    return pl.DataFrame(rows, schema=frame.schema).with_columns(pl.col("id").cast(pl.Int64))
 
 
 def _cox_mixed_sample(seed: int, n_hospitals: int, size: tuple[int, int], *, slope_sd: float, counting: bool) -> pl.DataFrame:
@@ -630,8 +651,15 @@ def main() -> None:
     _two_way_sample(20261020, 150, 12, weighted=False).write_csv(DATA / "cox2way_a.csv")
     _two_way_sample(20261021, 200, 8, weighted=True).write_csv(DATA / "cox2way_b.csv")
     # Mixed-effects Cox (coxme): nested and crossed groups and a random slope; many small hospitals with late entry.
-    _cox_mixed_sample(20261044, 30, (8, 16), slope_sd=0.3, counting=False).write_csv(DATA / "coxme_a.csv")
-    _cox_mixed_sample(20261045, 80, (3, 7), slope_sd=0.0, counting=True).write_csv(DATA / "coxme_b.csv")
+    coxme_a = _cox_mixed_sample(20261044, 30, (8, 16), slope_sd=0.3, counting=False)
+    coxme_b = _cox_mixed_sample(20261045, 80, (3, 7), slope_sd=0.0, counting=True)
+    coxme_a.write_csv(DATA / "coxme_a.csv")
+    coxme_b.write_csv(DATA / "coxme_b.csv")
+    # The same subjects split at times off the 0.1 event grid: rows such as
+    # (1.02, 1.07] or (0, 0.03] hold no event time and must leave every risk set.
+    split = [0.03, 1.02, 1.07, 2.52, 2.57, 4.01, 4.08]
+    _split_at(coxme_a, split).write_csv(DATA / "coxme_c.csv")
+    _split_at(coxme_b, split).write_csv(DATA / "coxme_d.csv")
     # Crossed GLMMs: patients crossed with examiners, examiner-by-year AR(1).
     _crossed_sample(20261022, 300, 30, theta=2.0, rho=0.6).write_csv(DATA / "glmm_crossed_a.csv")
     # Smooth plus examiner intercept, binary (gamm4 and mgcv bs = "re").

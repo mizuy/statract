@@ -120,3 +120,13 @@ def test_likelihood_table_follows_the_coxme_print() -> None:
     fitted = table.row(1, named=True)
     np.testing.assert_allclose(fitted["chisq"], 2 * (fit.log_likelihood_fitted - null), atol=1e-8)
     np.testing.assert_allclose(fitted["df"], want["df"][1], rtol=1e-6)
+
+
+@pytest.mark.parametrize(("split", "whole"), [("split", "intercept"), ("split_breslow", "breslow"), ("split_counting", "counting")])
+def test_split_follow_up_matches_the_whole_fit(split: str, whole: str) -> None:
+    # coxme_c/coxme_d are coxme_a/coxme_b split at times off the event grid.
+    # In coxme too, rows whose (start, time] holds no event time drop out.
+    got, want = FIXTURE["cases"][split]["fixed"], FIXTURE["cases"][whole]["fixed"]
+    np.testing.assert_allclose(got["loglik"], want["loglik"], rtol=0, atol=1e-6)
+    fit = _fit(FIXTURE["cases"][split], _variances(FIXTURE["cases"][split]))
+    np.testing.assert_allclose(fit.coefficients, want["coefficients"], rtol=1e-6, atol=1e-9)
