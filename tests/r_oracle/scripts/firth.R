@@ -149,7 +149,8 @@ cases <- list(
   firth_b_interaction = list(data = "firth_b", formula = "y ~ arm * x"),
   firth_sep_quasi = list(data = "firth_sep", formula = "y ~ g + z"),
   firth_sep_complete = list(data = "firth_sep", formula = "yc ~ z", maxit = 200),
-  firth_noint = list(data = "firth_a", formula = "y ~ 0 + arm + x")
+  firth_noint = list(data = "firth_a", formula = "y ~ 0 + arm + x"),
+  firth_edge_tiny = list(data = "edge_firth", formula = "y ~ x + z")
 )
 
 result <- list(

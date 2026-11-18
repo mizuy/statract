@@ -623,6 +623,106 @@ def _penalized_wide(seed: int, n: int, p: int) -> pl.DataFrame:
     return frame
 
 
+def _edge_cases() -> dict[str, pl.DataFrame]:
+    """Small hand-made data shapes that the larger samples above do not have."""
+    out: dict[str, pl.DataFrame] = {}
+    # Kaplan-Meier: a group of one, a group whose events share one time, a group
+    # with an event and censoring tied at the last time, and an all-censored group.
+    out["edge_km"] = pl.DataFrame(
+        {
+            "time": [2.0, 4.0, 4.0, 4.0, 1.0, 3.0, 3.0, 3.0, 5.0, 5.0, 2.0, 6.0, 7.0],
+            "status": [1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0],
+            "arm": ["one", "tied", "tied", "tied", "mixed", "mixed", "mixed", "mixed", "mixed", "mixed", "cens", "cens", "cens"],
+        }
+    )
+    # Cox with every event at one time (censoring tied with it), n = 10.
+    out["edge_cox_ties"] = pl.DataFrame(
+        {
+            "time": [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 5.0, 1.0, 3.0, 4.0],
+            "status": [1, 1, 1, 1, 0, 0, 0, 0, 1, 0],
+            "x": [0.5, -1.2, 1.8, 0.3, -0.4, 0.9, -1.5, 0.1, 1.1, -0.7],
+            "g": [1, 0, 1, 1, 0, 0, 1, 0, 1, 0],
+        }
+    )
+    # Cox strata: stratum C has no events, stratum D has one subject.
+    rng = np.random.default_rng(20261118)
+    n = 60
+    x = np.round(rng.normal(size=n), 4)
+    stratum = np.array(["A"] * 25 + ["B"] * 25 + ["C"] * 9 + ["D"])
+    time = np.round(rng.exponential(np.exp(-0.6 * x)) * 5, 1) + 0.1
+    status = (rng.random(n) < 0.7).astype(np.int64)
+    status[stratum == "C"] = 0
+    out["edge_cox_strata"] = pl.DataFrame({"time": time, "status": status, "x": x, "stratum": stratum})
+    # Delayed entry: entries equal to other subjects' event times (a subject
+    # entering at t is not at risk at t), entries after the last event, and
+    # rows with entry 0.
+    out["edge_entry"] = pl.DataFrame(
+        {
+            "entry": [0.0, 0.0, 1.0, 2.0, 2.0, 3.0, 0.0, 4.0, 1.5, 9.0, 0.0, 2.5],
+            "time": [2.0, 3.0, 3.0, 4.0, 6.0, 5.0, 1.0, 7.0, 4.0, 10.0, 8.0, 3.0],
+            "status": [1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1],
+            "x": [0.2, -0.5, 1.1, 0.7, -1.3, 0.4, 0.9, -0.2, 1.6, 0.0, -0.8, 0.3],
+            "arm": ["a", "b", "a", "b", "a", "b", "a", "b", "a", "b", "b", "a"],
+        }
+    )
+    # Log-rank: a group of one, and a stratum that holds only one group.
+    out["edge_logrank"] = pl.DataFrame(
+        {
+            "time": [1.0, 2.0, 2.0, 3.0, 4.0, 5.0, 6.0, 2.5, 3.5, 4.5, 1.5, 2.0, 3.0],
+            "status": [1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0],
+            "arm": ["a", "a", "a", "a", "b", "b", "b", "c", "a", "b", "a", "a", "a"],
+            "site": ["s1", "s1", "s1", "s1", "s1", "s1", "s1", "s1", "s1", "s1", "s2", "s2", "s2"],
+        }
+    )
+    # Competing risks: cause 2 never occurs in arm b; cause 1, cause 2 and
+    # censoring tied at times 2 and 4.
+    out["edge_cr"] = pl.DataFrame(
+        {
+            "time": [1.0, 2.0, 2.0, 2.0, 3.0, 4.0, 4.0, 4.0, 5.0, 6.0, 1.5, 2.0, 2.0, 3.5, 4.0, 4.0, 5.5, 7.0],
+            "cause": [1, 1, 2, 0, 2, 1, 2, 0, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1],
+            "arm": ["a"] * 10 + ["b"] * 8,
+            "x": [0.3, -0.6, 1.2, 0.0, -1.1, 0.8, 0.5, -0.3, 1.4, -0.9, 0.6, -0.2, 1.0, -1.4, 0.2, 0.7, -0.5, 0.1],
+        }
+    )
+    # Mixed models: many singleton groups, and an outcome with no group effect
+    # (a boundary fit with variance 0 in lme4).
+    n_groups = 40
+    sizes = np.where(np.arange(n_groups) < 15, 1, rng.integers(2, 6, n_groups))
+    group = np.repeat(np.arange(n_groups), sizes)
+    m = len(group)
+    x = np.round(rng.normal(size=m), 4)
+    arm = rng.integers(0, 2, m)
+    noise = rng.normal(size=m)
+    # y0: noise centred within each group, so the ML/REML group variance is 0.
+    centred = noise - np.bincount(group, noise)[group] / np.bincount(group)[group]
+    out["edge_mixed"] = pl.DataFrame(
+        {
+            "y": np.round(1 + 0.8 * x + 0.3 * arm + noise, 4),
+            "y0": np.round(1 + 0.8 * x + 0.3 * arm + centred, 4),
+            "yb": (rng.random(m) < 1 / (1 + np.exp(-(-0.5 + 0.9 * x)))).astype(np.int64),
+            "x": x,
+            "arm": arm,
+            "site": [f"h{g:02d}" for g in group],
+        }
+    )
+    # Firth: n = 12, complete separation on x and a near-constant second column.
+    out["edge_firth"] = pl.DataFrame(
+        {
+            "y": [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
+            "x": [-2.1, -1.5, -1.2, -0.8, -0.4, -0.1, 0.2, 0.5, 0.9, 1.3, 1.6, 2.4],
+            "z": [0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1],
+        }
+    )
+    # Ordinal: a middle category with a single row, n = 30.
+    xo = np.round(rng.normal(size=30), 4)
+    latent = 1.2 * xo + rng.logistic(size=30)
+    yo = np.digitize(latent, [-0.5, 1.0])
+    yo = np.where(yo == 1, 0, yo)
+    yo[np.argmin(np.abs(latent - 0.2))] = 1
+    out["edge_ordinal"] = pl.DataFrame({"y": np.array(["low", "mid", "high"])[yo], "x": xo})
+    return out
+
+
 def main() -> None:
     DATA.mkdir(parents=True, exist_ok=True)
     # (1) Poisson counts, random intercept, 30 sites.
@@ -701,6 +801,10 @@ def main() -> None:
     # Penalized regression (glmnet): a long sample and a wide p > n sample.
     _penalized_sample(20261039, 200).write_csv(DATA / "penalized_a.csv")
     _penalized_wide(20261040, 50, 80).write_csv(DATA / "penalized_b.csv")
+    # Edge cases: tiny groups, all-tied times, empty strata, delayed entry,
+    # boundary variance, separation.
+    for name, frame in _edge_cases().items():
+        frame.write_csv(DATA / f"{name}.csv")
 
 
 if __name__ == "__main__":
