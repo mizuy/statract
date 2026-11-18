@@ -7,7 +7,8 @@
 # puts the saved fixtures back, so package versions on this machine do not
 # matter. Without it, the fixtures are overwritten.
 # Missing R packages are installed from CRAN into the user library
-# (R_LIBS_USER). Set SKIP_INSTALL=1 to skip that.
+# (R_LIBS_USER). Set SKIP_INSTALL=1 to skip that. Where CRAN is blocked
+# (cloud sessions), run `task r:setup` first.
 set -uo pipefail
 
 check=0
