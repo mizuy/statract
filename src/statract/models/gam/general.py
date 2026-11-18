@@ -36,6 +36,7 @@ class _Block:
     rebuild: Callable[[dict[str, np.ndarray]], np.ndarray]
     extra_penalties: tuple[np.ndarray, ...] = ()
     random_effect: bool = False
+    levels: tuple[str, ...] = ()
 
 
 @dataclass
@@ -140,8 +141,9 @@ class GeneralFit:
         ``s.table``. ``test`` is ``"chi_sq"`` for binomial and Poisson and
         ``"F"`` (statistic divided by ``ref_df``, residual df ``n - edf``) for
         Gaussian and gamma. The p-values treat the smoothing parameters as
-        known. ``basis="re"`` terms get NaN; a factor ``by`` smooth is tested
-        as one term over all its levels.
+        known. ``basis="re"`` terms get NaN. A factor ``by`` smooth has one
+        row per level, ``x|g[level]``, with that level's edf and test, as
+        ``summary.gam``'s ``s(x):glevel`` rows.
         """
         tests = _smooth_tests(self)
         terms: list[str] = []
@@ -149,7 +151,21 @@ class GeneralFit:
         smoothing: list[float] = []
         columns: dict[str, list] = {"ref_df": [], "statistic": [], "p_value": []}
         cursor = 0
+        influence = None
         for block, count, block_edf, test in zip(self.blocks, self.penalty_counts, self.block_edf, tests, strict=True):
+            if block.levels and count == len(block.levels):
+                if influence is None:
+                    influence = self.covariance @ _information(self)
+                width = len(block.columns) // len(block.levels)
+                for index, level in enumerate(block.levels):
+                    sl = np.asarray(block.columns)[index * width : (index + 1) * width]
+                    terms.append(f"{block.name}[{level}]")
+                    edf.append(float(np.trace(influence[np.ix_(sl, sl)])))
+                    smoothing.append(float(self.smoothing_parameters[cursor + index]))
+                    for key, value in zip(("ref_df", "statistic", "p_value"), _column_test(self, sl), strict=True):
+                        columns[key].append(value)
+                cursor += count
+                continue
             for index in range(count):
                 terms.append(block.name if count == 1 else f"{block.name}[{index + 1}]")
                 edf.append(float(block_edf))
@@ -272,7 +288,7 @@ def _test_name(family: str) -> str:
 
 def _smooth_tests(fit) -> list[tuple[float, float, float]]:
     """``(ref_df, statistic, p_value)`` for each block of a fit (Wood 2013)."""
-    from .smooth_test import reference_df, smooth_p_value, wood_statistic
+    from .smooth_test import reference_df, wood_test
 
     w = _fit_weights(fit)
     root_w = np.sqrt(w)
@@ -286,12 +302,26 @@ def _smooth_tests(fit) -> list[tuple[float, float, float]]:
             continue
         sl = np.asarray(block.columns)
         ref = reference_df(influence, sl)
-        stat, chi_weights, dofs = wood_statistic(
-            fit.coefficients[sl], fit.covariance[np.ix_(sl, sl)], fit.x[:, sl] * root_w[:, None], ref
+        stat, p_value = wood_test(
+            fit.coefficients[sl], fit.covariance[np.ix_(sl, sl)], fit.x[:, sl] * root_w[:, None], ref, residual_df
         )
-        p_value = smooth_p_value(stat, chi_weights, dofs, residual_df)
         out.append((ref, stat if known else stat / max(ref, 1.0), p_value))
     return out
+
+
+def _column_test(fit, sl: np.ndarray) -> tuple[float, float, float]:
+    """``(ref_df, statistic, p_value)`` of the smooth on columns ``sl`` (Wood 2013)."""
+    from .smooth_test import reference_df, wood_test
+
+    w = _fit_weights(fit)
+    known = fit.family in {"binomial", "poisson"}
+    influence = fit.covariance @ _information(fit)
+    ref = reference_df(influence, sl)
+    stat, p_value = wood_test(
+        fit.coefficients[sl], fit.covariance[np.ix_(sl, sl)], fit.x[:, sl] * np.sqrt(w)[:, None], ref,
+        None if known else fit.n_obs - fit.edf,
+    )
+    return ref, stat if known else stat / max(ref, 1.0), p_value
 
 
 def _fit_weights(fit) -> np.ndarray:
@@ -1335,9 +1365,14 @@ def _tp(name: str, x: np.ndarray, k: int):
     """1D thin-plate regression spline, truncated like mgcv's eigen step.
 
     The penalty null space is the constant and the linear term. Columns are
-    scaled to root-mean-square 1 before the sum-to-zero constraint.
+    scaled to root-mean-square 1 before the sum-to-zero constraint. The
+    covariate is centred first, as mgcv's ``shift``: the fit does not change,
+    but a covariate far from zero (a calendar year) no longer makes the
+    constant and linear columns nearly collinear.
     """
     x = np.asarray(x, dtype=float)
+    shift = float(np.mean(x)) if x.size else 0.0
+    x = x - shift
     knots, inverse = np.unique(x, return_inverse=True)
     n_unique = len(knots)
     k = min(k, n_unique)
@@ -1364,8 +1399,8 @@ def _tp(name: str, x: np.ndarray, k: int):
     full = np.column_stack([energy, null])
     mapping, *_rest = np.linalg.lstsq(full, basis_unique, rcond=None)
 
-    def rebuild(columns, _knots=knots, _map=mapping):
-        xx = np.asarray(columns[name], dtype=float)
+    def rebuild(columns, _knots=knots, _map=mapping, _shift=shift):
+        xx = np.asarray(columns[name], dtype=float) - _shift
         gap = xx[:, None] - _knots[None, :]
         radial = np.abs(gap) ** 3 / 12
         poly = np.column_stack([np.ones(len(xx)), xx])
@@ -1554,6 +1589,7 @@ def _by_factor_block(spec, kept) -> _Block:
         int(sum(nulls)),
         rebuild_all,
         extra_penalties=tuple(pens[1:]),
+        levels=tuple(kept_levels),
     )
 
 

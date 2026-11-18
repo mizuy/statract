@@ -282,6 +282,9 @@ class CoxFit:
 
     def _expected(self, time: np.ndarray, entry: np.ndarray, lp: np.ndarray, strata: np.ndarray) -> np.ndarray:
         self._ensure_baseline()
+        if getattr(self, "_entry_name", None) is None:
+            # No delayed entry: every death time up to t counts, also one before 0.
+            entry = np.full(len(time), -np.inf)
         risk = np.exp(lp)
         out = np.zeros(len(time))
         for i, (t, start, stratum, r) in enumerate(zip(time, entry, strata, risk, strict=True)):
@@ -503,6 +506,11 @@ def warn_not_converged() -> None:
 
 
 def _newton(x, time, event, weights, offset, entry, strata, ties):
+    # Centre the columns, as survival::coxph does. The partial likelihood, the
+    # coefficients, and the information do not change, but exp(x b) no longer
+    # overflows for a covariate far from zero (a calendar year, for example).
+    if x.shape[0] and x.shape[1]:
+        x = x - x.mean(axis=0)
     p = x.shape[1]
     beta = np.zeros(p)
     # Right-censored rows are sorted once. Counting-process rows stay on the walk.
@@ -1284,7 +1292,7 @@ def _exposure(fit: CoxFit, efron: bool):
     dn_mean = np.zeros((n, p))
     score = np.zeros(n)
     time = np.asarray(fit.time, dtype=float)
-    entry = np.asarray(fit.entry, dtype=float)
+    entry = _risk_entry(fit)
     event = np.asarray(fit.event, dtype=float)
     weights = np.asarray(fit.weights, dtype=float)
     for idx in groups:
@@ -1358,7 +1366,7 @@ def _schoenfeld(fit: CoxFit) -> np.ndarray:
     xc, eta, groups = _stratum_inputs(fit)
     p = xc.shape[1]
     time = np.asarray(fit.time, dtype=float)
-    entry = np.asarray(fit.entry, dtype=float)
+    entry = _risk_entry(fit)
     event = np.asarray(fit.event, dtype=float)
     weights = np.asarray(fit.weights, dtype=float)
     efron = fit.ties == "efron"
@@ -1442,6 +1450,15 @@ def _centered_time_weights(fit: CoxFit, name: str) -> np.ndarray:
     return g - float(g[event].mean())
 
 
+def _risk_entry(fit) -> np.ndarray:
+    """Entry times for the risk sets: ``-inf`` without delayed entry, so a row
+    whose follow-up time is 0 or negative is still at risk at its own time."""
+    entry = np.asarray(fit.entry, dtype=float)
+    if entry.size and bool(np.all(entry == 0)):
+        return np.full(entry.shape, -np.inf)
+    return entry
+
+
 def _kaplan_meier_transform(time: np.ndarray, event: np.ndarray, entry: np.ndarray | None = None) -> np.ndarray:
     """``1 - S(t-)`` from the pooled Kaplan–Meier, matching ``cox.zph(transform="km")``.
 
@@ -1494,7 +1511,7 @@ def _zph_score(fit: CoxFit, g: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     xc, eta, groups = _stratum_inputs(fit)
     p = xc.shape[1]
     time = np.asarray(fit.time, dtype=float)
-    entry = np.asarray(fit.entry, dtype=float)
+    entry = _risk_entry(fit)
     event = np.asarray(fit.event, dtype=float)
     weights = np.asarray(fit.weights, dtype=float)
     g = np.asarray(g, dtype=float)

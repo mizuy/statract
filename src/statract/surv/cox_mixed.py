@@ -578,7 +578,12 @@ class _Problem:
             converged = bool(res.success)
             n_iter = int(res.nit)
         value, c, ll, ppl, hess, inner_ok = self.integrated(theta)
-        inv = np.linalg.inv(hess)
+        try:
+            inv = np.linalg.inv(hess)
+        except np.linalg.LinAlgError:
+            # A coefficient running off to infinity (no events in a cell) leaves the
+            # information singular; coxme still returns a fit, so use the pseudo-inverse.
+            inv = np.linalg.pinv(hess)
         q = self.q
         null = self.risk.loglik(self.offset.copy())
         return _Result(
