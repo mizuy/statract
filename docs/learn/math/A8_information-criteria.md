@@ -48,6 +48,8 @@ WAIC には三つの良い性質があります。
 
 情報量規準の値そのものには意味がありません。**同じデータで、モデルどうしを比べる**ときに使います。小さいほうが、新しい患者でよく当たると見込まれるモデルです。
 
+情報量規準が選ぶのは、よく**当たる**モデルです。因果の効果を正しく推定するモデルではありません。因果の問いでは、変数は DAG で選びます（[第 9 章](../09_overfitting.md#reduce)、[第 3 章](../03_causal-basics.md#dag)）。
+
 WAIC のほかに、事後分布から LOOCV を直接近似する PSIS-LOO（Pareto-smoothed importance sampling leave-one-out cross-validation、パレート平滑化重点サンプリングによる一つ抜き交差検証）[@Vehtari2017-uy]もよく使われます。
 
 !!! note "WAIC と PSIS-LOO は、基本的にベイズの道具です"

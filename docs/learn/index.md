@@ -59,7 +59,7 @@
 
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
-| 3. [因果推論の考え方](03_causal-basics.md) | Rubin の反事実モデル、交換可能性、有向非巡回グラフ（directed acyclic graph、DAG）とバックドア基準、文献 | 群ごとの潜在アウトカム、DAG | `prop_test` |
+| 3. [因果推論の考え方](03_causal-basics.md) | Rubin の反事実モデル、交換可能性、有向非巡回グラフ（directed acyclic graph、DAG）とバックドア基準、合流点での選択、文献 | 群ごとの潜在アウトカム、DAG、紹介例だけで見た関連 | `prop_test` |
 | 4. [背景を調整する方法](04_adjustment-methods.md) | 限定、層別化、回帰と標準化、マッチング、重み付けの比較 | 方法ごとの推定値と本当の値 | `fit_glm`、`standardize_glm`、`match_sample`、`propensity_weights` |
 | 5. [傾向スコアマッチング](05_propensity-score-matching.md) | バランシングスコア、傾向スコア、重なり、キャリパー、バランスの確認 | 傾向スコアの分布、Love plot、マッチ前後の Table 1 | `match_sample`、`plot_love`、`write_tableone_artifacts` |
 | 6. [IPTW](06_iptw.md)（発展） | 重みで仮の集団を作る、g-formula と同じ量になる理由、安定化、極端な重み、推定する対象 | 重みの分布、重み付きの Love plot、重みごとの推定値 | `propensity_weights`、`plot_love` |
@@ -80,7 +80,7 @@
 | 章 | 内容 | 主な図 | statract |
 |----|------|--------|----------|
 | 13. [確率モデルとしてのロジスティック回帰](13_probability-model.md) | データが生まれる仕組み、データの作り方の種明かし、モデルから作ったデータでの確認、スプライン、GLM | 生成過程の模式図、硬貨を投げ直したときの出血の人数、模擬データと実データ、直線とスプライン | `fit_glm`、`spline_test` |
-| 14. [尤度と二つの推定法：最尤法とベイズ](14_likelihood.md) | 尤度、対数尤度と曲がり具合、標準誤差、ニュートン法、プロファイル尤度、三つの検定、ベイズ推論（事前分布、事後分布、信用区間）、MCMC、最尤法とベイズの比較、分離と Firth の方法 | 尤度曲線、プロファイル尤度、事前と事後、MCMC の連鎖 | `fit_glm`、`likelihood_ratio_test`（MCMC は numpy） |
+| 14. [尤度と二つの推定法：最尤法とベイズ](14_likelihood.md) | 尤度、対数尤度と曲がり具合、標準誤差、ニュートン法、プロファイル尤度、三つの検定、ベイズ推論（事前分布、事前予測シミュレーション、事後分布、信用区間）、MCMC と ATE の事後分布、最尤法とベイズの比較、分離と Firth の方法 | 尤度曲線、プロファイル尤度、事前と事後、事前予測、ATE の事後分布 | `fit_glm`、`likelihood_ratio_test`（MCMC は numpy） |
 | 15. [階層モデル](15_hierarchical.md) | 施設差、完全・部分・なしのプーリング、縮小、ICC と MOR、施設の順位づけ、ベイズ推論で読む部分プーリング（経験ベイズ） | 施設ごとの推定の縮み、施設の効果の区間、事前と事後 | `fit_mixed`、`glmm_cluster_variance`、`plot_random_effects` |
 
 ### 第 V 部 臨床でよく使う解析
