@@ -458,6 +458,86 @@ def confounding_by_indication(df: pl.DataFrame, out: Path) -> None:
     plt.close(fig)
 
 
+def collider_referral(df: pl.DataFrame, out: Path) -> None:
+    """Chapter 3: selecting on a collider (referral) makes size and antithrombotics look related."""
+    rng = np.random.default_rng(31)
+    size = df["size_mm"].to_numpy()
+    at = df["antithrombotic"].to_numpy()
+    # Large lesions and antithrombotics both make referral to a specialist centre likely.
+    p_ref = _expit(-2.6 + 2.0 * (size >= 20) + 0.05 * (size - 15) + 2.0 * at)
+    ref = df.with_columns(pl.Series("referred", rng.binomial(1, p_ref)))
+    groups = ["5-9", "10-19", "20-29", "30+"]
+    ref = ref.with_columns(
+        pl.when(pl.col("size_mm") < 10)
+        .then(pl.lit(groups[0]))
+        .when(pl.col("size_mm") < 20)
+        .then(pl.lit(groups[1]))
+        .when(pl.col("size_mm") < 30)
+        .then(pl.lit(groups[2]))
+        .otherwise(pl.lit(groups[3]))
+        .alias("size_grp")
+    )
+    sets = {"All patients": ref, "Referred only": ref.filter(pl.col("referred") == 1)}
+    rows, share = [], {}
+    for name, d in sets.items():
+        t = (
+            fit_glm(
+                d.with_columns(((pl.col("size_mm") - 15) / 10).alias("size10")),
+                "antithrombotic ~ size10",
+                family="binomial",
+            )
+            .tidy(exponentiate=True)
+            .filter(pl.col("term") == "size10")
+        )
+        rows.append(
+            {
+                "data": name,
+                "n": d.height,
+                "or_per_10mm": float(t["estimate"][0]),
+                "conf_low": float(t["conf_low"][0]),
+                "conf_high": float(t["conf_high"][0]),
+                "p_value": float(t["p_value"][0]),
+            }
+        )
+        g = d.group_by("size_grp").agg(
+            pl.col("antithrombotic").mean().alias("at"), pl.len().alias("n")
+        )
+        share[name] = {r["size_grp"]: r for r in g.iter_rows(named=True)}
+    _write_csv(out, "ch3_collider", pl.DataFrame(rows))
+    _write_csv(
+        out,
+        "ch3_collider_share",
+        pl.DataFrame(
+            [
+                {
+                    "data": name,
+                    "size_grp": k,
+                    "antithrombotic_pct": share[name][k]["at"] * 100,
+                    "n": share[name][k]["n"],
+                }
+                for name in sets
+                for k in groups
+            ]
+        ),
+    )
+    fig, ax = plt.subplots(figsize=(6.4, 3.4))
+    xs = np.arange(len(groups))
+    for i, (name, color) in enumerate([("All patients", GRAY), ("Referred only", RED)]):
+        vals = [share[name][k]["at"] for k in groups]
+        ax.bar(
+            xs + (i - 0.5) * 0.38, vals, width=0.38, color=color, alpha=0.85, label=name
+        )
+    ax.set_xticks(xs, [f"{g} mm" for g in groups])
+    ax.set_xlabel("Lesion size")
+    ax.set_ylabel("On antithrombotics")
+    ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
+    ax.legend(frameon=False, fontsize=8)
+    ax.grid(alpha=0.3, axis="y")
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch3_collider.png", dpi=180)
+    plt.close(fig)
+
+
 def _effect_plot(
     rows: pl.DataFrame, path: Path, *, title: str, truth: float | None = None
 ) -> None:
@@ -1370,8 +1450,21 @@ def prediction_model(df: pl.DataFrame, out: Path) -> None:
         }
     )
     risk = np.asarray(fit.predict(patients, kind="response"))
+    # 95% interval on the log-odds scale, then back to probabilities.
+    xp = np.column_stack(
+        [np.ones(patients.height), patients.select(PRED_VARS).to_numpy()]
+    )
+    eta = xp @ np.asarray(fit.coefficients)
+    assert np.allclose(_expit(eta), risk)
+    se = np.sqrt(np.einsum("ij,jk,ik->i", xp, np.asarray(fit.covariance), xp))
     _write_csv(
-        out, "ch7_patients", patients.with_columns(pl.Series("risk_pct", risk * 100))
+        out,
+        "ch7_patients",
+        patients.with_columns(
+            pl.Series("risk_pct", risk * 100),
+            pl.Series("risk_low_pct", _expit(eta - 1.96 * se) * 100),
+            pl.Series("risk_high_pct", _expit(eta + 1.96 * se) * 100),
+        ),
     )
 
     # Without the antithrombotic column, hypertension (no arrow into bleeding) picks up its signal.
@@ -2800,7 +2893,6 @@ def likelihood(df: pl.DataFrame, out: Path) -> None:
     )
 
     _bayes_rate(sets, out)
-    _bayes_clip(full, y, out)
 
     # Separation: a small study where no clipped patient bled.
     sep = _separated_sample(df)
@@ -2902,102 +2994,157 @@ def _bayes_rate(sets: dict[str, pl.DataFrame], out: Path) -> None:
     _write_csv(out, "ch13_bayes_rate", pl.DataFrame(rows))
 
 
-def _bayes_clip(full, y: np.ndarray, out: Path) -> None:
-    """Posterior of the clip coefficient by Metropolis sampling."""
-    names = list(full.tidy()["term"])
-    clip = names.index("clip")
-    start = np.asarray(full.coefficients, dtype=float)
-    cov = np.asarray(full.covariance, dtype=float) * 2.38**2 / len(start)
-    flat = np.full(len(start), np.inf)
-    sceptical = flat.copy()
-    sceptical[clip] = 0.35  # 95% of the prior between OR 0.5 and 2
-    runs = {"Flat prior": flat, "Sceptical prior": sceptical}
-    draws = {
-        k: pen.metropolis_logistic(full.x, y, sd, start, cov, n_iter=30_000, seed=13)
-        for k, sd in runs.items()
-    }
-    b_hat = float(start[clip])
-    se = float(np.sqrt(full.covariance[clip, clip]))
-    rows = [
-        {
-            "method": "Maximum likelihood",
-            "or": float(np.exp(b_hat)),
-            "low": float(np.exp(b_hat - 1.96 * se)),
-            "high": float(np.exp(b_hat + 1.96 * se)),
-            "prob_or_below_1": None,
-            "acceptance": None,
-        }
-    ]
-    for k, dr in draws.items():
-        c = dr[:, clip]
+# Chapter 14 Bayes model: the DAG adjustment set plus the clip x large-lesion term.
+# Age and size are centred and per 10 units so that one prior scale fits all slopes.
+BAYES_TERMS = ["age10", "antithrombotic", "size10", "proximal", "clip", "clip_large"]
+BAYES_PRIORS = {
+    # name: (prior mean, prior SD) for the intercept, the four slopes, the two clip terms
+    "Wide (SD 10)": ((0.0, 10.0), (0.0, 10.0), (0.0, 10.0)),
+    "Weakly informative": ((float(np.log(0.05 / 0.95)), 1.0), (0.0, 1.0), (0.0, 1.0)),
+    "Sceptical": ((float(np.log(0.05 / 0.95)), 1.0), (0.0, 1.0), (0.0, 0.35)),
+}
+
+
+def _bayes_frame(df: pl.DataFrame) -> pl.DataFrame:
+    return df.with_columns(
+        ((pl.col("age") - 70) / 10).alias("age10"),
+        ((pl.col("size_mm") - 15) / 10).alias("size10"),
+        (pl.col("clip") * (pl.col("size_mm") >= 20)).alias("clip_large"),
+    )
+
+
+def _prior_vectors(name: str) -> tuple[np.ndarray, np.ndarray]:
+    (m0, s0), (_, s_slope), (_, s_clip) = BAYES_PRIORS[name]
+    mean = np.array([m0, 0, 0, 0, 0, 0, 0], dtype=float)
+    sd = np.array([s0, s_slope, s_slope, s_slope, s_slope, s_clip, s_clip], dtype=float)
+    return mean, sd
+
+
+def _ate_draws(x: np.ndarray, draws: np.ndarray) -> np.ndarray:
+    """g-formula for each draw: mean risk with everyone clipped minus nobody clipped."""
+    x1, x0 = x.copy(), x.copy()
+    large = x[:, 3] >= 0.5  # size10 >= 0.5 means size >= 20 mm
+    x1[:, 5], x1[:, 6] = 1.0, large.astype(float)
+    x0[:, 5], x0[:, 6] = 0.0, 0.0
+    return _expit(draws @ x1.T).mean(axis=1) - _expit(draws @ x0.T).mean(axis=1)
+
+
+def _prior_predictive(out: Path, n_draws: int = 4000) -> None:
+    """What each prior says before the data, for a typical patient.
+
+    The typical patient is 70 years old, has a 15 mm distal lesion and takes
+    no antithrombotics, so only the intercept and the clip term matter.
+    """
+    rng = np.random.default_rng(21)
+    rows = []
+    fig, axes = plt.subplots(1, 2, figsize=(9, 3.4))
+    for name, color in [("Wide (SD 10)", GRAY), ("Weakly informative", BLUE)]:
+        mean, sd = _prior_vectors(name)
+        beta = rng.normal(mean, sd, size=(n_draws, len(mean)))
+        rate = _expit(beta[:, 0])
+        effect = _expit(beta[:, 0] + beta[:, 5]) - rate
         rows.append(
             {
-                "method": k,
-                "or": float(np.exp(np.median(c))),
-                "low": float(np.exp(np.quantile(c, 0.025))),
-                "high": float(np.exp(np.quantile(c, 0.975))),
-                "prob_or_below_1": float(np.mean(c < 0)),
-                "acceptance": float(np.mean(np.any(np.diff(dr, axis=0) != 0, axis=1))),
+                "prior": name,
+                "rate_below_1pct_or_above_99pct": float(
+                    np.mean((rate < 0.01) | (rate > 0.99))
+                ),
+                "rate_q05": float(np.quantile(rate, 0.05)),
+                "rate_q50": float(np.quantile(rate, 0.5)),
+                "rate_q95": float(np.quantile(rate, 0.95)),
+                "effect_abs_above_30pt": float(np.mean(np.abs(effect) > 0.30)),
+                "effect_q05": float(np.quantile(effect, 0.05)),
+                "effect_q95": float(np.quantile(effect, 0.95)),
             }
         )
-    _write_csv(out, "ch13_bayes_clip", pl.DataFrame(rows))
+        axes[0].hist(
+            rate, bins=np.linspace(0, 1, 41), color=color, alpha=0.55, label=name
+        )
+        axes[1].hist(
+            effect, bins=np.linspace(-1, 1, 41), color=color, alpha=0.55, label=name
+        )
+    axes[0].set_xlabel("Bleeding risk without clip")
+    axes[0].xaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
+    axes[1].set_xlabel("Change in risk with clip (risk difference)")
+    axes[1].xaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1.0))
+    for ax in axes:
+        ax.set_ylabel("Prior draws")
+        ax.grid(alpha=0.3)
+    axes[0].legend(frameon=False, fontsize=8, title="Prior", title_fontsize=8)
+    fig.suptitle(
+        "Typical patient: 70 years, 15 mm distal lesion, no antithrombotics", fontsize=9
+    )
+    fig.tight_layout()
+    fig.savefig(out / "figures" / "ch13_prior_predictive.png", dpi=180)
+    plt.close(fig)
+    _write_csv(out, "ch13_prior_predictive", pl.DataFrame(rows))
+
+
+def bayes_ate(df: pl.DataFrame, po: pl.DataFrame, out: Path) -> None:
+    """Chapter 14: posterior of the ATE through the g-formula, by Metropolis sampling."""
+    bf = _bayes_frame(df)
+    fit = fit_glm(bf, "bleed ~ " + " + ".join(BAYES_TERMS), family="binomial")
+    assert list(fit.tidy()["term"])[1:] == BAYES_TERMS
+    x = np.asarray(fit.x, dtype=float)
+    y = bf["bleed"].to_numpy().astype(float)
+    _prior_predictive(out)
+
+    start = np.asarray(fit.coefficients, dtype=float)
+    cov = np.asarray(fit.covariance, dtype=float) * 2.38**2 / len(start)
+    ates = {}
+    for name in ["Weakly informative", "Sceptical"]:
+        mean, sd = _prior_vectors(name)
+        draws = pen.metropolis_logistic(
+            x, y, sd, start, cov, n_iter=30_000, seed=13, prior_mean=mean
+        )
+        ates[name] = _ate_draws(x, draws[::5])
+    ml = float(_ate_draws(x, start[None, :])[0])
+    truth = float(po["y1"].mean() - po["y0"].mean())
+    rows = [
+        {
+            "method": "Maximum likelihood (g-formula)",
+            "ate_pt": ml * 100,
+            "low_pt": None,
+            "high_pt": None,
+            "prob_below_0": None,
+            "truth_pt": truth * 100,
+        }
+    ]
+    for name, a in ates.items():
+        rows.append(
+            {
+                "method": f"Bayes, {name.lower()} prior",
+                "ate_pt": float(np.median(a)) * 100,
+                "low_pt": float(np.quantile(a, 0.025)) * 100,
+                "high_pt": float(np.quantile(a, 0.975)) * 100,
+                "prob_below_0": float(np.mean(a < 0)),
+                "truth_pt": truth * 100,
+            }
+        )
+    _write_csv(out, "ch13_bayes_ate", pl.DataFrame(rows))
 
     fig, axes = plt.subplots(
         1, 2, figsize=(9, 3.6), gridspec_kw={"width_ratios": [1.2, 1]}
     )
-    # Both panels on the odds-ratio scale (log axis); densities are per unit log OR.
-    or_ticks = [0.2, 0.3, 0.5, 0.7, 1.0, 1.5]
     ax = axes[0]
-    ax.plot(np.exp(draws["Flat prior"][:3000, clip]), color=BLUE, lw=0.5)
-    ax.set_yscale("log")
-    ax.set_yticks(or_ticks, [f"{t:g}" for t in or_ticks])
-    ax.yaxis.set_minor_locator(matplotlib.ticker.NullLocator())
-    ax.set_ylim(np.exp(-1.8), np.exp(0.4))
-    ax.set_xlabel("Step of the chain")
-    ax.set_ylabel("Clip odds ratio (log scale)")
-    ax.set_title("Metropolis chain, flat prior (first 3000 steps)")
+    ax.plot(ates["Weakly informative"][:1200] * 100, color=BLUE, lw=0.5)
+    ax.set_xlabel("Kept draw (every 5th step)")
+    ax.set_ylabel("ATE (percentage points)")
+    ax.set_title("Chain, weakly informative prior")
     ax.grid(alpha=0.3)
     ax = axes[1]
-    edges = np.linspace(-1.8, 0.4, 70)
-    for (k, dr), color in zip(draws.items(), [BLUE, RED], strict=True):
-        h, _ = np.histogram(dr[:, clip], bins=edges, density=True)
-        ax.stairs(
-            h,
-            np.exp(edges),
-            fill=True,
-            color=color,
-            alpha=0.4,
-            label=f"Posterior, {k.lower()}",
-        )
-    b = np.linspace(-1.8, 0.4, 300)
-    ax.plot(
-        np.exp(b),
-        stats.norm(b_hat, se).pdf(b),
-        color=GRAY,
-        ls="--",
-        label="Maximum likelihood (normal)",
-    )
-    ax.plot(
-        np.exp(b),
-        stats.norm(0, 0.35).pdf(b),
-        color=RED,
-        ls=":",
-        lw=1,
-        label="Sceptical prior",
-    )
-    ax.axvline(1, color="black", lw=0.8)
-    ax.set_xscale("log")
-    ax.set_xticks(or_ticks, [f"{t:g}" for t in or_ticks])
-    ax.xaxis.set_minor_locator(matplotlib.ticker.NullLocator())
-    ax.set_xlim(np.exp(-1.8), np.exp(0.4))
-    ax.set_xlabel("Clip odds ratio (log scale)")
-    ax.set_ylabel("Density (per unit log OR)")
-    ax.set_ylim(0, ax.get_ylim()[1] * 1.3)  # room for the legend
-    ax.set_title("Posterior")
+    edges = np.linspace(-7, 1, 60)
+    for (name, a), color in zip(ates.items(), [BLUE, RED], strict=True):
+        ax.hist(a * 100, bins=edges, density=True, color=color, alpha=0.4, label=name)
+    ax.axvline(truth * 100, color=RED, ls="--", lw=1, label="True ATE")
+    ax.axvline(0, color="black", lw=0.8)
+    ax.set_xlabel("ATE of clip (percentage points)")
+    ax.set_ylabel("Density")
+    ax.set_title("Posterior of the ATE")
     ax.legend(frameon=False, fontsize=7, loc="upper left")
     ax.grid(alpha=0.3)
     fig.tight_layout()
-    fig.savefig(out / "figures" / "ch13_bayes_clip.png", dpi=180)
+    fig.savefig(out / "figures" / "ch13_bayes_ate.png", dpi=180)
     plt.close(fig)
 
 
@@ -3274,6 +3421,7 @@ def main() -> None:
     po = load_data(POTENTIAL)
     potential_table(po, out)
     causal_effects(po, out)
+    collider_referral(df, out)
     matched, _ = adjustment_methods(df, po, out)
     ps_matching(df, po, matched, out)
     iptw(df, po, out)
@@ -3287,6 +3435,7 @@ def main() -> None:
     neural_network(df, out)
     probability_model(df, out)
     likelihood(df, out)
+    bayes_ate(df, po, out)
     hierarchical(out)
     # Imported here: survival.py and diagnostic.py reuse helpers from this module.
     from diagnostic import diagnostic_metrics

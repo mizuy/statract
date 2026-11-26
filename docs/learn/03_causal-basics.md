@@ -108,6 +108,34 @@ DAG の道の形は三つしかありません。
 | 連鎖 $X \to Z \to Y$（中間因子） | 年齢 → 抗血栓薬 → 出血 | 効果の一部が消える |
 | 合流 $X \to Z \leftarrow Y$（合流点） | 病変径 → 紹介 ← 抗血栓薬 | ないはずの関連が**生まれる** |
 
+### 合流点で選ぶと関連が生まれる {#collider}
+
+合流点の例を模擬データで見ます。このデータでは、病変径と抗血栓薬は無関係に作ってあります。ここに「大きい病変か抗血栓薬ありなら、専門施設に紹介されやすい」という仕組みを足し、紹介された患者だけを見ます。
+
+=== "図"
+
+    ![病変径ごとの抗血栓薬の割合：全員（灰）と紹介例だけ（赤）](../examples/assets/theory_bleeding/ch3_collider.png)
+
+    [CSV](../examples/assets/theory_bleeding/ch3_collider.csv) · [割合 CSV](../examples/assets/theory_bleeding/ch3_collider_share.csv)
+
+=== "コード"
+
+    ```python
+    import numpy as np
+    import polars as pl
+    from statract import fit_glm
+
+    rng = np.random.default_rng(31)
+    size, at = df["size_mm"].to_numpy(), df["antithrombotic"].to_numpy()
+    p_ref = 1 / (1 + np.exp(-(-2.6 + 2.0 * (size >= 20) + 0.05 * (size - 15) + 2.0 * at)))
+    referred = df.filter(pl.Series(rng.binomial(1, p_ref) == 1))
+    fit_glm(referred, "antithrombotic ~ size_mm", family="binomial")
+    ```
+
+全員では、どの大きさでも抗血栓薬は約 20% です。紹介された 748 人では、小さい病変ほど抗血栓薬が多く（5–9 mm で 66%、30 mm 以上で 26%）、病変が 10 mm 大きいと抗血栓薬のオッズは 0.64 倍（$P < 0.001$）になります。小さい病変で紹介されたのは、抗血栓薬のためだったからです。専門施設のデータで「抗血栓薬を飲んでいる人は病変が小さい」と報告すれば、選び方が作った関連です。
+
+紹介例だけ、入院例だけ、追跡できた人だけを解析するのは、合流点で調整するのと同じです。対象の選び方も DAG に描いて確かめます。
+
 調整する変数は、次の二つで決めます（**バックドア基準**）。
 
 1. クリップに**入ってくる**矢印から始まる道（バックドア経路）を、すべて閉じます。
@@ -137,7 +165,7 @@ DAG から調整する変数を求めるには [DAGitty](https://www.dagitty.net
 - 因果効果は、潜在アウトカムの差 $Y(1) - Y(0)$ で定義します。見えるのは片方だけなので、平均（ATE、ATT）を推定します。
 - 観察された群の差には、もともとの差（交絡）が混ざります。
 - 観察研究では、測った変数で調整すれば交換可能になると仮定します。
-- どの変数で調整するかは DAG で決めます。
+- どの変数で調整するかは DAG で決めます。合流点で調整したり、合流点で対象を選んだりすると、ないはずの関連が生まれます。
 
 次の[第 4 章](04_adjustment-methods.md)では、選んだ変数で実際にどう調整するかを見ます。
 

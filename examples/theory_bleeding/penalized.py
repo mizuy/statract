@@ -379,20 +379,23 @@ def metropolis_logistic(
     n_iter: int = 20_000,
     burn_in: int = 2_000,
     seed: int = 0,
+    prior_mean: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Random-walk Metropolis for logistic regression with normal priors centred at 0.
+    """Random-walk Metropolis for logistic regression with normal priors.
 
     ``prior_sd`` holds one standard deviation per coefficient; ``np.inf`` is a
-    flat prior. Returns the draws after the burn-in.
+    flat prior. ``prior_mean`` holds the prior centres (0 when omitted).
+    Returns the draws after the burn-in.
     """
     rng = np.random.default_rng(seed)
     chol = np.linalg.cholesky(proposal_cov)
     precision = np.where(np.isfinite(prior_sd), 1 / prior_sd**2, 0.0)
+    centre = np.zeros(len(start)) if prior_mean is None else np.asarray(prior_mean)
 
     def log_post(beta: np.ndarray) -> float:
         eta = x @ beta
         ll = np.sum(y * eta - np.logaddexp(0, eta))
-        return float(ll - 0.5 * np.sum(precision * beta**2))
+        return float(ll - 0.5 * np.sum(precision * (beta - centre) ** 2))
 
     beta = start.copy()
     current = log_post(beta)
