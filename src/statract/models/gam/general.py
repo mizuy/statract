@@ -631,10 +631,15 @@ def _optimize(design, y, penalties, null_dims, family, method, mp, gamma, weight
         converged = bool(opt.success)
     else:
         bounds = [(-12, 18)] * n_pen
-        opt = minimize(objective, np.zeros(n_pen), method="L-BFGS-B", bounds=bounds)
+        # The gradient is a forward difference. SciPy's default step (1e-8)
+        # is below the noise of the inner P-IRLS fit, so on a flat REML
+        # surface the search stopped at a point that changed with the BLAS
+        # build. A step of 1e-4 on the log scale is above that noise.
+        options = {"eps": 1e-4}
+        opt = minimize(objective, np.zeros(n_pen), method="L-BFGS-B", bounds=bounds, options=options)
         # One restart: the REML surface is flat along a large smoothing
         # parameter, and the first run can stop short of mgcv's optimum.
-        opt = minimize(objective, opt.x, method="L-BFGS-B", bounds=bounds)
+        opt = minimize(objective, opt.x, method="L-BFGS-B", bounds=bounds, options=options)
         log_sp = np.asarray(opt.x, dtype=float)
         converged = bool(opt.success)
     lam = np.exp(log_sp)
