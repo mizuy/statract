@@ -205,3 +205,21 @@
   font-size: 0.7rem;
   color: var(--md-default-fg-color--light);
 }
+
+/* "考え方" columns in docs/learn: `!!! column "考え方：…"`. Short essays on how to think about a point. */
+.md-typeset .admonition.column,
+.md-typeset details.column {
+  border-color: #7a5aa6;
+}
+
+.md-typeset .column > .admonition-title,
+.md-typeset .column > summary {
+  background-color: #7a5aa61a;
+}
+
+.md-typeset .column > .admonition-title::before,
+.md-typeset .column > summary::before {
+  background-color: #7a5aa6;
+  -webkit-mask-image: var(--md-admonition-icon--quote);
+  mask-image: var(--md-admonition-icon--quote);
+}
